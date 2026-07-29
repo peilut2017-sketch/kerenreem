@@ -21,6 +21,14 @@ export type AdminSessionResult =
   | { status: 'ok'; session: AdminSession }
   | { status: 'no-session' }
   | { status: 'no-profile'; userId: string; email: string | null }
+  /**
+   * שליפת הפרופיל נכשלה — להבדיל מ"אין פרופיל".
+   * הגורם השכיח: הרשאות התפקידים anon/authenticated על סכימת public נמחקו
+   * (למשל אחרי drop schema public cascade), ולכן המסד מחזיר permission
+   * denied. הנתונים קיימים, אבל האתר אינו רשאי לקרוא אותם. בלי הבחנה
+   * מפורשת התקלה נראית בדיוק כמו משתמש שלא הוגדר, והתיקון המוצע שגוי.
+   */
+  | { status: 'profile-error'; userId: string; email: string | null; message: string }
   | { status: 'not-configured' };
 
 const RANK: Record<UserRole, number> = { viewer: 0, editor: 1, admin: 2 };
@@ -52,9 +60,13 @@ export async function getAdminSessionResult(): Promise<AdminSessionResult> {
     .maybeSingle();
 
   if (error) {
-    // שגיאת קריאה אינה "אין פרופיל" — בלי הרישום הזה תקלת RLS או תקלת
-    // רשת נראית בדיוק כמו משתמש שלא הוגדר.
-    console.error('[admin:auth] קריאת הפרופיל נכשלה', error.message);
+    console.error('[admin:auth] קריאת הפרופיל נכשלה', error.code, error.message);
+    return {
+      status: 'profile-error',
+      userId: user.id,
+      email: user.email ?? null,
+      message: error.message,
+    };
   }
 
   if (!profile) return { status: 'no-profile', userId: user.id, email: user.email ?? null };
@@ -85,6 +97,10 @@ export async function requireRole(minimum: UserRole = 'viewer'): Promise<AdminSe
       redirect('/admin/login?issue=no_profile');
       break;
 
+    case 'profile-error':
+      redirect('/admin/login?issue=profile_error');
+      break;
+
     case 'not-configured':
       redirect('/admin/login?issue=not_configured');
       break;
@@ -103,6 +119,9 @@ export async function assertRole(minimum: UserRole): Promise<AdminSession | { er
 
   if (result.status === 'no-profile') {
     return { error: 'למשתמש אין פרופיל במערכת. יש להגדיר לו תפקיד.' };
+  }
+  if (result.status === 'profile-error') {
+    return { error: `קריאת ההרשאות נכשלה: ${result.message}` };
   }
   if (result.status !== 'ok') return { error: 'לא מחובר' };
   if (!hasRole(result.session.profile.role, minimum)) return { error: 'אין הרשאה לפעולה זו' };
