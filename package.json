@@ -23,11 +23,12 @@
     "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
-    "isomorphic-dompurify": "^2.28.0",
+    "@types/sanitize-html": "^2.16.1",
     "next": "^16.2.12",
     "next-intl": "^4.13.4",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "sanitize-html": "^2.17.6"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
