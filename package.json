@@ -12,7 +12,9 @@
     "check:dates": "node scripts/check-hebrew-dates.mjs",
     "check:a11y": "node scripts/check-a11y.mjs",
     "check:a11y-toolbar": "node scripts/check-a11y-toolbar.mjs",
-    "check:login": "node scripts/check-login.mjs"
+    "check:login": "node scripts/check-login.mjs",
+    "check:layering": "node scripts/check-layering.mjs",
+    "check:sanitize": "node --experimental-strip-types scripts/check-sanitize.mjs"
   },
   "dependencies": {
     "@hebcal/core": "^6.8.2",
@@ -23,7 +25,6 @@
     "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
-    "@types/sanitize-html": "^2.16.1",
     "next": "^16.2.12",
     "next-intl": "^4.13.4",
     "react": "^19.2.0",
@@ -37,6 +38,7 @@
     "@types/node": "^22.13.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/sanitize-html": "^2.16.1",
     "eslint": "^9.20.0",
     "eslint-config-next": "^16.2.12",
     "playwright": "^1.62.0",
