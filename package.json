@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "check:dates": "node scripts/check-hebrew-dates.mjs",
     "check:a11y": "node scripts/check-a11y.mjs",
-    "check:a11y-toolbar": "node scripts/check-a11y-toolbar.mjs"
+    "check:a11y-toolbar": "node scripts/check-a11y-toolbar.mjs",
+    "check:login": "node scripts/check-login.mjs"
   },
   "dependencies": {
     "@hebcal/core": "^6.8.2",

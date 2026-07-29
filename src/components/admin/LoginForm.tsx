@@ -9,17 +9,32 @@ import { createClient } from '@/lib/supabase/client';
  *
  * ההתחברות מתבצעת בדפדפן כדי ש-supabase-js יכתוב את עוגיות ה-session;
  * ה-proxy קורא אותן בבקשה הבאה ומאמת את הטוקן מול השרת.
+ *
+ * השדות אינם controlled בכוונה, והערכים נקראים מה-FormData בזמן השליחה.
+ * מנהלי סיסמאות והשלמה אוטומטית של הדפדפן מציבים ערך ישירות על ה-DOM
+ * בלי לפלוט אירוע ש-React מזהה. בשדה controlled ה-state נשאר ריק בעוד
+ * שהשדה נראה מלא, הוולידציה של הדפדפן עוברת (כי ב-DOM יש ערך), ו-Supabase
+ * מקבל מחרוזת ריקה ומחזיר validation_failed: missing email or phone.
+ * קריאה מה-FormData מחזירה תמיד את מה שבשדה בפועל.
  */
 export function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const id = useId();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get('email') ?? '').trim();
+    const password = String(formData.get('password') ?? '');
+
+    if (!email || !password) {
+      setError('יש למלא דואר אלקטרוני וסיסמה.');
+      return;
+    }
+
     setPending(true);
     setError(null);
 
@@ -33,7 +48,10 @@ export function LoginForm({ next }: { next?: string }) {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (signInError) {
-      // לא חושפים אם הכתובת קיימת — מונע מיפוי משתמשים.
+      // ההודעה למשתמש נשארת כללית כדי לא לחשוף אילו כתובות רשומות במערכת,
+      // אבל השגיאה המקורית נרשמת לקונסול — בלעדיה אי אפשר לאבחן תקלות
+      // הגדרה (מפתח שגוי, ספק Email מכובה) והן נראות כמו סיסמה שגויה.
+      console.error('[admin:login]', signInError.message);
       setError('פרטי ההתחברות שגויים.');
       setPending(false);
       return;
@@ -54,12 +72,11 @@ export function LoginForm({ next }: { next?: string }) {
         </label>
         <input
           id={`${id}-email`}
+          name="email"
           type="email"
           dir="ltr"
           required
           autoComplete="username"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
           className="field-input"
         />
       </div>
@@ -70,12 +87,11 @@ export function LoginForm({ next }: { next?: string }) {
         </label>
         <input
           id={`${id}-password`}
+          name="password"
           type="password"
           dir="ltr"
           required
           autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
           className="field-input"
         />
       </div>
