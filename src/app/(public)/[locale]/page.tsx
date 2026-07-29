@@ -7,9 +7,11 @@ import { FeaturedBooks } from '@/components/home/FeaturedBooks';
 import { EventsRow } from '@/components/home/EventsRow';
 import { ContactBand } from '@/components/home/ContactBand';
 import { Ornament } from '@/components/Ornament';
+import { Icon, hasIcon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import {
   getActivities,
+  getBanners,
   getEvents,
   getPageBySlug,
   getRecentBooks,
@@ -25,7 +27,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   setRequestLocale(locale);
 
   const t = await getTranslations();
-  const [books, activities, events, about, home, settings] = await Promise.all([
+  const [banners, books, activities, events, about, home, settings] = await Promise.all([
+    getBanners(),
     getRecentBooks(5),
     getActivities(),
     getEvents(),
@@ -35,9 +38,25 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   ]);
 
   /* ------------------------------------------------------------------------
-     הקרוסלה נבנית מתוכן אמיתי בלבד — ספר, אירוע וציר פעילות. אין תמונות
-     מלאי ואין פרוסות דמה: אם אין תוכן מתאים, הפרוסה פשוט לא נוצרת.
+     הקרוסלה: באנרים שהוגדרו בניהול קודמים לכל דבר אחר. כשאין באנרים,
+     היא נבנית אוטומטית מספר, אירוע וציר פעילות שפורסמו — כדי שהעמוד
+     לא ייראה ריק לפני שהצוות הספיק להעלות תמונות.
+     בשני המקרים התוכן אמיתי; אין פרוסות דמה ואין תמונות מלאי.
      ------------------------------------------------------------------------ */
+  const bannerSlides: HeroSlide[] = banners.map((banner) => ({
+    id: `banner-${banner.id}`,
+    kind: 'banner' as const,
+    eyebrow: t('hero.label'),
+    title: localized(banner, 'title', locale),
+    summary: localizedOrNull(banner, 'subtitle', locale),
+    href: banner.link_url,
+    ctaLabel: localizedOrNull(banner, 'cta_label', locale),
+    imageUrl: banner.image_url,
+    imageMobileUrl: banner.image_mobile_url,
+    focalPoint: banner.focal_point,
+    imageAlt: '',
+  }));
+
   const slides: HeroSlide[] = [];
 
   const leadBook = books.find((book) => book.cover_image_url) ?? books[0];
@@ -97,8 +116,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   return (
     <>
-      {slides.length > 0 ? (
-        <HeroCarousel slides={slides} />
+      {bannerSlides.length > 0 || slides.length > 0 ? (
+        <HeroCarousel slides={bannerSlides.length > 0 ? bannerSlides : slides} />
       ) : (
         /* בלי תוכן מפורסם אין מה לסובב. במקום קרוסלה ריקה — הצהרה
            טיפוגרפית שעומדת בפני עצמה. */
@@ -130,30 +149,37 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               <Ornament />
             </header>
 
-            <ol className="mt-14 grid gap-x-14 gap-y-11 sm:grid-cols-2">
+            {/* האייקון כאן נושא מידע: הוא מבדיל בין ארבעת הצירים במבט אחד.
+                כשלציר אין אייקון מוגדר, המספר הסידורי תופס את מקומו — כך
+                שהעמודה השמאלית נשארת יציבה ולא נוצר חור בפריסה. */}
+            <ol className="mt-14 grid gap-x-12 gap-y-10 sm:grid-cols-2">
               {activities.map((activity, index) => (
                 <Reveal as="li" key={activity.id} delay={index * 80}>
-                  <article className="flex gap-5 border-t border-rule pt-6">
+                  <Link
+                    href={`/activities/${activity.slug}`}
+                    className="group flex h-full gap-5 border-t border-rule pt-7 focus-visible:outline-offset-4"
+                  >
                     <span
                       aria-hidden="true"
-                      className="shrink-0 font-serif text-[1.375rem] leading-none tabular-nums text-gold-deep"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center border border-rule text-gold-deep transition-colors duration-300 group-hover:border-gold group-hover:bg-cream-2"
                     >
-                      {String(index + 1).padStart(2, '0')}
+                      {hasIcon(activity.icon) ? (
+                        <Icon name={activity.icon} className="h-6 w-6" />
+                      ) : (
+                        <span className="font-serif text-[1.125rem] tabular-nums">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                      )}
                     </span>
-                    <div>
-                      <h3 className="font-serif text-h3 leading-snug">
-                        <Link
-                          href={`/activities/${activity.slug}`}
-                          className="text-ink transition-colors hover:text-burgundy"
-                        >
-                          {localized(activity, 'title', locale)}
-                        </Link>
-                      </h3>
-                      <p className="mt-2.5 max-w-[48ch] text-small leading-relaxed text-ink-soft">
+                    <span className="block">
+                      <span className="block font-serif text-h3 leading-snug text-ink transition-colors group-hover:text-burgundy">
+                        {localized(activity, 'title', locale)}
+                      </span>
+                      <span className="mt-2.5 block max-w-[46ch] text-small leading-relaxed text-ink-soft">
                         {localized(activity, 'summary', locale)}
-                      </p>
-                    </div>
-                  </article>
+                      </span>
+                    </span>
+                  </Link>
                 </Reveal>
               ))}
             </ol>

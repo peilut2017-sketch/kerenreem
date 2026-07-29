@@ -1,16 +1,21 @@
-export type HeroSlideKind = 'book' | 'event' | 'activity';
+export type HeroSlideKind = 'book' | 'event' | 'activity' | 'banner';
+
+export type FocalPoint = 'center' | 'top' | 'bottom' | 'start' | 'end';
 
 export interface HeroSlide {
   id: string;
   kind: HeroSlideKind;
-  /** תווית קטנה מעל הכותרת: "ספר חדש", "אירוע", "פעילות הקרן" */
+  /** תווית קטנה מעל הכותרת */
   eyebrow: string;
   title: string;
   /** שורה או שתיים. לא פסקה. */
   summary: string | null;
-  href: string;
-  ctaLabel: string;
+  href: string | null;
+  ctaLabel: string | null;
   imageUrl: string | null;
-  /** טקסט חלופי לתמונה; ריק כשהיא דקורטיבית בלבד */
+  /** גרסה אנכית לנייד. בהיעדרה נחתכת התמונה הרחבה לפי focalPoint. */
+  imageMobileUrl?: string | null;
+  focalPoint?: FocalPoint;
+  /** טקסט חלופי; ריק כשהתמונה דקורטיבית */
   imageAlt: string;
 }

@@ -148,6 +148,28 @@ export const ENTITIES = {
     revalidate: ['/about', '/donate', '/terms', '/privacy', '/accessibility', ''],
   },
 
+  banners: {
+    table: 'banners',
+    writeRole: 'editor',
+    fields: [
+      f('title_he', 'text', true),
+      f('title_en'),
+      f('subtitle_he'),
+      f('subtitle_en'),
+      f('image_url'),
+      f('image_mobile_url'),
+      f('focal_point'),
+      f('link_url'),
+      f('cta_label_he'),
+      f('cta_label_en'),
+      f('is_published', 'boolean'),
+      f('sort_order', 'number'),
+      f('starts_at', 'text'),
+      f('ends_at', 'text'),
+    ],
+    revalidate: [''],
+  },
+
   categories: {
     table: 'categories',
     writeRole: 'editor',

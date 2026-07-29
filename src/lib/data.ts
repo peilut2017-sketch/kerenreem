@@ -4,6 +4,7 @@ import { createStaticClient } from './supabase/server';
 import { demo, isDemoContent } from './demo-content';
 import type {
   Activity,
+  Banner,
   Author,
   Book,
   BookWithRelations,
@@ -319,3 +320,32 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   warn('getSiteSettings', error);
   return (data as SiteSettings | null) ?? EMPTY_SETTINGS;
 });
+
+/* -------------------------------------------------------------------------- */
+/* באנרים                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * הבאנרים המוצגים כרגע: מפורסמים, ובתוך חלון התאריכים אם הוגדר כזה.
+ * הסינון על החלון נעשה כאן ולא ב-SQL כדי שהתוצאה תהיה עקבית עם ה-ISR —
+ * העמוד נבנה מחדש כל שעה, וזו הרזולוציה הרלוונטית ממילא.
+ */
+export async function getBanners(): Promise<Banner[]> {
+  const supabase = createStaticClient();
+  if (!supabase) return isDemoContent ? demo.banners() : [];
+
+  const { data, error } = await supabase
+    .from('banners')
+    .select('*')
+    .eq('is_published', true)
+    .order('sort_order', { ascending: true });
+
+  warn('getBanners', error);
+
+  const now = Date.now();
+  return ((data as Banner[] | null) ?? []).filter((banner) => {
+    if (banner.starts_at && new Date(banner.starts_at).getTime() > now) return false;
+    if (banner.ends_at && new Date(banner.ends_at).getTime() < now) return false;
+    return true;
+  });
+}

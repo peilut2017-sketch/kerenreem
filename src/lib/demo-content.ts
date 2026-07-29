@@ -1,5 +1,6 @@
 import type {
   Activity,
+  Banner,
   Author,
   BookWithRelations,
   Category,
@@ -115,26 +116,26 @@ const activities: Activity[] = [
     id: 'ac1', slug: 'publishing', title_he: 'הוצאה לאור', title_en: null,
     summary_he: 'ההדרה, עריכה והפקה מחודשת של כתבי גדולי ישראל — למעלה ממאה כותרים.',
     summary_en: null, body_he: '<p>ליבת פעילותו של המכון.</p>', body_en: null,
-    icon: null, cover_image_url: '/demo/scene-beit-midrash.svg',
+    icon: 'book-open', cover_image_url: '/demo/scene-beit-midrash.svg',
     sort_order: 10, is_published: true, ...base,
   },
   {
     id: 'ac2', slug: 'torah-support', title_he: 'תמיכה ואחזקת תורה', title_en: null,
     summary_he: 'תמיכה בישיבות, כוללים ולומדים, בדגש על מוסדות שאינם מקבלים סבסוד.',
     summary_en: null, body_he: '<p>מתוך חזון של אחדות.</p>', body_en: null,
-    icon: null, cover_image_url: null, sort_order: 20, is_published: true, ...base,
+    icon: 'academic-cap', cover_image_url: null, sort_order: 20, is_published: true, ...base,
   },
   {
     id: 'ac3', slug: 'chesed', title_he: 'צדקה וחסד', title_en: null,
     summary_he: 'תמיכה במעוטי יכולת, באלמנות וביתומים, וסיוע בהכנסת כלה.',
     summary_en: null, body_he: '<p>לצד הפעילות התורנית.</p>', body_en: null,
-    icon: null, cover_image_url: null, sort_order: 30, is_published: true, ...base,
+    icon: 'heart', cover_image_url: null, sort_order: 30, is_published: true, ...base,
   },
   {
     id: 'ac4', slug: 'sefer-torah', title_he: 'ספר תורה ומורשת', title_en: null,
     summary_he: 'כתיבת ספר תורה לעילוי נשמה, ואירוע מרכזי שנתי בט״ו באב.',
     summary_en: null, body_he: '<p>הנצחת המורשת.</p>', body_en: null,
-    icon: null, cover_image_url: null, sort_order: 40, is_published: true, ...base,
+    icon: 'scroll', cover_image_url: null, sort_order: 40, is_published: true, ...base,
   },
 ];
 
@@ -169,7 +170,35 @@ const settings: SiteSettings = {
   updated_at: now,
 };
 
+const banners: Banner[] = [
+  {
+    id: 'bn1', title_he: 'ספר חדש: פני המועדים', title_en: null,
+    subtitle_he: 'ביאורים מאירים על מועדי התורה — מהדורה מוערת', subtitle_en: null,
+    image_url: '/demo/scene-beit-midrash.svg', image_mobile_url: null,
+    focal_point: 'center', link_url: '/books/pnei-hamoadim',
+    cta_label_he: 'לפרטים על הספר', cta_label_en: null,
+    is_published: true, sort_order: 10, starts_at: null, ends_at: null, ...base,
+  },
+  {
+    id: 'bn2', title_he: 'כנס אחדות ירושלים', title_en: null,
+    subtitle_he: 'ט״ו באב — ראשי ישיבות מכל החוגים נפגשים', subtitle_en: null,
+    image_url: '/demo/scene-kenes-achdut.svg', image_mobile_url: null,
+    focal_point: 'center', link_url: '/events/kenes-achdut',
+    cta_label_he: 'לפרטי האירוע', cta_label_en: null,
+    is_published: true, sort_order: 20, starts_at: null, ends_at: null, ...base,
+  },
+  {
+    id: 'bn3', title_he: 'הוצאה לאור', title_en: null,
+    subtitle_he: 'למעלה ממאה כותרים שהמכון סייע בהוצאתם', subtitle_en: null,
+    image_url: '/demo/scene-siyum-hashas.svg', image_mobile_url: null,
+    focal_point: 'center', link_url: '/activities/publishing',
+    cta_label_he: 'לפעילות שלנו', cta_label_en: null,
+    is_published: true, sort_order: 30, starts_at: null, ends_at: null, ...base,
+  },
+];
+
 export const demo = {
+  banners: () => banners,
   books: () => books,
   bookBySlug: (slug: string) => books.find((b) => b.slug === slug) ?? null,
   categories: () => categories,

@@ -6,6 +6,7 @@ import type { UserRole } from '@/lib/supabase/types';
 
 const ITEMS: { href: string; label: string; minRole: UserRole }[] = [
   { href: '/admin', label: 'דשבורד', minRole: 'viewer' },
+  { href: '/admin/banners', label: 'באנרים', minRole: 'viewer' },
   { href: '/admin/books', label: 'ספרים', minRole: 'viewer' },
   { href: '/admin/authors', label: 'מחברים', minRole: 'viewer' },
   { href: '/admin/events', label: 'אירועים', minRole: 'viewer' },
@@ -13,6 +14,7 @@ const ITEMS: { href: string; label: string; minRole: UserRole }[] = [
   { href: '/admin/pages', label: 'עמודי תוכן', minRole: 'viewer' },
   { href: '/admin/messages', label: 'פניות מהאתר', minRole: 'editor' },
   { href: '/admin/settings', label: 'הגדרות', minRole: 'admin' },
+  { href: '/admin/diagnostics', label: 'אבחון', minRole: 'admin' },
 ];
 
 const RANK: Record<UserRole, number> = { viewer: 0, editor: 1, admin: 2 };

@@ -2,6 +2,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import type {
   Activity,
+  Banner,
   Author,
   Book,
   Category,
@@ -188,4 +189,16 @@ export async function getDashboardCounts() {
   ]);
 
   return { books, drafts, authors, events, messages };
+}
+
+export async function listBanners(): Promise<Banner[]> {
+  const supabase = await client();
+  const { data } = await supabase.from('banners').select('*').order('sort_order');
+  return (data as Banner[] | null) ?? [];
+}
+
+export async function getBanner(id: string): Promise<Banner | null> {
+  const supabase = await client();
+  const { data } = await supabase.from('banners').select('*').eq('id', id).maybeSingle();
+  return (data as Banner | null) ?? null;
 }

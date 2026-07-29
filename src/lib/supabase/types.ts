@@ -154,3 +154,25 @@ export interface Profile {
   created_at: string;
   updated_at: string;
 }
+
+export type BannerFocalPoint = 'center' | 'top' | 'bottom' | 'start' | 'end';
+
+export interface Banner {
+  id: string;
+  title_he: string;
+  title_en: string | null;
+  subtitle_he: string | null;
+  subtitle_en: string | null;
+  image_url: string | null;
+  image_mobile_url: string | null;
+  focal_point: BannerFocalPoint;
+  link_url: string | null;
+  cta_label_he: string | null;
+  cta_label_en: string | null;
+  is_published: boolean;
+  sort_order: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

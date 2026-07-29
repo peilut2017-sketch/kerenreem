@@ -8,6 +8,15 @@ import type { HeroSlide } from './types';
 
 const INTERVAL = 7000;
 
+/** מיפוי נקודת המיקוד למחלקת object-position. */
+const FOCAL_CLASS: Record<string, string> = {
+  center: 'object-center',
+  top: 'object-top',
+  bottom: 'object-bottom',
+  start: 'object-right',
+  end: 'object-left',
+};
+
 /**
  * הקרוסלה הפותחת.
  *
@@ -159,14 +168,27 @@ function ActivePanel({
           לאירוע ולפעילות — הצילום עצמו מתחת לשכבת כיסוי. */}
       {!isBook && slide.imageUrl ? (
         <div className="media-backdrop absolute inset-0 -z-10">
-          <Image
-            src={slide.imageUrl}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
+          {/* תמונת נייד נפרדת כשהועלתה: קידוד תמונה רחבה למסך צר חותך את
+              מרכז העניין. picture נותן לדפדפן לבחור לפני ההורדה. */}
+          {slide.imageMobileUrl ? (
+            <picture>
+              <source media="(min-width: 768px)" srcSet={slide.imageUrl} />
+              <img
+                src={slide.imageMobileUrl}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            </picture>
+          ) : (
+            <Image
+              src={slide.imageUrl}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className={`object-cover ${FOCAL_CLASS[slide.focalPoint ?? 'center']}`}
+            />
+          )}
           <div className="absolute inset-0 bg-navy/72" />
         </div>
       ) : (
@@ -200,11 +222,20 @@ function ActivePanel({
         </p>
       ) : null}
 
-      <p className="mt-7">
-        <Link href={slide.href} className="btn btn-quiet">
-          {slide.ctaLabel}
-        </Link>
-      </p>
+      {slide.href && slide.ctaLabel ? (
+        <p className="mt-7">
+          {/* קישור חיצוני יוצא מ-Next Link — הוא אינו מסלול פנימי */}
+          {slide.href.startsWith('http') ? (
+            <a href={slide.href} target="_blank" rel="noopener noreferrer" className="btn btn-quiet">
+              {slide.ctaLabel}
+            </a>
+          ) : (
+            <Link href={slide.href} className="btn btn-quiet">
+              {slide.ctaLabel}
+            </Link>
+          )}
+        </p>
+      ) : null}
     </article>
   );
 }

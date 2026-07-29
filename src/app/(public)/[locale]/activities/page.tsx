@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
 import { PageHeader } from '@/components/PageHeader';
+import { Icon, hasIcon } from '@/components/Icon';
 import { getActivities } from '@/lib/data';
 import { localized } from '@/lib/localized';
 
@@ -37,12 +38,18 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ loc
         <ol className="border-t border-rule">
           {activities.map((activity, index) => (
             <li key={activity.id} className="border-b border-rule py-8">
-              <div className="grid gap-4 sm:grid-cols-[3rem_1fr] sm:gap-8">
+              <div className="grid gap-4 sm:grid-cols-[3.5rem_1fr] sm:gap-8">
                 <span
                   aria-hidden="true"
-                  className="font-serif text-[1.25rem] tabular-nums text-gold-deep"
+                  className="flex h-12 w-12 items-center justify-center border border-rule text-gold-deep"
                 >
-                  {String(index + 1).padStart(2, '0')}
+                  {hasIcon(activity.icon) ? (
+                    <Icon name={activity.icon} className="h-6 w-6" />
+                  ) : (
+                    <span className="font-serif text-[1.125rem] tabular-nums">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                  )}
                 </span>
                 <div>
                   <h2 className="text-h2">
