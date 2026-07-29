@@ -55,16 +55,16 @@ create policy contact_messages_insert on contact_messages
 -- ...אבל רק הצוות קורא אותן. בלי policy ל-select, anon אינו רואה דבר.
 drop policy if exists contact_messages_staff_read on contact_messages;
 create policy contact_messages_staff_read on contact_messages
-  for select using (can_edit());
+  for select using (public.can_edit());
 
 drop policy if exists contact_messages_staff_update on contact_messages;
 create policy contact_messages_staff_update on contact_messages
-  for update using (can_edit()) with check (can_edit());
+  for update using (public.can_edit()) with check (public.can_edit());
 
 -- מחיקה למנהל בלבד — נדרש למימוש זכות המחיקה של נושא המידע
 drop policy if exists contact_messages_admin_delete on contact_messages;
 create policy contact_messages_admin_delete on contact_messages
-  for delete using (is_admin());
+  for delete using (public.is_admin());
 
 -- ----------------------------------------------------------------------------
 -- 2. אחסון קבצים (Supabase Storage)
@@ -90,18 +90,18 @@ drop policy if exists storage_staff_write on storage.objects;
 create policy storage_staff_write on storage.objects
   for insert to authenticated
   with check (
-    bucket_id in ('covers', 'events', 'portraits', 'samples', 'site') and can_edit()
+    bucket_id in ('covers', 'events', 'portraits', 'samples', 'site') and public.can_edit()
   );
 
 drop policy if exists storage_staff_update on storage.objects;
 create policy storage_staff_update on storage.objects
   for update to authenticated
-  using (bucket_id in ('covers', 'events', 'portraits', 'samples', 'site') and can_edit());
+  using (bucket_id in ('covers', 'events', 'portraits', 'samples', 'site') and public.can_edit());
 
 drop policy if exists storage_staff_delete on storage.objects;
 create policy storage_staff_delete on storage.objects
   for delete to authenticated
-  using (bucket_id in ('covers', 'events', 'portraits', 'samples', 'site') and can_edit());
+  using (bucket_id in ('covers', 'events', 'portraits', 'samples', 'site') and public.can_edit());
 
 -- ----------------------------------------------------------------------------
 -- 3. אינדקס לסינון הקטלוג
