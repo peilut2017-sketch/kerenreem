@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { createStaticClient } from './supabase/server';
+import { demo, isDemoContent } from './demo-content';
 import type {
   Activity,
   Author,
@@ -36,7 +37,7 @@ function warn(scope: string, error: unknown) {
 
 export async function getBooks(): Promise<BookWithRelations[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.books() : [];
 
   const { data, error } = await supabase
     .from('books')
@@ -51,7 +52,7 @@ export async function getBooks(): Promise<BookWithRelations[]> {
 
 export async function getBookBySlug(slug: string): Promise<BookWithRelations | null> {
   const supabase = createStaticClient();
-  if (!supabase) return null;
+  if (!supabase) return isDemoContent ? demo.bookBySlug(slug) : null;
 
   const { data, error } = await supabase
     .from('books')
@@ -103,7 +104,7 @@ export async function getRelatedBooks(book: BookWithRelations, limit = 4): Promi
 /** הכותרים האחרונים שנוספו — לעמוד הבית. */
 export async function getRecentBooks(limit = 6): Promise<BookWithRelations[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.books().slice(0, limit) : [];
 
   const { data, error } = await supabase
     .from('books')
@@ -118,7 +119,7 @@ export async function getRecentBooks(limit = 6): Promise<BookWithRelations[]> {
 
 export async function getBookSlugs(): Promise<string[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.books().map((b) => b.slug) : [];
   const { data } = await supabase.from('books').select('slug').eq('is_published', true);
   return (data ?? []).map((row: Pick<Book, 'slug'>) => row.slug);
 }
@@ -129,7 +130,7 @@ export async function getBookSlugs(): Promise<string[]> {
 
 export async function getAuthors(): Promise<Author[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.authors() : [];
 
   const { data, error } = await supabase
     .from('authors')
@@ -144,7 +145,7 @@ export async function getAuthors(): Promise<Author[]> {
 
 export async function getAuthorBySlug(slug: string): Promise<Author | null> {
   const supabase = createStaticClient();
-  if (!supabase) return null;
+  if (!supabase) return isDemoContent ? demo.authorBySlug(slug) : null;
 
   const { data, error } = await supabase
     .from('authors')
@@ -159,7 +160,7 @@ export async function getAuthorBySlug(slug: string): Promise<Author | null> {
 
 export async function getBooksByAuthor(authorId: string): Promise<BookWithRelations[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.booksByAuthor(authorId) : [];
 
   const { data, error } = await supabase
     .from('books')
@@ -174,7 +175,7 @@ export async function getBooksByAuthor(authorId: string): Promise<BookWithRelati
 
 export async function getAuthorSlugs(): Promise<string[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.authors().map((a) => a.slug) : [];
   const { data } = await supabase.from('authors').select('slug').eq('is_published', true);
   return (data ?? []).map((row: Pick<Author, 'slug'>) => row.slug);
 }
@@ -185,7 +186,7 @@ export async function getAuthorSlugs(): Promise<string[]> {
 
 export async function getCategories(): Promise<Category[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.categories() : [];
 
   const { data, error } = await supabase
     .from('categories')
@@ -202,7 +203,7 @@ export async function getCategories(): Promise<Category[]> {
 
 export async function getActivities(): Promise<Activity[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.activities() : [];
 
   const { data, error } = await supabase
     .from('activities')
@@ -216,7 +217,7 @@ export async function getActivities(): Promise<Activity[]> {
 
 export async function getActivityBySlug(slug: string): Promise<Activity | null> {
   const supabase = createStaticClient();
-  if (!supabase) return null;
+  if (!supabase) return isDemoContent ? demo.activityBySlug(slug) : null;
 
   const { data, error } = await supabase
     .from('activities')
@@ -231,7 +232,7 @@ export async function getActivityBySlug(slug: string): Promise<Activity | null> 
 
 export async function getActivitySlugs(): Promise<string[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.activities().map((a) => a.slug) : [];
   const { data } = await supabase.from('activities').select('slug').eq('is_published', true);
   return (data ?? []).map((row: Pick<Activity, 'slug'>) => row.slug);
 }
@@ -242,7 +243,7 @@ export async function getActivitySlugs(): Promise<string[]> {
 
 export async function getEvents(): Promise<EventRecord[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.events() : [];
 
   const { data, error } = await supabase
     .from('events')
@@ -256,7 +257,7 @@ export async function getEvents(): Promise<EventRecord[]> {
 
 export async function getEventBySlug(slug: string): Promise<EventRecord | null> {
   const supabase = createStaticClient();
-  if (!supabase) return null;
+  if (!supabase) return isDemoContent ? demo.eventBySlug(slug) : null;
 
   const { data, error } = await supabase
     .from('events')
@@ -271,7 +272,7 @@ export async function getEventBySlug(slug: string): Promise<EventRecord | null> 
 
 export async function getEventSlugs(): Promise<string[]> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.events().map((e) => e.slug) : [];
   const { data } = await supabase.from('events').select('slug').eq('is_published', true);
   return (data ?? []).map((row: Pick<EventRecord, 'slug'>) => row.slug);
 }
@@ -282,7 +283,7 @@ export async function getEventSlugs(): Promise<string[]> {
 
 export async function getPageBySlug(slug: string): Promise<ContentPage | null> {
   const supabase = createStaticClient();
-  if (!supabase) return null;
+  if (!supabase) return isDemoContent ? demo.page(slug) : null;
 
   const { data, error } = await supabase
     .from('pages')
@@ -311,7 +312,7 @@ const EMPTY_SETTINGS: SiteSettings = {
  */
 export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   const supabase = createStaticClient();
-  if (!supabase) return EMPTY_SETTINGS;
+  if (!supabase) return isDemoContent ? demo.settings() : EMPTY_SETTINGS;
 
   const { data, error } = await supabase.from('site_settings').select('*').eq('id', 1).maybeSingle();
 

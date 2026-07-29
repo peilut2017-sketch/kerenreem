@@ -27,11 +27,11 @@ export default async function LoginPage({
       <p className="mt-2 text-small text-muted">מכון קרן רא״ם</p>
 
       {!isSupabaseConfigured ? (
-        <p className="mt-10 border-s-2 border-burgundy bg-paper-2 px-4 py-3 text-small text-ink-soft">
+        <p className="mt-10 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-ink-soft">
           חסרים משתני הסביבה של Supabase. ראו <code>.env.example</code> ו-README.
         </p>
       ) : profileError ? (
-        <div className="mt-10 border-s-2 border-burgundy bg-paper-2 px-5 py-4">
+        <div className="mt-10 border-s-2 border-burgundy bg-cream-2 px-5 py-4">
           <h2 className="font-semibold text-ink">
             {permissionDenied ? 'לאתר אין הרשאת גישה לטבלאות' : 'קריאת ההרשאות נכשלה'}
           </h2>
@@ -54,7 +54,7 @@ export default async function LoginPage({
               </p>
               <pre
                 dir="ltr"
-                className="mt-2 overflow-x-auto border border-rule bg-paper p-3 text-caption leading-relaxed"
+                className="mt-2 overflow-x-auto border border-rule bg-cream p-3 text-caption leading-relaxed"
               >{`grant usage on schema public to anon, authenticated, service_role;
 grant all on all tables    in schema public to anon, authenticated, service_role;
 grant all on all sequences in schema public to anon, authenticated, service_role;
@@ -88,7 +88,7 @@ alter default privileges in schema public
           </div>
         </div>
       ) : noProfile ? (
-        <div className="mt-10 border-s-2 border-burgundy bg-paper-2 px-5 py-4">
+        <div className="mt-10 border-s-2 border-burgundy bg-cream-2 px-5 py-4">
           <h2 className="font-semibold text-ink">ההתחברות הצליחה, אבל אין למשתמש פרופיל</h2>
           <p className="mt-2 text-small leading-relaxed text-ink-soft">
             החשבון קיים ומאומת מול Supabase Auth, אך אין לו שורה מתאימה בטבלת{' '}
@@ -111,7 +111,7 @@ alter default privileges in schema public
           </p>
           <pre
             dir="ltr"
-            className="mt-2 overflow-x-auto border border-rule bg-paper p-3 text-caption leading-relaxed"
+            className="mt-2 overflow-x-auto border border-rule bg-cream p-3 text-caption leading-relaxed"
           >{`insert into profiles (id, full_name, role)
 select id,
        coalesce(raw_user_meta_data->>'full_name', email),

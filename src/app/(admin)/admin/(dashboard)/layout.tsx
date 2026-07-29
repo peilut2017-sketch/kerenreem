@@ -25,7 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-rule bg-paper-2">
+      <header className="border-b border-rule bg-cream-2">
         <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-4 px-6 py-3">
           <div className="flex items-baseline gap-3">
             <Link href="/admin" className="font-serif text-[1.25rem] text-ink">

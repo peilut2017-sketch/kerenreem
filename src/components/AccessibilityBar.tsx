@@ -148,7 +148,7 @@ export function AccessibilityBar() {
           role="dialog"
           aria-label={t('toolbarTitle')}
           aria-modal="false"
-          className="mb-3 w-72 border border-rule-strong bg-paper p-4 shadow-none"
+          className="mb-3 w-72 border border-rule-strong bg-cream p-4 shadow-none"
         >
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-rule pb-3">
             <h2 className="text-[1rem] font-semibold text-ink">{t('toolbarTitle')}</h2>
@@ -213,7 +213,7 @@ export function AccessibilityBar() {
                   <span
                     className={`shrink-0 border px-2 py-0.5 text-caption ${
                       state[key]
-                        ? 'border-burgundy bg-burgundy text-paper'
+                        ? 'border-burgundy bg-burgundy text-cream'
                         : 'border-rule-strong text-muted'
                     }`}
                   >
@@ -248,7 +248,7 @@ export function AccessibilityBar() {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-label={t('open')}
-        className="flex h-12 w-12 items-center justify-center border border-rule-strong bg-paper text-ink transition-colors hover:border-ink hover:bg-paper-2"
+        className="flex h-12 w-12 items-center justify-center border border-rule-strong bg-cream text-ink transition-colors hover:border-ink hover:bg-cream-2"
       >
         {/* סמל הנגישות הבינלאומי — כאן האייקון הוא המידע עצמו, ולכן במקומו */}
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
@@ -265,7 +265,11 @@ export function AccessibilityBar() {
  * תהיה הבזקה של הגדרות ברירת מחדל אצל מי שכבר בחר ניגודיות או הגדלה.
  */
 export const A11Y_INIT_SCRIPT = `(function(){try{
-var s=JSON.parse(localStorage.getItem('${STORAGE_KEY}')||'{}');var r=document.documentElement;
+var r=document.documentElement;
+// מסמן שסקריפטים רצים. ההופעה בגלילה מסתירה תוכן רק כשהדגל הזה קיים,
+// כך שדפדפן בלי JS מקבל עמוד מלא ולא עמוד ריק.
+r.classList.add('js');
+var s=JSON.parse(localStorage.getItem('${STORAGE_KEY}')||'{}');
 if(s.scale)r.style.setProperty('--a11y-scale',String(s.scale));
 if(s.contrast)r.setAttribute('data-a11y-contrast','on');
 if(s.links)r.setAttribute('data-a11y-links','on');

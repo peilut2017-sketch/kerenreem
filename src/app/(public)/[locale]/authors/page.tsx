@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
+import { PageHeader } from '@/components/PageHeader';
 import { getAuthors, getBooks } from '@/lib/data';
 import { localized } from '@/lib/localized';
 
@@ -31,11 +32,9 @@ export default async function AuthorsPage({ params }: { params: Promise<{ locale
   }
 
   return (
-    <Container className="py-14">
-      <header className="mb-10 max-w-[52ch]">
-        <h1 className="text-h1 text-ink">{t('title')}</h1>
-        <p className="mt-3 text-lead text-muted">{t('intro')}</p>
-      </header>
+    <Container className="py-16 lg:py-20">
+      <PageHeader title={t('title')} intro={t('intro')} />
+      <div className="mt-12" />
 
       {authors.length === 0 ? (
         <p className="text-muted">{t('empty')}</p>
@@ -66,7 +65,7 @@ export default async function AuthorsPage({ params }: { params: Promise<{ locale
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="flex h-18 w-14 shrink-0 items-center justify-center border border-rule bg-paper-2 font-serif text-[1.25rem] text-rule-strong"
+                      className="flex h-18 w-14 shrink-0 items-center justify-center border border-rule bg-cream-2 font-serif text-[1.25rem] text-rule-strong"
                     >
                       {name.trim().charAt(0)}
                     </span>

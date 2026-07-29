@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
+import { PageHeader } from '@/components/PageHeader';
 import { ContactForm } from '@/components/ContactForm';
 import { getSiteSettings } from '@/lib/data';
 
@@ -31,11 +32,9 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
   const address = locale === 'en' ? contact.address_en || contact.address_he : contact.address_he;
 
   return (
-    <Container className="py-14">
-      <header className="mb-10 max-w-[52ch]">
-        <h1 className="text-h1 text-ink">{t('title')}</h1>
-        <p className="mt-3 text-lead text-muted">{t('intro')}</p>
-      </header>
+    <Container className="py-16 lg:py-20">
+      <PageHeader title={t('title')} intro={t('intro')} />
+      <div className="mt-12" />
 
       <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-20">
         <ContactForm />

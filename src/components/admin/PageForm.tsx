@@ -23,7 +23,7 @@ export function PageForm({ page, canWrite }: { page: ContentPage | null; canWrit
       {(errors) => (
         <>
           {reserved ? (
-            <p className="border-s-2 border-burgundy bg-paper-2 px-4 py-3 text-small text-ink-soft">
+            <p className="border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-ink-soft">
               {reserved}. שינוי מזהה הכתובת ינתק את העמוד מהאתר.
             </p>
           ) : null}

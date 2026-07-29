@@ -26,7 +26,7 @@ export function BookCover({
   if (!src) {
     return (
       <div
-        className="flex aspect-3/4 w-full items-center justify-center border border-rule bg-paper-2 px-4"
+        className="flex aspect-3/4 w-full items-center justify-center border border-rule bg-cream-2 px-4"
         role="img"
         aria-label={alt}
       >

@@ -18,8 +18,8 @@ import { useId, useState } from 'react';
  */
 
 const BUTTON =
-  'px-2.5 py-1.5 text-caption border border-rule-strong bg-paper hover:bg-paper-2 transition-colors';
-const BUTTON_ACTIVE = 'px-2.5 py-1.5 text-caption border border-burgundy bg-burgundy text-paper';
+  'px-2.5 py-1.5 text-caption border border-rule-strong bg-cream hover:bg-cream-2 transition-colors';
+const BUTTON_ACTIVE = 'px-2.5 py-1.5 text-caption border border-burgundy bg-burgundy text-cream';
 
 function ToolbarButton({
   active,
@@ -96,7 +96,7 @@ export function RichTextEditor({
     return (
       <div>
         <span className="field-label">{label}</span>
-        <div className="min-h-56 border border-rule-strong bg-paper-2" aria-busy="true" />
+        <div className="min-h-56 border border-rule-strong bg-cream-2" aria-busy="true" />
       </div>
     );
   }
@@ -129,7 +129,7 @@ export function RichTextEditor({
           role="toolbar"
           aria-label={`עיצוב — ${label}`}
           aria-controls={`${id}-editor`}
-          className="flex flex-wrap gap-1 border-b border-rule bg-paper-2 p-2"
+          className="flex flex-wrap gap-1 border-b border-rule bg-cream-2 p-2"
         >
           <ToolbarButton
             label="מודגש"

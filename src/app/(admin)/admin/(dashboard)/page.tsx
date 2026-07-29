@@ -39,14 +39,14 @@ export default async function AdminDashboard({
       <AdminHeader title={`שלום, ${session.profile.full_name || 'עורך'}`} />
 
       {denied ? (
-        <p role="alert" className="mb-8 border-s-2 border-burgundy bg-paper-2 px-4 py-3 text-small">
+        <p role="alert" className="mb-8 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small">
           אין לך הרשאה לאזור שביקשת.
         </p>
       ) : null}
 
       <dl className="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-paper p-4">
+          <div key={stat.label} className="bg-cream p-4">
             <dt className="text-caption text-muted">
               <Link href={stat.href} className="hover:text-burgundy">
                 {stat.label}

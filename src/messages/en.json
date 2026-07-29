@@ -29,7 +29,14 @@
     "aboutLead": "About the institute",
     "aboutMore": "Continue reading",
     "emptyCatalogue": "The catalogue is being compiled. Titles will appear here as they are catalogued.",
-    "emptyEvents": "No events are currently documented on the site."
+    "emptyEvents": "No events are currently documented on the site.",
+    "aboutTitle": "About the Keren Reem Institute",
+    "catalogueTitle": "Selected books",
+    "eventsTitle": "Recent events",
+    "activitiesTitle": "What we do",
+    "bookDetails": "Details",
+    "eventDetails": "Read more",
+    "activityDetails": "Read more"
   },
   "books": {
     "title": "Books",
@@ -135,14 +142,16 @@
     "details": "Institute details",
     "address": "Address",
     "phoneLabel": "Phone",
-    "emailLabel": "Email"
+    "emailLabel": "Email",
+    "lead": "Get in touch"
   },
   "footer": {
     "navHeading": "Navigation",
     "legalHeading": "Legal",
     "contactHeading": "Contact",
     "rights": "All rights reserved to the Keren Reem Institute.",
-    "founded": "Established 1993 (5753)"
+    "founded": "Established 1993 (5753)",
+    "blurb": "Publishing the writings of Torah scholars, supporting those who study them, and acts of chesed."
   },
   "a11y": {
     "toolbarTitle": "Accessibility settings",
@@ -176,5 +185,20 @@
     "genericTitle": "Something went wrong",
     "genericBody": "We could not load this content. Please refresh the page.",
     "retry": "Try again"
+  },
+  "hero": {
+    "label": "Featured",
+    "previous": "Previous",
+    "next": "Next",
+    "pause": "Pause automatic rotation",
+    "play": "Resume automatic rotation",
+    "goTo": "Go to slide {index}: {title}",
+    "status": "Slide {index} of {total}",
+    "bookEyebrow": "From the catalogue",
+    "eventEyebrow": "Events",
+    "activityEyebrow": "What we do",
+    "bookCta": "About this book",
+    "eventCta": "Event details",
+    "activityCta": "More about our work"
   }
 }

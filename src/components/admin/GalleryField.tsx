@@ -71,7 +71,7 @@ export function GalleryField({
         onChange={onFiles}
         disabled={busy}
         aria-label={`הוספת תמונות — ${label}`}
-        className="text-caption file:me-3 file:border file:border-rule-strong file:bg-paper-2 file:px-3 file:py-1.5 file:text-caption"
+        className="text-caption file:me-3 file:border file:border-rule-strong file:bg-cream-2 file:px-3 file:py-1.5 file:text-caption"
       />
       {busy ? (
         <span role="status" className="ms-3 text-caption text-muted">

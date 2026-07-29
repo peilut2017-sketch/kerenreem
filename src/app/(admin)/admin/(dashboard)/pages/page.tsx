@@ -21,7 +21,7 @@ export default async function AdminPagesPage() {
       />
 
       {missing.length > 0 ? (
-        <p role="alert" className="mb-6 border-s-2 border-burgundy bg-paper-2 px-4 py-3 text-small">
+        <p role="alert" className="mb-6 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small">
           חסרים עמודי חובה: {missing.join(', ')}. יש להריץ את קובץ ה-seed המשפטי או ליצור אותם ידנית.
         </p>
       ) : null}

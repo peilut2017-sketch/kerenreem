@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
+import { PageHeader } from '@/components/PageHeader';
 import { getActivities } from '@/lib/data';
 import { localized } from '@/lib/localized';
 
@@ -25,11 +26,9 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ loc
   const activities = await getActivities();
 
   return (
-    <Container className="py-14">
-      <header className="mb-12 max-w-[52ch]">
-        <h1 className="text-h1 text-ink">{t('title')}</h1>
-        <p className="mt-3 text-lead text-muted">{t('intro')}</p>
-      </header>
+    <Container className="py-16 lg:py-20">
+      <PageHeader title={t('title')} intro={t('intro')} />
+      <div className="mt-14" />
 
       {activities.length === 0 ? (
         <p className="text-muted">{t('empty')}</p>
@@ -41,7 +40,7 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ loc
               <div className="grid gap-4 sm:grid-cols-[3rem_1fr] sm:gap-8">
                 <span
                   aria-hidden="true"
-                  className="font-serif text-[1.25rem] tabular-nums text-rule-strong"
+                  className="font-serif text-[1.25rem] tabular-nums text-gold-deep"
                 >
                   {String(index + 1).padStart(2, '0')}
                 </span>

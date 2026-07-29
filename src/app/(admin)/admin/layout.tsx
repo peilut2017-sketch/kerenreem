@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={`${frank.variable} ${assistant.variable}`}>
-      <body className="bg-paper">{children}</body>
+      <body className="bg-cream">{children}</body>
     </html>
   );
 }

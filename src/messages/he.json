@@ -29,7 +29,14 @@
     "aboutLead": "על המכון",
     "aboutMore": "המשך קריאה",
     "emptyCatalogue": "הקטלוג נמצא בהקמה. ספרים יתווספו כאן עם השלמת הרישום.",
-    "emptyEvents": "אין כרגע אירועים מתועדים באתר."
+    "emptyEvents": "אין כרגע אירועים מתועדים באתר.",
+    "aboutTitle": "אודות מכון קרן רא״ם",
+    "catalogueTitle": "ספרים נבחרים",
+    "eventsTitle": "אירועים אחרונים",
+    "activitiesTitle": "צירי הפעילות",
+    "bookDetails": "לפרטים",
+    "eventDetails": "לפרטים נוספים",
+    "activityDetails": "קראו עוד"
   },
   "books": {
     "title": "ספרים",
@@ -135,14 +142,16 @@
     "details": "פרטי המכון",
     "address": "כתובת",
     "phoneLabel": "טלפון",
-    "emailLabel": "דואר אלקטרוני"
+    "emailLabel": "דואר אלקטרוני",
+    "lead": "נשמח לשמוע"
   },
   "footer": {
     "navHeading": "ניווט",
     "legalHeading": "מידע משפטי",
     "contactHeading": "יצירת קשר",
     "rights": "כל הזכויות שמורות למכון קרן רא״ם.",
-    "founded": "נוסד בשנת תשנ״ג (1993)"
+    "founded": "נוסד בשנת תשנ״ג (1993)",
+    "blurb": "הפצת תורה ברבים — בהוצאה לאור של כתבי גדולי ישראל, בתמיכה בלומדיה ובמעשי חסד."
   },
   "a11y": {
     "toolbarTitle": "הגדרות נגישות",
@@ -176,5 +185,20 @@
     "genericTitle": "אירעה תקלה",
     "genericBody": "לא הצלחנו לטעון את התוכן. נסו לרענן את העמוד.",
     "retry": "ניסיון נוסף"
+  },
+  "hero": {
+    "label": "מוצגים נבחרים",
+    "previous": "הקודם",
+    "next": "הבא",
+    "pause": "עצירת ההחלפה האוטומטית",
+    "play": "המשך החלפה אוטומטית",
+    "goTo": "מעבר למוצג {index}: {title}",
+    "status": "מוצג {index} מתוך {total}",
+    "bookEyebrow": "מן הקטלוג",
+    "eventEyebrow": "אירועי הקרן",
+    "activityEyebrow": "פעילות הקרן",
+    "bookCta": "לפרטים על הספר",
+    "eventCta": "לפרטי האירוע",
+    "activityCta": "לפעילות שלנו"
   }
 }

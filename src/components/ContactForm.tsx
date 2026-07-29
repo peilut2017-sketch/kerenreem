@@ -35,7 +35,7 @@ export function ContactForm() {
 
   if (state.status === 'success') {
     return (
-      <p role="status" className="border-s-2 border-burgundy bg-paper-2 px-5 py-4 text-ink">
+      <p role="status" className="border-s-2 border-burgundy bg-cream-2 px-5 py-4 text-ink">
         {t('success')}
       </p>
     );
@@ -94,7 +94,7 @@ export function ContactForm() {
       </div>
 
       <div>
-        <label htmlFor={`${id}-consent`} className="flex items-start gap-3 text-small text-ink-soft">
+        <label htmlFor={`${id}-consent`} className="flex items-start gap-3 text-small text-ink-soft on-dark:text-cream-2">
           <input
             type="checkbox"
             id={`${id}-consent`}

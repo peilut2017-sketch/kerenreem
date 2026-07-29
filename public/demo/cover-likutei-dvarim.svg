@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400">
+  <rect width="300" height="400" fill="#e8e3d6"/>
+  <rect x="14" y="14" width="272" height="372" fill="none" stroke="#6b1f26" stroke-width="1.5"/>
+  <rect x="21" y="21" width="258" height="358" fill="none" stroke="#6b1f26" stroke-width="0.6"/>
+  <text x="150" y="175" text-anchor="middle" fill="#6b1f26"
+        font-family="Frank Ruhl Libre, Georgia, serif" font-size="38"><tspan x="150" dy="0">לקט</tspan><tspan x="150" dy="46">דברי ראם</tspan></text>
+  <text x="150" y="352" text-anchor="middle" fill="#6b1f26" opacity="0.75"
+        font-family="Assistant, sans-serif" font-size="13">מכון קרן רא״ם</text>
+</svg>

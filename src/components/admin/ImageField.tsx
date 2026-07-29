@@ -112,7 +112,7 @@ export function ImageField({
               onChange={onFile}
               disabled={busy}
               aria-label={`העלאת קובץ — ${label}`}
-              className="text-caption file:me-3 file:border file:border-rule-strong file:bg-paper-2 file:px-3 file:py-1.5 file:text-caption"
+              className="text-caption file:me-3 file:border file:border-rule-strong file:bg-cream-2 file:px-3 file:py-1.5 file:text-caption"
             />
             {busy ? (
               <span role="status" className="text-caption text-muted">

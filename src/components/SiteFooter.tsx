@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { Container } from './Container';
 import { MAIN_NAV } from './SiteHeader';
+import { Wordmark } from './Wordmark';
 import type { SiteSettings } from '@/lib/supabase/types';
 
 const LEGAL_NAV = [
@@ -10,6 +10,13 @@ const LEGAL_NAV = [
   { href: '/accessibility', key: 'accessibility' },
 ] as const;
 
+const SOCIAL_LABELS: Record<string, string> = {
+  facebook: 'Facebook',
+  youtube: 'YouTube',
+  instagram: 'Instagram',
+  x: 'X',
+};
+
 export async function SiteFooter({ settings, locale }: { settings: SiteSettings; locale: string }) {
   const t = await getTranslations();
   const contact = settings.contact ?? {};
@@ -17,22 +24,32 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
   const social = Object.entries(settings.social_links ?? {}).filter(([, url]) => Boolean(url));
 
   return (
-    <footer className="mt-24 border-t border-rule bg-paper-2">
-      <Container className="py-14">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+    <footer className="on-dark mt-auto">
+      <div className="mx-auto w-full max-w-[82rem] px-5 py-16 sm:px-8">
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <div>
-            <p className="font-serif text-[1.25rem] text-ink">{t('site.name')}</p>
-            <p className="mt-2 text-small text-muted">{t('footer.founded')}</p>
+            <Wordmark
+              logoUrl={settings.logo_url}
+              name={t('site.name')}
+              tagline={t('site.tagline')}
+              variant="dark"
+            />
+            <p className="mt-5 max-w-[34ch] text-small leading-relaxed text-cream-2/70">
+              {t('footer.blurb')}
+            </p>
           </div>
 
           <nav aria-labelledby="footer-nav-heading">
-            <h2 id="footer-nav-heading" className="eyebrow mb-3">
+            <h2 id="footer-nav-heading" className="eyebrow mb-4">
               {t('footer.navHeading')}
             </h2>
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {MAIN_NAV.map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href} className="text-small text-ink-soft hover:text-burgundy">
+                  <Link
+                    href={item.href}
+                    className="text-small text-cream-2/80 transition-colors hover:text-gold"
+                  >
                     {t(`nav.${item.key}`)}
                   </Link>
                 </li>
@@ -41,13 +58,16 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
           </nav>
 
           <nav aria-labelledby="footer-legal-heading">
-            <h2 id="footer-legal-heading" className="eyebrow mb-3">
+            <h2 id="footer-legal-heading" className="eyebrow mb-4">
               {t('footer.legalHeading')}
             </h2>
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {LEGAL_NAV.map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href} className="text-small text-ink-soft hover:text-burgundy">
+                  <Link
+                    href={item.href}
+                    className="text-small text-cream-2/80 transition-colors hover:text-gold"
+                  >
                     {t(`pages.${item.key}`)}
                   </Link>
                 </li>
@@ -56,19 +76,27 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
           </nav>
 
           <div>
-            <h2 className="eyebrow mb-3">{t('footer.contactHeading')}</h2>
-            <address className="space-y-2 text-small not-italic text-ink-soft">
+            <h2 className="eyebrow mb-4">{t('footer.contactHeading')}</h2>
+            <address className="space-y-2.5 text-small not-italic text-cream-2/80">
               {address ? <p>{address}</p> : null}
               {contact.phone ? (
                 <p>
-                  <a href={`tel:${contact.phone.replace(/[^+\d]/g, '')}`} className="link">
+                  <a
+                    href={`tel:${contact.phone.replace(/[^+\d]/g, '')}`}
+                    dir="ltr"
+                    className="transition-colors hover:text-gold"
+                  >
                     {contact.phone}
                   </a>
                 </p>
               ) : null}
               {contact.email ? (
                 <p>
-                  <a href={`mailto:${contact.email}`} className="link">
+                  <a
+                    href={`mailto:${contact.email}`}
+                    dir="ltr"
+                    className="transition-colors hover:text-gold"
+                  >
                     {contact.email}
                   </a>
                 </p>
@@ -76,16 +104,16 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
             </address>
 
             {social.length > 0 ? (
-              <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+              <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-2">
                 {social.map(([name, url]) => (
                   <li key={name}>
                     <a
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-caption text-muted underline underline-offset-4 hover:text-burgundy"
+                      className="text-caption text-cream-2/70 underline underline-offset-4 transition-colors hover:text-gold"
                     >
-                      {name}
+                      {SOCIAL_LABELS[name] ?? name}
                     </a>
                   </li>
                 ))}
@@ -94,15 +122,16 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
           </div>
         </div>
 
-        <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-rule pt-6">
-          <p className="text-caption text-muted">
+        <div className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-white/12 pt-7">
+          <p className="text-caption text-cream-2/60">
             © {new Date().getFullYear()} {t('footer.rights')}
           </p>
-          {contact.registration_number ? (
-            <p className="text-caption text-muted">{contact.registration_number}</p>
-          ) : null}
+          <p className="text-caption text-cream-2/60">
+            {contact.registration_number ? `${contact.registration_number} · ` : ''}
+            {t('footer.founded')}
+          </p>
         </div>
-      </Container>
+      </div>
     </footer>
   );
 }

@@ -16,14 +16,17 @@ export function BookCatalogue({
   categories,
   authors,
   locale,
+  initialQuery = '',
 }: {
   books: BookWithRelations[];
   categories: Category[];
   authors: Author[];
   locale: string;
+  /** מגיע מ-?q= בכתובת, כדי שחיפוש מהכותרת יינחת עם הסינון כבר מוחל */
+  initialQuery?: string;
 }) {
   const t = useTranslations('books');
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState('');
   const [author, setAuthor] = useState('');
   const deferredQuery = useDeferredValue(query);
