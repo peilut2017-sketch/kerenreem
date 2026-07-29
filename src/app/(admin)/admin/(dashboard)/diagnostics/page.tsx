@@ -33,6 +33,40 @@ function makeProbeSlug(): string {
   return `diagnostic-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/**
+ * בודק bucket בהעלאה אמיתית.
+ *
+ * במכוון לא משתמשים ב-listBuckets: הוא קורא מ-storage.buckets, שעליה יש RLS
+ * בלי מדיניות קריאה למשתמש מחובר. התוצאה היא רשימה ריקה ללא שגיאה — ואז
+ * bucket תקין לחלוטין נראה כאילו אינו קיים. העלאה ומחיקה הן בדיוק מה
+ * שהטפסים בניהול עושים, ולכן הן בדיקה שאינה יכולה לשקר.
+ */
+async function probeBucket(
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+  bucket: string,
+): Promise<Check> {
+  const path = `_diagnostics/${makeProbeSlug()}.txt`;
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(path, new Blob(['ok'], { type: 'text/plain' }), { upsert: true });
+
+  if (error) {
+    const status = 'statusCode' in error ? String(error.statusCode) : '';
+    const hint = /not found/i.test(error.message)
+      ? ' — ה-bucket אינו קיים. הריצו 02_site_additions.sql'
+      : /row-level security|violates|denied/i.test(error.message)
+        ? ' — ה-bucket קיים אך המדיניות חוסמת. ודאו ש-can_edit() מוגדרת ושהתפקיד שלכם עורך או מנהל'
+        : '';
+    return { label: bucket, ok: false, detail: `${status ? `${status}: ` : ''}${error.message}${hint}` };
+  }
+
+  // הקובץ נמחק מיד; אם המחיקה נכשלת זו תקלה בפני עצמה ויש לדעת עליה
+  const removal = await supabase.storage.from(bucket).remove([path]);
+  return removal.error
+    ? { label: bucket, ok: false, detail: `ההעלאה הצליחה אך המחיקה נכשלה: ${removal.error.message}` }
+    : { label: bucket, ok: true, detail: 'העלאה ומחיקה הצליחו' };
+}
+
 export default async function DiagnosticsPage() {
   const session = await requireRole('admin');
   const supabase = await createClient();
@@ -110,15 +144,7 @@ export default async function DiagnosticsPage() {
   });
 
   /* --- 3. אחסון קבצים --- */
-  const { data: bucketList, error: bucketError } = await supabase.storage.listBuckets();
-  const bucketNames = new Set((bucketList ?? []).map((bucket) => bucket.name));
-  const storage: Check[] = bucketError
-    ? [{ label: 'רשימת buckets', ok: false, detail: bucketError.message }]
-    : BUCKETS.map((name) => ({
-        label: name,
-        ok: bucketNames.has(name),
-        detail: bucketNames.has(name) ? 'קיים' : 'חסר — הריצו 02_site_additions.sql',
-      }));
+  const storage: Check[] = await Promise.all(BUCKETS.map((name) => probeBucket(supabase, name)));
 
   const allOk =
     reads.every((c) => c.ok) && writeChecks.every((c) => c.ok) && storage.every((c) => c.ok);
