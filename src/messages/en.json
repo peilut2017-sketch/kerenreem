@@ -1,0 +1,180 @@
+{
+  "site": {
+    "name": "Keren Reem Institute",
+    "shortName": "Keren Reem",
+    "tagline": "Publishing, Torah support and chesed",
+    "skipToContent": "Skip to main content"
+  },
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "books": "Books",
+    "authors": "Authors",
+    "activities": "Activities",
+    "events": "Events",
+    "donate": "Donate",
+    "contact": "Contact",
+    "menu": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "language": "Language",
+    "switchToEnglish": "עברית"
+  },
+  "home": {
+    "catalogueLead": "From the catalogue",
+    "catalogueAll": "All books",
+    "activitiesLead": "What we do",
+    "eventsLead": "Events",
+    "eventsAll": "All events",
+    "aboutLead": "About the institute",
+    "aboutMore": "Continue reading",
+    "emptyCatalogue": "The catalogue is being compiled. Titles will appear here as they are catalogued.",
+    "emptyEvents": "No events are currently documented on the site."
+  },
+  "books": {
+    "title": "Books",
+    "intro": "Titles the institute has helped bring to print.",
+    "search": "Search the catalogue",
+    "searchPlaceholder": "Title or author",
+    "filterCategory": "Category",
+    "filterAuthor": "Author",
+    "allCategories": "All categories",
+    "allAuthors": "All authors",
+    "clearFilters": "Clear filters",
+    "resultCount": "{count, plural, =0 {No matching books} one {One book} other {# books}}",
+    "empty": "No books match the current filters.",
+    "emptyCatalogue": "The catalogue is being compiled.",
+    "details": "Edition details",
+    "author": "Author",
+    "category": "Category",
+    "publicationYear": "Year of publication",
+    "pages": "Pages",
+    "volumes": "Volumes",
+    "format": "Format",
+    "binding": "Binding",
+    "isbn": "ISBN",
+    "sample": "Read a sample",
+    "sampleAria": "Open a sample from the book (PDF)",
+    "price": "Price",
+    "addToCart": "Add to cart",
+    "outOfStock": "Out of stock",
+    "notForSale": "Not sold through this site",
+    "coverAlt": "Cover of {title}",
+    "noCover": "No cover image",
+    "byAuthor": "by {name}",
+    "otherByAuthor": "More by {name}",
+    "sameCategory": "More in this category"
+  },
+  "authors": {
+    "title": "Authors and figures",
+    "intro": "The authors whose writings the institute publishes, and the figures whose legacy underpins its work.",
+    "years": "{birth}–{death}",
+    "bookCount": "{count, plural, =0 {No books in the catalogue} one {One book in the catalogue} other {# books in the catalogue}}",
+    "booksHeading": "In the catalogue",
+    "empty": "No authors have been added yet.",
+    "portraitAlt": "Portrait of {name}"
+  },
+  "activities": {
+    "title": "Activities",
+    "intro": "Four areas in which the institute works.",
+    "empty": "No activities have been added yet."
+  },
+  "events": {
+    "title": "Events",
+    "intro": "Conferences, study days and memorial gatherings.",
+    "upcoming": "Upcoming",
+    "past": "Past",
+    "gallery": "Gallery",
+    "galleryImageAlt": "Gallery image {index}",
+    "empty": "No events are currently documented on the site.",
+    "annual": "Annual event",
+    "videoTitle": "Video from the event"
+  },
+  "pages": {
+    "about": "About",
+    "donate": "Donate",
+    "contact": "Contact",
+    "terms": "Terms of use",
+    "privacy": "Privacy policy",
+    "accessibility": "Accessibility statement",
+    "lastUpdated": "Last updated: {date}",
+    "missing": "This page has not been edited in the content system yet."
+  },
+  "donate": {
+    "title": "Donate",
+    "intro": "Donations are directed to the purpose you choose. Bank transfer and telephone donations are also possible.",
+    "purposeLabel": "Purpose",
+    "purposes": {
+      "book": "Sponsoring a book",
+      "kalla": "Hachnasat kalla",
+      "avrech": "Supporting a kollel scholar",
+      "general": "At the institute's discretion"
+    },
+    "amountLabel": "Amount (ILS)",
+    "dedicationLabel": "In memory of / in merit of (optional)",
+    "contactOffice": "For major gifts or dedications, please contact the office.",
+    "receiptNote": "A receipt is issued for every donation.",
+    "onlineSoon": "Online donation will open later. In the meantime please contact us directly."
+  },
+  "contact": {
+    "title": "Contact",
+    "intro": "For enquiries about books, donations or partnerships.",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "subject": "Subject",
+    "message": "Message",
+    "send": "Send",
+    "sending": "Sending…",
+    "required": "Required field",
+    "invalidEmail": "Email address is not valid",
+    "success": "Your message was sent. We will get back to you shortly.",
+    "error": "Sending failed. Please try again or call us.",
+    "consent": "I agree that these details will be used only to answer this enquiry.",
+    "consentRequired": "Please confirm the use of your details in order to send.",
+    "details": "Institute details",
+    "address": "Address",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email"
+  },
+  "footer": {
+    "navHeading": "Navigation",
+    "legalHeading": "Legal",
+    "contactHeading": "Contact",
+    "rights": "All rights reserved to the Keren Reem Institute.",
+    "founded": "Established 1993 (5753)"
+  },
+  "a11y": {
+    "toolbarTitle": "Accessibility settings",
+    "open": "Open accessibility toolbar",
+    "close": "Close",
+    "textSize": "Text size",
+    "increase": "Increase",
+    "decrease": "Decrease",
+    "contrast": "High contrast",
+    "underlineLinks": "Emphasise links",
+    "readableFont": "Readable font",
+    "stopMotion": "Stop animations",
+    "reset": "Reset settings",
+    "statementLink": "Full accessibility statement",
+    "on": "on",
+    "off": "off"
+  },
+  "hebrewDate": {
+    "separator": " ",
+    "onlyHebrew": "{hebrew}",
+    "both": "{gregorian} ({hebrew})"
+  },
+  "store": {
+    "cart": "Cart",
+    "disabled": "The store is not active at the moment."
+  },
+  "error": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The address may have changed, or the content has not been published yet.",
+    "backHome": "Back to the home page",
+    "genericTitle": "Something went wrong",
+    "genericBody": "We could not load this content. Please refresh the page.",
+    "retry": "Try again"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "keren-reem",
+  "version": "1.0.0",
+  "private": true,
+  "description": "אתר מכון קרן רא\"ם — קטלוג ספרים, תוכן וניהול",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check:dates": "node scripts/check-hebrew-dates.mjs",
+    "check:a11y": "node scripts/check-a11y.mjs",
+    "check:a11y-toolbar": "node scripts/check-a11y-toolbar.mjs"
+  },
+  "dependencies": {
+    "@hebcal/core": "^6.8.2",
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.95.3",
+    "@tiptap/extension-link": "^3.29.2",
+    "@tiptap/extension-youtube": "^3.29.2",
+    "@tiptap/pm": "^3.29.2",
+    "@tiptap/react": "^3.29.2",
+    "@tiptap/starter-kit": "^3.29.2",
+    "isomorphic-dompurify": "^2.28.0",
+    "next": "^16.2.12",
+    "next-intl": "^4.13.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@eslint/eslintrc": "^3.3.6",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.20.0",
+    "eslint-config-next": "^16.2.12",
+    "playwright": "^1.62.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.7.3"
+  }
+}

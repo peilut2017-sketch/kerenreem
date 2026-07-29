@@ -1,0 +1,75 @@
+'use client';
+
+import { EntityForm } from './EntityForm';
+import { CheckboxField, FieldSet, TextField } from './Fields';
+import { ImageField } from './ImageField';
+import { RichTextEditor } from './RichTextEditor';
+import type { Author } from '@/lib/supabase/types';
+
+export function AuthorForm({ author, canWrite }: { author: Author | null; canWrite: boolean }) {
+  return (
+    <EntityForm entity="authors" id={author?.id ?? null} canWrite={canWrite} backHref="/admin/authors">
+      {(errors) => (
+        <>
+          <FieldSet legend="זיהוי">
+            <TextField
+              name="name_he"
+              label="שם (עברית)"
+              required
+              defaultValue={author?.name_he}
+              error={errors.name_he}
+            />
+            <TextField
+              name="slug"
+              label="מזהה כתובת"
+              required
+              dir="ltr"
+              defaultValue={author?.slug}
+              error={errors.slug}
+            />
+            <TextField name="name_en" label="Name" dir="ltr" defaultValue={author?.name_en} />
+          </FieldSet>
+
+          <FieldSet
+            legend="שנים"
+            description="טקסט חופשי — מאפשר שנה עברית (תר״ף) או לועזית, לפי המקור התיעודי."
+          >
+            <div className="grid gap-5 sm:grid-cols-2">
+              <TextField name="birth_year" label="שנת לידה" defaultValue={author?.birth_year} />
+              <TextField name="death_year" label="שנת פטירה" defaultValue={author?.death_year} />
+            </div>
+          </FieldSet>
+
+          <FieldSet legend="דיוקן">
+            <ImageField
+              name="portrait_url"
+              label="תמונה"
+              bucket="portraits"
+              defaultValue={author?.portrait_url}
+            />
+          </FieldSet>
+
+          <FieldSet legend="תולדות חיים">
+            <RichTextEditor name="bio_he" label="תיאור (עברית)" defaultValue={author?.bio_he} />
+            <RichTextEditor name="bio_en" label="Biography" defaultValue={author?.bio_en} />
+          </FieldSet>
+
+          <FieldSet legend="פרסום">
+            <CheckboxField
+              name="is_published"
+              label="מפורסם באתר"
+              defaultChecked={author?.is_published ?? true}
+            />
+            <TextField
+              name="sort_order"
+              label="סדר תצוגה"
+              type="number"
+              dir="ltr"
+              defaultValue={author?.sort_order ?? 0}
+            />
+          </FieldSet>
+        </>
+      )}
+    </EntityForm>
+  );
+}

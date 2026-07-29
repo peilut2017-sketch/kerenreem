@@ -1,0 +1,364 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   מכון קרן רא"ם — מערכת עיצוב
+   --------------------------------------------------------------------------
+   העקרונות: נייר ודיו, לא מסך. היררכיה נוצרת בטיפוגרפיה ובקווי שיער,
+   לא בצללים, כרטיסים או צבע. זהב הוא תבלין — לא רכיב.
+
+   ⚠ הפלטה שלהלן היא נקודת פתיחה עד קבלת קובץ המיתוג של הקרן.
+     בעת קבלת הלוגו יש לדגום ממנו את הערכים ולעדכן כאן בלבד —
+     שאר הקוד צורך את המשתנים ולא צבעים קשיחים.
+   ========================================================================== */
+
+@theme {
+  /* --- דיו ונייר --- */
+  --color-ink: #17150f;
+  --color-ink-soft: #454034;
+  --color-muted: #6e6757;
+  --color-paper: #faf7f0;
+  --color-paper-2: #f3eee2;
+  --color-paper-3: #eae3d2;
+
+  /* --- קווי שיער --- */
+  --color-rule: #ddd5c2;
+  --color-rule-strong: #c2b797;
+
+  /* --- צבעי המכון --- */
+  --color-burgundy: #6b1f26;
+  --color-burgundy-deep: #4b1418;
+  --color-navy: #23304a;
+  --color-gold: #96762a;
+
+  /* --- טיפוגרפיה --- */
+  --font-serif: var(--font-frank), 'Frank Ruhl Libre', 'David Libre', Georgia, 'Times New Roman', serif;
+  --font-sans: var(--font-assistant), 'Assistant', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* מעט גדלים, יחסים קבועים */
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.5;
+  --text-small: 0.9375rem;
+  --text-small--line-height: 1.6;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.75;
+  --text-lead: 1.25rem;
+  --text-lead--line-height: 1.65;
+  --text-h3: 1.375rem;
+  --text-h3--line-height: 1.35;
+  --text-h2: 1.75rem;
+  --text-h2--line-height: 1.3;
+  --text-h1: 2.25rem;
+  --text-h1--line-height: 1.2;
+  --text-display: 2.875rem;
+  --text-display--line-height: 1.15;
+
+  /* פינות: כמעט ישרות. ספר הוא מלבן. */
+  --radius-sm: 1px;
+  --radius-md: 2px;
+
+  --breakpoint-xs: 30rem;
+}
+
+/* --------------------------------------------------------------------------
+   בסיס
+   -------------------------------------------------------------------------- */
+
+:root {
+  --a11y-scale: 1;
+  color-scheme: light;
+}
+
+html {
+  font-size: calc(100% * var(--a11y-scale));
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-feature-settings: 'kern';
+  text-rendering: optimizeLegibility;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+}
+
+/* עברית לא צריכה איזון אגרסיבי של שורות בגוף הטקסט */
+p { text-wrap: pretty; }
+
+::selection {
+  background-color: var(--color-paper-3);
+  color: var(--color-ink);
+}
+
+/* מיקוד מקלדת — נראה תמיד, בכל רכיב. דרישת תקן 5568. */
+:focus-visible {
+  outline: 2px solid var(--color-burgundy);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   רכיבי בסיס חוזרים
+   -------------------------------------------------------------------------- */
+
+@layer components {
+  /* קישור בגוף טקסט: קו תחתון דק שמתעבה במעבר עכבר. זו כל האנימציה. */
+  .link {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+    text-decoration-color: var(--color-rule-strong);
+    transition: text-decoration-color 140ms ease, color 140ms ease;
+  }
+  .link:hover {
+    text-decoration-color: var(--color-burgundy);
+    color: var(--color-burgundy);
+  }
+
+  /* --- שני סגנונות כפתור. לא שלושה. --- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-family: var(--font-sans);
+    font-size: var(--text-small);
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+    cursor: pointer;
+  }
+  .btn-solid {
+    background-color: var(--color-burgundy);
+    color: var(--color-paper);
+  }
+  .btn-solid:hover { background-color: var(--color-burgundy-deep); }
+  .btn-quiet {
+    background-color: transparent;
+    color: var(--color-ink);
+    border-color: var(--color-rule-strong);
+  }
+  .btn-quiet:hover { border-color: var(--color-ink); background-color: var(--color-paper-2); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* תווית־על: מילה אחת מעל כותרת, לא באנר */
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--color-muted);
+  }
+
+  /* טופס — שדות שטוחים על נייר */
+  .field-label {
+    display: block;
+    font-size: var(--text-small);
+    font-weight: 600;
+    margin-block-end: 0.375rem;
+  }
+  .field-input {
+    display: block;
+    width: 100%;
+    background-color: #fff;
+    border: 1px solid var(--color-rule-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.625rem 0.75rem;
+    font-size: var(--text-small);
+    font-family: inherit;
+    color: var(--color-ink);
+    transition: border-color 140ms ease;
+  }
+  .field-input:hover { border-color: var(--color-muted); }
+  .field-input[aria-invalid='true'] { border-color: var(--color-burgundy); border-width: 2px; }
+  .field-error {
+    display: block;
+    font-size: var(--text-caption);
+    color: var(--color-burgundy-deep);
+    margin-block-start: 0.3125rem;
+    font-weight: 600;
+  }
+  .field-hint {
+    display: block;
+    font-size: var(--text-caption);
+    color: var(--color-muted);
+    margin-block-start: 0.3125rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   טקסט עשיר (פלט Tiptap) — נקרא כמו עמוד בספר
+   -------------------------------------------------------------------------- */
+
+@layer components {
+  .prose-reem {
+    font-size: var(--text-body);
+    line-height: 1.8;
+    color: var(--color-ink-soft);
+    max-width: 66ch;
+  }
+  .prose-reem > * + * { margin-block-start: 1.15em; }
+  .prose-reem h2 {
+    font-size: var(--text-h2);
+    line-height: var(--text-h2--line-height);
+    color: var(--color-ink);
+    margin-block-start: 2.25em;
+    margin-block-end: 0;
+  }
+  .prose-reem h2:first-child { margin-block-start: 0; }
+  .prose-reem h3 {
+    font-size: var(--text-h3);
+    line-height: var(--text-h3--line-height);
+    color: var(--color-ink);
+    margin-block-start: 1.9em;
+  }
+  .prose-reem p { margin-block: 0; }
+  .prose-reem a {
+    color: var(--color-burgundy);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    text-decoration-color: var(--color-rule-strong);
+  }
+  .prose-reem a:hover { text-decoration-color: var(--color-burgundy); }
+  .prose-reem strong { font-weight: 700; color: var(--color-ink); }
+  .prose-reem ul, .prose-reem ol { padding-inline-start: 1.25em; }
+  .prose-reem ul { list-style: disc; }
+  .prose-reem ol { list-style: decimal; }
+  .prose-reem li { margin-block: 0.35em; }
+  .prose-reem li::marker { color: var(--color-rule-strong); }
+  .prose-reem blockquote {
+    border-inline-start: 2px solid var(--color-rule-strong);
+    padding-inline-start: 1.25em;
+    font-family: var(--font-serif);
+    font-size: var(--text-lead);
+    color: var(--color-ink);
+  }
+  .prose-reem hr {
+    border: 0;
+    border-block-start: 1px solid var(--color-rule);
+    margin-block: 2.5em;
+  }
+  .prose-reem img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--color-rule);
+  }
+  .prose-reem table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-small);
+  }
+  .prose-reem th, .prose-reem td {
+    border: 1px solid var(--color-rule);
+    padding: 0.5rem 0.75rem;
+    text-align: start;
+  }
+  .prose-reem th { background-color: var(--color-paper-2); font-weight: 600; }
+  /* וידאו מוטמע — יחס 16:9 רספונסיבי */
+  .prose-reem iframe,
+  .prose-reem .video-embed {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    border: 1px solid var(--color-rule);
+  }
+  .prose-reem div[data-youtube-video] { margin-block: 1.75em; }
+  .prose-reem div[data-youtube-video] iframe { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+}
+
+/* --------------------------------------------------------------------------
+   הגדרות נגישות — נשלטות בדאטה-אטריביוטים על <html>
+   -------------------------------------------------------------------------- */
+
+/* ניגודיות גבוהה */
+html[data-a11y-contrast='on'] {
+  --color-paper: #ffffff;
+  --color-paper-2: #ffffff;
+  --color-paper-3: #f2f2f2;
+  --color-ink: #000000;
+  --color-ink-soft: #000000;
+  --color-muted: #2b2b2b;
+  --color-rule: #767676;
+  --color-rule-strong: #000000;
+  --color-burgundy: #4b1418;
+  --color-navy: #10182a;
+}
+html[data-a11y-contrast='on'] body { background: #fff; color: #000; }
+html[data-a11y-contrast='on'] .prose-reem { color: #000; }
+
+/* הדגשת קישורים */
+html[data-a11y-links='on'] a {
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 0.2em;
+}
+
+/* גופן קריא — ויתור על הסריף לטובת קריאות */
+html[data-a11y-font='on'],
+html[data-a11y-font='on'] h1,
+html[data-a11y-font='on'] h2,
+html[data-a11y-font='on'] h3,
+html[data-a11y-font='on'] h4,
+html[data-a11y-font='on'] .prose-reem,
+html[data-a11y-font='on'] blockquote {
+  font-family: var(--font-sans) !important;
+  letter-spacing: 0.01em;
+}
+
+/* עצירת אנימציות — יזומה או לפי העדפת מערכת */
+html[data-a11y-motion='off'] *,
+html[data-a11y-motion='off'] *::before,
+html[data-a11y-motion='off'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   שירות
+   -------------------------------------------------------------------------- */
+
+/* קישור דילוג — מופיע רק במיקוד מקלדת */
+.skip-link {
+  position: absolute;
+  inset-inline-start: 1rem;
+  top: -100%;
+  z-index: 100;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: 0.75rem 1.25rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; color: #000; font-size: 11pt; }
+}

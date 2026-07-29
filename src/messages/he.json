@@ -1,0 +1,180 @@
+{
+  "site": {
+    "name": "מכון קרן רא״ם",
+    "shortName": "קרן רא״ם",
+    "tagline": "הוצאה לאור, אחזקת תורה וחסד",
+    "skipToContent": "דילוג לתוכן הראשי"
+  },
+  "nav": {
+    "home": "בית",
+    "about": "אודות",
+    "books": "ספרים",
+    "authors": "מחברים",
+    "activities": "פעילות",
+    "events": "אירועים",
+    "donate": "תרומה",
+    "contact": "צור קשר",
+    "menu": "תפריט",
+    "openMenu": "פתיחת תפריט",
+    "closeMenu": "סגירת תפריט",
+    "language": "שפה",
+    "switchToEnglish": "English"
+  },
+  "home": {
+    "catalogueLead": "מן הקטלוג",
+    "catalogueAll": "לכל הספרים",
+    "activitiesLead": "צירי הפעילות",
+    "eventsLead": "אירועים",
+    "eventsAll": "לכל האירועים",
+    "aboutLead": "על המכון",
+    "aboutMore": "המשך קריאה",
+    "emptyCatalogue": "הקטלוג נמצא בהקמה. ספרים יתווספו כאן עם השלמת הרישום.",
+    "emptyEvents": "אין כרגע אירועים מתועדים באתר."
+  },
+  "books": {
+    "title": "ספרים",
+    "intro": "הכותרים שהמכון סייע בהוצאתם לאור.",
+    "search": "חיפוש בקטלוג",
+    "searchPlaceholder": "שם ספר או מחבר",
+    "filterCategory": "קטגוריה",
+    "filterAuthor": "מחבר",
+    "allCategories": "כל הקטגוריות",
+    "allAuthors": "כל המחברים",
+    "clearFilters": "ניקוי סינון",
+    "resultCount": "{count, plural, =0 {אין ספרים תואמים} one {ספר אחד} two {שני ספרים} other {# ספרים}}",
+    "empty": "לא נמצאו ספרים התואמים לסינון.",
+    "emptyCatalogue": "הקטלוג נמצא בהקמה.",
+    "details": "פרטי המהדורה",
+    "author": "מחבר",
+    "category": "קטגוריה",
+    "publicationYear": "שנת הוצאה",
+    "pages": "עמודים",
+    "volumes": "כרכים",
+    "format": "פורמט",
+    "binding": "כריכה",
+    "isbn": "מסת״ב",
+    "sample": "דפדוף לדוגמה",
+    "sampleAria": "פתיחת קובץ דוגמה מתוך הספר (PDF)",
+    "price": "מחיר",
+    "addToCart": "הוספה לסל",
+    "outOfStock": "אזל מן המלאי",
+    "notForSale": "הספר אינו נמכר באתר",
+    "coverAlt": "כריכת הספר {title}",
+    "noCover": "אין כריכה",
+    "byAuthor": "מאת {name}",
+    "otherByAuthor": "עוד מאת {name}",
+    "sameCategory": "עוד בקטגוריה זו"
+  },
+  "authors": {
+    "title": "מחברים ודמויות",
+    "intro": "בעלי הכתבים שהמכון מוציא לאור, ודמויות שמורשתן עומדת ביסוד פעילותו.",
+    "years": "{birth}–{death}",
+    "bookCount": "{count, plural, =0 {אין ספרים בקטלוג} one {ספר אחד בקטלוג} two {שני ספרים בקטלוג} other {# ספרים בקטלוג}}",
+    "booksHeading": "בקטלוג",
+    "empty": "טרם נוספו מחברים.",
+    "portraitAlt": "דיוקן {name}"
+  },
+  "activities": {
+    "title": "פעילות המכון",
+    "intro": "ארבעה צירים שבהם פועל המכון.",
+    "empty": "טרם נוספו צירי פעילות."
+  },
+  "events": {
+    "title": "אירועים",
+    "intro": "כנסים, ימי עיון ואירועי הנצחה.",
+    "upcoming": "קרובים",
+    "past": "שהיו",
+    "gallery": "גלריה",
+    "galleryImageAlt": "תמונה {index} מתוך הגלריה",
+    "empty": "אין כרגע אירועים מתועדים באתר.",
+    "annual": "אירוע שנתי",
+    "videoTitle": "סרטון מתוך האירוע"
+  },
+  "pages": {
+    "about": "אודות",
+    "donate": "תרומה",
+    "contact": "צור קשר",
+    "terms": "תקנון ותנאי שימוש",
+    "privacy": "מדיניות פרטיות",
+    "accessibility": "הצהרת נגישות",
+    "lastUpdated": "עודכן לאחרונה: {date}",
+    "missing": "העמוד הזה טרם נערך במערכת הניהול."
+  },
+  "donate": {
+    "title": "תרומה",
+    "intro": "התרומות מופנות לייעוד שתבחרו. אפשר לתרום גם בהעברה בנקאית או בשיחת טלפון עם המשרד.",
+    "purposeLabel": "ייעוד התרומה",
+    "purposes": {
+      "book": "השתתפות בהוצאת ספר",
+      "kalla": "הכנסת כלה",
+      "avrech": "החזקת אברך",
+      "general": "לשיקול דעת המכון"
+    },
+    "amountLabel": "סכום (₪)",
+    "dedicationLabel": "לעילוי נשמת / לזכות (רשות)",
+    "contactOffice": "לתיאום תרומה גדולה או להנצחה, פנו למשרד המכון.",
+    "receiptNote": "המכון מנפיק קבלה על כל תרומה.",
+    "onlineSoon": "תרומה מקוונת תיפתח בהמשך. בינתיים ניתן לפנות אלינו ישירות."
+  },
+  "contact": {
+    "title": "צור קשר",
+    "intro": "לפניות בנושא ספרים, תרומות או שיתופי פעולה.",
+    "name": "שם",
+    "email": "דואר אלקטרוני",
+    "phone": "טלפון",
+    "subject": "נושא",
+    "message": "תוכן הפנייה",
+    "send": "שליחה",
+    "sending": "שולח…",
+    "required": "שדה חובה",
+    "invalidEmail": "כתובת דואר אלקטרוני אינה תקינה",
+    "success": "הפנייה נשלחה. נחזור אליכם בהקדם.",
+    "error": "שליחת הפנייה נכשלה. נסו שוב או פנו אלינו בטלפון.",
+    "consent": "אני מאשר/ת שהפרטים ישמשו לצורך מענה לפנייה זו בלבד.",
+    "consentRequired": "יש לאשר את השימוש בפרטים כדי לשלוח.",
+    "details": "פרטי המכון",
+    "address": "כתובת",
+    "phoneLabel": "טלפון",
+    "emailLabel": "דואר אלקטרוני"
+  },
+  "footer": {
+    "navHeading": "ניווט",
+    "legalHeading": "מידע משפטי",
+    "contactHeading": "יצירת קשר",
+    "rights": "כל הזכויות שמורות למכון קרן רא״ם.",
+    "founded": "נוסד בשנת תשנ״ג (1993)"
+  },
+  "a11y": {
+    "toolbarTitle": "הגדרות נגישות",
+    "open": "פתיחת סרגל נגישות",
+    "close": "סגירה",
+    "textSize": "גודל טקסט",
+    "increase": "הגדלה",
+    "decrease": "הקטנה",
+    "contrast": "ניגודיות גבוהה",
+    "underlineLinks": "הדגשת קישורים",
+    "readableFont": "גופן קריא",
+    "stopMotion": "עצירת אנימציות",
+    "reset": "איפוס הגדרות",
+    "statementLink": "הצהרת הנגישות המלאה",
+    "on": "פעיל",
+    "off": "כבוי"
+  },
+  "hebrewDate": {
+    "separator": "‏",
+    "onlyHebrew": "{hebrew}",
+    "both": "{hebrew} ({gregorian})"
+  },
+  "store": {
+    "cart": "סל הקניות",
+    "disabled": "החנות אינה פעילה כרגע."
+  },
+  "error": {
+    "notFoundTitle": "העמוד לא נמצא",
+    "notFoundBody": "ייתכן שהכתובת השתנתה, או שהתוכן טרם פורסם.",
+    "backHome": "חזרה לעמוד הבית",
+    "genericTitle": "אירעה תקלה",
+    "genericBody": "לא הצלחנו לטעון את התוכן. נסו לרענן את העמוד.",
+    "retry": "ניסיון נוסף"
+  }
+}
