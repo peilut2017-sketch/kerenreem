@@ -41,6 +41,15 @@ async function handleAdmin(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
+    // רישום מפורש: בלעדיו הפניה חוזרת למסך ההתחברות נראית זהה בין
+    // "אין עוגייה" לבין "העוגייה קיימת אבל הטוקן נדחה", ואי אפשר לאבחן.
+    const hasAuthCookie = request.cookies.getAll().some((cookie) => cookie.name.startsWith('sb-'));
+    console.warn(
+      `[proxy:admin] אין משתמש מאומת עבור ${pathname} — עוגיית session ${
+        hasAuthCookie ? 'קיימת אך לא אומתה' : 'חסרה'
+      }`,
+    );
+
     const loginUrl = new URL('/admin/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);

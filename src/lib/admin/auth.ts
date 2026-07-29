@@ -9,6 +9,20 @@ export interface AdminSession {
   profile: Profile;
 }
 
+/**
+ * תוצאת בדיקת ההרשאה.
+ *
+ * ההפרדה בין 'no-session' ל-'no-profile' חיונית: המשתמש מאומת מול Auth
+ * אבל אין לו שורה ב-profiles. אם מפנים אותו במקרה כזה למסך ההתחברות,
+ * הוא מתחבר בהצלחה, חוזר ל-/admin, שוב אין פרופיל — ונוצרת לולאה אינסופית
+ * שנראית כאילו ההתחברות נכשלה. לכן זהו מצב נפרד עם הסבר משלו.
+ */
+export type AdminSessionResult =
+  | { status: 'ok'; session: AdminSession }
+  | { status: 'no-session' }
+  | { status: 'no-profile'; userId: string; email: string | null }
+  | { status: 'not-configured' };
+
 const RANK: Record<UserRole, number> = { viewer: 0, editor: 1, admin: 2 };
 
 export function hasRole(role: UserRole, minimum: UserRole): boolean {
@@ -16,44 +30,82 @@ export function hasRole(role: UserRole, minimum: UserRole): boolean {
 }
 
 /**
- * מחזיר את המשתמש המחובר ואת הפרופיל שלו, או null.
+ * מחזיר את מצב ההרשאה של הבקשה הנוכחית.
  *
  * ה-proxy כבר חוסם גישה ל-/admin ללא session, אבל בדיקה חוזרת כאן היא
  * מכוונת: proxy אפשר לעקוף בקריאה ישירה ל-Server Action, ולכן ההרשאה
  * נבדקת גם בנקודת השימוש.
  */
-export async function getAdminSession(): Promise<AdminSession | null> {
+export async function getAdminSessionResult(): Promise<AdminSessionResult> {
   const supabase = await createClient();
-  if (!supabase) return null;
+  if (!supabase) return { status: 'not-configured' };
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) return { status: 'no-session' };
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .maybeSingle();
 
-  if (!profile) return null;
+  if (error) {
+    // שגיאת קריאה אינה "אין פרופיל" — בלי הרישום הזה תקלת RLS או תקלת
+    // רשת נראית בדיוק כמו משתמש שלא הוגדר.
+    console.error('[admin:auth] קריאת הפרופיל נכשלה', error.message);
+  }
 
-  return { userId: user.id, email: user.email ?? null, profile: profile as Profile };
+  if (!profile) return { status: 'no-profile', userId: user.id, email: user.email ?? null };
+
+  return {
+    status: 'ok',
+    session: { userId: user.id, email: user.email ?? null, profile: profile as Profile },
+  };
 }
 
-/** מחייב session עם תפקיד מינימלי; מפנה להתחברות או לדשבורד אם אין די הרשאה. */
+/** גרסה מקוצרת לשימוש היכן שרק ההצלחה מעניינת. */
+export async function getAdminSession(): Promise<AdminSession | null> {
+  const result = await getAdminSessionResult();
+  return result.status === 'ok' ? result.session : null;
+}
+
+/** מחייב session עם תפקיד מינימלי. מפנה למסך המתאים כשאין. */
 export async function requireRole(minimum: UserRole = 'viewer'): Promise<AdminSession> {
-  const session = await getAdminSession();
-  if (!session) redirect('/admin/login');
-  if (!hasRole(session.profile.role, minimum)) redirect('/admin?denied=1');
-  return session;
+  const result = await getAdminSessionResult();
+
+  switch (result.status) {
+    case 'ok':
+      if (!hasRole(result.session.profile.role, minimum)) redirect('/admin?denied=1');
+      return result.session;
+
+    case 'no-profile':
+      // לא מפנים למסך ההתחברות — הוא לא יפתור דבר ורק ייצור לולאה.
+      redirect('/admin/login?issue=no_profile');
+      break;
+
+    case 'not-configured':
+      redirect('/admin/login?issue=not_configured');
+      break;
+
+    default:
+      redirect('/admin/login');
+  }
+
+  // לא נגיע לכאן — redirect זורק.
+  throw new Error('unreachable');
 }
 
 /** גרסה לשימוש בתוך Server Actions: מחזירה שגיאה במקום redirect. */
 export async function assertRole(minimum: UserRole): Promise<AdminSession | { error: string }> {
-  const session = await getAdminSession();
-  if (!session) return { error: 'לא מחובר' };
-  if (!hasRole(session.profile.role, minimum)) return { error: 'אין הרשאה לפעולה זו' };
-  return session;
+  const result = await getAdminSessionResult();
+
+  if (result.status === 'no-profile') {
+    return { error: 'למשתמש אין פרופיל במערכת. יש להגדיר לו תפקיד.' };
+  }
+  if (result.status !== 'ok') return { error: 'לא מחובר' };
+  if (!hasRole(result.session.profile.role, minimum)) return { error: 'אין הרשאה לפעולה זו' };
+
+  return result.session;
 }
