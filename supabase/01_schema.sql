@@ -33,38 +33,9 @@ begin
 end;
 $$;
 
--- שליפת תפקיד המשתמש הנוכחי (משמש ב-RLS)
-create or replace function current_user_role()
-returns user_role
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select role from public.profiles where id = auth.uid();
-$$;
-
--- בדיקה אם המשתמש הנוכחי הוא admin או editor (הרשאת כתיבה)
-create or replace function can_edit()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select current_user_role() in ('admin', 'editor');
-$$;
-
--- בדיקה אם המשתמש הנוכחי הוא admin
-create or replace function is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select current_user_role() = 'admin';
-$$;
+-- פונקציות ההרשאה (current_user_role / can_edit / is_admin) מוגדרות
+-- בסעיף 4.1א, מיד אחרי טבלת profiles. הן קוראות ממנה, ו-Postgres מאמת
+-- את גוף הפונקציה כבר בזמן היצירה — ולכן הן חייבות לבוא אחרי הטבלה.
 
 -- ============================================================================
 -- 4. טבלאות
@@ -98,6 +69,46 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
+
+-- ----------------------------------------------------------------------------
+-- 4.1א פונקציות הרשאה — משמשות בכל מדיניות ה-RLS שבהמשך
+-- ----------------------------------------------------------------------------
+-- הועברו לכאן מסעיף 3: הן שולפות מ-profiles, ופונקציית language sql
+-- מאומתת בזמן היצירה. הגדרתן לפני הטבלה נכשלת ב-
+-- ERROR: relation "public.profiles" does not exist
+
+-- שליפת תפקיד המשתמש הנוכחי (משמש ב-RLS)
+create or replace function current_user_role()
+returns user_role
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
+-- בדיקה אם המשתמש הנוכחי הוא admin או editor (הרשאת כתיבה)
+create or replace function can_edit()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select current_user_role() in ('admin', 'editor');
+$$;
+
+-- בדיקה אם המשתמש הנוכחי הוא admin
+create or replace function is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select current_user_role() = 'admin';
+$$;
 
 -- ----------------------------------------------------------------------------
 -- 4.2 categories — קטגוריות ספרים
