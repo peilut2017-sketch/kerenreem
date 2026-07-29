@@ -49,7 +49,7 @@ export function SearchLauncher() {
         onClick={() => setOpen(true)}
         aria-label={t('search')}
         aria-expanded={false}
-        className="flex h-8 w-8 items-center justify-center text-ink-soft transition-colors hover:text-burgundy"
+        className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft transition-[background-color,color,transform] duration-300 hover:bg-white/70 hover:text-burgundy active:scale-95"
       >
         <SearchIcon />
       </button>
@@ -68,9 +68,9 @@ export function SearchLauncher() {
         value={value}
         onChange={(event) => setValue(event.target.value)}
         placeholder={t('searchPlaceholder')}
-        className="w-44 border-0 border-b border-rule-strong bg-transparent px-1 py-1 text-small text-ink outline-none transition-colors focus:border-gold-deep"
+        className="w-48 rounded-[var(--radius-pill)] border border-rule-strong/70 bg-white/70 px-4 py-2 text-small text-ink outline-none transition-[border-color,box-shadow] duration-300 focus:border-gold-deep focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-gold)_20%,transparent)]"
       />
-      <button type="submit" aria-label={t('search')} className="text-ink-soft hover:text-burgundy">
+      <button type="submit" aria-label={t('search')} className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:bg-white/70 hover:text-burgundy">
         <SearchIcon />
       </button>
     </form>

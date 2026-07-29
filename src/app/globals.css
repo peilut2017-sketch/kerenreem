@@ -7,12 +7,15 @@
    הכיתוב, והנייר הבהיר שמסביב. הכחול העמוק מגיע מתרשים העיצוב (#0b1520)
    ומשמש לרצועות הכהות — כותרת האתר לא, אלא תחתית, יצירת קשר ורקעי תמונה.
 
+   השפה: משטחים צפים על רקע חי. עומק נבנה משכבות — זכוכית, צל רך
+   ותאורה עדינה — ולא ממסגרות. כרטיס הוא אובייקט פיזי עם פינות רכות
+   שמתרומם במגע. התנועה תמיד יוצאת בקפיץ, לעולם לא קופצת.
+
    כללי הזהב (תרתי משמע):
-   • זהב הוא קו, לא שטח. הוא מופיע בקווי הפרדה, בעיטור מתחת לכותרת,
-     ובקישורי המשך — ולעולם לא כרקע גדול.
+   • זהב הוא קו והדגשה, לא שטח.
    • זהב על נייר אינו עומד ביחס ניגודיות לטקסט. לכן על רקע בהיר הוא
      דקורטיבי בלבד; טקסט זהב מותר רק על הכחול העמוק, שם היחס 7:1.
-   • שני משקלי כפתור, שתי משפחות גופנים, פינות כמעט ישרות.
+   • שני משקלי כפתור, שתי משפחות גופנים.
    ========================================================================== */
 
 /* וריאנט לרצועות הכהות.
@@ -63,8 +66,26 @@
   --text-h1: 2.375rem;
   --text-h1--line-height: 1.18;
 
-  --radius-sm: 1px;
-  --radius-md: 2px;
+  /* --- פינות: כרטיס הוא אובייקט פיזי, לא מלבן --- */
+  --radius-xs: 0.625rem;   /* 10px — שדות, תגיות */
+  --radius-sm: 0.875rem;   /* 14px — אלמנטים קטנים */
+  --radius-md: 1.25rem;    /* 20px — מדיה, תמונות */
+  --radius-lg: 1.75rem;    /* 28px — כרטיסים */
+  --radius-xl: 2rem;       /* 32px — משטחים גדולים */
+  --radius-pill: 999px;    /* כפתורים */
+
+  /* --- צללים: רכים ורב-שכבתיים, לעולם לא כבדים --- */
+  --shadow-soft: 0 1px 2px rgb(11 21 32 / 0.04), 0 10px 28px -14px rgb(11 21 32 / 0.12);
+  --shadow-lift: 0 2px 6px rgb(11 21 32 / 0.05), 0 26px 52px -22px rgb(11 21 32 / 0.20);
+  --shadow-float: 0 1px 2px rgb(11 21 32 / 0.05), 0 16px 40px -18px rgb(11 21 32 / 0.16);
+
+  /* --- תנועה: קפיץ בלי קפיצה. תאוצה יוצאת, בלי overshoot --- */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* --- קצב ריווח: אזורים נושמים --- */
+  --space-section: clamp(5rem, 8vw, 7.5rem);   /* 80–120px */
+  --space-card: 1.5rem;                         /* 24px בין כרטיסים */
 
   --breakpoint-xs: 30rem;
 }
@@ -76,6 +97,33 @@
 :root {
   --a11y-scale: 1;
   color-scheme: light;
+
+  /* --- משטחים דרך משתנים ולא דרך דריסת כללים ---
+     מצב ניגודיות גבוהה משנה את המשתנים האלה בלבד. זו לא רק ארכיטקטורה
+     נקייה יותר: דריסה בסגנון `html[...] .glass { ... !important }` נכתבה
+     נכון במקור, אבל ה-minifier מיזג אותה עם כלל .glass וההשפעה חלה תמיד —
+     הטשטוש כובה בכל מצב. משתנים אינם ניתנים למיזוג כזה. */
+  --surface-glass-bg: color-mix(in srgb, var(--color-cream) 70%, transparent);
+  --surface-glass-blur: blur(20px) saturate(1.5);
+  --surface-glass-border: color-mix(in srgb, #fff 62%, transparent);
+  --surface-glass-shadow: var(--shadow-float), inset 0 1px 0 color-mix(in srgb, #fff 65%, transparent);
+
+  --surface-glass-dark-bg: color-mix(in srgb, var(--color-navy) 52%, transparent);
+  --surface-glass-dark-blur: blur(22px) saturate(1.4);
+  --surface-glass-dark-border: color-mix(in srgb, #fff 14%, transparent);
+  --surface-glass-dark-shadow: var(--shadow-float), inset 0 1px 0 color-mix(in srgb, #fff 16%, transparent);
+
+  --surface-card-bg: #fff;
+  --surface-card-border: color-mix(in srgb, var(--color-rule) 55%, transparent);
+  --surface-card-shadow: var(--shadow-soft);
+  --surface-card-shadow-hover: var(--shadow-lift);
+
+  --surface-quiet-bg: color-mix(in srgb, #fff 55%, transparent);
+  --surface-quiet-blur: blur(14px) saturate(1.3);
+
+  --page-glow: radial-gradient(60rem 40rem at 82% -10%, color-mix(in srgb, var(--color-gold) 16%, transparent), transparent 62%),
+               radial-gradient(52rem 38rem at 8% 8%, color-mix(in srgb, var(--color-navy-3) 10%, transparent), transparent 60%);
+  --page-grain-opacity: 0.5;
 }
 
 html {
@@ -84,8 +132,12 @@ html {
   scroll-behavior: smooth;
 }
 
+/* הרקע לעולם לא לבן מת: שתי הילות רכות בזהב ובכחול, ומעליהן גרעין
+   עדין. שכבת ה-noise היא SVG מוטבע — בלי בקשת רשת, ובלי GIF מרצד. */
 body {
   background-color: var(--color-cream);
+  background-image: var(--page-glow);
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
   font-size: var(--text-body);
@@ -105,6 +157,21 @@ h1, h2, h3, h4 {
 }
 
 p { text-wrap: pretty; }
+
+/* גרעין עדין על כל העמוד.
+   z-index שלילי ולא "להרים את התוכן": כלל כמו `body > * { position: relative }`
+   הוא CSS לא-משוכב, ולכן גובר על שכבת ה-utilities של Tailwind ודורס את
+   position:fixed ו-position:sticky — מה שמשתק את סרגל הנגישות ואת הכותרת
+   הדביקה. השכבה יורדת מתחת לתוכן, והתוכן לא נוגע. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--page-grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
 
 ::selection {
   background-color: var(--color-gold);
@@ -170,7 +237,7 @@ p { text-wrap: pretty; }
   .on-dark .link-more { color: var(--color-gold); }
   .on-dark .link-more:hover { color: var(--color-gold-bright); }
 
-  /* --- שני סגנונות כפתור. לא שלושה. --- */
+  /* --- שני סגנונות כפתור: מלא צף, ושקוף-זכוכית --- */
   .btn {
     display: inline-flex;
     align-items: center;
@@ -180,35 +247,95 @@ p { text-wrap: pretty; }
     font-size: var(--text-small);
     font-weight: 600;
     line-height: 1;
-    padding: 0.8125rem 1.75rem;
-    border-radius: var(--radius-md);
+    padding: 0.9375rem 2rem;
+    border-radius: var(--radius-pill);
     border: 1px solid transparent;
-    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+    transition:
+      background-color 260ms var(--ease-spring),
+      color 260ms var(--ease-spring),
+      border-color 260ms var(--ease-spring),
+      box-shadow 320ms var(--ease-spring),
+      transform 220ms var(--ease-spring);
     cursor: pointer;
+    will-change: transform;
   }
+  /* לחיצה מכווצת מעט — משוב מיידי, בלי קפיצה */
+  .btn:active { transform: scale(0.97); }
+
   .btn-solid {
     background-color: var(--color-navy);
     color: var(--color-cream);
+    box-shadow: var(--shadow-float);
   }
-  .btn-solid:hover { background-color: var(--color-navy-2); }
+  .btn-solid:hover {
+    background-color: var(--color-navy-2);
+    box-shadow: var(--shadow-lift);
+  }
+
   .btn-quiet {
-    background-color: transparent;
+    background-color: var(--surface-quiet-bg);
+    backdrop-filter: var(--surface-quiet-blur);
     color: var(--color-ink);
+    border-color: color-mix(in srgb, var(--color-rule-strong) 70%, transparent);
+    box-shadow: var(--shadow-soft);
+  }
+  .btn-quiet:hover {
     border-color: var(--color-rule-strong);
+    background-color: color-mix(in srgb, #fff 78%, transparent);
+    box-shadow: var(--shadow-float);
   }
-  .btn-quiet:hover { border-color: var(--color-ink); background-color: var(--color-cream-2); }
-  /* על רקע כהה הכפתור השקט מקבל מסגרת זהב */
-  .on-dark .btn-quiet {
-    color: var(--color-cream);
-    border-color: color-mix(in srgb, var(--color-gold) 60%, transparent);
-  }
-  .on-dark .btn-quiet:hover {
-    border-color: var(--color-gold);
-    background-color: color-mix(in srgb, var(--color-gold) 12%, transparent);
-  }
+
+  /* על רקע כהה: המלא הופך לזהב, והשקט לזכוכית כהה */
   .on-dark .btn-solid { background-color: var(--color-gold); color: var(--color-navy); }
   .on-dark .btn-solid:hover { background-color: var(--color-gold-bright); }
+  .on-dark .btn-quiet {
+    background-color: color-mix(in srgb, #fff 12%, transparent);
+    color: #fff;
+    border-color: color-mix(in srgb, #fff 26%, transparent);
+  }
+  .on-dark .btn-quiet:hover {
+    background-color: color-mix(in srgb, #fff 20%, transparent);
+    border-color: color-mix(in srgb, var(--color-gold) 70%, transparent);
+  }
+
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* --- זכוכית: blur אמיתי, שקיפות נמוכה, מסגרת דקה, קו אור עליון.
+         לא ניאון ולא פלסטיק — משטח שמראה את מה שמתחתיו בעדינות. --- */
+  .glass {
+    background-color: var(--surface-glass-bg);
+    backdrop-filter: var(--surface-glass-blur);
+    border: 1px solid var(--surface-glass-border);
+    box-shadow: var(--surface-glass-shadow);
+  }
+  .glass-dark {
+    background-color: var(--surface-glass-dark-bg);
+    backdrop-filter: var(--surface-glass-dark-blur);
+    border: 1px solid var(--surface-glass-dark-border);
+    box-shadow: var(--surface-glass-dark-shadow);
+  }
+
+  /* --- כרטיס: אובייקט פיזי. מתרומם במגע, הצל מתחזק, בלי קפיצה. --- */
+  .card {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--surface-card-bg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--surface-card-border);
+    box-shadow: var(--surface-card-shadow);
+    overflow: hidden;
+    transition:
+      transform 420ms var(--ease-spring),
+      box-shadow 420ms var(--ease-spring),
+      border-color 300ms ease;
+    will-change: transform;
+  }
+  .card-interactive:hover {
+    transform: translateY(-6px) scale(1.008);
+    box-shadow: var(--surface-card-shadow-hover);
+    border-color: color-mix(in srgb, var(--color-gold) 45%, transparent);
+  }
+  .card-interactive:active { transform: translateY(-2px) scale(0.998); }
 
   .eyebrow {
     font-family: var(--font-sans);
@@ -258,16 +385,19 @@ p { text-wrap: pretty; }
     display: block;
     width: 100%;
     background-color: #fff;
-    border: 1px solid var(--color-rule-strong);
-    border-radius: var(--radius-sm);
-    padding: 0.6875rem 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--color-rule-strong) 75%, transparent);
+    border-radius: var(--radius-xs);
+    padding: 0.8125rem 1rem;
     font-size: var(--text-small);
     font-family: inherit;
     color: var(--color-ink);
-    transition: border-color 160ms ease;
+    transition: border-color 200ms var(--ease-soft), box-shadow 240ms var(--ease-soft);
   }
   .field-input:hover { border-color: var(--color-muted); }
-  .field-input:focus { border-color: var(--color-gold-deep); }
+  .field-input:focus {
+    border-color: var(--color-gold-deep);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-gold) 20%, transparent);
+  }
   .field-input[aria-invalid='true'] { border-color: var(--color-burgundy); border-width: 2px; }
   .on-dark .field-input {
     background-color: color-mix(in srgb, #fff 8%, transparent);
@@ -377,9 +507,9 @@ p { text-wrap: pretty; }
   @media (prefers-reduced-motion: no-preference) {
     html.js .reveal {
       opacity: 0;
-      transform: translateY(12px);
-      transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1),
-                  transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+      transform: translateY(18px);
+      transition: opacity 700ms var(--ease-spring),
+                  transform 700ms var(--ease-spring);
     }
     html.js .reveal.is-visible {
       opacity: 1;
@@ -389,12 +519,34 @@ p { text-wrap: pretty; }
 
   /* כריכת ספר — הרמה עדינה בלבד. בלי scale, בלי צל כבד. */
   .book-lift {
-    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
-                filter 320ms ease;
+    transition: transform 460ms var(--ease-spring), filter 460ms var(--ease-spring);
+    will-change: transform;
   }
   .group:hover .book-lift {
-    transform: translateY(-6px);
-    filter: drop-shadow(0 12px 20px rgb(11 21 32 / 0.18));
+    transform: translateY(-10px) scale(1.02);
+    filter: drop-shadow(0 18px 30px rgb(11 21 32 / 0.24));
+  }
+
+  /* --- מרווח מקטע: אזורים נושמים --- */
+  .section-y { padding-block: var(--space-section); }
+
+  /* --- אייקון במסגרת עגולה, מגיב למגע --- */
+  .icon-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-pill);
+    background-color: color-mix(in srgb, var(--color-gold) 12%, #fff);
+    color: var(--color-gold-deep);
+    transition:
+      background-color 320ms var(--ease-spring),
+      transform 380ms var(--ease-spring),
+      box-shadow 380ms var(--ease-spring);
+  }
+  .group:hover .icon-chip {
+    background-color: color-mix(in srgb, var(--color-gold) 24%, #fff);
+    transform: translateY(-2px) rotate(-4deg);
+    box-shadow: var(--shadow-soft);
   }
 }
 
@@ -423,6 +575,31 @@ html[data-a11y-contrast='on'] .prose-reem { color: #000; }
 html[data-a11y-contrast='on'] .on-dark { background: #000; color: #fff; }
 /* בניגודיות גבוהה שכבות כהות מעל תמונה מסתירות טקסט — מבטלים את התמונה */
 html[data-a11y-contrast='on'] .media-backdrop { display: none !important; }
+/* זכוכית מעל רקע משתנה אינה מבטיחה ניגודיות. במצב ניגודיות גבוהה
+   המשטחים הופכים אטומים, הצללים נעלמים והגרעין כבה — הכל דרך המשתנים
+   שהוגדרו ב-:root, בלי דריסת כללים. */
+html[data-a11y-contrast='on'] {
+  --surface-glass-bg: #ffffff;
+  --surface-glass-blur: none;
+  --surface-glass-border: #000000;
+  --surface-glass-shadow: none;
+
+  --surface-glass-dark-bg: #000000;
+  --surface-glass-dark-blur: none;
+  --surface-glass-dark-border: #ffffff;
+  --surface-glass-dark-shadow: none;
+
+  --surface-card-bg: #ffffff;
+  --surface-card-border: #000000;
+  --surface-card-shadow: none;
+  --surface-card-shadow-hover: none;
+
+  --surface-quiet-bg: #ffffff;
+  --surface-quiet-blur: none;
+
+  --page-glow: none;
+  --page-grain-opacity: 0;
+}
 
 html[data-a11y-links='on'] a {
   text-decoration: underline !important;
@@ -450,6 +627,9 @@ html[data-a11y-motion='off'] *::after {
   scroll-behavior: auto !important;
 }
 html[data-a11y-motion='off'] .reveal { opacity: 1 !important; transform: none !important; }
+html[data-a11y-motion='off'] .card-interactive:hover,
+html[data-a11y-motion='off'] .group:hover .book-lift,
+html[data-a11y-motion='off'] .group:hover .icon-chip { transform: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

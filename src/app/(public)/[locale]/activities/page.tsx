@@ -35,13 +35,13 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ loc
         <p className="text-muted">{t('empty')}</p>
       ) : (
         /* רשימה ממוספרת ולא כרטיסים: ארבעה צירים אינם ארבעה מוצרים. */
-        <ol className="border-t border-rule">
+        <ol className="grid gap-6 sm:grid-cols-2">
           {activities.map((activity, index) => (
-            <li key={activity.id} className="border-b border-rule py-8">
-              <div className="grid gap-4 sm:grid-cols-[3.5rem_1fr] sm:gap-8">
+            <li key={activity.id} className="card p-7">
+              <div className="flex gap-5">
                 <span
                   aria-hidden="true"
-                  className="flex h-12 w-12 items-center justify-center border border-rule text-gold-deep"
+                  className="icon-chip h-14 w-14"
                 >
                   {hasIcon(activity.icon) ? (
                     <Icon name={activity.icon} className="h-6 w-6" />

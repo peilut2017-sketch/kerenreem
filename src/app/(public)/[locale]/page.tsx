@@ -139,7 +139,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       {/* צירי הפעילות — רשימה ממוספרת. ארבעה צירים אינם ארבעה מוצרים,
           ולכן אין כאן כרטיסים עם אייקונים. */}
       {activities.length > 0 ? (
-        <section className="border-y border-rule bg-cream py-20 lg:py-24">
+        <section className="section-y">
           <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
             <header className="text-center">
               <p className="eyebrow">{t('home.activitiesLead')}</p>
@@ -152,16 +152,16 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             {/* האייקון כאן נושא מידע: הוא מבדיל בין ארבעת הצירים במבט אחד.
                 כשלציר אין אייקון מוגדר, המספר הסידורי תופס את מקומו — כך
                 שהעמודה השמאלית נשארת יציבה ולא נוצר חור בפריסה. */}
-            <ol className="mt-14 grid gap-x-12 gap-y-10 sm:grid-cols-2">
+            <ol className="mt-14 grid gap-6 sm:grid-cols-2">
               {activities.map((activity, index) => (
                 <Reveal as="li" key={activity.id} delay={index * 80}>
                   <Link
                     href={`/activities/${activity.slug}`}
-                    className="group flex h-full gap-5 border-t border-rule pt-7 focus-visible:outline-offset-4"
+                    className="card card-interactive group h-full flex-row gap-5 p-6 focus-visible:outline-offset-4"
                   >
                     <span
                       aria-hidden="true"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center border border-rule text-gold-deep transition-colors duration-300 group-hover:border-gold group-hover:bg-cream-2"
+                      className="icon-chip h-14 w-14 shrink-0"
                     >
                       {hasIcon(activity.icon) ? (
                         <Icon name={activity.icon} className="h-6 w-6" />

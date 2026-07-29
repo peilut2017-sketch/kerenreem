@@ -30,7 +30,7 @@ export function LocaleSwitch() {
           router.replace({ pathname, params }, { locale: target });
         });
       }}
-      className="text-small text-muted underline decoration-rule-strong underline-offset-4 transition-colors hover:text-burgundy"
+      className="rounded-[var(--radius-pill)] px-3 py-2 text-small font-semibold text-ink-soft transition-[background-color,color,transform] duration-300 hover:bg-white/70 hover:text-burgundy active:scale-95"
     >
       {t('switchToEnglish')}
     </button>

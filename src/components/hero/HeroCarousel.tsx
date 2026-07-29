@@ -1,12 +1,10 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import type { HeroSlide } from './types';
-
-const INTERVAL = 7000;
 
 /** מיפוי נקודת המיקוד למחלקת object-position. */
 const FOCAL_CLASS: Record<string, string> = {
@@ -18,34 +16,24 @@ const FOCAL_CLASS: Record<string, string> = {
 };
 
 /**
- * הקרוסלה הפותחת.
+ * אזור הפתיחה.
  *
- * התוכן אמיתי בלבד: הפרוסות נבנות מספר שפורסם, מאירוע ומציר פעילות —
- * לא מתמונות מלאי. פרוסה בלי תמונה מקבלת טיפול טיפוגרפי במקום ריבוע ריק.
+ * ההחלפה ידנית בלבד — אין סיבוב אוטומטי. מלבד היותה דרישת הבריף, זו גם
+ * ההתנהגות הנכונה: תוכן שמתחלף מעצמו גוזל שליטה מהמשתמש (WCAG 2.2.2),
+ * ומכריח קורא מסך להתמודד עם אזור חי שמשתנה באמצע קריאה. בלי סיבוב
+ * אוטומטי אין צורך בכפתור השהיה, והאזור מוכרז בבטחה בכל החלפה.
  *
- * נגישות (WCAG 2.2.2 — Pause, Stop, Hide): תוכן שמתחלף מעצמו חייב שליטה.
- * לכן יש כפתור השהיה, ההחלפה נעצרת במעבר עכבר ובמיקוד מקלדת, והיא כבויה
- * לחלוטין תחת prefers-reduced-motion. אזור החי מכריז על השקופית רק כשהוא
- * מושהה — הכרזה על תוכן שמתחלף לבדו מציפה קורא מסך.
+ * התוכן אמיתי בלבד: באנרים שהוגדרו בניהול, או ספר/אירוע/פעילות שפורסמו.
+ * אין תמונות מלאי ואין שקופיות דמה.
  */
 export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const t = useTranslations('hero');
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [manualPause, setManualPause] = useState(false);
   const regionRef = useRef<HTMLElement>(null);
   const id = useId();
 
   const count = slides.length;
   const go = useCallback((next: number) => setIndex(((next % count) + count) % count), [count]);
-
-  useEffect(() => {
-    if (count < 2 || paused || manualPause) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    const timer = window.setInterval(() => setIndex((current) => (current + 1) % count), INTERVAL);
-    return () => window.clearInterval(timer);
-  }, [count, paused, manualPause]);
 
   // חצים במקלדת כשהמיקוד בתוך הקרוסלה
   function onKeyDown(event: React.KeyboardEvent) {
@@ -69,31 +57,24 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       ref={regionRef}
       aria-roledescription="carousel"
       aria-label={t('label')}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
       onKeyDown={onKeyDown}
-      className="on-dark relative isolate overflow-hidden"
+      className="on-dark relative isolate mx-3 mt-3 overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mx-5"
     >
-      <div className="grid min-h-[30rem] lg:min-h-[34rem] lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)_minmax(0,1fr)]">
+      <div className="grid min-h-[32rem] lg:min-h-[38rem] lg:grid-cols-[minmax(0,1fr)_minmax(0,2.6fr)_minmax(0,1fr)]">
         {/* שכנה קודמת — נרמזת בלבד, מוסתרת מהנגישות כי היא כפילות */}
         <NeighbourPanel slide={previous} onClick={() => go(index - 1)} label={t('previous')} />
 
-        <div
-          aria-live={paused || manualPause ? 'polite' : 'off'}
-          aria-atomic="true"
-          className="relative"
-        >
+        {/* ההחלפה יזומה תמיד, ולכן בטוח להכריז עליה */}
+        <div aria-live="polite" aria-atomic="true" className="relative">
           <ActivePanel slide={active} position={index + 1} total={count} />
         </div>
 
         <NeighbourPanel slide={next} onClick={() => go(index + 1)} label={t('next')} />
       </div>
 
-      {/* פקדים */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex items-center justify-center gap-4">
-        <div className="pointer-events-auto flex items-center gap-2.5">
+      {/* פקדים בזכוכית — צפים מעל התמונה ולא נבלעים בה */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center">
+        <div className="glass-dark pointer-events-auto flex items-center gap-2.5 rounded-[var(--radius-pill)] px-4 py-2.5">
           {slides.map((slide, i) => (
             <button
               key={slide.id}
@@ -101,33 +82,12 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               onClick={() => go(i)}
               aria-label={t('goTo', { index: i + 1, title: slide.title })}
               aria-current={i === index ? 'true' : undefined}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === index ? 'w-7 bg-gold' : 'w-1.5 bg-white/45 hover:bg-white/70'
+              className={`h-1.5 rounded-full transition-all duration-500 ease-[var(--ease-spring)] ${
+                i === index ? 'w-8 bg-gold' : 'w-1.5 bg-white/50 hover:bg-white/80'
               }`}
             />
           ))}
         </div>
-
-        {count > 1 ? (
-          <button
-            type="button"
-            onClick={() => setManualPause((value) => !value)}
-            aria-pressed={manualPause}
-            className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full border border-white/30 text-white/80 transition-colors hover:border-gold hover:text-gold"
-            aria-label={manualPause ? t('play') : t('pause')}
-          >
-            {manualPause ? (
-              <svg viewBox="0 0 12 12" className="h-3 w-3" fill="currentColor" aria-hidden="true">
-                <path d="M3 1.5v9l7-4.5z" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 12 12" className="h-3 w-3" fill="currentColor" aria-hidden="true">
-                <rect x="3" y="2" width="2.5" height="8" />
-                <rect x="6.5" y="2" width="2.5" height="8" />
-              </svg>
-            )}
-          </button>
-        ) : null}
       </div>
 
       {/* חצים — מוצגים גם במובייל, שם אין שכנות ללחוץ עליהן */}
@@ -299,8 +259,8 @@ function ArrowButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`absolute top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center border border-white/25 text-white/80 backdrop-blur-[2px] transition-colors hover:border-gold hover:text-gold ${
-        side === 'start' ? 'start-3 lg:start-6' : 'end-3 lg:end-6'
+      className={`glass-dark absolute top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-[var(--radius-pill)] text-white/85 transition-[color,transform,box-shadow] duration-300 ease-[var(--ease-spring)] hover:scale-105 hover:text-gold active:scale-95 ${
+        side === 'start' ? 'start-3 lg:start-8' : 'end-3 lg:end-8'
       }`}
     >
       {/* החץ מצביע תמיד החוצה, אל צדו שלו. הצורה משורטטת ל-LTR ומתהפכת

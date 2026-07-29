@@ -18,7 +18,7 @@ export async function EventsRow({ events, locale }: { events: EventRecord[]; loc
   if (events.length === 0) return null;
 
   return (
-    <section className="bg-cream-2 py-20 lg:py-24">
+    <section className="section-y">
       <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -32,7 +32,9 @@ export async function EventsRow({ events, locale }: { events: EventRecord[]; loc
           </Link>
         </header>
 
-        <ul className="mt-12 grid gap-7 md:grid-cols-3">
+        {/* גובה אחיד לכל הכרטיסים: h-full על הקישור, ותוכן שנדחף
+            לתחתית ב-mt-auto. כרטיסים בגבהים שונים שוברים את השורה. */}
+        <ul className="mt-14 grid gap-6 md:grid-cols-3">
           {events.slice(0, 3).map((event, index) => {
             const date = parseDateOnly(event.event_date ?? '');
             const title = localized(event, 'title', locale);
@@ -41,7 +43,7 @@ export async function EventsRow({ events, locale }: { events: EventRecord[]; loc
               <Reveal as="li" key={event.id} delay={index * 90}>
                 <Link
                   href={`/events/${event.slug}`}
-                  className="group flex h-full flex-col border border-rule bg-cream transition-colors duration-300 hover:border-rule-strong focus-visible:outline-offset-4"
+                  className="card card-interactive group h-full focus-visible:outline-offset-4"
                 >
                   <div className="relative aspect-16/10 overflow-hidden bg-navy-2">
                     {event.cover_image_url ? (
@@ -50,7 +52,7 @@ export async function EventsRow({ events, locale }: { events: EventRecord[]; loc
                         alt=""
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                        className="object-cover transition-transform duration-[900ms] ease-[var(--ease-spring)] group-hover:scale-[1.06]"
                       />
                     ) : null}
 
@@ -58,7 +60,7 @@ export async function EventsRow({ events, locale }: { events: EventRecord[]; loc
                     {date ? (
                       <time
                         dateTime={toIsoDate(date)}
-                        className="absolute bottom-0 start-0 flex items-baseline gap-2 bg-cream/95 px-4 py-2.5 backdrop-blur-sm"
+                        className="glass absolute bottom-3 start-3 flex items-baseline gap-2 rounded-[var(--radius-sm)] px-3.5 py-2"
                       >
                         <span className="font-serif text-[1.75rem] leading-none tabular-nums text-ink">
                           {toHebrewDayMonth(date).split(' ')[0]}
@@ -71,7 +73,7 @@ export async function EventsRow({ events, locale }: { events: EventRecord[]; loc
                     ) : null}
                   </div>
 
-                  <div className="flex flex-1 flex-col p-5">
+                  <div className="flex flex-1 flex-col p-6">
                     <h3 className="font-serif text-h3 leading-snug text-ink transition-colors group-hover:text-burgundy">
                       {title}
                     </h3>

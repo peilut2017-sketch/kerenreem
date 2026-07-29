@@ -27,7 +27,7 @@ export async function FeaturedBooks({
   const leadTitle = localized(lead, 'title', locale);
 
   return (
-    <section className="bg-cream py-20 lg:py-24">
+    <section className="section-y">
       <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -43,11 +43,11 @@ export async function FeaturedBooks({
 
         <Ornament className="!justify-start" />
 
-        <div className="mt-12 grid gap-x-8 gap-y-12 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-x-14">
+        <div className="mt-14 grid gap-x-8 gap-y-12 lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)] lg:gap-x-16">
           {/* הכותר המוביל */}
           <Reveal>
             <Link href={`/books/${lead.slug}`} className="group block focus-visible:outline-offset-4">
-              <div className="bg-white p-7 shadow-[0_20px_50px_-32px_rgb(11_21_32_/_0.45)] transition-shadow duration-300 group-hover:shadow-[0_28px_60px_-30px_rgb(11_21_32_/_0.55)]">
+              <div className="card card-interactive p-8">
                 <div className="book-lift">
                   <BookCover
                     src={lead.cover_image_url}
@@ -74,16 +74,16 @@ export async function FeaturedBooks({
 
           {/* המדף */}
           {rest.length > 0 ? (
-            <ul className="grid grid-cols-2 gap-x-6 gap-y-10 self-center sm:grid-cols-3 xl:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-6 self-center sm:grid-cols-3 xl:grid-cols-4">
               {rest.map((book, index) => {
                 const title = localized(book, 'title', locale);
                 return (
                   <Reveal as="li" key={book.id} delay={index * 70}>
                     <Link
                       href={`/books/${book.slug}`}
-                      className="group block text-center focus-visible:outline-offset-4"
+                      className="card card-interactive group h-full items-center p-5 text-center focus-visible:outline-offset-4"
                     >
-                      <div className="book-lift">
+                      <div className="book-lift w-full">
                         <BookCover
                           src={book.cover_image_url}
                           title={title}

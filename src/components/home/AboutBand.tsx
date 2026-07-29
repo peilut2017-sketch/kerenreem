@@ -20,8 +20,9 @@ export async function AboutBand({
   const t = await getTranslations();
 
   return (
-    <section className="relative bg-cream-2">
-      <div className={`grid items-stretch ${imageUrl ? 'lg:grid-cols-2' : ''}`}>
+    <section className="section-y">
+      <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
+        <div className={`card overflow-hidden ${imageUrl ? 'lg:grid lg:grid-cols-2 lg:items-stretch' : ''}`}>
         {imageUrl ? (
           <div className="relative min-h-[16rem] lg:min-h-[30rem]">
             <Image
@@ -52,6 +53,7 @@ export async function AboutBand({
             </Link>
           </p>
         </Reveal>
+        </div>
       </div>
     </section>
   );

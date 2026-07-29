@@ -53,7 +53,7 @@ export function MobileNav({
         onClick={() => setOpenedFor(open ? null : pathname)}
         aria-expanded={open}
         aria-controls="mobile-nav-panel"
-        className="flex h-9 w-9 items-center justify-center text-ink"
+        className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] text-ink transition-[background-color,transform] duration-300 hover:bg-white/70 active:scale-95"
         aria-label={open ? closeLabel : openLabel}
       >
         {open ? (
@@ -71,9 +71,9 @@ export function MobileNav({
         <div
           id="mobile-nav-panel"
           ref={panelRef}
-          className="absolute inset-x-0 top-full z-40 border-b border-rule bg-cream shadow-[0_18px_40px_-24px_rgb(11_21_32_/_0.35)]"
+          className="glass absolute inset-x-0 top-[calc(100%+0.5rem)] z-40 rounded-[var(--radius-xl)]"
         >
-          <div className="mx-auto w-full max-w-[82rem] px-5 py-6 sm:px-8">
+          <div className="mx-auto w-full max-w-[82rem] px-5 py-6 sm:px-6">
             <form
               role="search"
               onSubmit={(event) => {
@@ -98,12 +98,12 @@ export function MobileNav({
             </form>
 
             <nav aria-label={openLabel}>
-              <ul className="divide-y divide-rule border-y border-rule">
+              <ul className="space-y-1">
                 {items.map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className="block py-3 font-serif text-[1.125rem] text-ink transition-colors hover:text-burgundy"
+                      className="block rounded-[var(--radius-sm)] px-3 py-3 font-serif text-[1.125rem] text-ink transition-[background-color,color] duration-300 hover:bg-white/70 hover:text-burgundy"
                     >
                       {item.label}
                     </Link>

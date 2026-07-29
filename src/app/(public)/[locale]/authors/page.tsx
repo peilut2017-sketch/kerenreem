@@ -39,7 +39,7 @@ export default async function AuthorsPage({ params }: { params: Promise<{ locale
       {authors.length === 0 ? (
         <p className="text-muted">{t('empty')}</p>
       ) : (
-        <ul className="border-t border-rule">
+        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {authors.map((author) => {
             const name = localized(author, 'name', locale);
             const years =
@@ -48,10 +48,10 @@ export default async function AuthorsPage({ params }: { params: Promise<{ locale
                 : null;
 
             return (
-              <li key={author.id} className="border-b border-rule">
+              <li key={author.id}>
                 <Link
                   href={`/authors/${author.slug}`}
-                  className="group flex items-center gap-5 py-5 focus-visible:outline-offset-4"
+                  className="card card-interactive group h-full flex-row items-center gap-5 p-6 focus-visible:outline-offset-4"
                 >
                   {author.portrait_url ? (
                     <Image
@@ -60,12 +60,12 @@ export default async function AuthorsPage({ params }: { params: Promise<{ locale
                       width={56}
                       height={72}
                       sizes="56px"
-                      className="h-18 w-14 shrink-0 border border-rule object-cover"
+                      className="h-20 w-16 shrink-0 rounded-[var(--radius-sm)] object-cover"
                     />
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="flex h-18 w-14 shrink-0 items-center justify-center border border-rule bg-cream-2 font-serif text-[1.25rem] text-rule-strong"
+                      className="icon-chip h-16 w-16 shrink-0 font-serif text-[1.375rem]"
                     >
                       {name.trim().charAt(0)}
                     </span>
