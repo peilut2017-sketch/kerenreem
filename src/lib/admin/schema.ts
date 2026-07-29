@@ -22,8 +22,17 @@ export interface EntitySpec {
   /** התפקיד המינימלי הנדרש לכתיבה */
   writeRole: UserRole;
   fields: FieldSpec[];
-  /** מסלולים ציבוריים לרענון אחרי שמירה */
-  revalidate: (record: Record<string, unknown>) => string[];
+  /**
+   * מסלולים ציבוריים לרענון אחרי שמירה, **כתבניות נתיב** ולא ככתובות ממשיות.
+   *
+   * revalidatePath מצפה לתבנית המסלול כפי שהיא בעץ הקבצים. העברת סלאג ממשי
+   * (למשל '/books/my-book') אינה זורקת שגיאה אבל גם אינה עושה דבר — הרענון
+   * נכשל בשקט והעמוד הציבורי נשאר ישן עד שפג ה-ISR. לכן כאן מופיע
+   * '/books/[slug]', שמרענן את כל עמודי הספרים.
+   *
+   * המחרוזת הריקה מייצגת את עמוד הבית (/[locale]).
+   */
+  revalidate: string[];
 }
 
 const f = (name: string, type: FieldType = 'text', required = false): FieldSpec => ({
@@ -64,7 +73,7 @@ export const ENTITIES = {
       f('is_published', 'boolean'),
       f('sort_order', 'number'),
     ],
-    revalidate: (record) => ['/books', `/books/${record.slug}`, '/'],
+    revalidate: ['/books', '/books/[slug]', ''],
   },
 
   authors: {
@@ -82,7 +91,7 @@ export const ENTITIES = {
       f('sort_order', 'number'),
       f('is_published', 'boolean'),
     ],
-    revalidate: (record) => ['/authors', `/authors/${record.slug}`],
+    revalidate: ['/authors', '/authors/[slug]'],
   },
 
   events: {
@@ -101,7 +110,7 @@ export const ENTITIES = {
       f('gallery', 'json'),
       f('is_published', 'boolean'),
     ],
-    revalidate: (record) => ['/events', `/events/${record.slug}`, '/'],
+    revalidate: ['/events', '/events/[slug]', ''],
   },
 
   activities: {
@@ -120,7 +129,7 @@ export const ENTITIES = {
       f('sort_order', 'number'),
       f('is_published', 'boolean'),
     ],
-    revalidate: (record) => ['/activities', `/activities/${record.slug}`, '/'],
+    revalidate: ['/activities', '/activities/[slug]', ''],
   },
 
   pages: {
@@ -134,14 +143,16 @@ export const ENTITIES = {
       f('body_en', 'html'),
       f('is_published', 'boolean'),
     ],
-    revalidate: (record) => [`/${record.slug}`, '/'],
+    // עמודי התוכן הם מסלולים סטטיים (/about, /terms...). 'home' אינו מסלול
+    // בפני עצמו אלא משפט הפתיחה בעמוד הבית, ולכן די ברענון השורש.
+    revalidate: ['/about', '/donate', '/terms', '/privacy', '/accessibility', ''],
   },
 
   categories: {
     table: 'categories',
     writeRole: 'editor',
     fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), f('sort_order', 'number')],
-    revalidate: () => ['/books'],
+    revalidate: ['/books', '/books/[slug]'],
   },
 } satisfies Record<string, EntitySpec>;
 

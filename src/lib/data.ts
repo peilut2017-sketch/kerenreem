@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { createStaticClient } from './supabase/server';
 import type {
   Activity,
@@ -304,7 +305,11 @@ const EMPTY_SETTINGS: SiteSettings = {
   updated_at: new Date(0).toISOString(),
 };
 
-export async function getSiteSettings(): Promise<SiteSettings> {
+/**
+ * ההגדרות נצרכות ב-layout (כותרת עליונה ותחתונה) וגם בכמה עמודים באותה
+ * בקשה. cache() מונע שאילתה חוזרת לכל צרכן.
+ */
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   const supabase = createStaticClient();
   if (!supabase) return EMPTY_SETTINGS;
 
@@ -312,4 +317,4 @@ export async function getSiteSettings(): Promise<SiteSettings> {
 
   warn('getSiteSettings', error);
   return (data as SiteSettings | null) ?? EMPTY_SETTINGS;
-}
+});

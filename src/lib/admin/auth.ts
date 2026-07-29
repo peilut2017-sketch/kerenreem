@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { Profile, UserRole } from '@/lib/supabase/types';
@@ -44,7 +45,13 @@ export function hasRole(role: UserRole, minimum: UserRole): boolean {
  * מכוונת: proxy אפשר לעקוף בקריאה ישירה ל-Server Action, ולכן ההרשאה
  * נבדקת גם בנקודת השימוש.
  */
-export async function getAdminSessionResult(): Promise<AdminSessionResult> {
+/**
+ * עטוף ב-cache() של React: הפונקציה נקראת גם ב-layout וגם בכל page, ובלי
+ * דה-דופליקציה כל טעינת מסך ניהול הייתה מבצעת שתי קריאות רשת ל-Supabase
+ * Auth ושתי שאילתות profiles — לפני שנשלף ולו נתון תוכן אחד. cache מצמצם
+ * את כולן לקריאה אחת לכל בקשה.
+ */
+export const getAdminSessionResult = cache(async (): Promise<AdminSessionResult> => {
   const supabase = await createClient();
   if (!supabase) return { status: 'not-configured' };
 
@@ -75,7 +82,7 @@ export async function getAdminSessionResult(): Promise<AdminSessionResult> {
     status: 'ok',
     session: { userId: user.id, email: user.email ?? null, profile: profile as Profile },
   };
-}
+});
 
 /** גרסה מקוצרת לשימוש היכן שרק ההצלחה מעניינת. */
 export async function getAdminSession(): Promise<AdminSession | null> {

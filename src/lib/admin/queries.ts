@@ -22,13 +22,55 @@ async function client() {
   return supabase;
 }
 
-export async function listBooks(): Promise<(Book & { author: Pick<Author, 'name_he'> | null })[]> {
+type BookRow = Book & { author: Pick<Author, 'name_he'> | null };
+
+export async function listBooks(): Promise<BookRow[]> {
   const supabase = await client();
   const { data } = await supabase
     .from('books')
     .select('*, author:authors ( name_he )')
     .order('updated_at', { ascending: false });
-  return (data as (Book & { author: Pick<Author, 'name_he'> | null })[] | null) ?? [];
+  return (data as BookRow[] | null) ?? [];
+}
+
+/**
+ * שליפות ייעודיות לדשבורד.
+ *
+ * קודם לכן הדשבורד שלף את *כל* הספרים ואת *כל* האירועים רק כדי להציג חמש
+ * שורות מכל אחד. בקטלוג של מאות כותרים זו העברת נתונים מיותרת בכל טעינה.
+ */
+export async function listRecentBooks(limit = 5): Promise<BookRow[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('books')
+    .select('id, title_he, is_published, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+  return (data as BookRow[] | null) ?? [];
+}
+
+export async function listDraftBooks(limit = 5): Promise<BookRow[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('books')
+    .select('id, title_he, is_published, updated_at')
+    .eq('is_published', false)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+  return (data as BookRow[] | null) ?? [];
+}
+
+export async function listUpcomingEvents(limit = 5): Promise<EventRecord[]> {
+  const supabase = await client();
+  const today = new Date();
+  today.setDate(today.getDate() - 1);
+  const { data } = await supabase
+    .from('events')
+    .select('id, title_he, event_date, event_date_he, is_published')
+    .gte('event_date', today.toISOString().slice(0, 10))
+    .order('event_date', { ascending: true })
+    .limit(limit);
+  return (data as EventRecord[] | null) ?? [];
 }
 
 export async function getBook(id: string): Promise<Book | null> {

@@ -41,11 +41,48 @@ function coerce(spec: FieldSpec, raw: FormDataEntryValue | null): unknown {
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/** רענון העמודים הציבוריים שנוגעים לישות. כשל כאן לא אמור להפיל שמירה. */
+function revalidateEntity(entityKey: EntityKey) {
+  const entity = ENTITIES[entityKey];
+  try {
+    for (const path of entity.revalidate) {
+      revalidatePath(`/[locale]${path}`, 'page');
+    }
+    revalidatePath(`/admin/${entityKey}`);
+  } catch (error) {
+    console.error('[admin:revalidate]', error);
+  }
+}
+
+/**
+ * תיעוד הפעולה ב-audit_log.
+ *
+ * best-effort במכוון: אם הטבלה חסומה או חסרה, זו אינה סיבה להכשיל שמירה
+ * שכבר הצליחה. הכשל נרשם לקונסול כדי שלא ייעלם בשקט.
+ */
+async function writeAudit(
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+  userId: string,
+  action: 'insert' | 'update' | 'delete',
+  table: string,
+  recordId: string | null,
+) {
+  const { error } = await supabase
+    .from('audit_log')
+    .insert({ user_id: userId, action, table_name: table, record_id: recordId });
+
+  if (error) console.error('[admin:audit]', error.code, error.message);
+}
+
 /**
  * שמירת רשומה — יצירה כשאין id, עדכון כשיש.
  *
  * ההרשאה נבדקת פעמיים: כאן לפי התפקיד, ושוב במסד עצמו דרך RLS. גם אם
  * מישהו יקרא ל-Server Action ישירות, המדיניות במסד עוצרת אותו.
+ *
+ * כל גוף הפעולה עטוף ב-try/catch שמחזיר את השגיאה כמצב טופס. בלעדיו כל
+ * חריגה בלתי צפויה מפילה את ה-Server Action, והמשתמש רואה מסך שגיאה
+ * גנרי של השרת בלי שום רמז מה השתבש.
  */
 export async function saveEntity(
   entityKey: string,
@@ -53,126 +90,157 @@ export async function saveEntity(
   _prev: SaveState,
   formData: FormData,
 ): Promise<SaveState> {
-  if (!isEntityKey(entityKey)) return { status: 'error', message: 'ישות לא מוכרת' };
+  let redirectTo: string | null = null;
 
-  const entity = ENTITIES[entityKey as EntityKey];
-  const session = await assertRole(entity.writeRole);
-  if ('error' in session) return { status: 'error', message: session.error };
+  try {
+    if (!isEntityKey(entityKey)) return { status: 'error', message: 'ישות לא מוכרת' };
 
-  const supabase = await createClient();
-  if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };
+    const entity = ENTITIES[entityKey as EntityKey];
+    const session = await assertRole(entity.writeRole);
+    if ('error' in session) return { status: 'error', message: session.error };
 
-  const payload: Record<string, unknown> = {};
-  const fieldErrors: Record<string, string> = {};
+    const supabase = await createClient();
+    if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };
 
-  for (const spec of entity.fields) {
-    // צ'ק־בוקס שלא סומן אינו נשלח כלל; חייבים לכתוב false במפורש.
-    const raw = formData.has(spec.name) ? formData.get(spec.name) : null;
-    const value = coerce(spec, raw);
+    const payload: Record<string, unknown> = {};
+    const fieldErrors: Record<string, string> = {};
 
-    if (spec.required && (value === null || value === '')) {
-      fieldErrors[spec.name] = 'שדה חובה';
-      continue;
+    for (const spec of entity.fields) {
+      // צ'ק־בוקס שלא סומן אינו נשלח כלל; חייבים לכתוב false במפורש.
+      const raw = formData.has(spec.name) ? formData.get(spec.name) : null;
+      const value = coerce(spec, raw);
+
+      if (spec.required && (value === null || value === '')) {
+        fieldErrors[spec.name] = 'שדה חובה';
+        continue;
+      }
+      payload[spec.name] = value;
     }
-    payload[spec.name] = value;
-  }
 
-  if (typeof payload.slug === 'string' && !SLUG_PATTERN.test(payload.slug)) {
-    fieldErrors.slug = 'מזהה כתובת: אותיות לטיניות קטנות, ספרות ומקפים בלבד';
-  }
+    if (typeof payload.slug === 'string' && !SLUG_PATTERN.test(payload.slug)) {
+      fieldErrors.slug = 'מזהה כתובת: אותיות לטיניות קטנות, ספרות ומקפים בלבד';
+    }
 
-  if (Object.keys(fieldErrors).length > 0) {
-    return { status: 'error', message: 'יש שדות שדורשים תיקון', fieldErrors };
-  }
+    if (Object.keys(fieldErrors).length > 0) {
+      return { status: 'error', message: 'יש שדות שדורשים תיקון', fieldErrors };
+    }
 
-  const result = id
-    ? await supabase.from(entity.table).update(payload).eq('id', id).select('id, slug').maybeSingle()
-    : await supabase.from(entity.table).insert(payload).select('id, slug').maybeSingle();
+    const result = id
+      ? await supabase.from(entity.table).update(payload).eq('id', id).select('id, slug').maybeSingle()
+      : await supabase.from(entity.table).insert(payload).select('id, slug').maybeSingle();
 
-  if (result.error) {
-    const duplicate = result.error.code === '23505';
+    if (result.error) {
+      console.error('[admin:save]', entity.table, result.error.code, result.error.message);
+      return { status: 'error', ...describeDbError(result.error) };
+    }
+
+    // update שלא פגע באף שורה: RLS סינן אותה, או שה-id אינו קיים.
+    if (id && !result.data) {
+      return {
+        status: 'error',
+        message: 'העדכון לא נשמר: הרשומה לא נמצאה או שאין לך הרשאה לערוך אותה.',
+      };
+    }
+
+    await writeAudit(supabase, session.userId, id ? 'update' : 'insert', entity.table, result.data?.id ?? null);
+    revalidateEntity(entityKey as EntityKey);
+
+    if (!id && result.data?.id) redirectTo = `/admin/${entityKey}/${result.data.id}?created=1`;
+  } catch (error) {
+    console.error('[admin:save] חריגה לא צפויה', error);
     return {
       status: 'error',
-      message: duplicate ? 'מזהה הכתובת (slug) כבר קיים' : `השמירה נכשלה: ${result.error.message}`,
-      fieldErrors: duplicate ? { slug: 'כבר קיים' } : undefined,
+      message: `השמירה נכשלה: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 
-  await supabase.from('audit_log').insert({
-    user_id: session.userId,
-    action: id ? 'update' : 'insert',
-    table_name: entity.table,
-    record_id: result.data?.id ?? null,
-  });
-
-  for (const path of entity.revalidate(payload)) {
-    revalidatePath(`/[locale]${path === '/' ? '' : path}`, 'page');
-  }
-  revalidatePath(`/admin/${entityKey}`);
-
-  if (!id && result.data?.id) {
-    redirect(`/admin/${entityKey}/${result.data.id}?created=1`);
-  }
+  // redirect זורק NEXT_REDIRECT ולכן חייב להיות מחוץ ל-try — אחרת ה-catch
+  // יבלע אותו וההפניה לא תתרחש.
+  if (redirectTo) redirect(redirectTo);
 
   return { status: 'saved' };
 }
 
+/** תרגום שגיאות Postgres נפוצות להודעה שאפשר לפעול לפיה. */
+function describeDbError(error: { code?: string; message: string }): {
+  message: string;
+  fieldErrors?: Record<string, string>;
+} {
+  switch (error.code) {
+    case '23505':
+      return { message: 'מזהה הכתובת (slug) כבר קיים', fieldErrors: { slug: 'כבר קיים' } };
+    case '23503':
+      return { message: 'אחד השדות מפנה לרשומה שאינה קיימת (מחבר או קטגוריה שנמחקו).' };
+    case '23514':
+      return { message: 'אחד הערכים אינו עומד בכללי המסד. בדקו אורך שדות וערכים מספריים.' };
+    case '42501':
+      return {
+        message:
+          'אין הרשאת כתיבה לטבלה. אם הרצתם drop schema public — יש להריץ את supabase/06_restore_grants.sql.',
+      };
+    case '42P01':
+      return { message: 'הטבלה אינה קיימת במסד. ודאו שקובצי הסכימה הורצו במלואם.' };
+    default:
+      return { message: `השמירה נכשלה: ${error.message}` };
+  }
+}
+
 export async function deleteEntity(entityKey: string, id: string): Promise<void> {
-  if (!isEntityKey(entityKey)) return;
+  let done = false;
 
-  const entity = ENTITIES[entityKey as EntityKey];
-  const session = await assertRole(entity.writeRole);
-  if ('error' in session) return;
+  try {
+    if (!isEntityKey(entityKey)) return;
 
-  const supabase = await createClient();
-  if (!supabase) return;
+    const entity = ENTITIES[entityKey as EntityKey];
+    const session = await assertRole(entity.writeRole);
+    if ('error' in session) return;
 
-  const { error } = await supabase.from(entity.table).delete().eq('id', id);
-  if (error) {
-    console.error('[admin:delete]', error);
+    const supabase = await createClient();
+    if (!supabase) return;
+
+    const { error } = await supabase.from(entity.table).delete().eq('id', id);
+    if (error) {
+      console.error('[admin:delete]', error.code, error.message);
+      return;
+    }
+
+    await writeAudit(supabase, session.userId, 'delete', entity.table, id);
+    revalidateEntity(entityKey as EntityKey);
+    done = true;
+  } catch (error) {
+    console.error('[admin:delete] חריגה לא צפויה', error);
     return;
   }
 
-  await supabase.from('audit_log').insert({
-    user_id: session.userId,
-    action: 'delete',
-    table_name: entity.table,
-    record_id: id,
-  });
-
-  revalidatePath(`/admin/${entityKey}`);
-  redirect(`/admin/${entityKey}`);
+  if (done) redirect(`/admin/${entityKey}`);
 }
 
 /** החלפת מצב פרסום ישירות מטבלת הרשימה. */
-export async function togglePublished(
-  entityKey: string,
-  id: string,
-  next: boolean,
-): Promise<void> {
-  if (!isEntityKey(entityKey)) return;
+export async function togglePublished(entityKey: string, id: string, next: boolean): Promise<void> {
+  try {
+    if (!isEntityKey(entityKey)) return;
 
-  const entity = ENTITIES[entityKey as EntityKey];
-  const session = await assertRole(entity.writeRole);
-  if ('error' in session) return;
+    const entity = ENTITIES[entityKey as EntityKey];
+    const session = await assertRole(entity.writeRole);
+    if ('error' in session) return;
 
-  const supabase = await createClient();
-  if (!supabase) return;
+    const supabase = await createClient();
+    if (!supabase) return;
 
-  const { data, error } = await supabase
-    .from(entity.table)
-    .update({ is_published: next })
-    .eq('id', id)
-    .select('slug')
-    .maybeSingle();
+    const { error } = await supabase
+      .from(entity.table)
+      .update({ is_published: next })
+      .eq('id', id)
+      .select('slug')
+      .maybeSingle();
 
-  if (error) {
-    console.error('[admin:publish]', error);
-    return;
+    if (error) {
+      console.error('[admin:publish]', error.code, error.message);
+      return;
+    }
+
+    revalidateEntity(entityKey as EntityKey);
+  } catch (error) {
+    console.error('[admin:publish] חריגה לא צפויה', error);
   }
-
-  for (const path of entity.revalidate(data ?? {})) {
-    revalidatePath(`/[locale]${path === '/' ? '' : path}`, 'page');
-  }
-  revalidatePath(`/admin/${entityKey}`);
 }

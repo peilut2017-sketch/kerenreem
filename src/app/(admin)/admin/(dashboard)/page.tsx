@@ -1,8 +1,13 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
-import { getDashboardCounts, listBooks, listEventsAdmin } from '@/lib/admin/queries';
+import {
+  getDashboardCounts,
+  listDraftBooks,
+  listRecentBooks,
+  listUpcomingEvents,
+} from '@/lib/admin/queries';
 import { AdminHeader, PublishBadge } from '@/components/admin/AdminList';
-import { formatDate, isUpcoming, parseDateOnly } from '@/lib/hebrew-date';
+import { formatDate, parseDateOnly } from '@/lib/hebrew-date';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,20 +18,13 @@ export default async function AdminDashboard({
 }) {
   const [session, { denied }] = await Promise.all([requireRole('viewer'), searchParams]);
 
-  const [counts, books, events] = await Promise.all([
+  // חמש שאילתות מצומצמות במקביל, במקום שליפה של הקטלוג ולוח האירועים כולם.
+  const [counts, recent, drafts, upcoming] = await Promise.all([
     getDashboardCounts(),
-    listBooks(),
-    listEventsAdmin(),
+    listRecentBooks(),
+    listDraftBooks(),
+    listUpcomingEvents(),
   ]);
-
-  const drafts = books.filter((book) => !book.is_published).slice(0, 5);
-  const recent = books.slice(0, 5);
-  const upcoming = events
-    .filter((event) => {
-      const date = parseDateOnly(event.event_date ?? '');
-      return date ? isUpcoming(date) : false;
-    })
-    .slice(0, 5);
 
   const stats = [
     { label: 'ספרים בקטלוג', value: counts.books, href: '/admin/books' },
