@@ -15,6 +15,14 @@ export interface FieldSpec {
   type: FieldType;
   /** שדה חובה — נבדק בשרת, לא רק ב-HTML */
   required?: boolean;
+  /**
+   * להשמיט מה-payload כשהערך ריק, במקום לכתוב null.
+   *
+   * נדרש לעמודות not null שיש להן default: ברירת המחדל חלה רק כשהעמודה
+   * מושמטת מה-INSERT. שליחת null מפורש דוחה אותה ומפילה את השמירה ב-23502,
+   * ולכן שדה רשות כזה היה נכשל בדיוק כשמשאירים אותו ריק — המצב הנפוץ.
+   */
+  omitWhenEmpty?: boolean;
 }
 
 export interface EntitySpec {
@@ -35,11 +43,15 @@ export interface EntitySpec {
   revalidate: string[];
 }
 
-const f = (name: string, type: FieldType = 'text', required = false): FieldSpec => ({
-  name,
-  type,
-  required,
-});
+const f = (
+  name: string,
+  type: FieldType = 'text',
+  required = false,
+  omitWhenEmpty = false,
+): FieldSpec => ({ name, type, required, omitWhenEmpty });
+
+/** שדה רשות שמגובה בעמודת not null עם default. */
+const fd = (name: string, type: FieldType = 'text'): FieldSpec => f(name, type, false, true);
 
 export const ENTITIES = {
   books: {
@@ -71,7 +83,7 @@ export const ENTITIES = {
       f('is_purchasable', 'boolean'),
       f('weight_grams', 'number'),
       f('is_published', 'boolean'),
-      f('sort_order', 'number'),
+      fd('sort_order', 'number'),
     ],
     // ספר מופיע גם במסכי המחברים: עמוד המחבר מציג את ספריו, ומדד הספרים
     // ברשימת המחברים נספר מהם. בלי שני אלה ספר חדש נראה בקטלוג אבל לא
@@ -91,7 +103,7 @@ export const ENTITIES = {
       f('portrait_url'),
       f('birth_year'),
       f('death_year'),
-      f('sort_order', 'number'),
+      fd('sort_order', 'number'),
       f('is_published', 'boolean'),
     ],
     // שם המחבר מוצג גם בעמוד הספר, בכרטיסי הקטלוג ובספרים המומלצים בדף
@@ -113,7 +125,7 @@ export const ENTITIES = {
       f('body_en', 'html'),
       f('cover_image_url'),
       f('featured_video_url'),
-      f('gallery', 'json'),
+      fd('gallery', 'json'),
       f('is_published', 'boolean'),
     ],
     revalidate: ['/events', '/events/[slug]', ''],
@@ -132,7 +144,7 @@ export const ENTITIES = {
       f('body_en', 'html'),
       f('icon'),
       f('cover_image_url'),
-      f('sort_order', 'number'),
+      fd('sort_order', 'number'),
       f('is_published', 'boolean'),
     ],
     revalidate: ['/activities', '/activities/[slug]', ''],
@@ -164,12 +176,12 @@ export const ENTITIES = {
       f('subtitle_en'),
       f('image_url'),
       f('image_mobile_url'),
-      f('focal_point'),
+      fd('focal_point'),
       f('link_url'),
       f('cta_label_he'),
       f('cta_label_en'),
       f('is_published', 'boolean'),
-      f('sort_order', 'number'),
+      fd('sort_order', 'number'),
       f('starts_at', 'text'),
       f('ends_at', 'text'),
     ],
@@ -179,7 +191,7 @@ export const ENTITIES = {
   categories: {
     table: 'categories',
     writeRole: 'editor',
-    fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), f('sort_order', 'number')],
+    fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), fd('sort_order', 'number')],
     // הרשימה נגזרת מהשאילתות ולא ממה שמוצג בפועל, ולכן היא רחבה מהנדרש:
     // הקטגוריה מצורפת לכל שליפת ספרים גם במסלולים שאינם מציגים את שמה.
     // רענון תבנית מסלול הוא זול, ובחירה ברשימה מדויקת הייתה מחייבת רשימת

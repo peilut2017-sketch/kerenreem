@@ -114,6 +114,12 @@ export async function saveEntity(
         fieldErrors[spec.name] = 'שדה חובה';
         continue;
       }
+
+      // עמודת not null עם default: השמטה מותירה למסד למלא, שליחת null
+      // מפורש נדחית ב-23502. בעדכון המשמעות היא "אל תיגע", וזו ההתנהגות
+      // הנכונה — עמודה שאינה מקבלת null ממילא אי אפשר לרוקן.
+      if (value === null && spec.omitWhenEmpty) continue;
+
       payload[spec.name] = value;
     }
 
@@ -125,13 +131,16 @@ export async function saveEntity(
       return { status: 'error', message: 'יש שדות שדורשים תיקון', fieldErrors };
     }
 
+    // רק id. הקוד הזה משרת את כל הישויות, ולכן אסור לו לנקוב בעמודה
+    // שקיימת רק בחלקן: בקשת slug הפילה כל שמירת באנר ב-42703, כי לבאנרים
+    // אין מזהה כתובת. ה-slug גם לא נקרא כאן מעולם.
     const result = id
-      ? await supabase.from(entity.table).update(payload).eq('id', id).select('id, slug').maybeSingle()
-      : await supabase.from(entity.table).insert(payload).select('id, slug').maybeSingle();
+      ? await supabase.from(entity.table).update(payload).eq('id', id).select('id').maybeSingle()
+      : await supabase.from(entity.table).insert(payload).select('id').maybeSingle();
 
     if (result.error) {
       console.error('[admin:save]', entity.table, result.error.code, result.error.message);
-      return { status: 'error', ...describeDbError(result.error) };
+      return { status: 'error', ...describeDbError(result.error, entity) };
     }
 
     // update שלא פגע באף שורה: RLS סינן אותה, או שה-id אינו קיים.
@@ -161,14 +170,30 @@ export async function saveEntity(
   return { status: 'saved' };
 }
 
-/** תרגום שגיאות Postgres נפוצות להודעה שאפשר לפעול לפיה. */
-function describeDbError(error: { code?: string; message: string }): {
+/**
+ * תרגום שגיאות Postgres נפוצות להודעה שאפשר לפעול לפיה.
+ *
+ * מקבל את הישות משום ששגיאת כפילות אינה בהכרח על ה-slug: לא לכל ישות יש
+ * מזהה כתובת, ותלייה של השגיאה בשדה שאינו קיים בטופס מסתירה אותה לגמרי.
+ */
+function describeDbError(
+  error: { code?: string; message: string },
+  entity?: { fields: FieldSpec[] },
+): {
   message: string;
   fieldErrors?: Record<string, string>;
 } {
+  const hasSlug = entity?.fields.some((field) => field.name === 'slug') ?? true;
+
   switch (error.code) {
     case '23505':
-      return { message: 'מזהה הכתובת (slug) כבר קיים', fieldErrors: { slug: 'כבר קיים' } };
+      return hasSlug
+        ? { message: 'מזהה הכתובת (slug) כבר קיים', fieldErrors: { slug: 'כבר קיים' } }
+        : { message: `ערך כפול: ${error.message}` };
+    case '42703':
+      return {
+        message: `שדה שאינו קיים במסד: ${error.message}. ודאו שכל קובצי ה-SQL הורצו לפי הסדר.`,
+      };
     case '23503':
       return { message: 'אחד השדות מפנה לרשומה שאינה קיימת (מחבר או קטגוריה שנמחקו).' };
     case '23514':
@@ -227,11 +252,18 @@ export async function togglePublished(entityKey: string, id: string, next: boole
     const supabase = await createClient();
     if (!supabase) return;
 
+    // לא לכל ישות יש מצב פרסום — קטגוריה היא סיווג ולא תוכן. בלי הבדיקה
+    // הזו הקריאה הייתה מגיעה למסד ונכשלת ב-42703 על עמודה שאינה קיימת.
+    if (!entity.fields.some((field) => field.name === 'is_published')) {
+      console.error('[admin:publish] אין מצב פרסום לישות', entityKey);
+      return;
+    }
+
     const { error } = await supabase
       .from(entity.table)
       .update({ is_published: next })
       .eq('id', id)
-      .select('slug')
+      .select('id')
       .maybeSingle();
 
     if (error) {
