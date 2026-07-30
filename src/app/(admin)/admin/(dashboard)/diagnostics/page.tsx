@@ -240,7 +240,10 @@ export default async function DiagnosticsPage() {
           'slug, tags:book_tags ( tag:tags ( id ) ), attributeValues:book_attributes ( value_id )',
         )
         .eq('is_published', true),
-      anon.from('books').select('slug, author:authors(id), category:categories(id)').eq('is_published', true),
+      anon
+        .from('books')
+        .select('slug, author:authors(id), category:categories!books_category_id_fkey(id)')
+        .eq('is_published', true),
     ]);
 
     publicChecks.push({

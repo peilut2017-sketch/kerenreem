@@ -37,10 +37,24 @@ import type {
  * טבלה אופציונלית לא אמורה להפיל את התוכן המרכזי, ולכן יש נפילה אחורה
  * לשליפה הבסיסית.
  */
+/**
+ * category:categories!books_category_id_fkey — לא category:categories סתם.
+ *
+ * מאז שנוספה book_categories (הקטגוריות הנוספות, 08_pim_stage_a.sql) יש
+ * שני מסלולי קשר בין books ל-categories: העמודה הישירה category_id, וגם
+ * המסלול דרך book_categories. PostgREST מזהה את שניהם כ"קשר בין books
+ * ל-categories" ולא יכול לנחש איזה מהם מתכוונים אליו ב-category:categories
+ * הרגיל — הוא נכשל עם PGRST201 ("more than one relationship was found").
+ *
+ * זו הייתה הסיבה שהקטלוג הציג אפס ספרים אחרי הרצת 08_pim_stage_a.sql:
+ * getBooks() בולעת שגיאות שאינן "טבלה חסרה" ומחזירה מערך ריק בשקט, כך
+ * שה-PGRST201 הזה מעולם לא הגיע ליומן שמישהו רואה. שם האילוץ המפורש
+ * מכריח את PostgREST להשתמש בעמודה הישירה, ומסיר את העמימות.
+ */
 const BOOK_BASE_SELECT = `
   *,
   author:authors ( id, slug, name_he, name_en ),
-  category:categories ( id, slug, name_he, name_en )
+  category:categories!books_category_id_fkey ( id, slug, name_he, name_en )
 `;
 
 const BOOK_SELECT = `
