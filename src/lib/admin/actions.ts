@@ -79,6 +79,35 @@ function revalidateEntity(entityKey: EntityKey) {
 }
 
 /**
+ * רענון ידני של כל האתר הציבורי.
+ *
+ * כל העמודים הציבוריים נבנים עם revalidate = 3600 (ISR): התוכן מוגש
+ * ממטמון עד שעה, ומתרענן אוטומטית בכל שמירה דרך הטופס. אבל שמירה שלא
+ * עברה דרך הטופס — למשל שורה שנוספה ישירות ב-SQL Editor — לא קוראת
+ * ל-revalidatePath בכלל, ואז המטמון לא יודע שיש מה לרענן. הפעולה הזו
+ * היא הדרך לכפות רענון בלי לחכות לפקיעת השעה ובלי לגעת בקוד.
+ *
+ * revalidatePath עם type 'layout' על שורש קבוצת השפה מרענן את כל מה
+ * שנמצא תחתיו — כל העמודים הציבוריים בבת אחת — ולא רק מסלול בודד.
+ */
+export async function revalidateAllPublicPages(): Promise<ActionResult> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return session;
+
+    revalidatePath('/[locale]', 'layout');
+    for (const entityKey of Object.keys(ENTITIES) as EntityKey[]) {
+      revalidateEntity(entityKey);
+    }
+
+    return {};
+  } catch (error) {
+    console.error('[admin:revalidateAll] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
  * תיעוד הפעולה ב-audit_log.
  *
  * best-effort במכוון: אם הטבלה חסומה או חסרה, זו אינה סיבה להכשיל שמירה

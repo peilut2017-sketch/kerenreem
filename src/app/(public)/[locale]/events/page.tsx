@@ -11,7 +11,18 @@ import { htmlToPlainText } from '@/lib/html-text';
 import { isUpcoming, parseDateOnly } from '@/lib/hebrew-date';
 import type { EventRecord } from '@/lib/supabase/types';
 
-export const revalidate = 3600;
+/**
+ * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
+ *
+ * נמדד ישירות: קריאה ל-revalidatePath, גם מ-Server Action וגם מ-Route
+ * Handler, סימנה את המטמון לרענון אך לא שינתה בפועל את מה שמוגש לבקשה
+ * הבאה מדפדפן חדש — נבדק עם Next.js 16.2.12 ובנייה עם Turbopack, שוב
+ * ושוב, כולל אחרי המתנה ובקשות חוזרות. יתכן שזו התנהגות שונה בפריסה
+ * אמיתית (Vercel), אבל אי אפשר להסתמך על זה בלי דרך לאמת. חלון של דקה
+ * מבטיח שתוכן חדש יופיע גם אם הרענון היזום אינו פועל בפועל, ועדיין
+ * שומר על מרבית התועלת של מטמון קצה עבור תעבורה אמיתית.
+ */
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,

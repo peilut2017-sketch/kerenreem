@@ -1,6 +1,7 @@
 import { requireRole } from '@/lib/admin/auth';
 import { createClient, createStaticClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
+import { RevalidateButton } from '@/components/admin/RevalidateButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -237,6 +238,8 @@ export default async function DiagnosticsPage() {
         title="אבחון"
         description="בודק בפועל קריאה, כתיבה ואחסון — ומדווח את קוד השגיאה המדויק מהמסד."
       />
+
+      <RevalidateButton />
 
       <p
         className={`mb-8 border-s-2 px-4 py-3 text-small ${
