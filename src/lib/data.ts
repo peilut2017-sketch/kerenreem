@@ -49,32 +49,33 @@ const BOOK_SELECT = `
   attributeValues:book_attributes ( value:attribute_values ( id, slug, name_he, attribute_id ) )
 `;
 
-/** האם כבר ידוע שהטבלאות החדשות חסרות — כדי לא לנסות שוב בכל שליפה. */
-let pimTablesMissing = false;
-
 /**
  * מריץ שליפת ספרים עם ההצטרפות המלאה, ונופל לבסיסית כשהיא אינה אפשרית.
  * 42P01 = הטבלה אינה קיימת, PGRST200 = הקשר אינו מוכר ל-PostgREST.
+ *
+ * הניסיון המלא נעשה מחדש בכל קריאה, בלי "לזכור" כשל קודם. גרסה מוקדמת
+ * שמרה דגל ברמת המודול (pimTablesMissing) כדי לחסוך ניסיון חוזר — אבל
+ * מודול בשרת נטען פעם אחת לתהליך, ותהליך חם ממשיך לשרת בקשות רבות. אם
+ * הבקשה הראשונה על תהליך נתון נתקלה בטבלה חסרה, הדגל ננעל על true
+ * לצמיתות עבור אותו תהליך, גם אחרי שהטבלאות נוצרו — והקטלוג ממשיך
+ * להיראות כאילו אין לו תגיות אף שהן קיימות. עלות הניסיון החוזר זניחה.
  */
 async function runBookQuery<T>(
   build: (select: string) => PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>,
   scope: string,
 ): Promise<T[]> {
-  if (!pimTablesMissing) {
-    const full = await build(BOOK_SELECT);
-    if (!full.error) return shapeBooks(full.data) as T[];
+  const full = await build(BOOK_SELECT);
+  if (!full.error) return shapeBooks(full.data) as T[];
 
-    if (full.error.code !== '42P01' && full.error.code !== 'PGRST200') {
-      warn(scope, full.error);
-      return [];
-    }
-
-    console.warn(
-      `[data:${scope}] טבלאות התגיות והמאפיינים חסרות — יש להריץ את supabase/08_pim_stage_a.sql. ` +
-        'הקטלוג מוגש בינתיים בלעדיהן.',
-    );
-    pimTablesMissing = true;
+  if (full.error.code !== '42P01' && full.error.code !== 'PGRST200') {
+    warn(scope, full.error);
+    return [];
   }
+
+  console.warn(
+    `[data:${scope}] טבלאות התגיות והמאפיינים חסרות — יש להריץ את supabase/08_pim_stage_a.sql. ` +
+      'הקטלוג מוגש בינתיים בלעדיהן.',
+  );
 
   const base = await build(BOOK_BASE_SELECT);
   warn(scope, base.error);

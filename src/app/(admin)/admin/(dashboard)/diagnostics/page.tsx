@@ -1,5 +1,6 @@
 import { requireRole } from '@/lib/admin/auth';
 import { createClient, createStaticClient } from '@/lib/supabase/server';
+import { getBooks } from '@/lib/data';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { RevalidateButton } from '@/components/admin/RevalidateButton';
 
@@ -192,26 +193,30 @@ export default async function DiagnosticsPage() {
       });
     }
 
-    // ההצטרפות שהאתר הציבורי משתמש בה, דרך אותו לקוח בדיוק
-    const joined = await anon
-      .from('books')
-      .select(
-        'id, slug, title_he, tags:book_tags ( tag:tags ( id ) ), attributeValues:book_attributes ( value_id )',
-      )
-      .eq('is_published', true);
+    // getBooks() עצמה — לא שאילתה שמדמה אותה. פער בין "מה שהאבחון בדק"
+    // לבין "מה שהעמוד הציבורי עושה בפועל" הוא בדיוק המקום שבו תקלה יכולה
+    // לחמוק. קריאה לפונקציה האמיתית סוגרת את הפער כליל: מה שמוצג כאן
+    // הוא — מילה במילה — מה ש-/books עומד להציג.
+    let publicBooks: Awaited<ReturnType<typeof getBooks>> = [];
+    let publicBooksError: string | null = null;
+    try {
+      publicBooks = await getBooks();
+    } catch (error) {
+      publicBooksError = error instanceof Error ? error.message : String(error);
+    }
 
     publicChecks.push({
-      label: 'שליפת הקטלוג עם תגיות (כמבקר אנונימי)',
-      ok: !joined.error,
-      detail: joined.error
-        ? `${joined.error.code ?? '—'}: ${joined.error.message} — הריצו supabase/08_pim_stage_a.sql`
-        : `הוחזרו ${joined.data?.length ?? 0} ספרים`,
+      label: 'getBooks() — הפונקציה שהעמוד הציבורי קורא לה',
+      ok: !publicBooksError,
+      detail: publicBooksError
+        ? `נזרקה חריגה: ${publicBooksError}`
+        : `הוחזרו ${publicBooks.length} ספרים`,
     });
 
-    // רשימת הספרים שמסומנים כמפורסמים אך אינם מגיעים ללקוח הציבורי —
-    // ההשוואה המדויקת שהמשתמש צריך כדי להצביע על הספר הספציפי שחסר
-    if (!joined.error) {
-      const visibleSlugs = new Set((joined.data ?? []).map((row) => row.slug));
+    // רשימת הספרים שמסומנים כמפורסמים אך getBooks() אינה מחזירה —
+    // ההשוואה המדויקת שמצביעה על הספר הספציפי שחסר, לא רק שיש בעיה
+    if (!publicBooksError) {
+      const visibleSlugs = new Set(publicBooks.map((book) => book.slug));
       const { data: adminBooks } = await supabase
         .from('books')
         .select('slug, title_he')
@@ -256,7 +261,7 @@ export default async function DiagnosticsPage() {
       {missingBooks.length > 0 ? (
         <div className="mb-8 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small">
           <p className="font-semibold text-ink">
-            {missingBooks.length} ספרים מסומנים כמפורסמים אך אינם מגיעים למבקר אנונימי:
+            {missingBooks.length} ספרים מסומנים כמפורסמים אך getBooks() אינה מחזירה אותם:
           </p>
           <ul className="mt-2 list-disc ps-5 text-ink-soft">
             {missingBooks.map((book) => (
@@ -266,16 +271,18 @@ export default async function DiagnosticsPage() {
             ))}
           </ul>
           <p className="mt-2 text-caption text-muted">
-            אלה בדיוק הספרים לבדוק. אם הרשימה למעלה (&quot;מפורסמים ונראים למבקר&quot;)
-            תקינה עבור books אך הרשימה הזו אינה ריקה — הפער הוא במטמון ולא
-            בהרשאות: רעננו את העמוד או המתינו לרענון האוטומטי.
+            זו אינה תקלת מטמון: הבדיקה קוראת לפונקציה האמיתית שהעמוד הציבורי
+            משתמש בה, כרגע, בלי מטמון בכלל. אם ספר מופיע כאן, הוא לא יופיע
+            באתר גם אחרי המתנה או רענון — יש לבדוק את שדותיו (מחבר או קטגוריה
+            שנמחקו, למשל) ולא לחכות.
           </p>
         </div>
       ) : null}
 
       <p className="mb-8 text-caption leading-relaxed text-muted">
-        אם הכל תקין כאן והתוכן עדיין אינו מופיע — העמוד הציבורי מוגש ממטמון.
-        הוא מתרענן אוטומטית בכל שמירה, ובכל מקרה תוך שעה. רענון קשיח בדפדפן
+        אם כל הבדיקות כאן תקינות (כולל הרשימה הזו ריקה) והתוכן עדיין אינו
+        מופיע באתר עצמו — העמוד הציבורי מוגש ממטמון. הוא מתרענן אוטומטית תוך
+        דקה לכל היותר. רענון קשיח בדפדפן
         (Ctrl+Shift+R) עוקף מטמון של הדפדפן בלבד ולא של השרת.
       </p>
 
