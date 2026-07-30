@@ -227,18 +227,24 @@ export default async function DiagnosticsPage() {
         .map((book) => ({ slug: book.slug, title: book.title_he }));
     }
 
-    // getBooks() בולעת בכוונה כל שגיאה שאינה 42P01/PGRST200 ומחזירה []
-    // בשקט, עם רישום ל-console.error בצד השרת בלבד — בלי גישה ליומני
+    // getBooks() בולעת בכוונה כל שגיאה שאינה 42P01/42703/PGRST200 ומחזירה
+    // [] בשקט, עם רישום ל-console.error בצד השרת בלבד — בלי גישה ליומני
     // השרת, אין שום דרך לדעת מהבדיקה הקודמת *למה* היא החזירה 0. הבדיקות
     // הבאות רצות בלי שום עטיפה שמבליעה שגיאות, ומראות את קוד ה-Postgres
-    // בעצמו. השוואה בין ההצטרפות המלאה לבסיסית מאתרת אם הבעיה בהצטרפות
-    // עצמה (תגיות/מאפיינים) או קיימת גם בלעדיה.
-    const [rawJoined, rawBase] = await Promise.all([
+    // בעצמו. השוואה בין השכבות מאתרת באיזו בדיוק הבעיה: הצטרפות (תגיות/
+    // מאפיינים), עמודת שלב ג׳ על תגית קיימת (description_he — זו בדיוק
+    // התקלה שקרתה בפועל: מיגרציה 10 טרם רצה, וה-select המשותף לכל
+    // הקטלוג הפיל את כולו על עמודה חסרה), או בסיסית לגמרי.
+    const [rawJoined, rawTagDescription, rawBase] = await Promise.all([
       anon
         .from('books')
         .select(
           'slug, tags:book_tags ( tag:tags ( id ) ), attributeValues:book_attributes ( value_id )',
         )
+        .eq('is_published', true),
+      anon
+        .from('books')
+        .select('slug, tags:book_tags ( tag:tags ( id, description_he ) )')
         .eq('is_published', true),
       anon
         .from('books')
@@ -252,6 +258,18 @@ export default async function DiagnosticsPage() {
       detail: rawJoined.error
         ? `${rawJoined.error.code ?? '—'}: ${rawJoined.error.message}`
         : `${rawJoined.data?.length ?? 0} שורות`,
+    });
+
+    // ok תמיד true בכוונה: בניגוד לשתי הבדיקות השכנות, כשל כאן *אינו*
+    // סימן שהתוכן שבור — getBooks() כבר אינו נשען על description_he
+    // בכלל (ראו BOOK_SELECT ב-data.ts). זו בדיקה אינפורמטיבית בלבד —
+    // "האם שלב ג׳ הורץ" — ולא צריכה להדליק את הבאנר "התוכן אינו מוצג".
+    publicChecks.push({
+      label: 'שלב ג׳ הורץ? (תגית עם description_he, 10_book_page_stage_c.sql)',
+      ok: true,
+      detail: rawTagDescription.error
+        ? `טרם הורץ (${rawTagDescription.error.code ?? '—'}) — עמוד הספר הבודד יוצג בלי סדרה/גלריה/תוכן עניינים/הסבר לתגית עד שירוץ. שאר האתר אינו מושפע.`
+        : `הורץ — ${rawTagDescription.data?.length ?? 0} שורות`,
     });
 
     publicChecks.push({

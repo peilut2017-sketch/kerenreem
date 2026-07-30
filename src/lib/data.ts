@@ -57,23 +57,38 @@ const BOOK_BASE_SELECT = `
   category:categories!books_category_id_fkey ( id, slug, name_he, name_en )
 `;
 
+/**
+ * tags:tags(... בלי description_he.
+ *
+ * זו בדיוק התקלה שכבר קרתה כאן עם category: הוספת עמודה חדשה (שלב ג׳,
+ * 10_book_page_stage_c.sql) לתוך ה-select ה*משותף* ששולפים בו כרטיסי
+ * ספרים, רשימת הבית ועמוד המחבר — לא רק עמוד הספר הבודד. אם המיגרציה
+ * טרם רצה במסד, "description_he" אינה עמודה קיימת, והשגיאה מפילה את
+ * כל השליפה — כלומר את כל הקטלוג, לא רק את עמוד הספר. description_he
+ * נשלף רק ב-BOOK_DETAIL_SELECT למטה, ששם יש שכבת נפילה נוספת בשבילו.
+ */
 const BOOK_SELECT = `
   ${BOOK_BASE_SELECT},
-  tags:book_tags ( tag:tags ( id, slug, name_he, name_en, description_he ) ),
+  tags:book_tags ( tag:tags ( id, slug, name_he, name_en ) ),
   attributeValues:book_attributes ( value:attribute_values ( id, slug, name_he, attribute_id ) )
 `;
 
 /**
- * שליפה מלאה, רק לעמוד הספר הבודד: מוסיפה סדרה, גלריה ותוכן עניינים —
- * שדות ש-08_pim_stage_a.sql הקודם לא הכיר, ושרשימות/כרטיסים לא צריכים
- * (join מיותר בכל טעינת קטלוג של מאות ספרים).
+ * שליפה מלאה, רק לעמוד הספר הבודד: מוסיפה סדרה, גלריה, תוכן עניינים
+ * והסבר לתגית — שדות ששלב ג׳ (10_book_page_stage_c.sql) הוסיף, ושרשימות
+ * וכרטיסים לא צריכים (join מיותר בכל טעינת קטלוג של מאות ספרים).
+ *
+ * לא בנויה מעל BOOK_SELECT: מגדירה מחדש את tags עם description_he,
+ * ולכן אינה משתפת את הביטוי של BOOK_SELECT.
  *
  * series:series!books_series_id_fkey ולא series:series סתם, מאותה סיבה
  * בדיוק שהוסברה למעלה על category: מסלול קשר אחד היום, אבל אילוץ מפורש
  * הוא הבטוח כשמישהו יוסיף בעתיד טבלת קישור נוספת לסדרות.
  */
 const BOOK_DETAIL_SELECT = `
-  ${BOOK_SELECT},
+  ${BOOK_BASE_SELECT},
+  tags:book_tags ( tag:tags ( id, slug, name_he, name_en, description_he ) ),
+  attributeValues:book_attributes ( value:attribute_values ( id, slug, name_he, attribute_id ) ),
   series:series!books_series_id_fkey ( id, slug, name_he, name_en ),
   images:book_images ( id, book_id, image_url, alt, caption_he, sort_order ),
   toc:book_toc ( id, book_id, title_he, level, page_number, summary_he, sort_order )
@@ -81,7 +96,12 @@ const BOOK_DETAIL_SELECT = `
 
 /**
  * מריץ שליפת ספרים, ונופל משכבה עשירה יותר לבסיסית כשהיא אינה אפשרית.
- * 42P01 = הטבלה אינה קיימת, PGRST200 = הקשר אינו מוכר ל-PostgREST.
+ * 42P01 = הטבלה אינה קיימת, 42703 = העמודה אינה קיימת (טבלה קיימת אבל
+ * מיגרציה שהוסיפה לה עמודה טרם רצה), PGRST200 = הקשר אינו מוכר ל-PostgREST.
+ *
+ * שלושתם "אותה משפחה": שכבת סכימה שהקוד מצפה לה טרם הורצה במסד. הבדיקה
+ * לפי קוד השגיאה ולא לפי הודעת טקסט, כי ההודעה משתנה בין גרסאות PostgREST
+ * והקוד לא.
  *
  * הניסיון המלא נעשה מחדש בכל קריאה, בלי "לזכור" כשל קודם. גרסה מוקדמת
  * שמרה דגל ברמת המודול (pimTablesMissing) כדי לחסוך ניסיון חוזר — אבל
@@ -95,11 +115,13 @@ async function runBookQuery<T>(
   scope: string,
   selects: readonly string[] = [BOOK_SELECT, BOOK_BASE_SELECT],
 ): Promise<T[]> {
+  const MISSING_SCHEMA_CODES = new Set(['42P01', '42703', 'PGRST200']);
+
   for (let i = 0; i < selects.length; i += 1) {
     const result = await build(selects[i]);
     if (!result.error) return shapeBooks(result.data) as T[];
 
-    const isMissingLayer = result.error.code === '42P01' || result.error.code === 'PGRST200';
+    const isMissingLayer = MISSING_SCHEMA_CODES.has(result.error.code ?? '');
     const isLast = i === selects.length - 1;
 
     if (!isMissingLayer || isLast) {
@@ -142,6 +164,11 @@ function shapeBook(row: unknown): BookWithRelations {
     attributeValues: flatten(book.attributeValues, 'value'),
     images: bySortOrder(book.images),
     toc: bySortOrder(book.toc),
+    // quotes ו-view_count הן עמודות ששלב ג׳ הוסיף (10_book_page_stage_c.sql).
+    // אם המיגרציה טרם רצה הן פשוט חסרות בשורה שחוזרת מהמסד — undefined
+    // ולא []/0 — וכל קוד שקורא book.quotes.length קורס עם TypeError.
+    quotes: book.quotes ?? [],
+    view_count: book.view_count ?? 0,
   };
 }
 
