@@ -159,36 +159,17 @@ end $$;
 -- ----------------------------------------------------------------------------
 -- 6. ערכי פתיחה
 -- ----------------------------------------------------------------------------
--- מאפיינים שכבר קיימים כעמודות טקסט חופשי על books (binding, format),
--- כדי שיהיה מאיפה להתחיל. הערכים ניתנים לעריכה ולהרחבה מהניהול.
-insert into attributes (slug, name_he, is_multi, sort_order) values
-  ('binding',  'כריכה',    false, 1),
-  ('format',   'פורמט',    false, 2),
-  ('audience', 'קהל יעד',  true,  3)
-on conflict (slug) do nothing;
-
-insert into attribute_values (attribute_id, slug, name_he, sort_order)
-select a.id, v.slug, v.name_he, v.sort_order
-from attributes a
-join (values
-  ('binding', 'hard',    'כריכה קשה',  1),
-  ('binding', 'soft',    'כריכה רכה',  2),
-  ('format',  'pocket',  'כיס',        1),
-  ('format',  'regular', 'רגיל',       2),
-  ('format',  'album',   'אלבום',      3),
-  ('audience', 'children', 'ילדים',    1),
-  ('audience', 'youth',    'נוער',     2),
-  ('audience', 'adults',   'מבוגרים',  3),
-  ('audience', 'avrechim', 'אברכים',   4),
-  ('audience', 'rabbis',   'רבנים',    5)
-) as v(attr, slug, name_he, sort_order) on v.attr = a.slug
-on conflict (attribute_id, slug) do nothing;
-
+-- תגיות פתיחה בלבד.
+--
+-- מאפיינים אינם נזרעים במכוון: כריכה ופורמט כבר קיימים כשדות על הספר,
+-- ומאפיין באותו שם היה יוצר שני מקומות לאותו נתון — בדיוק מה שמערכת
+-- כזו אמורה למנוע. מנגנון המאפיינים קיים וזמין לסיווגים שאין להם עדיין
+-- שדה, וטופס הספר מציג את הקטע הזה רק כשיש מאפיינים בפועל.
 insert into tags (slug, name_he, is_system) values
-  ('new',       'חדש',      true),
-  ('bestseller','רב מכר',   true),
-  ('foundation','ספר יסוד', false),
-  ('recommended','מומלץ',   false)
+  ('new',        'חדש',      true),
+  ('bestseller', 'רב מכר',   true),
+  ('foundation', 'ספר יסוד', false),
+  ('recommended','מומלץ',    false)
 on conflict (slug) do nothing;
 
 -- ============================================================================

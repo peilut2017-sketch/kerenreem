@@ -73,7 +73,8 @@
     "otherByAuthor": "More by {name}",
     "sameCategory": "More in this category",
     "heroSubtitle": "Search, browse and discover the institute’s titles.",
-    "countLabel": "books"
+    "countLabel": "books",
+    "sku": "SKU"
   },
   "authors": {
     "title": "Authors and figures",

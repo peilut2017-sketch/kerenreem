@@ -5,7 +5,14 @@ import { createClient } from '@/lib/supabase/client';
 
 export type StorageBucket = 'covers' | 'events' | 'portraits' | 'samples' | 'site';
 
-const MAX_BYTES = 8 * 1024 * 1024;
+/**
+ * אין מגבלת גודל בקוד.
+ *
+ * הכריכה נשמרת במלוא הרזולוציה שהועלתה, והתצוגה היא שמקטינה: next/image
+ * מייצר גרסאות בגודל המתאים לכל מסך לפי sizes, כך שכרטיס בקטלוג מוריד
+ * תמונה ברוחב מאתיים ומשהו פיקסלים ולא את הקובץ המקורי. המגבלה היחידה
+ * שנשארה היא זו שמוגדרת ב-Supabase Storage עצמו.
+ */
 
 /** שם קובץ בטוח וייחודי — שמות עבריים או עם רווחים שוברים כתובות אחסון. */
 function safeName(original: string): string {
@@ -18,10 +25,6 @@ function safeName(original: string): string {
 export async function uploadToBucket(bucket: StorageBucket, file: File): Promise<string> {
   const supabase = createClient();
   if (!supabase) throw new Error('אין חיבור לאחסון');
-
-  if (file.size > MAX_BYTES) {
-    throw new Error('הקובץ גדול מ-8MB. יש לכווץ אותו לפני ההעלאה.');
-  }
 
   const path = safeName(file.name);
   const { error } = await supabase.storage.from(bucket).upload(path, file, {

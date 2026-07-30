@@ -26,16 +26,60 @@ import type {
  * להיעלם בגלל תקלת רשת רגעית.
  */
 
-// התגיות והמאפיינים מגיעים בשליפה אחת עם הספר. שליפה נפרדת לכל אחד
-// הייתה שני סבבי רשת נוספים בכל טעינת קטלוג, ולצורך סינון בצד הלקוח
-// דרושה ממילא התמונה המלאה.
-const BOOK_SELECT = `
+/**
+ * שתי צורות לשליפת ספר.
+ *
+ * BOOK_SELECT מצרף גם תגיות ומאפיינים — שליפה אחת במקום שלושה סבבי רשת.
+ * אבל הטבלאות האלה נוספו ב-08_pim_stage_a.sql, ובמסד שבו הקובץ טרם הורץ
+ * ההצטרפות נכשלת ומחזירה שגיאה — כלומר **אפס ספרים בכל האתר**.
+ *
+ * זו הייתה תקלה אמיתית: הקטלוג התרוקן לגמרי רק משום שקובץ SQL לא הורץ.
+ * טבלה אופציונלית לא אמורה להפיל את התוכן המרכזי, ולכן יש נפילה אחורה
+ * לשליפה הבסיסית.
+ */
+const BOOK_BASE_SELECT = `
   *,
   author:authors ( id, slug, name_he, name_en ),
-  category:categories ( id, slug, name_he, name_en ),
+  category:categories ( id, slug, name_he, name_en )
+`;
+
+const BOOK_SELECT = `
+  ${BOOK_BASE_SELECT},
   tags:book_tags ( tag:tags ( id, slug, name_he, name_en ) ),
   attributeValues:book_attributes ( value:attribute_values ( id, slug, name_he, attribute_id ) )
 `;
+
+/** האם כבר ידוע שהטבלאות החדשות חסרות — כדי לא לנסות שוב בכל שליפה. */
+let pimTablesMissing = false;
+
+/**
+ * מריץ שליפת ספרים עם ההצטרפות המלאה, ונופל לבסיסית כשהיא אינה אפשרית.
+ * 42P01 = הטבלה אינה קיימת, PGRST200 = הקשר אינו מוכר ל-PostgREST.
+ */
+async function runBookQuery<T>(
+  build: (select: string) => PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>,
+  scope: string,
+): Promise<T[]> {
+  if (!pimTablesMissing) {
+    const full = await build(BOOK_SELECT);
+    if (!full.error) return shapeBooks(full.data) as T[];
+
+    if (full.error.code !== '42P01' && full.error.code !== 'PGRST200') {
+      warn(scope, full.error);
+      return [];
+    }
+
+    console.warn(
+      `[data:${scope}] טבלאות התגיות והמאפיינים חסרות — יש להריץ את supabase/08_pim_stage_a.sql. ` +
+        'הקטלוג מוגש בינתיים בלעדיהן.',
+    );
+    pimTablesMissing = true;
+  }
+
+  const base = await build(BOOK_BASE_SELECT);
+  warn(scope, base.error);
+  return shapeBooks(base.data) as T[];
+}
 
 /**
  * PostgREST מחזיר טבלת קישור כמערך של עוטפים ({ tag: {...} }).
@@ -75,30 +119,27 @@ export async function getBooks(): Promise<BookWithRelations[]> {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.books() : [];
 
-  const { data, error } = await supabase
-    .from('books')
-    .select(BOOK_SELECT)
-    .eq('is_published', true)
-    .order('sort_order', { ascending: true })
-    .order('title_he', { ascending: true });
-
-  warn('getBooks', error);
-  return shapeBooks(data);
+  return runBookQuery<BookWithRelations>(
+    (select) =>
+      supabase
+        .from('books')
+        .select(select)
+        .eq('is_published', true)
+        .order('sort_order', { ascending: true })
+        .order('title_he', { ascending: true }),
+    'getBooks',
+  );
 }
 
 export async function getBookBySlug(slug: string): Promise<BookWithRelations | null> {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.bookBySlug(slug) : null;
 
-  const { data, error } = await supabase
-    .from('books')
-    .select(BOOK_SELECT)
-    .eq('slug', slug)
-    .eq('is_published', true)
-    .maybeSingle();
-
-  warn('getBookBySlug', error);
-  return data ? shapeBook(data) : null;
+  const rows = await runBookQuery<BookWithRelations>(
+    (select) => supabase.from('books').select(select).eq('slug', slug).eq('is_published', true),
+    'getBookBySlug',
+  );
+  return rows[0] ?? null;
 }
 
 /** ספרים נוספים להצגה בתחתית עמוד ספר — קודם מאותו מחבר, ואז מאותה קטגוריה. */
@@ -109,26 +150,35 @@ export async function getRelatedBooks(book: BookWithRelations, limit = 4): Promi
   const collected: BookWithRelations[] = [];
 
   if (book.author_id) {
-    const { data } = await supabase
-      .from('books')
-      .select(BOOK_SELECT)
-      .eq('is_published', true)
-      .eq('author_id', book.author_id)
-      .neq('id', book.id)
-      .limit(limit);
-    collected.push(...shapeBooks(data));
+    collected.push(
+      ...(await runBookQuery<BookWithRelations>(
+        (select) =>
+          supabase
+            .from('books')
+            .select(select)
+            .eq('is_published', true)
+            .eq('author_id', book.author_id!)
+            .neq('id', book.id)
+            .limit(limit),
+        'getRelatedBooks',
+      )),
+    );
   }
 
   if (collected.length < limit && book.category_id) {
-    const { data } = await supabase
-      .from('books')
-      .select(BOOK_SELECT)
-      .eq('is_published', true)
-      .eq('category_id', book.category_id)
-      .neq('id', book.id)
-      .limit(limit);
+    const sameCategory = await runBookQuery<BookWithRelations>(
+      (select) =>
+        supabase
+          .from('books')
+          .select(select)
+          .eq('is_published', true)
+          .eq('category_id', book.category_id!)
+          .neq('id', book.id)
+          .limit(limit),
+      'getRelatedBooks',
+    );
 
-    for (const candidate of shapeBooks(data)) {
+    for (const candidate of sameCategory) {
       if (collected.length >= limit) break;
       if (!collected.some((existing) => existing.id === candidate.id)) collected.push(candidate);
     }
@@ -142,15 +192,16 @@ export async function getRecentBooks(limit = 6): Promise<BookWithRelations[]> {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.books().slice(0, limit) : [];
 
-  const { data, error } = await supabase
-    .from('books')
-    .select(BOOK_SELECT)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  warn('getRecentBooks', error);
-  return shapeBooks(data);
+  return runBookQuery<BookWithRelations>(
+    (select) =>
+      supabase
+        .from('books')
+        .select(select)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+    'getRecentBooks',
+  );
 }
 
 export async function getBookSlugs(): Promise<string[]> {
@@ -198,15 +249,16 @@ export async function getBooksByAuthor(authorId: string): Promise<BookWithRelati
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.booksByAuthor(authorId) : [];
 
-  const { data, error } = await supabase
-    .from('books')
-    .select(BOOK_SELECT)
-    .eq('is_published', true)
-    .eq('author_id', authorId)
-    .order('sort_order', { ascending: true });
-
-  warn('getBooksByAuthor', error);
-  return shapeBooks(data);
+  return runBookQuery<BookWithRelations>(
+    (select) =>
+      supabase
+        .from('books')
+        .select(select)
+        .eq('is_published', true)
+        .eq('author_id', authorId)
+        .order('sort_order', { ascending: true }),
+    'getBooksByAuthor',
+  );
 }
 
 export async function getAuthorSlugs(): Promise<string[]> {

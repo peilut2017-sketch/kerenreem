@@ -86,6 +86,8 @@ export function BookForm({
             />
             <SelectField
               name="category_id"
+              hint="המדף שעליו הספר יושב. זו הקטגוריה שמופיעה בכרטיס ובכתובת."
+              
               label="קטגוריה"
               emptyLabel="— ללא —"
               defaultValue={book?.category_id}
@@ -178,7 +180,6 @@ export function BookForm({
             >
               <div className="grid gap-5 sm:grid-cols-2">
                 <TextField name="price" label="מחיר" type="number" dir="ltr" defaultValue={book?.price} />
-                <TextField name="sku" label="מק״ט" dir="ltr" defaultValue={book?.sku} />
                 <TextField
                   name="stock_quantity"
                   label="מלאי"
@@ -205,7 +206,6 @@ export function BookForm({
             /* השדות נשלחים גם כשהחנות סגורה, כדי שערכים קיימים לא יימחקו בשמירה */
             <>
               <input type="hidden" name="price" value={book?.price ?? ''} />
-              <input type="hidden" name="sku" value={book?.sku ?? ''} />
               <input type="hidden" name="stock_quantity" value={book?.stock_quantity ?? ''} />
               <input type="hidden" name="weight_grams" value={book?.weight_grams ?? ''} />
               {book?.is_purchasable ? (
@@ -214,10 +214,11 @@ export function BookForm({
             </>
           )}
 
-          <FieldSet legend="קטגוריות משניות">
+          <FieldSet legend="קטגוריות נוספות">
             <p className="text-caption text-muted">
-              הקטגוריה הראשית קובעת היכן הספר יושב. אלה מוסיפות היכן עוד אפשר
-              למצוא אותו.
+              אינן כפילות של הקטגוריה הראשית שלמעלה: הראשית היא המדף היחיד שבו
+              הספר יושב, ומופיעה בכרטיס. כאן מסמנים מדפים <em>נוספים</em> שבהם
+              נכון שיימצא בסינון. אפשר להשאיר ריק.
             </p>
             <div className="mt-3 grid gap-1 sm:grid-cols-2">
               {categories.map((category) => (
@@ -300,7 +301,38 @@ export function BookForm({
             </div>
           </FieldSet>
 
+          <FieldSet legend="מזהים">
+            {book ? (
+              <div className="mb-4">
+                <span className="field-label">מזהה פנימי</span>
+                <code
+                  dir="ltr"
+                  className="mt-1 block overflow-x-auto rounded-[var(--radius-sm)] border border-rule bg-cream-2 px-3 py-2 text-caption text-ink-soft"
+                >
+                  {book.id}
+                </code>
+                <span className="field-hint">
+                  מזהה קבוע שאינו משתנה גם אם שם הספר או הכתובת משתנים. שימושי
+                  להפניה מדויקת לספר.
+                </span>
+              </div>
+            ) : null}
+
+            <TextField
+              name="sku"
+              label="מק״ט"
+              dir="ltr"
+              defaultValue={book?.sku}
+              hint="מספר קטלוגי של המכון. מוצג בעמוד הספר, וניתן לחיפוש בקטלוג."
+            />
+          </FieldSet>
+
           <FieldSet legend="חיפוש ומטא">
+            <p className="mb-3 text-caption leading-relaxed text-muted">
+              השדות כאן אינם מחליפים את התוכן שלמעלה. שם הספר, כותרת המשנה
+              והתיאור הם מה שמנועי החיפוש קוראים בפועל — אלה רק עוקפים אותם
+              כשצריך ניסוח אחר לתוצאות החיפוש. אפשר להשאיר את כולם ריקים.
+            </p>
             <TextField
               name="cover_alt"
               label="טקסט חלופי לכריכה"
@@ -323,9 +355,13 @@ export function BookForm({
             />
             <TextField
               name="search_keywords"
-              label="מונחי חיפוש נוספים"
+              label="מונחי חיפוש פנימיים"
               defaultValue={book?.search_keywords}
-              hint="שמות נוספים שהספר מוכר בהם, מופרדים בפסיק. אינם מוצגים באתר."
+              hint={
+                'שמות וכינויים נוספים שהספר מוכר בהם, מופרדים בפסיק. משפיעים על ' +
+                'החיפוש באתר בלבד ואינם מוצגים בעמוד. גוגל מתעלם ממילות מפתח ' +
+                'מוסתרות מאז 2009, ולכן זה אינו כלי קידום.'
+              }
             />
             <TextField
               name="canonical_url"
@@ -349,7 +385,10 @@ export function BookForm({
               type="number"
               dir="ltr"
               defaultValue={book?.sort_order ?? 0}
-              hint="מספר נמוך מופיע קודם."
+              hint={
+                'קובע את הסדר במיון "מומלצים" — ברירת המחדל בקטלוג ובדף הבית. ' +
+                'מספר נמוך מופיע קודם. במיונים אחרים (חדש, א׳–ת׳) אין לו השפעה.'
+              }
             />
           </FieldSet>
         </>

@@ -25,7 +25,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-rule bg-cream-2">
+      {/* הכותרת נדבקת לראש החלון, כמו באתר הציבורי: בטבלה ארוכה הניווט
+          היה נעלם למעלה וכל מעבר בין מסכים חייב גלילה חזרה. */}
+      <header className="sticky top-0 z-30 border-b border-rule bg-cream-2/95 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-4 px-6 py-3">
           <div className="flex items-baseline gap-3">
             <Link href="/admin" className="font-serif text-[1.25rem] text-ink">
@@ -48,11 +50,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <SignOutButton />
           </div>
         </div>
+
+        <div className="mx-auto w-full max-w-[80rem] px-6 pb-2">
+          <AdminNav role={session.profile.role} />
+        </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col gap-8 px-6 py-8 lg:flex-row lg:gap-12">
-        <AdminNav role={session.profile.role} />
-        <main className="min-w-0 flex-1">{children}</main>
+      <div className="mx-auto w-full max-w-[80rem] flex-1 px-6 py-8">
+        <main className="min-w-0">{children}</main>
       </div>
     </div>
   );

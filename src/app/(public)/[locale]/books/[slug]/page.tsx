@@ -81,6 +81,9 @@ export default async function BookPage({
     book.format ? [t('format'), book.format] : null,
     book.binding ? [t('binding'), book.binding] : null,
     book.isbn ? [t('isbn'), book.isbn] : null,
+    // המק״ט מוצג תמיד ולא רק כשהחנות פעילה: הוא המספר שבו פונים למשרד
+    // כדי להזמין ספר גם בלי חנות מקוונת.
+    book.sku ? [t('sku'), book.sku] : null,
   ].filter(Boolean) as [string, string][];
 
   const jsonLd = {
@@ -89,6 +92,7 @@ export default async function BookPage({
     name: title,
     ...(authorName ? { author: { '@type': 'Person', name: authorName } } : {}),
     ...(book.isbn ? { isbn: book.isbn } : {}),
+    ...(book.sku ? { sku: book.sku } : {}),
     ...(book.pages ? { numberOfPages: book.pages } : {}),
     ...(book.publication_year_ce ? { datePublished: String(book.publication_year_ce) } : {}),
     ...(book.cover_image_url ? { image: book.cover_image_url } : {}),

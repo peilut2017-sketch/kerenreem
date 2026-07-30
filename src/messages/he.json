@@ -73,7 +73,8 @@
     "otherByAuthor": "עוד מאת {name}",
     "sameCategory": "עוד בקטגוריה זו",
     "heroSubtitle": "חיפוש, עיון וגילוי בכותרי המכון.",
-    "countLabel": "ספרים"
+    "countLabel": "ספרים",
+    "sku": "מק״ט"
   },
   "authors": {
     "title": "מחברים ודמויות",
