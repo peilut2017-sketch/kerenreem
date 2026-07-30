@@ -1,16 +1,15 @@
 import { loadNewBookFormData } from '@/lib/admin/book-form-data';
-import { AdminHeader } from '@/components/admin/AdminList';
 import { BookForm } from '@/components/admin/BookForm';
+import { BookFormDrawer } from '@/components/admin/BookFormDrawer';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewBookPage() {
+export default async function NewBookModal() {
   const data = await loadNewBookFormData();
 
   return (
-    <>
-      <AdminHeader title="ספר חדש" />
+    <BookFormDrawer title="ספר חדש">
       <BookForm {...data} />
-    </>
+    </BookFormDrawer>
   );
 }
