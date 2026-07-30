@@ -13,6 +13,7 @@ import type {
   BookWithRelations,
   Category,
   ContentPage,
+  EventBlock,
   EventRecord,
   SiteSettings,
   Tag,
@@ -94,39 +95,39 @@ const BOOK_DETAIL_SELECT = `
   toc:book_toc ( id, book_id, title_he, level, page_number, summary_he, sort_order )
 `;
 
+const MISSING_SCHEMA_CODES = new Set(['42P01', '42703', 'PGRST200']);
+
 /**
- * מריץ שליפת ספרים, ונופל משכבה עשירה יותר לבסיסית כשהיא אינה אפשרית.
+ * מנסה שכבת select עשירה, ונופל לשכבה בסיסית יותר כשהיא אינה אפשרית.
  * 42P01 = הטבלה אינה קיימת, 42703 = העמודה אינה קיימת (טבלה קיימת אבל
  * מיגרציה שהוסיפה לה עמודה טרם רצה), PGRST200 = הקשר אינו מוכר ל-PostgREST.
  *
  * שלושתם "אותה משפחה": שכבת סכימה שהקוד מצפה לה טרם הורצה במסד. הבדיקה
  * לפי קוד השגיאה ולא לפי הודעת טקסט, כי ההודעה משתנה בין גרסאות PostgREST
- * והקוד לא.
+ * והקוד לא. משותף לספרים ולאירועים — שניהם נתקלו באותה בעיה בדיוק
+ * (עמודה/טבלה של שלב חדש שנוספה ל-select משותף לפני שהמיגרציה רצה).
  *
  * הניסיון המלא נעשה מחדש בכל קריאה, בלי "לזכור" כשל קודם. גרסה מוקדמת
- * שמרה דגל ברמת המודול (pimTablesMissing) כדי לחסוך ניסיון חוזר — אבל
- * מודול בשרת נטען פעם אחת לתהליך, ותהליך חם ממשיך לשרת בקשות רבות. אם
- * הבקשה הראשונה על תהליך נתון נתקלה בטבלה חסרה, הדגל ננעל על true
- * לצמיתות עבור אותו תהליך, גם אחרי שהטבלאות נוצרו — והקטלוג ממשיך
- * להיראות כאילו אין לו תגיות אף שהן קיימות. עלות הניסיון החוזר זניחה.
+ * שמרה דגל ברמת המודול כדי לחסוך ניסיון חוזר — אבל מודול בשרת נטען פעם
+ * אחת לתהליך, ותהליך חם ממשיך לשרת בקשות רבות. אם הבקשה הראשונה על
+ * תהליך נתון נתקלה בטבלה חסרה, הדגל ננעל על true לצמיתות עבור אותו
+ * תהליך, גם אחרי שהטבלאות נוצרו. עלות הניסיון החוזר זניחה.
  */
-async function runBookQuery<T>(
+async function withSchemaFallback(
   build: (select: string) => PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>,
   scope: string,
-  selects: readonly string[] = [BOOK_SELECT, BOOK_BASE_SELECT],
-): Promise<T[]> {
-  const MISSING_SCHEMA_CODES = new Set(['42P01', '42703', 'PGRST200']);
-
+  selects: readonly string[],
+): Promise<unknown> {
   for (let i = 0; i < selects.length; i += 1) {
     const result = await build(selects[i]);
-    if (!result.error) return shapeBooks(result.data) as T[];
+    if (!result.error) return result.data;
 
     const isMissingLayer = MISSING_SCHEMA_CODES.has(result.error.code ?? '');
     const isLast = i === selects.length - 1;
 
     if (!isMissingLayer || isLast) {
       warn(scope, result.error);
-      return [];
+      return null;
     }
 
     console.warn(
@@ -135,7 +136,16 @@ async function runBookQuery<T>(
     );
   }
 
-  return [];
+  return null;
+}
+
+async function runBookQuery<T>(
+  build: (select: string) => PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>,
+  scope: string,
+  selects: readonly string[] = [BOOK_SELECT, BOOK_BASE_SELECT],
+): Promise<T[]> {
+  const data = await withSchemaFallback(build, scope, selects);
+  return data ? (shapeBooks(data) as T[]) : [];
 }
 
 /**
@@ -511,19 +521,32 @@ export async function getEvents(): Promise<EventRecord[]> {
   return (data as EventRecord[] | null) ?? [];
 }
 
+/**
+ * blocks:event_blocks(*) נשלף רק כאן, לא ב-getEvents(): אותו לקח בדיוק
+ * שנלמד עם books/tags — select משותף לרשימות אסור שיישען על טבלה/עמודה
+ * ששלב חדש הוסיף, אחרת מיגרציה שטרם רצתה מפילה את כל הרשימה ולא רק את
+ * העמוד הבודד. getEvents() ממשיך להשתמש ב-'*' פשוט ואינו מושפע כלל.
+ */
+const EVENT_DETAIL_SELECT = `*, blocks:event_blocks ( * )`;
+
 export async function getEventBySlug(slug: string): Promise<EventRecord | null> {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.eventBySlug(slug) : null;
 
-  const { data, error } = await supabase
-    .from('events')
-    .select('*')
-    .eq('slug', slug)
-    .eq('is_published', true)
-    .maybeSingle();
+  const raw = await withSchemaFallback(
+    (select) =>
+      supabase.from('events').select(select).eq('slug', slug).eq('is_published', true).maybeSingle(),
+    'getEventBySlug',
+    [EVENT_DETAIL_SELECT, '*'],
+  );
 
-  warn('getEventBySlug', error);
-  return (data as EventRecord | null) ?? null;
+  if (!raw) return null;
+
+  const event = raw as EventRecord & { blocks?: unknown };
+  const blocks = Array.isArray(event.blocks)
+    ? [...(event.blocks as EventBlock[])].sort((a, b) => a.sort_order - b.sort_order)
+    : undefined;
+  return { ...event, blocks };
 }
 
 export async function getEventSlugs(): Promise<string[]> {

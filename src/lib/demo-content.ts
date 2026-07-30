@@ -5,6 +5,7 @@ import type {
   BookWithRelations,
   Category,
   ContentPage,
+  EventBlock,
   EventRecord,
   Series,
   SiteSettings,
@@ -133,6 +134,58 @@ function daysFromNow(days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+/** דוגמת רצף סיפור, לתצוגת "עמוד אירוע" ברצף אחד ולא כל הטקסט ואז כל הגלריה. */
+const siyumBlocks: EventBlock[] = [
+  {
+    id: 'b1', event_id: 'e2', type: 'text', sort_order: 0, stage_label: 'קבלת פנים',
+    body_he: 'מאות תלמידי חכמים ובני משפחותיהם התכנסו כבר משעות הצהריים באולם המרכזי, לקראת מעמד הסיום.',
+    body_en: null, image_url: null, image_alt: null, image_caption_he: null, images: [],
+    video_url: null, video_caption_he: null, quote_text: null, quote_attribution_he: null,
+  },
+  {
+    id: 'b2', event_id: 'e2', type: 'image', sort_order: 1, stage_label: null,
+    body_he: null, body_en: null,
+    image_url: '/demo/scene-beit-midrash.svg', image_alt: 'אולם בית המדרש לפני תחילת המעמד',
+    image_caption_he: 'האולם המרכזי, דקות לפני תחילת המעמד', images: [],
+    video_url: null, video_caption_he: null, quote_text: null, quote_attribution_he: null,
+  },
+  {
+    id: 'b3', event_id: 'e2', type: 'text', sort_order: 2, stage_label: 'דברי פתיחה',
+    body_he: 'ראש הכולל פתח בדברי ברכה, והזכיר את מסכת השנה שחלפה ואת ההכנות למחזור הלימוד הבא.',
+    body_en: null, image_url: null, image_alt: null, image_caption_he: null, images: [],
+    video_url: null, video_caption_he: null, quote_text: null, quote_attribution_he: null,
+  },
+  {
+    id: 'b4', event_id: 'e2', type: 'image_row', sort_order: 3, stage_label: 'השיעור',
+    body_he: null, body_en: null, image_url: null, image_alt: null, image_caption_he: null,
+    images: [
+      { url: '/demo/scene-kenes-achdut.svg', alt: 'רבנים על הבמה', caption_he: null },
+      { url: '/demo/scene-slichot.svg', alt: 'הקהל מאזין', caption_he: null },
+      { url: '/demo/scene-siyum-hashas.svg', alt: 'רגע הסיום', caption_he: null },
+    ],
+    video_url: null, video_caption_he: null, quote_text: null, quote_attribution_he: null,
+  },
+  {
+    id: 'b5', event_id: 'e2', type: 'quote', sort_order: 4, stage_label: null,
+    body_he: null, body_en: null, image_url: null, image_alt: null, image_caption_he: null, images: [],
+    video_url: null, video_caption_he: null,
+    quote_text: 'זכינו לסיים ולפתוח, והתורה מוסיפה והולכת מדור לדור.',
+    quote_attribution_he: 'ראש הכולל, מדברי הפתיחה',
+  },
+  {
+    id: 'b6', event_id: 'e2', type: 'text', sort_order: 5, stage_label: 'חלוקת הספרים',
+    body_he: 'בסיום המעמד חולקו לכל אחד מהלומדים כרך חדש ממהדורת המכון, כסימן להתחלת המחזור הבא.',
+    body_en: null, image_url: null, image_alt: null, image_caption_he: null, images: [],
+    video_url: null, video_caption_he: null, quote_text: null, quote_attribution_he: null,
+  },
+  {
+    id: 'b7', event_id: 'e2', type: 'video', sort_order: 6, stage_label: 'סיום',
+    body_he: null, body_en: null, image_url: null, image_alt: null, image_caption_he: null, images: [],
+    video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', video_caption_he: 'סיכום המעמד בווידאו',
+    quote_text: null, quote_attribution_he: null,
+  },
+];
+
 const events: EventRecord[] = [
   {
     id: 'e1', slug: 'kenes-achdut', title_he: 'כנס אחדות ירושלים', title_en: null,
@@ -146,7 +199,16 @@ const events: EventRecord[] = [
     event_date: daysFromNow(-14), event_date_he: null,
     body_he: '<p>מעמד סיום הש״ס של לומדי הכוללים שהמכון תומך בהם.</p>',
     body_en: null, cover_image_url: '/demo/scene-siyum-hashas.svg',
-    featured_video_url: null, gallery: [], is_published: true, ...base,
+    featured_video_url: null,
+    gallery: [
+      { url: '/demo/scene-beit-midrash.svg', caption_he: 'מבט מהיציע' },
+      { url: '/demo/scene-kenes-achdut.svg' },
+      { url: '/demo/scene-slichot.svg', caption_he: 'לפני תחילת המעמד' },
+      { url: '/demo/cover-mishkan-even.svg' },
+      { url: '/demo/cover-or-hahalacha.svg' },
+    ],
+    is_published: true, ...base,
+    blocks: siyumBlocks,
   },
   {
     id: 'e3', slug: 'slichot', title_he: 'טיול סליחות בבתי ירושלים', title_en: null,

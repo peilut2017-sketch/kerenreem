@@ -712,3 +712,70 @@ export async function saveBookToc(
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }
+
+/**
+ * רצף בלוקי הסיפור של אירוע — מוחלף במלואו, לא מחושב כהפרש.
+ * אותו נימוק כמו syncRelations/saveBookToc: הפרש דורש לדעת מה היה קודם,
+ * וטופס שנשאר פתוח בזמן שמישהו אחר ערך היה מוחק בשקט את השינויים שלו.
+ */
+export async function saveEventBlocks(
+  eventId: string,
+  blocks: {
+    type: string;
+    stage_label: string;
+    body_he: string;
+    image_url: string;
+    image_alt: string;
+    image_caption_he: string;
+    images: { url: string; alt: string; caption_he: string }[];
+    video_url: string;
+    video_caption_he: string;
+    quote_text: string;
+    quote_attribution_he: string;
+  }[],
+): Promise<ActionResult> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return session;
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const removal = await supabase.from('event_blocks').delete().eq('event_id', eventId);
+    if (removal.error) {
+      console.error('[admin:saveEventBlocks]', removal.error.code, removal.error.message);
+      return { error: describeDbError(removal.error).message };
+    }
+
+    const rows = blocks.map((block, index) => ({
+      event_id: eventId,
+      type: block.type,
+      sort_order: index,
+      stage_label: block.stage_label.trim() || null,
+      body_he: block.body_he || null,
+      image_url: block.image_url || null,
+      image_alt: block.image_alt || null,
+      image_caption_he: block.image_caption_he || null,
+      images: block.images,
+      video_url: block.video_url || null,
+      video_caption_he: block.video_caption_he || null,
+      quote_text: block.quote_text || null,
+      quote_attribution_he: block.quote_attribution_he || null,
+    }));
+
+    if (rows.length > 0) {
+      const insertion = await supabase.from('event_blocks').insert(rows);
+      if (insertion.error) {
+        console.error('[admin:saveEventBlocks]', insertion.error.code, insertion.error.message);
+        return { error: describeDbError(insertion.error).message };
+      }
+    }
+
+    revalidatePath(`/[locale]/events/[slug]`, 'page');
+    revalidatePath(`/admin/events/${eventId}`);
+    return {};
+  } catch (error) {
+    console.error('[admin:saveEventBlocks] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}

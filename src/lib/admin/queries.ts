@@ -14,6 +14,7 @@ import type {
   Category,
   Tag,
   ContentPage,
+  EventBlock,
   EventRecord,
   Profile,
   Series,
@@ -272,6 +273,16 @@ export async function getEvent(id: string): Promise<EventRecord | null> {
   const supabase = await client();
   const { data } = await supabase.from('events').select('*').eq('id', id).maybeSingle();
   return (data as EventRecord | null) ?? null;
+}
+
+export async function getEventBlocks(eventId: string): Promise<EventBlock[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('event_blocks')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('sort_order');
+  return (data as EventBlock[] | null) ?? [];
 }
 
 export async function listActivitiesAdmin(): Promise<Activity[]> {

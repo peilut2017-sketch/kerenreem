@@ -38,6 +38,36 @@ export function toEmbedUrl(url: string | null | undefined): string | null {
   }
 }
 
+/**
+ * תמונת תצוגה מקדימה ל"וידאו דינמי" — כרזה איכותית שנפתחת ל-iframe
+ * בלחיצה, ולא iframe מיד. YouTube חושף thumbnail קבוע לפי מזהה הסרטון
+ * בלי שום קריאת API; Vimeo דורש קריאת oEmbed נפרדת לכך, ולכן מוחזר null
+ * (הרכיב הקורא נופל לרקע גנרי עם כפתור נגן).
+ */
+export function getYouTubeThumbnail(url: string | null | undefined): string | null {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    let id: string | null = null;
+
+    if (host === 'youtu.be') id = parsed.pathname.slice(1) || null;
+    else if (host === 'youtube.com' || host === 'youtube-nocookie.com' || host === 'm.youtube.com') {
+      id = parsed.pathname.startsWith('/embed/')
+        ? parsed.pathname.slice('/embed/'.length)
+        : parsed.searchParams.get('v');
+    }
+
+    // i.ytimg.com ולא img.youtube.com: זה המקור המותר ב-CSP img-src של
+    // האתר (ראו next.config / middleware) — הראשון נחסם בפועל בדפדפן
+    // בלי לזרוק שגיאת JS, רק תמונה שבורה בשקט.
+    return id ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg` : null;
+  } catch {
+    return null;
+  }
+}
+
 export function VideoEmbed({
   url,
   title,

@@ -208,10 +208,45 @@ export interface EventRecord {
   body_en: string | null;
   cover_image_url: string | null;
   featured_video_url: string | null;
+  /** הגלריה המסיימת — תמונות שלא שובצו ידנית לתוך blocks (ראו event_blocks). */
   gallery: GalleryImage[];
   is_published: boolean;
   created_at: string;
   updated_at: string;
+  /** נשלף רק בעמוד האירוע הבודד, לא ברשימות. */
+  blocks?: EventBlock[];
+}
+
+export type EventBlockType = 'text' | 'image' | 'image_row' | 'video' | 'quote';
+
+export interface EventBlockImage {
+  url: string;
+  alt: string | null;
+  caption_he: string | null;
+}
+
+/**
+ * בלוק בסיפור האירוע. השדות הרלוונטיים תלויים ב-type; שאר השדות null
+ * או מערך ריק. "רחב" במכוון (עמודות לכל סוג) ולא jsonb פולימורפי — כדי
+ * שעורך הבלוקים בניהול יוכל להיבנות משדות טיפוסיים רגילים.
+ */
+export interface EventBlock {
+  id: string;
+  event_id: string;
+  type: EventBlockType;
+  sort_order: number;
+  /** תג תחנה אופציונלי למד ההתקדמות, למשל "קבלת פנים". */
+  stage_label: string | null;
+  body_he: string | null;
+  body_en: string | null;
+  image_url: string | null;
+  image_alt: string | null;
+  image_caption_he: string | null;
+  images: EventBlockImage[];
+  video_url: string | null;
+  video_caption_he: string | null;
+  quote_text: string | null;
+  quote_attribution_he: string | null;
 }
 
 export interface ContentPage {

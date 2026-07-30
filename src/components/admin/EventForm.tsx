@@ -52,27 +52,36 @@ export function EventForm({ event, canWrite }: { event: EventRecord | null; canW
             </div>
           </FieldSet>
 
-          <FieldSet legend="תוכן">
-            <RichTextEditor name="body_he" label="גוף האירוע (עברית)" defaultValue={event?.body_he} />
-            <RichTextEditor name="body_en" label="Body" defaultValue={event?.body_en} />
+          <FieldSet
+            legend="תקציר האירוע"
+            description="מוצג ליד תמונת ה-Hero, לפני תחילת רצף הסיפור למטה (נערך במסך נפרד אחרי השמירה הראשונה). כמה משפטים — לא כל מה שקרה באירוע."
+          >
+            <RichTextEditor name="body_he" label="תקציר (עברית)" defaultValue={event?.body_he} />
+            <RichTextEditor name="body_en" label="Summary" defaultValue={event?.body_en} />
           </FieldSet>
 
-          <FieldSet legend="מדיה">
+          <FieldSet legend="מדיה ראשית">
             <ImageField
               name="cover_image_url"
-              label="תמונה ראשית"
+              label="תמונת Hero"
               bucket="events"
               defaultValue={event?.cover_image_url}
+              hint="הרקע שמאחורי כותרת האירוע. צבעי התמונה קובעים את גוון הרקע."
             />
             <TextField
               name="featured_video_url"
-              label="סרטון ראשי"
+              label="סרטון ראשי (רשות)"
               type="url"
               dir="ltr"
               defaultValue={event?.featured_video_url}
-              hint="כתובת YouTube או Vimeo. מקורות אחרים לא יוטמעו."
+              hint="כתובת YouTube או Vimeo. אם יש גם וידאו ברצף הסיפור למטה, זה נוסף עליו ולא מחליף אותו."
             />
-            <GalleryField name="gallery" label="גלריית תמונות" defaultValue={event?.gallery} />
+            <GalleryField
+              name="gallery"
+              label="גלריה מסיימת"
+              defaultValue={event?.gallery}
+              hint="תמונות שלא שובצו ידנית לתוך רצף הסיפור — מוצגות בהדרגה בסוף העמוד."
+            />
           </FieldSet>
 
           <FieldSet legend="פרסום">

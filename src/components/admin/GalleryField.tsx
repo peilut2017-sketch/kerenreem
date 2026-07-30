@@ -14,10 +14,12 @@ import type { GalleryImage } from '@/lib/supabase/types';
 export function GalleryField({
   name,
   label,
+  hint,
   defaultValue,
 }: {
   name: string;
   label: string;
+  hint?: string;
   defaultValue?: GalleryImage[] | null;
 }) {
   const id = useId();
@@ -62,6 +64,7 @@ export function GalleryField({
   return (
     <div>
       <span className="field-label">{label}</span>
+      {hint ? <span className="field-hint mb-2 block">{hint}</span> : null}
 
       <input
         id={`${id}-files`}
