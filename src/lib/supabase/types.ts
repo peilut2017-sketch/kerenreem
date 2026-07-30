@@ -75,6 +75,14 @@ export interface Book {
   canonical_url: string | null;
   search_keywords: string | null;
   /* ------------------------------------------ */
+  /* --- שלב ג׳: עמוד תצוגת הספר --- */
+  series_id: string | null;
+  /** כרך א׳ = 1. null = בסדרה בלי סדר מוגדר. */
+  series_position: number | null;
+  quotes: string[];
+  /** ספירה גסה, לא ייחודית למבקר — ראו 10_book_page_stage_c.sql */
+  view_count: number;
+  /* -------------------------------- */
   created_at: string;
   updated_at: string;
 }
@@ -86,6 +94,40 @@ export interface Tag {
   name_he: string;
   name_en: string | null;
   is_system: boolean;
+  /** "למה קיבל את התג" — מוצג ב-Tooltip בעמוד הספר. */
+  description_he: string | null;
+}
+
+/** סדרת ספרים — כרכים של אותה מהדורה, לא שדה טקסט חופשי על הספר. */
+export interface Series {
+  id: string;
+  slug: string;
+  name_he: string;
+  name_en: string | null;
+  description_he: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** תמונה נוספת של ספר, מעבר לכריכה הראשית (books.cover_image_url). */
+export interface BookImage {
+  id: string;
+  book_id: string;
+  image_url: string;
+  alt: string | null;
+  caption_he: string | null;
+  sort_order: number;
+}
+
+/** שורת תוכן עניינים. level 0 = פרק ראשי, 1 = תת-פרק. */
+export interface BookTocEntry {
+  id: string;
+  book_id: string;
+  title_he: string;
+  level: number;
+  page_number: number | null;
+  summary_he: string | null;
+  sort_order: number;
 }
 
 /** סוג מאפיין — כריכה, פורמט, קהל יעד. */
@@ -124,8 +166,12 @@ export interface BookWithRelations extends Book {
   author: Pick<Author, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
   category: Pick<Category, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
   /** מזהי תגיות ומאפיינים, כשהשליפה ביקשה אותם */
-  tags?: Pick<Tag, 'id' | 'slug' | 'name_he' | 'name_en'>[];
+  tags?: Pick<Tag, 'id' | 'slug' | 'name_he' | 'name_en' | 'description_he'>[];
   attributeValues?: Pick<AttributeValue, 'id' | 'slug' | 'name_he' | 'attribute_id'>[];
+  /** שלושת השדות הבאים נשלפים רק בעמוד הספר הבודד, לא ברשימות וכרטיסים */
+  series?: Pick<Series, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
+  images?: BookImage[];
+  toc?: BookTocEntry[];
 }
 
 export interface Activity {

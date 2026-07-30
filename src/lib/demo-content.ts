@@ -6,6 +6,7 @@ import type {
   Category,
   ContentPage,
   EventRecord,
+  Series,
   SiteSettings,
 } from './supabase/types';
 
@@ -70,7 +71,9 @@ function book(
     languages: ['he'], cover_alt: null,
     meta_title: null, meta_description: null, og_image_url: null,
     canonical_url: null, search_keywords: null,
-    is_published: true, sort_order: 0, ...base,
+    is_published: true, sort_order: 0,
+    series_id: null, series_position: null, quotes: [], view_count: 0,
+    ...base,
     author: { id: author.id, slug: author.slug, name_he: author.name_he, name_en: author.name_en },
     category: { id: category.id, slug: category.slug, name_he: category.name_he, name_en: category.name_en },
   };
@@ -83,6 +86,46 @@ const books: BookWithRelations[] = [
   book('b4', 'likutei-dvarim', 'לקט דברי ראם', null, 'likutei-dvarim', 0, 2, 'תשפ״ב', 2022),
   book('b5', 'machzik-yedidim', 'מחזיק ידידים', null, 'machzik-yedidim', 1, 0, 'תשפ״א', 2021),
 ];
+
+/**
+ * העשרת שלב ג׳ לדוגמאות בודדות בלבד — כדי שרכיבי התצוגה (גלריה, תוכן
+ * עניינים, סדרה, ציטוטים) יהיו ניתנים לבדיקה חזותית בלי מסד אמיתי.
+ * שני הספרים שנבחרו הם כבר מאותו מחבר (a2) בנתוני הדוגמה הקיימים.
+ */
+const demoSeries: Series = {
+  id: 's1', slug: 'mishkan-avraham', name_he: 'סדרת משכן אברהם', name_en: null,
+  description_he: '<p>מהדורה מוערת בשני כרכים.</p>', ...base,
+};
+
+books[2] = {
+  ...books[2],
+  series_id: demoSeries.id,
+  series_position: 1,
+  series: demoSeries,
+  quotes: [
+    'כל המצר לישראל נעשה פרנס על הציבור — כך למדנו מכאן שהצער הוא עצמו הכשרה להנהגה.',
+    'אין השראת השכינה שורה אלא מתוך שמחה של מצווה.',
+  ],
+  images: [
+    {
+      id: 'im1', book_id: books[2].id, image_url: '/demo/scene-beit-midrash.svg',
+      alt: 'פתיחת השער', caption_he: 'פתיחת השער', sort_order: 0,
+    },
+    {
+      id: 'im2', book_id: books[2].id, image_url: '/demo/scene-siyum-hashas.svg',
+      alt: 'עמוד לדוגמה', caption_he: 'עמוד לדוגמה מתוך הפרק הראשון', sort_order: 1,
+    },
+  ],
+  toc: [
+    { id: 't1', book_id: books[2].id, title_he: 'מבוא', level: 0, page_number: 1, summary_he: 'רקע כללי ומטרת החיבור.', sort_order: 0 },
+    { id: 't2', book_id: books[2].id, title_he: 'פרק א: יסודות', level: 0, page_number: 12, summary_he: null, sort_order: 1 },
+    { id: 't3', book_id: books[2].id, title_he: 'סימן א', level: 1, page_number: 12, summary_he: null, sort_order: 2 },
+    { id: 't4', book_id: books[2].id, title_he: 'פרק ב: הרחבות', level: 0, page_number: 45, summary_he: null, sort_order: 3 },
+    { id: 't5', book_id: books[2].id, title_he: 'נספחים', level: 0, page_number: 88, summary_he: null, sort_order: 4 },
+  ],
+  view_count: 214,
+};
+books[4] = { ...books[4], series_id: demoSeries.id, series_position: 2, series: demoSeries, view_count: 96 };
 
 function daysFromNow(days: number) {
   const date = new Date();
@@ -208,6 +251,15 @@ export const demo = {
   authors: () => authors,
   authorBySlug: (slug: string) => authors.find((a) => a.slug === slug) ?? null,
   booksByAuthor: (id: string) => books.filter((b) => b.author_id === id),
+  connections: (book: BookWithRelations) => {
+    const tagIds = new Set((book.tags ?? []).map((tag) => tag.id));
+    return {
+      sameAuthor: books.filter((b) => b.id !== book.id && b.author_id === book.author_id),
+      sameSeries: books.filter((b) => b.id !== book.id && book.series_id && b.series_id === book.series_id),
+      sameCategory: books.filter((b) => b.id !== book.id && b.category_id === book.category_id),
+      sameTags: books.filter((b) => b.id !== book.id && (b.tags ?? []).some((tag) => tagIds.has(tag.id))),
+    };
+  },
   activities: () => activities,
   activityBySlug: (slug: string) => activities.find((a) => a.slug === slug) ?? null,
   events: () => events,

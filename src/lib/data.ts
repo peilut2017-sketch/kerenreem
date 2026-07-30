@@ -59,12 +59,28 @@ const BOOK_BASE_SELECT = `
 
 const BOOK_SELECT = `
   ${BOOK_BASE_SELECT},
-  tags:book_tags ( tag:tags ( id, slug, name_he, name_en ) ),
+  tags:book_tags ( tag:tags ( id, slug, name_he, name_en, description_he ) ),
   attributeValues:book_attributes ( value:attribute_values ( id, slug, name_he, attribute_id ) )
 `;
 
 /**
- * מריץ שליפת ספרים עם ההצטרפות המלאה, ונופל לבסיסית כשהיא אינה אפשרית.
+ * שליפה מלאה, רק לעמוד הספר הבודד: מוסיפה סדרה, גלריה ותוכן עניינים —
+ * שדות ש-08_pim_stage_a.sql הקודם לא הכיר, ושרשימות/כרטיסים לא צריכים
+ * (join מיותר בכל טעינת קטלוג של מאות ספרים).
+ *
+ * series:series!books_series_id_fkey ולא series:series סתם, מאותה סיבה
+ * בדיוק שהוסברה למעלה על category: מסלול קשר אחד היום, אבל אילוץ מפורש
+ * הוא הבטוח כשמישהו יוסיף בעתיד טבלת קישור נוספת לסדרות.
+ */
+const BOOK_DETAIL_SELECT = `
+  ${BOOK_SELECT},
+  series:series!books_series_id_fkey ( id, slug, name_he, name_en ),
+  images:book_images ( id, book_id, image_url, alt, caption_he, sort_order ),
+  toc:book_toc ( id, book_id, title_he, level, page_number, summary_he, sort_order )
+`;
+
+/**
+ * מריץ שליפת ספרים, ונופל משכבה עשירה יותר לבסיסית כשהיא אינה אפשרית.
  * 42P01 = הטבלה אינה קיימת, PGRST200 = הקשר אינו מוכר ל-PostgREST.
  *
  * הניסיון המלא נעשה מחדש בכל קריאה, בלי "לזכור" כשל קודם. גרסה מוקדמת
@@ -77,23 +93,27 @@ const BOOK_SELECT = `
 async function runBookQuery<T>(
   build: (select: string) => PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>,
   scope: string,
+  selects: readonly string[] = [BOOK_SELECT, BOOK_BASE_SELECT],
 ): Promise<T[]> {
-  const full = await build(BOOK_SELECT);
-  if (!full.error) return shapeBooks(full.data) as T[];
+  for (let i = 0; i < selects.length; i += 1) {
+    const result = await build(selects[i]);
+    if (!result.error) return shapeBooks(result.data) as T[];
 
-  if (full.error.code !== '42P01' && full.error.code !== 'PGRST200') {
-    warn(scope, full.error);
-    return [];
+    const isMissingLayer = result.error.code === '42P01' || result.error.code === 'PGRST200';
+    const isLast = i === selects.length - 1;
+
+    if (!isMissingLayer || isLast) {
+      warn(scope, result.error);
+      return [];
+    }
+
+    console.warn(
+      `[data:${scope}] שכבת נתונים חסרה (שלב ${i + 1} מתוך ${selects.length}) — ` +
+        'יש להריץ את קובצי ה-SQL של מכון קרן רא״ם לפי הסדר. נופל לשכבה הבסיסית יותר.',
+    );
   }
 
-  console.warn(
-    `[data:${scope}] טבלאות התגיות והמאפיינים חסרות — יש להריץ את supabase/08_pim_stage_a.sql. ` +
-      'הקטלוג מוגש בינתיים בלעדיהן.',
-  );
-
-  const base = await build(BOOK_BASE_SELECT);
-  warn(scope, base.error);
-  return shapeBooks(base.data) as T[];
+  return [];
 }
 
 /**
@@ -109,12 +129,19 @@ function flatten<K extends string, T>(rows: unknown, key: K): T[] {
     .filter((value): value is T => value !== null && value !== undefined);
 }
 
+/** ממיין לפי sort_order רק כשהמערך בכלל נשלף (BOOK_DETAIL_SELECT). */
+function bySortOrder<T extends { sort_order: number }>(rows: T[] | undefined): T[] | undefined {
+  return rows ? [...rows].sort((a, b) => a.sort_order - b.sort_order) : undefined;
+}
+
 function shapeBook(row: unknown): BookWithRelations {
   const book = row as BookWithRelations & { tags?: unknown; attributeValues?: unknown };
   return {
     ...book,
     tags: flatten(book.tags, 'tag'),
     attributeValues: flatten(book.attributeValues, 'value'),
+    images: bySortOrder(book.images),
+    toc: bySortOrder(book.toc),
   };
 }
 
@@ -136,12 +163,7 @@ export async function getBooks(): Promise<BookWithRelations[]> {
 
   return runBookQuery<BookWithRelations>(
     (select) =>
-      supabase
-        .from('books')
-        .select(select)
-        .eq('is_published', true)
-        .order('sort_order', { ascending: true })
-        .order('title_he', { ascending: true }),
+      supabase.from('books').select(select).eq('is_published', true).order('title_he', { ascending: true }),
     'getBooks',
   );
 }
@@ -153,53 +175,112 @@ export async function getBookBySlug(slug: string): Promise<BookWithRelations | n
   const rows = await runBookQuery<BookWithRelations>(
     (select) => supabase.from('books').select(select).eq('slug', slug).eq('is_published', true),
     'getBookBySlug',
+    [BOOK_DETAIL_SELECT, BOOK_SELECT, BOOK_BASE_SELECT],
   );
   return rows[0] ?? null;
 }
 
-/** ספרים נוספים להצגה בתחתית עמוד ספר — קודם מאותו מחבר, ואז מאותה קטגוריה. */
-export async function getRelatedBooks(book: BookWithRelations, limit = 4): Promise<BookWithRelations[]> {
+/**
+ * ספרים קשורים לעמוד הספר, מקובצים לפי *סיבת* הקשר — לא רשימה שטוחה של
+ * "עוד ספרים". כל דלי משמש קרוסלה נפרדת עם כותרת שמסבירה את עצמה.
+ *
+ * "אותן תגיות" נשלף בשני סבבים (מזהי ספרים דרך book_tags, ואז הספרים
+ * עצמם) ולא בסינון על טבלה מקוננת: PostgREST תומך בזה רק דרך תחביר
+ * !inner עדין שהיה מוסיף עוד מקום לתקלת PGRST201 מהסוג שכבר קרה כאן פעם
+ * אחת — שתי שאילתות פשוטות בטוחות יותר משאילתה אחת עדינה.
+ */
+export interface BookConnections {
+  sameAuthor: BookWithRelations[];
+  /** ריק אם הספר אינו שייך לסדרה. ממוין לפי מיקום הכרך. */
+  sameSeries: BookWithRelations[];
+  sameCategory: BookWithRelations[];
+  sameTags: BookWithRelations[];
+}
+
+const EMPTY_CONNECTIONS: BookConnections = {
+  sameAuthor: [],
+  sameSeries: [],
+  sameCategory: [],
+  sameTags: [],
+};
+
+export async function getBookConnections(book: BookWithRelations, limit = 8): Promise<BookConnections> {
   const supabase = createStaticClient();
-  if (!supabase) return [];
+  if (!supabase) return isDemoContent ? demo.connections(book) : EMPTY_CONNECTIONS;
 
-  const collected: BookWithRelations[] = [];
+  const tagIds = (book.tags ?? []).map((tag) => tag.id);
 
-  if (book.author_id) {
-    collected.push(
-      ...(await runBookQuery<BookWithRelations>(
-        (select) =>
-          supabase
-            .from('books')
-            .select(select)
-            .eq('is_published', true)
-            .eq('author_id', book.author_id!)
-            .neq('id', book.id)
-            .limit(limit),
-        'getRelatedBooks',
-      )),
-    );
+  const [sameAuthor, sameSeries, sameCategory, sameTags] = await Promise.all([
+    book.author_id
+      ? runBookQuery<BookWithRelations>(
+          (select) =>
+            supabase
+              .from('books')
+              .select(select)
+              .eq('is_published', true)
+              .eq('author_id', book.author_id!)
+              .neq('id', book.id)
+              .order('title_he', { ascending: true })
+              .limit(limit),
+          'getBookConnections:author',
+        )
+      : Promise.resolve([]),
+
+    book.series_id
+      ? runBookQuery<BookWithRelations>(
+          (select) =>
+            supabase
+              .from('books')
+              .select(select)
+              .eq('is_published', true)
+              .eq('series_id', book.series_id!)
+              .neq('id', book.id)
+              .order('series_position', { ascending: true, nullsFirst: false }),
+          'getBookConnections:series',
+        )
+      : Promise.resolve([]),
+
+    book.category_id
+      ? runBookQuery<BookWithRelations>(
+          (select) =>
+            supabase
+              .from('books')
+              .select(select)
+              .eq('is_published', true)
+              .eq('category_id', book.category_id!)
+              .neq('id', book.id)
+              .order('title_he', { ascending: true })
+              .limit(limit),
+          'getBookConnections:category',
+        )
+      : Promise.resolve([]),
+
+    tagIds.length > 0 ? getBooksSharingTags(supabase, tagIds, book.id, limit) : Promise.resolve([]),
+  ]);
+
+  return { sameAuthor, sameSeries, sameCategory, sameTags };
+}
+
+async function getBooksSharingTags(
+  supabase: NonNullable<ReturnType<typeof createStaticClient>>,
+  tagIds: string[],
+  excludeId: string,
+  limit: number,
+): Promise<BookWithRelations[]> {
+  const links = await supabase.from('book_tags').select('book_id').in('tag_id', tagIds).neq('book_id', excludeId);
+  if (links.error) {
+    warn('getBookConnections:tags', links.error);
+    return [];
   }
 
-  if (collected.length < limit && book.category_id) {
-    const sameCategory = await runBookQuery<BookWithRelations>(
-      (select) =>
-        supabase
-          .from('books')
-          .select(select)
-          .eq('is_published', true)
-          .eq('category_id', book.category_id!)
-          .neq('id', book.id)
-          .limit(limit),
-      'getRelatedBooks',
-    );
+  // ספר עם כמה תגיות משותפות חוזר כמה פעמים ב-book_tags — הייחוד כאן
+  const ids = [...new Set((links.data as { book_id: string }[]).map((row) => row.book_id))].slice(0, limit);
+  if (ids.length === 0) return [];
 
-    for (const candidate of sameCategory) {
-      if (collected.length >= limit) break;
-      if (!collected.some((existing) => existing.id === candidate.id)) collected.push(candidate);
-    }
-  }
-
-  return collected.slice(0, limit);
+  return runBookQuery<BookWithRelations>(
+    (select) => supabase.from('books').select(select).eq('is_published', true).in('id', ids),
+    'getBookConnections:tags',
+  );
 }
 
 /** הכותרים האחרונים שנוספו — לעמוד הבית. */
@@ -217,6 +298,22 @@ export async function getRecentBooks(limit = 6): Promise<BookWithRelations[]> {
         .limit(limit),
     'getRecentBooks',
   );
+}
+
+/**
+ * מונה צפיות גס — ראו increment_book_view ב-10_book_page_stage_c.sql.
+ *
+ * נקרא מ-Server Action בצד הלקוח (recordBookView) ולא מתוך רינדור
+ * העמוד עצמו: עמוד הספר עובר ISR עם revalidate=60, כלומר קריאה כאן
+ * הייתה נספרת פעם אחת לכל בנייה מחדש של המטמון ולא פעם אחת לכל ביקור —
+ * מונה שסופר לפי קצב המטמון ולא לפי ביקורים אמיתיים חסר משמעות.
+ */
+export async function incrementBookView(slug: string): Promise<void> {
+  const supabase = createStaticClient();
+  if (!supabase) return;
+
+  const { error } = await supabase.rpc('increment_book_view', { target_slug: slug });
+  if (error) console.error('[data:incrementBookView]', error);
 }
 
 export async function getBookSlugs(): Promise<string[]> {
@@ -271,7 +368,7 @@ export async function getBooksByAuthor(authorId: string): Promise<BookWithRelati
         .select(select)
         .eq('is_published', true)
         .eq('author_id', authorId)
-        .order('sort_order', { ascending: true }),
+        .order('title_he', { ascending: true }),
     'getBooksByAuthor',
   );
 }

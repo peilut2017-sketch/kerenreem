@@ -490,7 +490,7 @@ export async function createTag(name: string): Promise<{ tag?: Tag; error?: stri
     const { data, error } = await supabase
       .from('tags')
       .insert({ slug: slugify(trimmed, 'tag'), name_he: trimmed })
-      .select('id, slug, name_he, name_en, is_system')
+      .select('id, slug, name_he, name_en, is_system, description_he')
       .maybeSingle();
 
     if (error) {

@@ -1,14 +1,23 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
-import { BookCover } from '@/components/BookCover';
-import { BookGrid } from '@/components/BookGrid';
 import { BookPurchase } from '@/components/BookPurchase';
-import { RichText } from '@/components/RichText';
-import { SectionHeading } from '@/components/SectionHeading';
-import { getBookBySlug, getBookSlugs, getRelatedBooks, getSiteSettings } from '@/lib/data';
+import { AuthorSection } from '@/components/book-page/AuthorSection';
+import { BookHero } from '@/components/book-page/BookHero';
+import { ConnectionsSection } from '@/components/book-page/ConnectionsSection';
+import { FloatingActions } from '@/components/book-page/FloatingActions';
+import { Gallery } from '@/components/book-page/Gallery';
+import { KnowledgeMap, type KnowledgeMapNode } from '@/components/book-page/KnowledgeMap';
+import { PdfFlipbook } from '@/components/book-page/PdfFlipbook';
+import { QuoteCards } from '@/components/book-page/QuoteCards';
+import { SeriesTimeline } from '@/components/book-page/SeriesTimeline';
+import { StickyNav } from '@/components/book-page/StickyNav';
+import { SummaryCard } from '@/components/book-page/SummaryCard';
+import { TableOfContents } from '@/components/book-page/TableOfContents';
+import { ViewTracker } from '@/components/book-page/ViewTracker';
+import { getAuthorBySlug, getBookBySlug, getBookConnections, getBookSlugs, getSiteSettings } from '@/lib/data';
+import { getCoverPalette } from '@/lib/cover-colors';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
@@ -71,12 +80,20 @@ export default async function BookPage({
   if (!book) notFound();
 
   const t = await getTranslations('books');
-  const [related, settings] = await Promise.all([getRelatedBooks(book), getSiteSettings()]);
+  const tValues = (key: string, values?: Record<string, string | number | Date>) => t(key, values);
+
+  const [connections, settings, author, palette] = await Promise.all([
+    getBookConnections(book),
+    getSiteSettings(),
+    book.author ? getAuthorBySlug(book.author.slug) : Promise.resolve(null),
+    getCoverPalette(book.cover_image_url),
+  ]);
 
   const title = localized(book, 'title', locale);
   const subtitle = localizedOrNull(book, 'subtitle', locale);
   const authorName = book.author ? localized(book.author, 'name', locale) : null;
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
+  const description = localizedOrNull(book, 'description', locale);
 
   // שנת ההוצאה: העברית היא המקור התיעודי, הלועזית משלימה כשהיא ידועה.
   const year = [book.publication_year_he, book.publication_year_ce]
@@ -84,8 +101,6 @@ export default async function BookPage({
     .join(book.publication_year_he && book.publication_year_ce ? ' · ' : '');
 
   const spec: [string, string][] = [
-    authorName ? [t('author'), authorName] : null,
-    categoryName ? [t('category'), categoryName] : null,
     year ? [t('publicationYear'), year] : null,
     book.volume_count && book.volume_count > 1 ? [t('volumes'), String(book.volume_count)] : null,
     book.pages ? [t('pages'), String(book.pages)] : null,
@@ -112,57 +127,64 @@ export default async function BookPage({
     publisher: { '@type': 'Organization', name: 'מכון קרן רא״ם' },
   };
 
+  const hasConnections =
+    connections.sameAuthor.length > 0 || connections.sameCategory.length > 0 || connections.sameTags.length > 0;
+
+  const knowledgeNodes: KnowledgeMapNode[] = [
+    { id: 'book-connections', label: t('knowledgeMapAuthor'), count: connections.sameAuthor.length },
+    { id: 'book-connections', label: t('knowledgeMapCategory'), count: connections.sameCategory.length },
+    ...(book.series ? [{ id: 'book-series', label: t('knowledgeMapSeries'), count: connections.sameSeries.length }] : []),
+    { id: 'book-connections', label: t('knowledgeMapTags'), count: connections.sameTags.length },
+  ];
+
+  const sections = [
+    { id: 'book-hero', label: t('navOverview') },
+    description ? { id: 'book-summary', label: t('navSummary') } : null,
+    book.toc && book.toc.length > 0 ? { id: 'book-toc', label: t('navToc') } : null,
+    book.images && book.images.length > 0 ? { id: 'book-gallery', label: t('navGallery') } : null,
+    author ? { id: 'book-author', label: t('navAuthor') } : null,
+    book.series ? { id: 'book-series', label: t('navSeries') } : null,
+    hasConnections ? { id: 'book-connections', label: t('navConnections') } : null,
+  ].filter((section): section is { id: string; label: string } => section !== null);
+
+  const showBuy = settings.store_enabled && book.is_purchasable && book.price != null;
+
   return (
-    <Container className="py-14">
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <article className="grid gap-10 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:gap-16">
-        <div className="mx-auto w-full max-w-[17rem] lg:mx-0">
-          <BookCover
-            src={book.cover_image_url}
-            title={title}
-            alt={t('coverAlt', { title })}
-            priority
-            sizes="(max-width: 1024px) 60vw, 272px"
-          />
-          {book.sample_pdf_url ? (
-            <p className="mt-5">
-              <a
-                href={book.sample_pdf_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={t('sampleAria')}
-                className="link text-small"
-              >
-                {t('sample')}
-              </a>
-            </p>
-          ) : null}
-        </div>
+      <ViewTracker slug={book.slug} />
 
-        <div>
-          <h1 className="text-[clamp(1.75rem,3.4vw,2.5rem)] leading-tight text-ink">{title}</h1>
-          {subtitle ? <p className="mt-3 text-lead text-muted">{subtitle}</p> : null}
+      <BookHero
+        book={book}
+        palette={palette}
+        title={title}
+        subtitle={subtitle}
+        authorName={authorName}
+        categoryName={categoryName}
+        year={year}
+        t={tValues}
+      />
 
-          {book.author ? (
-            <p className="mt-4 text-body">
-              <Link href={`/authors/${book.author.slug}`} className="link text-ink-soft">
-                {authorName}
-              </Link>
-            </p>
-          ) : null}
+      <StickyNav sections={sections} cover={book.cover_image_url} title={title} />
 
-          <BookPurchase book={book} storeEnabled={settings.store_enabled} />
-
-          <div className="mt-8">
-            <RichText html={localized(book, 'description', locale)} />
+      <Container className="space-y-20 py-16">
+        <article className="mx-auto max-w-2xl">
+          <div id="book-purchase">
+            <BookPurchase book={book} storeEnabled={settings.store_enabled} />
           </div>
 
+          {book.sample_pdf_url ? (
+            <p className="mt-5">
+              <PdfFlipbook pdfUrl={book.sample_pdf_url} title={title} />
+            </p>
+          ) : null}
+
           {spec.length > 0 ? (
-            <section className="mt-12" aria-labelledby="book-spec">
+            <section className="mt-10" aria-labelledby="book-spec">
               <h2 id="book-spec" className="eyebrow mb-4">
                 {t('details')}
               </h2>
@@ -179,18 +201,46 @@ export default async function BookPage({
               </dl>
             </section>
           ) : null}
-        </div>
-      </article>
+        </article>
 
-      {related.length > 0 ? (
-        <section className="mt-20">
-          <SectionHeading
-            level={2}
-            title={authorName ? t('otherByAuthor', { name: authorName }) : t('sameCategory')}
+        {description ? <SummaryCard html={description} t={t} /> : null}
+
+        {book.quotes.length > 0 ? <QuoteCards quotes={book.quotes} t={t} /> : null}
+
+        {book.toc && book.toc.length > 0 ? <TableOfContents entries={book.toc} /> : null}
+
+        {book.images && book.images.length > 0 ? (
+          <Gallery images={book.images} title={title} t={tValues} />
+        ) : null}
+
+        {author ? (
+          <AuthorSection
+            author={author}
+            authorName={authorName ?? author.name_he}
+            otherBooks={connections.sameAuthor}
+            locale={locale}
+            t={tValues}
           />
-          <BookGrid books={related} locale={locale} />
-        </section>
-      ) : null}
-    </Container>
+        ) : null}
+
+        {book.series && connections.sameSeries.length > 0 ? (
+          <SeriesTimeline
+            series={book.series}
+            currentBook={book}
+            volumes={connections.sameSeries}
+            locale={locale}
+            t={tValues}
+          />
+        ) : null}
+
+        {hasConnections ? (
+          <ConnectionsSection connections={connections} authorName={authorName} locale={locale} t={tValues} />
+        ) : null}
+
+        <KnowledgeMap nodes={knowledgeNodes} />
+      </Container>
+
+      <FloatingActions bookId={book.id} title={title} showBuy={showBuy} />
+    </>
   );
 }

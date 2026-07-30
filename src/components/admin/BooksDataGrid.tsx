@@ -190,7 +190,7 @@ export function BooksDataGrid({
             עמודות
           </button>
           {columnsOpen ? (
-            <div className="absolute end-0 z-10 mt-2 w-48 rounded-[var(--radius-md)] border border-rule bg-cream-1 p-3 shadow-[var(--shadow-float)]">
+            <div className="absolute end-0 z-10 mt-2 w-48 rounded-[var(--radius-md)] border border-rule bg-cream-2 p-3 shadow-[var(--shadow-float)]">
               {TOGGLEABLE.map((column) => (
                 <label key={column.id} className="flex items-center gap-2.5 py-1 text-small text-ink-soft">
                   <input

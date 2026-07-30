@@ -26,7 +26,14 @@ export function SectionHeading({
     <div className="mb-9">
       {eyebrow ? <p className="eyebrow mb-2">{eyebrow}</p> : null}
       <div className="flex items-baseline gap-5">
-        <Heading id={id} className={`${size} shrink-0 font-serif text-ink`}>
+        {/* scroll-mt: כותרת עם id היא בדרך כלל יעד קפיצה מניווט פנימי;
+            בלעדיו סרגל ניווט דביק היה מכסה אותה אחרי הקפיצה. משתמש
+            ב---book-nav-offset כשהוא מוגדר (עמוד הספר, ראו StickyNav.tsx),
+            אחרת נופל לערך קבוע סביר */}
+        <Heading
+          id={id}
+          className={`${size} shrink-0 font-serif text-ink ${id ? 'scroll-mt-[var(--book-nav-offset,6rem)]' : ''}`}
+        >
           {title}
         </Heading>
         <span
