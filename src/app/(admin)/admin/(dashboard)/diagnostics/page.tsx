@@ -1,5 +1,5 @@
 import { requireRole } from '@/lib/admin/auth';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createStaticClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 
 export const dynamic = 'force-dynamic';
@@ -145,47 +145,82 @@ export default async function DiagnosticsPage() {
 
   /* --- 3. מדוע תוכן אינו מופיע באתר --- */
   //
-  // "הוספתי ספר והוא לא מוצג" יכול לנבוע משלוש סיבות שנראות זהות מהניהול:
-  // הספר נשמר כטיוטה, ההצטרפות לטבלאות החדשות נכשלת ומחזירה אפס, או
-  // שהעמוד הציבורי עדיין מוגש ממטמון. הבדיקות כאן מפרידות ביניהן, ולכן
-  // הן מריצות את **אותה שאילתה** שהאתר הציבורי מריץ ולא ספירה משלהן.
+  // הבדיקה הקודמת כאן השתמשה ב-session של המנהל, שעליו חלה
+  // "is_published or can_edit()" — כלומר מנהל תמיד רואה הכל, גם טיוטות.
+  // בדיקה כזו אינה יכולה לתפוס בעיית הרשאות שפוגעת רק במבקר אנונימי:
+  // אם ל-anon חסרה הרשאת select על הטבלה, המנהל עדיין יראה "5 מפורסמים"
+  // בעוד שהאתר הציבורי מקבל שורה ריקה בשקט.
+  //
+  // לכן הבדיקה כאן משתמשת ב-createStaticClient — בדיוק הלקוח שהעמוד
+  // הציבורי משתמש בו, בלי session — ומריצה את אותה שאילתה מילה במילה.
+  const anon = createStaticClient();
   const publicChecks: Check[] = [];
+  let missingBooks: { slug: string; title: string }[] = [];
 
-  for (const table of ['books', 'authors', 'events', 'activities'] as const) {
-    const [all, published] = await Promise.all([
-      supabase.from(table).select('id', { count: 'exact', head: true }),
-      supabase.from(table).select('id', { count: 'exact', head: true }).eq('is_published', true),
-    ]);
+  if (!anon) {
+    publicChecks.push({
+      label: 'לקוח ציבורי',
+      ok: false,
+      detail: 'אין חיבור אנונימי למסד — לא ניתן לבדוק מה האתר הציבורי רואה בפועל.',
+    });
+  } else {
+    for (const table of ['books', 'authors', 'events', 'activities'] as const) {
+      const [total, asAdmin, asPublic] = await Promise.all([
+        supabase.from(table).select('id', { count: 'exact', head: true }),
+        supabase.from(table).select('id', { count: 'exact', head: true }).eq('is_published', true),
+        anon.from(table).select('id', { count: 'exact', head: true }).eq('is_published', true),
+      ]);
 
-    const total = all.count ?? 0;
-    const live = published.count ?? 0;
+      const all = total.count ?? 0;
+      const shouldShow = asAdmin.count ?? 0;
+      const doesShow = asPublic.count ?? 0;
+
+      publicChecks.push({
+        label: `${table} — מפורסמים ונראים למבקר`,
+        ok: all === 0 || (!asPublic.error && doesShow >= shouldShow && shouldShow > 0),
+        detail: asPublic.error
+          ? `${asPublic.error.code ?? '—'}: ${asPublic.error.message} — לתפקיד anon אין הרשאת קריאה. הריצו supabase/06_restore_grants.sql`
+          : all === 0
+            ? 'אין רשומות כלל'
+            : shouldShow === 0
+              ? `${all} רשומות, כולן טיוטה. סמנו "מפורסם באתר" בטופס — טיוטה אינה מוצגת באתר.`
+              : doesShow < shouldShow
+                ? `מסומנים כמפורסמים: ${shouldShow} מתוך ${all}. נראים בפועל למבקר אנונימי: ${doesShow}. ` +
+                  'הפער נובע כמעט תמיד מ-RLS או מהרשאות חסרות על הטבלה.'
+                : `${doesShow} מפורסמים מתוך ${all}, כולם נראים למבקר`,
+      });
+    }
+
+    // ההצטרפות שהאתר הציבורי משתמש בה, דרך אותו לקוח בדיוק
+    const joined = await anon
+      .from('books')
+      .select(
+        'id, slug, title_he, tags:book_tags ( tag:tags ( id ) ), attributeValues:book_attributes ( value_id )',
+      )
+      .eq('is_published', true);
 
     publicChecks.push({
-      label: `${table} — מפורסמים`,
-      ok: total === 0 || live > 0,
-      detail:
-        total === 0
-          ? 'אין רשומות כלל'
-          : live === 0
-            ? `${total} רשומות, כולן טיוטה. סמנו "מפורסם באתר" בטופס — טיוטה אינה מוצגת באתר.`
-            : `${live} מתוך ${total}`,
+      label: 'שליפת הקטלוג עם תגיות (כמבקר אנונימי)',
+      ok: !joined.error,
+      detail: joined.error
+        ? `${joined.error.code ?? '—'}: ${joined.error.message} — הריצו supabase/08_pim_stage_a.sql`
+        : `הוחזרו ${joined.data?.length ?? 0} ספרים`,
     });
+
+    // רשימת הספרים שמסומנים כמפורסמים אך אינם מגיעים ללקוח הציבורי —
+    // ההשוואה המדויקת שהמשתמש צריך כדי להצביע על הספר הספציפי שחסר
+    if (!joined.error) {
+      const visibleSlugs = new Set((joined.data ?? []).map((row) => row.slug));
+      const { data: adminBooks } = await supabase
+        .from('books')
+        .select('slug, title_he')
+        .eq('is_published', true);
+
+      missingBooks = (adminBooks ?? [])
+        .filter((book) => !visibleSlugs.has(book.slug))
+        .map((book) => ({ slug: book.slug, title: book.title_he }));
+    }
   }
-
-  // ההצטרפות שהאתר הציבורי משתמש בה. אם היא נכשלת, הקטלוג ריק לגמרי.
-  const joined = await supabase
-    .from('books')
-    .select('id, tags:book_tags ( tag:tags ( id ) ), attributeValues:book_attributes ( value_id )')
-    .eq('is_published', true)
-    .limit(1);
-
-  publicChecks.push({
-    label: 'שליפת הקטלוג עם תגיות',
-    ok: !joined.error,
-    detail: joined.error
-      ? `${joined.error.code ?? '—'}: ${joined.error.message} — הריצו supabase/08_pim_stage_a.sql`
-      : 'תקינה',
-  });
 
   /* --- 4. אחסון קבצים --- */
   const storage: Check[] = await Promise.all(BUCKETS.map((name) => probeBucket(supabase, name)));
@@ -214,6 +249,26 @@ export default async function DiagnosticsPage() {
       </p>
 
       <Section title="מדוע תוכן אינו מופיע באתר" checks={publicChecks} />
+
+      {missingBooks.length > 0 ? (
+        <div className="mb-8 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small">
+          <p className="font-semibold text-ink">
+            {missingBooks.length} ספרים מסומנים כמפורסמים אך אינם מגיעים למבקר אנונימי:
+          </p>
+          <ul className="mt-2 list-disc ps-5 text-ink-soft">
+            {missingBooks.map((book) => (
+              <li key={book.slug}>
+                {book.title} — <span dir="ltr">/books/{book.slug}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-caption text-muted">
+            אלה בדיוק הספרים לבדוק. אם הרשימה למעלה (&quot;מפורסמים ונראים למבקר&quot;)
+            תקינה עבור books אך הרשימה הזו אינה ריקה — הפער הוא במטמון ולא
+            בהרשאות: רעננו את העמוד או המתינו לרענון האוטומטי.
+          </p>
+        </div>
+      ) : null}
 
       <p className="mb-8 text-caption leading-relaxed text-muted">
         אם הכל תקין כאן והתוכן עדיין אינו מופיע — העמוד הציבורי מוגש ממטמון.
