@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
-import { Link } from '@/i18n/navigation';
 import { MobileNav } from './MobileNav';
+import { NavLinks } from './NavLinks';
 import { LocaleSwitch } from './LocaleSwitch';
 import { SearchLauncher } from './SearchLauncher';
 import { Wordmark } from './Wordmark';
@@ -11,7 +11,6 @@ export const MAIN_NAV = [
   { href: '/books', key: 'books' },
   { href: '/activities', key: 'activities' },
   { href: '/events', key: 'events' },
-  { href: '/donate', key: 'donate' },
   { href: '/contact', key: 'contact' },
 ] as const;
 
@@ -35,20 +34,10 @@ export async function SiteHeader({ settings }: { settings: SiteSettings }) {
           tagline={t('site.tagline')}
         />
 
-        <nav aria-label={t('nav.menu')} className="mx-auto hidden lg:block">
-          <ul className="flex items-center gap-1">
-            {MAIN_NAV.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="block rounded-[var(--radius-pill)] px-4 py-2 text-small text-ink-soft transition-[background-color,color] duration-300 hover:bg-white/70 hover:text-burgundy"
-                >
-                  {t(`nav.${item.key}`)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <NavLinks
+          label={t('nav.menu')}
+          items={MAIN_NAV.map((item) => ({ href: item.href, label: t(`nav.${item.key}`) }))}
+        />
 
         <div className="ms-auto flex items-center gap-3 lg:ms-0">
           <div className="hidden items-center gap-3 lg:flex">

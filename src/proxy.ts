@@ -34,13 +34,22 @@ async function handleAdmin(request: NextRequest) {
     },
   });
 
-  // getUser() מאמת את הטוקן מול השרת. אין להסתמך על getSession() ב-middleware:
-  // הוא קורא את העוגייה בלבד ולכן ניתן לזיוף.
+  // getSession() ולא getUser(): כאן לא מתקבלת שום החלטת אבטחה.
+  //
+  // getUser() פונה לשרת האימות ברשת בכל בקשה — כולל כל ניווט וכל שליחת
+  // טופס — וזה היה סבב רשת שלם לפני שהתחילה העבודה האמיתית. getSession()
+  // קורא את העוגייה ופונה לרשת רק כשהטוקן באמת דורש רענון, וזה התפקיד
+  // היחיד שנחוץ בשכבה הזו: לשמור על ה-session חי ולהפנות מוקדם כשאין כזה.
+  //
+  // מה שקורא העוגייה מחזיר אינו אמין, ולכן הוא אינו קובע הרשאה: כל עמוד
+  // ניהול קורא ל-requireRole שמאמת את החתימה, כל Server Action קורא
+  // ל-assertRole, ומעל הכל RLS במסד אוכף לפי המשתמש האמיתי. עוגייה מזויפת
+  // תעבור כאן ותיעצר בשלוש השכבות שאחריה.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!user) {
+  if (!session) {
     // רישום מפורש: בלעדיו הפניה חוזרת למסך ההתחברות נראית זהה בין
     // "אין עוגייה" לבין "העוגייה קיימת אבל הטוקן נדחה", ואי אפשר לאבחן.
     const hasAuthCookie = request.cookies.getAll().some((cookie) => cookie.name.startsWith('sb-'));

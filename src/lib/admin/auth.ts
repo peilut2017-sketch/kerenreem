@@ -55,32 +55,37 @@ export const getAdminSessionResult = cache(async (): Promise<AdminSessionResult>
   const supabase = await createClient();
   if (!supabase) return { status: 'not-configured' };
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: 'no-session' };
+  // getClaims() מאמת את חתימת ה-JWT. כשמוגדרים מפתחות חתימה א-סימטריים
+  // האימות נעשה מקומית מול JWKS שנשמר במטמון — בלי סבב רשת כלל. בהגדרה
+  // הישנה (סוד סימטרי) הוא נופל בחזרה ל-getUser(), כלומר אותה רמת אבטחה
+  // בדיוק כמו קודם ובלי האטה נוספת. פג תוקף נבדק בשני המקרים.
+  const { data: claims, error: claimsError } = await supabase.auth.getClaims();
+  const userId = claims?.claims.sub;
+  if (claimsError || !userId) return { status: 'no-session' };
+
+  const email = typeof claims.claims.email === 'string' ? claims.claims.email : null;
 
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle();
 
   if (error) {
     console.error('[admin:auth] קריאת הפרופיל נכשלה', error.code, error.message);
     return {
       status: 'profile-error',
-      userId: user.id,
-      email: user.email ?? null,
+      userId,
+      email,
       message: error.message,
     };
   }
 
-  if (!profile) return { status: 'no-profile', userId: user.id, email: user.email ?? null };
+  if (!profile) return { status: 'no-profile', userId, email };
 
   return {
     status: 'ok',
-    session: { userId: user.id, email: user.email ?? null, profile: profile as Profile },
+    session: { userId, email, profile: profile as Profile },
   };
 });
 

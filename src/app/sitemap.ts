@@ -11,7 +11,6 @@ const STATIC_PATHS = [
   '/authors',
   '/activities',
   '/events',
-  '/donate',
   '/contact',
   '/terms',
   '/privacy',

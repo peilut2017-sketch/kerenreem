@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { listBooks } from '@/lib/admin/queries';
-import { AdminCell, AdminHeader, AdminRow, AdminTable, PublishBadge } from '@/components/admin/AdminList';
+import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
+import { RowActions } from '@/components/admin/RowActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export default async function AdminBooksPage() {
       />
 
       <AdminTable
-        columns={['שם הספר', 'מחבר', 'שנה', 'מצב']}
+        columns={['שם הספר', 'מחבר', 'שנה', 'מצב ופעולות']}
         empty={books.length === 0 ? 'טרם נוספו ספרים.' : undefined}
       >
         {books.map((book) => (
@@ -36,7 +37,12 @@ export default async function AdminBooksPage() {
               {book.publication_year_he || book.publication_year_ce || '—'}
             </AdminCell>
             <AdminCell>
-              <PublishBadge published={book.is_published} />
+              <RowActions
+                entity="books"
+                id={book.id}
+                label={book.title_he}
+                published={book.is_published}
+              />
             </AdminCell>
           </AdminRow>
         ))}

@@ -163,7 +163,7 @@ export const ENTITIES = {
     ],
     // עמודי התוכן הם מסלולים סטטיים (/about, /terms...). 'home' אינו מסלול
     // בפני עצמו אלא משפט הפתיחה בעמוד הבית, ולכן די ברענון השורש.
-    revalidate: ['/about', '/donate', '/terms', '/privacy', '/accessibility', ''],
+    revalidate: ['/about', '/terms', '/privacy', '/accessibility', ''],
   },
 
   banners: {

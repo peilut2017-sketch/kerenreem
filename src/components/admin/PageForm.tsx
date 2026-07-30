@@ -9,7 +9,6 @@ import type { ContentPage } from '@/lib/supabase/types';
 const RESERVED: Record<string, string> = {
   home: 'משפט הפתיחה בעמוד הבית',
   about: 'עמוד אודות',
-  donate: 'טקסט משלים בעמוד התרומה',
   terms: 'תקנון ותנאי שימוש — עמוד חובה',
   privacy: 'מדיניות פרטיות — עמוד חובה',
   accessibility: 'הצהרת נגישות — עמוד חובה',

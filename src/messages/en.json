@@ -12,7 +12,6 @@
     "authors": "Authors",
     "activities": "Activities",
     "events": "Events",
-    "donate": "Donate",
     "contact": "Contact",
     "menu": "Menu",
     "openMenu": "Open menu",
@@ -99,29 +98,12 @@
   },
   "pages": {
     "about": "About",
-    "donate": "Donate",
     "contact": "Contact",
     "terms": "Terms of use",
     "privacy": "Privacy policy",
     "accessibility": "Accessibility statement",
     "lastUpdated": "Last updated: {date}",
     "missing": "This page has not been edited in the content system yet."
-  },
-  "donate": {
-    "title": "Donate",
-    "intro": "Donations are directed to the purpose you choose. Bank transfer and telephone donations are also possible.",
-    "purposeLabel": "Purpose",
-    "purposes": {
-      "book": "Sponsoring a book",
-      "kalla": "Hachnasat kalla",
-      "avrech": "Supporting a kollel scholar",
-      "general": "At the institute's discretion"
-    },
-    "amountLabel": "Amount (ILS)",
-    "dedicationLabel": "In memory of / in merit of (optional)",
-    "contactOffice": "For major gifts or dedications, please contact the office.",
-    "receiptNote": "A receipt is issued for every donation.",
-    "onlineSoon": "Online donation will open later. In the meantime please contact us directly."
   },
   "contact": {
     "title": "Contact",

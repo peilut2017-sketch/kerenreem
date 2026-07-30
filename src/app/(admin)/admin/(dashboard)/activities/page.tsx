@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { listActivitiesAdmin } from '@/lib/admin/queries';
-import { AdminCell, AdminHeader, AdminRow, AdminTable, PublishBadge } from '@/components/admin/AdminList';
+import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
+import { RowActions } from '@/components/admin/RowActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ export default async function AdminActivitiesPage() {
         action={{ href: '/admin/activities/new', label: 'ציר חדש' }}
       />
       <AdminTable
-        columns={['שם', 'סדר', 'מצב']}
+        columns={['שם', 'סדר', 'מצב ופעולות']}
         empty={activities.length === 0 ? 'טרם נוספו צירי פעילות.' : undefined}
       >
         {activities.map((activity) => (
@@ -29,7 +30,12 @@ export default async function AdminActivitiesPage() {
             </AdminCell>
             <AdminCell className="tabular-nums text-muted">{activity.sort_order}</AdminCell>
             <AdminCell>
-              <PublishBadge published={activity.is_published} />
+              <RowActions
+                entity="activities"
+                id={activity.id}
+                label={activity.title_he}
+                published={activity.is_published}
+              />
             </AdminCell>
           </AdminRow>
         ))}

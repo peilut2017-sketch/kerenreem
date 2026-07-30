@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { listCategoriesAdmin, countBooksByCategory } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
+import { RowActions } from '@/components/admin/RowActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export default async function AdminCategoriesPage() {
       />
 
       <AdminTable
-        columns={['שם', 'מזהה כתובת', 'ספרים', 'סדר']}
+        columns={['שם', 'מזהה כתובת', 'ספרים', 'סדר', 'פעולות']}
         empty={categories.length === 0 ? 'טרם נוספו קטגוריות.' : undefined}
       >
         {categories.map((category) => (
@@ -38,6 +39,9 @@ export default async function AdminCategoriesPage() {
               {counts.get(category.id) ?? 0}
             </AdminCell>
             <AdminCell className="text-muted tabular-nums">{category.sort_order ?? '—'}</AdminCell>
+            <AdminCell>
+              <RowActions entity="categories" id={category.id} label={category.name_he} />
+            </AdminCell>
           </AdminRow>
         ))}
       </AdminTable>

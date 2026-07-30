@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { listBanners } from '@/lib/admin/queries';
-import { AdminCell, AdminHeader, AdminRow, AdminTable, PublishBadge } from '@/components/admin/AdminList';
+import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
+import { RowActions } from '@/components/admin/RowActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export default async function AdminBannersPage() {
       />
 
       <AdminTable
-        columns={['כותרת', 'תמונה', 'יעד', 'סדר', 'מצב']}
+        columns={['כותרת', 'תמונה', 'יעד', 'סדר', 'מצב ופעולות']}
         empty={
           banners.length === 0
             ? 'טרם נוספו באנרים. עד שיתווספו, הקרוסלה נבנית אוטומטית מספר, אירוע וציר פעילות שפורסמו.'
@@ -48,7 +49,12 @@ export default async function AdminBannersPage() {
             </AdminCell>
             <AdminCell className="tabular-nums text-muted">{banner.sort_order}</AdminCell>
             <AdminCell>
-              <PublishBadge published={banner.is_published} />
+              <RowActions
+                entity="banners"
+                id={banner.id}
+                label={banner.title_he}
+                published={banner.is_published}
+              />
             </AdminCell>
           </AdminRow>
         ))}

@@ -7,6 +7,16 @@ import { assertRole } from './auth';
 import { ENTITIES, isEntityKey, type EntityKey, type FieldSpec } from './schema';
 import { sanitizeHtml } from '@/lib/sanitize';
 
+/**
+ * תוצאת פעולה שאינה טופס.
+ *
+ * קודם לכן מחיקה והחלפת מצב פרסום החזירו void ורק כתבו ליומן, ולכן כשל
+ * נראה בדיוק כמו הצלחה: המשתמש לוחץ, שום דבר לא קורה, ואין מה לדווח.
+ */
+export interface ActionResult {
+  error?: string;
+}
+
 export interface SaveState {
   status: 'idle' | 'saved' | 'error';
   message?: string;
@@ -210,23 +220,23 @@ function describeDbError(
   }
 }
 
-export async function deleteEntity(entityKey: string, id: string): Promise<void> {
+export async function deleteEntity(entityKey: string, id: string): Promise<ActionResult> {
   let done = false;
 
   try {
-    if (!isEntityKey(entityKey)) return;
+    if (!isEntityKey(entityKey)) return { error: 'ישות לא מוכרת' };
 
     const entity = ENTITIES[entityKey as EntityKey];
     const session = await assertRole(entity.writeRole);
-    if ('error' in session) return;
+    if ('error' in session) return session;
 
     const supabase = await createClient();
-    if (!supabase) return;
+    if (!supabase) return { error: 'אין חיבור למסד' };
 
     const { error } = await supabase.from(entity.table).delete().eq('id', id);
     if (error) {
       console.error('[admin:delete]', error.code, error.message);
-      return;
+      return { error: describeDbError(error, entity).message };
     }
 
     await writeAudit(supabase, session.userId, 'delete', entity.table, id);
@@ -234,30 +244,35 @@ export async function deleteEntity(entityKey: string, id: string): Promise<void>
     done = true;
   } catch (error) {
     console.error('[admin:delete] חריגה לא צפויה', error);
-    return;
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 
   if (done) redirect(`/admin/${entityKey}`);
+  return {};
 }
 
 /** החלפת מצב פרסום ישירות מטבלת הרשימה. */
-export async function togglePublished(entityKey: string, id: string, next: boolean): Promise<void> {
+export async function togglePublished(
+  entityKey: string,
+  id: string,
+  next: boolean,
+): Promise<ActionResult> {
   try {
-    if (!isEntityKey(entityKey)) return;
+    if (!isEntityKey(entityKey)) return { error: 'ישות לא מוכרת' };
 
     const entity = ENTITIES[entityKey as EntityKey];
-    const session = await assertRole(entity.writeRole);
-    if ('error' in session) return;
-
-    const supabase = await createClient();
-    if (!supabase) return;
 
     // לא לכל ישות יש מצב פרסום — קטגוריה היא סיווג ולא תוכן. בלי הבדיקה
     // הזו הקריאה הייתה מגיעה למסד ונכשלת ב-42703 על עמודה שאינה קיימת.
     if (!entity.fields.some((field) => field.name === 'is_published')) {
-      console.error('[admin:publish] אין מצב פרסום לישות', entityKey);
-      return;
+      return { error: 'לישות זו אין מצב פרסום' };
     }
+
+    const session = await assertRole(entity.writeRole);
+    if ('error' in session) return session;
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
 
     const { error } = await supabase
       .from(entity.table)
@@ -268,11 +283,13 @@ export async function togglePublished(entityKey: string, id: string, next: boole
 
     if (error) {
       console.error('[admin:publish]', error.code, error.message);
-      return;
+      return { error: describeDbError(error, entity).message };
     }
 
     revalidateEntity(entityKey as EntityKey);
+    return {};
   } catch (error) {
     console.error('[admin:publish] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 }

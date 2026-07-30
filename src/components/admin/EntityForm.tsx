@@ -1,8 +1,10 @@
 'use client';
 
-import { useActionState, type ReactNode } from 'react';
+import { useActionState, useEffect, useRef, type ReactNode } from 'react';
 import { saveEntity, type SaveState } from '@/lib/admin/actions';
 import { DeleteButton } from './DeleteButton';
+import { SubmitButton } from './SubmitButton';
+import { restoreFormValues } from '@/lib/restore-form';
 
 const INITIAL: SaveState = { status: 'idle' };
 
@@ -26,38 +28,54 @@ export function EntityForm({
   canWrite: boolean;
   backHref: string;
 }) {
-  const [state, action, pending] = useActionState(
-    saveEntity.bind(null, entity, id),
-    INITIAL,
-  );
+  const formRef = useRef<HTMLFormElement>(null);
+  const submitted = useRef<FormData | null>(null);
+
+  const [state, action] = useActionState(async (previous: SaveState, formData: FormData) => {
+    submitted.current = formData;
+    return saveEntity(entity, id, previous, formData);
+  }, INITIAL);
+
+  useEffect(() => {
+    if (state.status !== 'error' || !formRef.current || !submitted.current) return;
+    restoreFormValues(formRef.current, submitted.current);
+  }, [state]);
 
   return (
-    <form action={action} className="space-y-8">
+    <form ref={formRef} action={action} className="space-y-8">
       <fieldset disabled={!canWrite} className="space-y-8 disabled:opacity-70">
         {children(state.fieldErrors ?? {})}
       </fieldset>
 
-      {state.status === 'error' && state.message ? (
-        <p role="alert" className="border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-ink">
-          {state.message}
-        </p>
-      ) : null}
-
-      {state.status === 'saved' ? (
-        <p role="status" className="border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-ink">
-          השינויים נשמרו.
-        </p>
-      ) : null}
-
       {canWrite ? (
-        <div className="flex flex-wrap items-center gap-4 border-t border-rule pt-6">
-          <button type="submit" disabled={pending} className="btn btn-solid">
-            {pending ? 'שומר…' : 'שמירה'}
-          </button>
-          <a href={backHref} className="text-small text-muted underline underline-offset-4">
-            חזרה לרשימה
-          </a>
-          <div className="ms-auto">{id ? <DeleteButton entity={entity} id={id} /> : null}</div>
+        <div className="border-t border-rule pt-6">
+          {/* ההודעה צמודה ללחצן ולא בראש העמוד: אחרי לחיצה על שמירה המבט
+              נמצא כאן, והודעה בקצה השני של המסך פשוט אינה נראית. */}
+          {state.status === 'error' && state.message ? (
+            <p
+              role="alert"
+              className="mb-4 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-ink"
+            >
+              {state.message}
+            </p>
+          ) : null}
+
+          {state.status === 'saved' ? (
+            <p
+              role="status"
+              className="mb-4 border-s-2 border-gold-deep bg-cream-2 px-4 py-3 text-small text-ink"
+            >
+              השינויים נשמרו.
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-4">
+            <SubmitButton>שמירה</SubmitButton>
+            <a href={backHref} className="text-small text-muted underline underline-offset-4">
+              חזרה לרשימה
+            </a>
+            <div className="ms-auto">{id ? <DeleteButton entity={entity} id={id} /> : null}</div>
+          </div>
         </div>
       ) : (
         <p className="border-t border-rule pt-6 text-small text-muted">

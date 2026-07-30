@@ -1,8 +1,9 @@
 'use client';
 
-import { useActionState, useId } from 'react';
+import { useActionState, useEffect, useId, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { submitContact, type ContactFormState } from '@/app/(public)/[locale]/contact/actions';
+import { restoreFormValues } from '@/lib/restore-form';
 
 const INITIAL: ContactFormState = { status: 'idle' };
 
@@ -15,8 +16,24 @@ const INITIAL: ContactFormState = { status: 'idle' };
  */
 export function ContactForm() {
   const t = useTranslations('contact');
-  const [state, action, pending] = useActionState(submitContact, INITIAL);
+  const formRef = useRef<HTMLFormElement>(null);
+  const submitted = useRef<FormData | null>(null);
+
+  // React מאפס את הטופס אחרי הפעולה; בלי השחזור הזה שגיאה בשדה אחד מוחקת
+  // הודעה שלמה שהמבקר כתב.
+  const [state, action, pending] = useActionState(
+    async (previous: ContactFormState, formData: FormData) => {
+      submitted.current = formData;
+      return submitContact(previous, formData);
+    },
+    INITIAL,
+  );
   const id = useId();
+
+  useEffect(() => {
+    if (state.status !== 'error' || !formRef.current || !submitted.current) return;
+    restoreFormValues(formRef.current, submitted.current);
+  }, [state]);
 
   const field = (name: string) => ({
     id: `${id}-${name}`,
@@ -42,7 +59,7 @@ export function ContactForm() {
   }
 
   return (
-    <form action={action} noValidate className="space-y-5">
+    <form ref={formRef} action={action} noValidate className="space-y-5">
       {/* מלכודת בוטים — מוסתרת מהעין וגם מקוראי מסך.
           sr-only ולא מיקום שלילי: הזזה אל מחוץ למסך מרחיבה את שטח הגלילה
           במסמך RTL ויוצרת גלילה אופקית בכל העמוד. */}

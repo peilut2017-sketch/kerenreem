@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { listPagesAdmin } from '@/lib/admin/queries';
-import { AdminCell, AdminHeader, AdminRow, AdminTable, PublishBadge } from '@/components/admin/AdminList';
+import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
+import { RowActions } from '@/components/admin/RowActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,7 @@ export default async function AdminPagesPage() {
       ) : null}
 
       <AdminTable
-        columns={['כותרת', 'מזהה כתובת', 'עודכן', 'מצב']}
+        columns={['כותרת', 'מזהה כתובת', 'עודכן', 'מצב ופעולות']}
         empty={pages.length === 0 ? 'טרם נוספו עמודים.' : undefined}
       >
         {pages.map((page) => (
@@ -44,7 +45,12 @@ export default async function AdminPagesPage() {
               {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(new Date(page.updated_at))}
             </AdminCell>
             <AdminCell>
-              <PublishBadge published={page.is_published} />
+              <RowActions
+                entity="pages"
+                id={page.id}
+                label={page.title_he}
+                published={page.is_published}
+              />
             </AdminCell>
           </AdminRow>
         ))}

@@ -21,7 +21,6 @@ const ROUTES = [
   '/activities',
   '/events',
   '/about',
-  '/donate',
   '/contact',
   '/terms',
   '/privacy',
