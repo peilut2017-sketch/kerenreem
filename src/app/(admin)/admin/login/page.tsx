@@ -2,6 +2,7 @@ import { LoginForm } from '@/components/admin/LoginForm';
 import { SignOutButton } from '@/components/admin/SignOutButton';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { getAdminSessionResult } from '@/lib/admin/auth';
+import { LoginDiagnostics } from '@/components/admin/LoginDiagnostics';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,6 +136,11 @@ on conflict (id) do update set role = 'admin';`}</pre>
           <LoginForm next={next} />
         </div>
       )}
+
+      {/* אבחון החיבור מוצג גם כשהטופס תקין: כשההתחברות נכשלת, זו הדרך
+          היחידה לראות לאיזה פרויקט הבנייה פונה — מסך האבחון המלא נמצא
+          מאחורי אותה התחברות שאינה עובדת. */}
+      {isSupabaseConfigured ? <LoginDiagnostics /> : null}
     </div>
   );
 }
