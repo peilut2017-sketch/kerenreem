@@ -35,7 +35,9 @@
     "activitiesTitle": "What we do",
     "bookDetails": "Details",
     "eventDetails": "Read more",
-    "activityDetails": "Read more"
+    "activityDetails": "Read more",
+    "newBooksLead": "New on the shelf",
+    "newBooksTitle": "Latest titles"
   },
   "books": {
     "title": "Books",

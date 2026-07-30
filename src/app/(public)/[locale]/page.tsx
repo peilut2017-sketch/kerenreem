@@ -1,9 +1,10 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { HeroCarousel } from '@/components/hero/HeroCarousel';
+import { BannerStrip } from '@/components/hero/BannerStrip';
+import { BookCardGrid } from '@/components/books/BookCardGrid';
 import type { HeroSlide } from '@/components/hero/types';
 import { AboutBand } from '@/components/home/AboutBand';
-import { FeaturedBooks } from '@/components/home/FeaturedBooks';
 import { EventsRow } from '@/components/home/EventsRow';
 import { ContactBand } from '@/components/home/ContactBand';
 import { Ornament } from '@/components/Ornament';
@@ -29,7 +30,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const t = await getTranslations();
   const [banners, books, activities, events, about, home, settings] = await Promise.all([
     getBanners(),
-    getRecentBooks(5),
+    getRecentBooks(10),
     getActivities(),
     getEvents(),
     getPageBySlug('about'),
@@ -38,25 +39,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   ]);
 
   /* ------------------------------------------------------------------------
-     הקרוסלה: באנרים שהוגדרו בניהול קודמים לכל דבר אחר. כשאין באנרים,
-     היא נבנית אוטומטית מספר, אירוע וציר פעילות שפורסמו — כדי שהעמוד
-     לא ייראה ריק לפני שהצוות הספיק להעלות תמונות.
-     בשני המקרים התוכן אמיתי; אין פרוסות דמה ואין תמונות מלאי.
+     גיבוי לראש העמוד כשאין באנרים: קרוסלה שנבנית מספר, אירוע וציר
+     פעילות שפורסמו, כדי שהעמוד לא ייראה ריק לפני שהצוות העלה תמונות.
+     התוכן אמיתי; אין פרוסות דמה ואין תמונות מלאי.
      ------------------------------------------------------------------------ */
-  const bannerSlides: HeroSlide[] = banners.map((banner) => ({
-    id: `banner-${banner.id}`,
-    kind: 'banner' as const,
-    eyebrow: t('hero.label'),
-    title: localized(banner, 'title', locale),
-    summary: localizedOrNull(banner, 'subtitle', locale),
-    href: banner.link_url,
-    ctaLabel: localizedOrNull(banner, 'cta_label', locale),
-    imageUrl: banner.image_url,
-    imageMobileUrl: banner.image_mobile_url,
-    focalPoint: banner.focal_point,
-    imageAlt: '',
-  }));
-
   const slides: HeroSlide[] = [];
 
   const leadBook = books.find((book) => book.cover_image_url) ?? books[0];
@@ -116,8 +102,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   return (
     <>
-      {bannerSlides.length > 0 || slides.length > 0 ? (
-        <HeroCarousel slides={bannerSlides.length > 0 ? bannerSlides : slides} />
+      {banners.length > 0 ? (
+        /* יש באנרים — הם התמונה עצמה, בלי כיתוב מונח מעליה */
+        <BannerStrip banners={banners} locale={locale} label={t('hero.label')} />
+      ) : slides.length > 0 ? (
+        /* אין באנרים — הקרוסלה נבנית מתוכן שפורסם, ושם הכיתוב הכרחי:
+           כריכת ספר בלי שם אינה אומרת דבר. */
+        <HeroCarousel slides={slides} />
       ) : (
         /* בלי תוכן מפורסם אין מה לסובב. במקום קרוסלה ריקה — הצהרה
            טיפוגרפית שעומדת בפני עצמה. */
@@ -130,11 +121,34 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </section>
       )}
 
+      {books.length > 0 ? (
+        <section className="section-y">
+          <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
+            <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="eyebrow">{t('home.newBooksLead')}</p>
+                <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
+                  {t('home.newBooksTitle')}
+                </h2>
+              </div>
+              <Link href="/books" className="link-more">
+                {t('home.catalogueAll')}
+              </Link>
+            </header>
+
+            <BookCardGrid
+              books={books}
+              locale={locale}
+              storeEnabled={settings.store_enabled}
+              priorityCount={5}
+            />
+          </div>
+        </section>
+      ) : null}
+
       {aboutExcerpt ? (
         <AboutBand excerpt={aboutExcerpt} imageUrl={leadActivity?.cover_image_url ?? null} />
       ) : null}
-
-      <FeaturedBooks books={books} locale={locale} />
 
       {/* צירי הפעילות — רשימה ממוספרת. ארבעה צירים אינם ארבעה מוצרים,
           ולכן אין כאן כרטיסים עם אייקונים. */}

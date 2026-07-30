@@ -35,7 +35,9 @@
     "activitiesTitle": "צירי הפעילות",
     "bookDetails": "לפרטים",
     "eventDetails": "לפרטים נוספים",
-    "activityDetails": "קראו עוד"
+    "activityDetails": "קראו עוד",
+    "newBooksLead": "חדש על המדף",
+    "newBooksTitle": "הכותרים האחרונים"
   },
   "books": {
     "title": "ספרים",
