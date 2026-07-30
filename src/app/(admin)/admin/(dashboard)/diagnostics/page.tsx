@@ -226,6 +226,38 @@ export default async function DiagnosticsPage() {
         .filter((book) => !visibleSlugs.has(book.slug))
         .map((book) => ({ slug: book.slug, title: book.title_he }));
     }
+
+    // getBooks() בולעת בכוונה כל שגיאה שאינה 42P01/PGRST200 ומחזירה []
+    // בשקט, עם רישום ל-console.error בצד השרת בלבד — בלי גישה ליומני
+    // השרת, אין שום דרך לדעת מהבדיקה הקודמת *למה* היא החזירה 0. הבדיקות
+    // הבאות רצות בלי שום עטיפה שמבליעה שגיאות, ומראות את קוד ה-Postgres
+    // בעצמו. השוואה בין ההצטרפות המלאה לבסיסית מאתרת אם הבעיה בהצטרפות
+    // עצמה (תגיות/מאפיינים) או קיימת גם בלעדיה.
+    const [rawJoined, rawBase] = await Promise.all([
+      anon
+        .from('books')
+        .select(
+          'slug, tags:book_tags ( tag:tags ( id ) ), attributeValues:book_attributes ( value_id )',
+        )
+        .eq('is_published', true),
+      anon.from('books').select('slug, author:authors(id), category:categories(id)').eq('is_published', true),
+    ]);
+
+    publicChecks.push({
+      label: 'שאילתה גולמית — עם הצטרפות תגיות (בלי שום הבלעת שגיאה)',
+      ok: !rawJoined.error,
+      detail: rawJoined.error
+        ? `${rawJoined.error.code ?? '—'}: ${rawJoined.error.message}`
+        : `${rawJoined.data?.length ?? 0} שורות`,
+    });
+
+    publicChecks.push({
+      label: 'שאילתה גולמית — בלי הצטרפות תגיות כלל',
+      ok: !rawBase.error,
+      detail: rawBase.error
+        ? `${rawBase.error.code ?? '—'}: ${rawBase.error.message}`
+        : `${rawBase.data?.length ?? 0} שורות`,
+    });
   }
 
   /* --- 4. אחסון קבצים --- */
