@@ -2,11 +2,12 @@
 
 import { EntityForm } from './EntityForm';
 import { BookFormTabs } from './BookFormTabs';
-import { CheckboxField, FieldSet, SelectField, TextField } from './Fields';
+import { CheckboxField, FieldSet, TextField } from './Fields';
 import { ImageField } from './ImageField';
+import { QuickAddSelect } from './QuickAddSelect';
 import { RichTextEditor } from './RichTextEditor';
 import { TagPicker } from './TagPicker';
-import { createTag } from '@/lib/admin/actions';
+import { createAuthorQuick, createCategoryQuick, createTag } from '@/lib/admin/actions';
 import { computeCompletion } from '@/lib/completion';
 import type {
   AttributeWithValues,
@@ -43,7 +44,7 @@ export function BookForm({
   tags: Tag[];
   attributes: AttributeWithValues[];
   relations: BookRelations;
-  /** שדות המסחר מוסתרים עד להפעלת החנות — הם קיימים במסד גם בלעדיהם. */
+  /** קובע רק אם שדות המסחר מוצגים באתר הציבורי — בטופס הם ערוכים תמיד. */
   storeEnabled: boolean;
   canWrite: boolean;
 }) {
@@ -97,41 +98,60 @@ export function BookForm({
                         defaultValue={book?.title_he}
                         error={errors.title_he}
                       />
-                      <TextField
-                        name="slug"
-                        label="מזהה כתובת"
-                        required
-                        dir="ltr"
-                        defaultValue={book?.slug}
-                        error={errors.slug}
-                        hint="מופיע בכתובת העמוד: /books/מזהה. אותיות לטיניות קטנות, ספרות ומקפים."
-                      />
-                      <TextField
-                        name="subtitle_he"
-                        label="כותרת משנה (עברית)"
-                        defaultValue={book?.subtitle_he}
-                      />
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <TextField
+                          name="slug"
+                          label="מזהה כתובת"
+                          dir="ltr"
+                          defaultValue={book?.slug}
+                          error={errors.slug}
+                          hint="אפשר להשאיר ריק — ייווצר אוטומטית. /books/מזהה, אותיות לטיניות קטנות בלבד."
+                        />
+                        <TextField
+                          name="subtitle_he"
+                          label="כותרת משנה (עברית)"
+                          defaultValue={book?.subtitle_he}
+                        />
+                      </div>
                     </FieldSet>
 
                     <FieldSet legend="שיוך">
-                      <SelectField
-                        name="author_id"
-                        label="מחבר"
-                        emptyLabel="— ללא —"
-                        defaultValue={book?.author_id}
-                        options={authors.map((author) => ({ value: author.id, label: author.name_he }))}
-                      />
-                      <SelectField
-                        name="category_id"
-                        hint="המדף שעליו הספר יושב. זו הקטגוריה שמופיעה בכרטיס ובכתובת."
-                        label="קטגוריה"
-                        emptyLabel="— ללא —"
-                        defaultValue={book?.category_id}
-                        options={categories.map((category) => ({
-                          value: category.id,
-                          label: category.name_he,
-                        }))}
-                      />
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <QuickAddSelect
+                          name="author_id"
+                          label="מחבר"
+                          emptyLabel="— ללא —"
+                          defaultValue={book?.author_id}
+                          options={authors.map((author) => ({ value: author.id, label: author.name_he }))}
+                          addLabel="+ מחבר חדש"
+                          fieldLabel="שם המחבר"
+                          onCreate={async (name) => {
+                            const result = await createAuthorQuick(name);
+                            return result.author
+                              ? { value: result.author.id, label: result.author.name_he }
+                              : null;
+                          }}
+                        />
+                        <QuickAddSelect
+                          name="category_id"
+                          hint="המדף שעליו הספר יושב. זו הקטגוריה שמופיעה בכרטיס ובכתובת."
+                          label="קטגוריה"
+                          emptyLabel="— ללא —"
+                          defaultValue={book?.category_id}
+                          options={categories.map((category) => ({
+                            value: category.id,
+                            label: category.name_he,
+                          }))}
+                          addLabel="+ קטגוריה חדשה"
+                          fieldLabel="שם הקטגוריה"
+                          onCreate={async (name) => {
+                            const result = await createCategoryQuick(name);
+                            return result.category
+                              ? { value: result.category.id, label: result.category.name_he }
+                              : null;
+                          }}
+                        />
+                      </div>
                     </FieldSet>
 
                     <FieldSet
@@ -167,13 +187,15 @@ export function BookForm({
                       legend="אנגלית"
                       description="אפשר להשאיר ריק. השדות קיימים כדי שהמילוי יהיה הדרגתי — מבקר אנגלי יראה את הנוסח העברי עד שימולאו."
                     >
-                      <TextField name="title_en" label="Title" dir="ltr" defaultValue={book?.title_en} />
-                      <TextField
-                        name="subtitle_en"
-                        label="Subtitle"
-                        dir="ltr"
-                        defaultValue={book?.subtitle_en}
-                      />
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <TextField name="title_en" label="Title" dir="ltr" defaultValue={book?.title_en} />
+                        <TextField
+                          name="subtitle_en"
+                          label="Subtitle"
+                          dir="ltr"
+                          defaultValue={book?.subtitle_en}
+                        />
+                      </div>
                       <RichTextEditor
                         name="description_en"
                         label="Description"
@@ -199,7 +221,7 @@ export function BookForm({
                     </FieldSet>
 
                     <FieldSet legend="מפרט המהדורה">
-                      <div className="grid gap-5 sm:grid-cols-2">
+                      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                         <TextField
                           name="pages"
                           label="מספר עמודים"
@@ -217,52 +239,15 @@ export function BookForm({
                         <TextField name="format" label="פורמט" defaultValue={book?.format} />
                         <TextField name="binding" label="כריכה" defaultValue={book?.binding} />
                         <TextField name="isbn" label="מסת״ב" dir="ltr" defaultValue={book?.isbn} />
+                        <TextField
+                          name="sku"
+                          label="מק״ט"
+                          dir="ltr"
+                          defaultValue={book?.sku}
+                          hint="מוצג בעמוד הספר."
+                        />
                       </div>
                     </FieldSet>
-
-                    {storeEnabled ? (
-                      <FieldSet legend="מסחר" description="המחירים מוצגים באתר בש״ח וכוללים מע״מ.">
-                        <div className="grid gap-5 sm:grid-cols-2">
-                          <TextField
-                            name="price"
-                            label="מחיר"
-                            type="number"
-                            dir="ltr"
-                            defaultValue={book?.price}
-                          />
-                          <TextField
-                            name="stock_quantity"
-                            label="מלאי"
-                            type="number"
-                            dir="ltr"
-                            defaultValue={book?.stock_quantity}
-                          />
-                          <TextField
-                            name="weight_grams"
-                            label="משקל (גרם)"
-                            type="number"
-                            dir="ltr"
-                            defaultValue={book?.weight_grams}
-                            hint="משמש לחישוב משלוח."
-                          />
-                        </div>
-                        <CheckboxField
-                          name="is_purchasable"
-                          label="ניתן לרכישה באתר"
-                          defaultChecked={book?.is_purchasable ?? false}
-                        />
-                      </FieldSet>
-                    ) : (
-                      /* השדות נשלחים גם כשהחנות סגורה, כדי שערכים קיימים לא יימחקו בשמירה */
-                      <>
-                        <input type="hidden" name="price" value={book?.price ?? ''} />
-                        <input type="hidden" name="stock_quantity" value={book?.stock_quantity ?? ''} />
-                        <input type="hidden" name="weight_grams" value={book?.weight_grams ?? ''} />
-                        {book?.is_purchasable ? (
-                          <input type="hidden" name="is_purchasable" value="true" />
-                        ) : null}
-                      </>
-                    )}
                   </>
                 ),
               },
@@ -367,31 +352,20 @@ export function BookForm({
                 hasError: Boolean(errors.meta_title || errors.meta_description),
                 content: (
                   <>
-                    <FieldSet legend="מזהים">
-                      {book ? (
-                        <div className="mb-4">
-                          <span className="field-label">מזהה פנימי</span>
-                          <code
-                            dir="ltr"
-                            className="mt-1 block overflow-x-auto rounded-[var(--radius-sm)] border border-rule bg-cream-2 px-3 py-2 text-caption text-ink-soft"
-                          >
-                            {book.id}
-                          </code>
-                          <span className="field-hint">
-                            מזהה קבוע שאינו משתנה גם אם שם הספר או הכתובת משתנים. שימושי
-                            להפניה מדויקת לספר.
-                          </span>
-                        </div>
-                      ) : null}
-
-                      <TextField
-                        name="sku"
-                        label="מק״ט"
-                        dir="ltr"
-                        defaultValue={book?.sku}
-                        hint="מספר קטלוגי של המכון. מוצג בעמוד הספר, וניתן לחיפוש בקטלוג."
-                      />
-                    </FieldSet>
+                    {book ? (
+                      <FieldSet legend="מזהה פנימי">
+                        <code
+                          dir="ltr"
+                          className="block overflow-x-auto rounded-[var(--radius-sm)] border border-rule bg-cream-2 px-3 py-2 text-caption text-ink-soft"
+                        >
+                          {book.id}
+                        </code>
+                        <span className="field-hint">
+                          מזהה קבוע שאינו משתנה גם אם שם הספר או הכתובת משתנים. שימושי להפניה
+                          מדויקת לספר.
+                        </span>
+                      </FieldSet>
+                    ) : null}
 
                     <FieldSet legend="חיפוש ומטא">
                       <p className="mb-3 text-caption leading-relaxed text-muted">
@@ -400,19 +374,21 @@ export function BookForm({
                         עוקפים אותם כשצריך ניסוח אחר לתוצאות החיפוש. אפשר להשאיר את כולם
                         ריקים.
                       </p>
-                      <TextField
-                        name="cover_alt"
-                        label="טקסט חלופי לכריכה"
-                        defaultValue={book?.cover_alt}
-                        hint="ברירת המחדל היא שם הספר. כדאי למלא רק אם הכריכה נושאת מידע נוסף."
-                      />
-                      <TextField
-                        name="meta_title"
-                        label="כותרת לתוצאות חיפוש"
-                        defaultValue={book?.meta_title}
-                        hint="עד 70 תווים. ריק — ייעשה שימוש בשם הספר."
-                        error={errors.meta_title}
-                      />
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <TextField
+                          name="cover_alt"
+                          label="טקסט חלופי לכריכה"
+                          defaultValue={book?.cover_alt}
+                          hint="ברירת המחדל היא שם הספר."
+                        />
+                        <TextField
+                          name="meta_title"
+                          label="כותרת לתוצאות חיפוש"
+                          defaultValue={book?.meta_title}
+                          hint="עד 70 תווים. ריק — ייעשה שימוש בשם הספר."
+                          error={errors.meta_title}
+                        />
+                      </div>
                       <TextField
                         name="meta_description"
                         label="תיאור לתוצאות חיפוש"
@@ -442,6 +418,45 @@ export function BookForm({
                 ),
               },
               {
+                id: 'store',
+                label: 'מסחר',
+                hasError: false,
+                content: (
+                  <FieldSet
+                    legend="מסחר"
+                    description={
+                      storeEnabled
+                        ? 'המחירים מוצגים באתר בש״ח וכוללים מע״מ.'
+                        : 'החנות עדיין כבויה באתר — אפשר להכין את הנתונים מראש, הם ייחשפו כשהיא תופעל.'
+                    }
+                  >
+                    <div className="grid gap-5 sm:grid-cols-3">
+                      <TextField name="price" label="מחיר" type="number" dir="ltr" defaultValue={book?.price} />
+                      <TextField
+                        name="stock_quantity"
+                        label="מלאי"
+                        type="number"
+                        dir="ltr"
+                        defaultValue={book?.stock_quantity}
+                      />
+                      <TextField
+                        name="weight_grams"
+                        label="משקל (גרם)"
+                        type="number"
+                        dir="ltr"
+                        defaultValue={book?.weight_grams}
+                        hint="משמש לחישוב משלוח."
+                      />
+                    </div>
+                    <CheckboxField
+                      name="is_purchasable"
+                      label="ניתן לרכישה באתר"
+                      defaultChecked={book?.is_purchasable ?? false}
+                    />
+                  </FieldSet>
+                ),
+              },
+              {
                 id: 'publish',
                 label: 'פרסום',
                 hasError: false,
@@ -452,17 +467,6 @@ export function BookForm({
                       label="מפורסם באתר"
                       defaultChecked={book?.is_published ?? false}
                       hint="ספר שאינו מפורסם נראה בממשק הניהול בלבד."
-                    />
-                    <TextField
-                      name="sort_order"
-                      label="סדר תצוגה"
-                      type="number"
-                      dir="ltr"
-                      defaultValue={book?.sort_order ?? 0}
-                      hint={
-                        'קובע את הסדר במיון "מומלצים" — ברירת המחדל בקטלוג ובדף הבית. ' +
-                        'מספר נמוך מופיע קודם. במיונים אחרים (חדש, א׳–ת׳) אין לו השפעה.'
-                      }
                     />
                   </FieldSet>
                 ),

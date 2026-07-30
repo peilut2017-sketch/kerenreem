@@ -224,12 +224,10 @@ export function sortBooks(books: BookWithRelations[], key: SortKey): BookWithRel
     case 'priceDesc':
       return sorted.sort((a, b) => priceOf(b) - priceOf(a));
     default:
-      // סדר התצוגה שנקבע בניהול, ואז לפי שם — כדי שספרים בעלי אותו
-      // sort_order לא יקפצו בין טעינות
-      return sorted.sort(
-        (a, b) =>
-          (a.sort_order ?? 0) - (b.sort_order ?? 0) || collator.compare(a.title_he, b.title_he),
-      );
+      // "מומלצים" הוא ברירת המחדל, לא רשימה שנקבעת ידנית ספר-ספר: אין
+      // בניהול שדה סדר תצוגה, כך שהמיון היחיד שיש לו משמעות יציבה כאן
+      // הוא לפי שם.
+      return sorted.sort((a, b) => collator.compare(a.title_he, b.title_he));
   }
 }
 

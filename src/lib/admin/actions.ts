@@ -13,7 +13,7 @@ import {
   type RelationSpec,
 } from './schema';
 import { sanitizeHtml } from '@/lib/sanitize';
-import type { Tag } from '@/lib/supabase/types';
+import type { Author, Category, Tag } from '@/lib/supabase/types';
 
 /**
  * תוצאת פעולה שאינה טופס.
@@ -64,6 +64,22 @@ function coerce(spec: FieldSpec, raw: FormDataEntryValue | null, all: FormDataEn
 }
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * מזהה כתובת מתוך שם, עם נפילה לערך אקראי.
+ *
+ * אותיות עבריות אינן חוקיות ב-slug, ולכן שם עברי בלבד (הרוב המכריע כאן)
+ * נופל לחלופה מבוססת זמן ואקראיות. זה מכוער אבל יציב, ועדיף על דחיית
+ * היצירה או על slug ריק שיתנגש עם הבא אחריו. הסיומת האקראית מעבר לזמן
+ * מונעת התנגשות בין שתי יצירות באותה מילישנייה.
+ */
+function slugify(name: string, fallbackPrefix: string): string {
+  const latin = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return latin || `${fallbackPrefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
 
 /** רענון העמודים הציבוריים שנוגעים לישות. כשל כאן לא אמור להפיל שמירה. */
 function revalidateEntity(entityKey: EntityKey) {
@@ -227,6 +243,14 @@ export async function saveEntity(
       if (value === null && spec.omitWhenEmpty) continue;
 
       payload[spec.name] = value;
+    }
+
+    // ספר הוא הישות היחידה שבה מזהה הכתובת אינו חובה (ראו schema.ts): הוספת
+    // ספר מהירה לא אמורה להיעצר על "יש להזין מזהה כתובת". נגזר מהכותרת
+    // כשאפשר; כותרת עברית — הרוב המכריע כאן — נופלת לערך אקראי, בדיוק
+    // כמו יצירת תגית/מחבר/קטגוריה מהירה.
+    if (entityKey === 'books' && !payload.slug) {
+      payload.slug = slugify(typeof payload.title_he === 'string' ? payload.title_he : '', 'book');
     }
 
     if (typeof payload.slug === 'string' && !SLUG_PATTERN.test(payload.slug)) {
@@ -463,15 +487,9 @@ export async function createTag(name: string): Promise<{ tag?: Tag; error?: stri
     const supabase = await createClient();
     if (!supabase) return { error: 'אין חיבור למסד' };
 
-    const latin = trimmed
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    const slug = latin || `tag-${Date.now().toString(36)}`;
-
     const { data, error } = await supabase
       .from('tags')
-      .insert({ slug, name_he: trimmed })
+      .insert({ slug: slugify(trimmed, 'tag'), name_he: trimmed })
       .select('id, slug, name_he, name_en, is_system')
       .maybeSingle();
 
@@ -484,6 +502,79 @@ export async function createTag(name: string): Promise<{ tag?: Tag; error?: stri
     return { tag: (data as Tag) ?? undefined };
   } catch (error) {
     console.error('[admin:createTag] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * יצירת מחבר או קטגוריה מהירה מתוך טופס הספר.
+ *
+ * שדה שם בלבד — לא הטופס המלא של מחבר או קטגוריה. הכוונה היא לא לעצור
+ * את מילוי הספר כדי ליצור רשומת שיוך שעוד לא קיימת; שאר הפרטים (ביוגרפיה,
+ * תמונה וכו') ממלאים אחר כך במסך הייעודי, אם בכלל.
+ *
+ * מחבר חדש נוצר כמפורסם במפורש: הוא נוצר כדי להיות משויך לספר שעומד
+ * להתפרסם, ומחבר טיוטה היה גורם לעמוד המחבר עצמו להחזיר "לא נמצא" בזמן
+ * שהספר שלו כבר חי באתר.
+ */
+export async function createAuthorQuick(name: string): Promise<{ author?: Author; error?: string }> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return { error: session.error };
+
+    const trimmed = name.trim();
+    if (!trimmed) return { error: 'שם המחבר ריק' };
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const { data, error } = await supabase
+      .from('authors')
+      .insert({ slug: slugify(trimmed, 'author'), name_he: trimmed, is_published: true })
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      console.error('[admin:createAuthorQuick]', error.code, error.message);
+      return { error: describeDbError(error, ENTITIES.authors).message };
+    }
+
+    revalidatePath('/admin/books');
+    revalidatePath('/admin/authors');
+    return { author: (data as Author) ?? undefined };
+  } catch (error) {
+    console.error('[admin:createAuthorQuick] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function createCategoryQuick(name: string): Promise<{ category?: Category; error?: string }> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return { error: session.error };
+
+    const trimmed = name.trim();
+    if (!trimmed) return { error: 'שם הקטגוריה ריק' };
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const { data, error } = await supabase
+      .from('categories')
+      .insert({ slug: slugify(trimmed, 'category'), name_he: trimmed })
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      console.error('[admin:createCategoryQuick]', error.code, error.message);
+      return { error: describeDbError(error, ENTITIES.categories).message };
+    }
+
+    revalidatePath('/admin/books');
+    revalidatePath('/admin/categories');
+    return { category: (data as Category) ?? undefined };
+  } catch (error) {
+    console.error('[admin:createCategoryQuick] חריגה לא צפויה', error);
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }

@@ -108,27 +108,42 @@ export function TextAreaField({
 
 export function SelectField({
   defaultValue,
+  value,
+  onChange,
   options,
   emptyLabel,
   ...props
 }: BaseProps & {
   defaultValue?: string | null;
+  /** מצב מבוקר, לצד onChange. בלעדיו השדה אינו מבוקר וניזון מ-defaultValue. */
+  value?: string;
+  onChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   options: { value: string; label: string }[];
   emptyLabel?: string;
 }) {
   const id = useId();
+  const controlled = value !== undefined;
+  const current = (controlled ? value : defaultValue) ?? '';
+
+  // ערך קיים במסד שאינו מופיע ברשימת האפשרויות — למשל שיוך לרשומה שנמחקה
+  // בלי שהעמודה עצמה התאפסה. בלי אפשרות מפורשת עבורו, הדפדפן "בוחר" בשקט
+  // את האפשרות הראשונה ברשימה, וזה מוצג כאילו הוא הערך השמור בפועל: שם
+  // מחבר או קטגוריה אחרים לגמרי, בלי שום סימן שמשהו השתבש.
+  const isStale = current !== '' && !options.some((option) => option.value === current);
+
   return (
     <Wrapper id={id} {...props}>
       <select
         id={id}
         name={props.name}
-        defaultValue={defaultValue ?? ''}
+        {...(controlled ? { value: current, onChange } : { defaultValue: current })}
         required={props.required}
         aria-invalid={props.error ? true : undefined}
         aria-describedby={describedBy(id, props.hint, props.error)}
         className="field-input"
       >
         {emptyLabel ? <option value="">{emptyLabel}</option> : null}
+        {isStale ? <option value={current}>⚠ ערך לא מוכר ({current})</option> : null}
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

@@ -102,7 +102,15 @@ for (const [key, spec] of Object.entries(ENTITIES)) {
  * שדה שאינו חובה בטופס נשמר כ-null כשהוא ריק. אם העמודה במסד היא not null
  * — גם כשיש לה default — ה-INSERT נכשל ב-23502, כי default חל רק כשהעמודה
  * מושמטת לגמרי ולא כשנשלח null מפורש.
+ *
+ * books.slug הוא היוצא מן הכלל היחיד: הוא אינו חובה בטופס במכוון (הוספת
+ * ספר מהירה לא נעצרת על "יש להזין מזהה כתובת"), אבל saveEntity ב-actions.ts
+ * ממלא אותו בקוד לפני ה-INSERT אם הוא ריק — כך שהוא לעולם לא מגיע null
+ * למסד, גם בלי default בעמודה עצמה. זו הבטחה בקוד ולא ב-schema, ולכן
+ * הבדיקה כאן לא יכולה לראות אותה — ומוחרגת במפורש.
  */
+const KNOWN_SAFE = new Set(['books.slug']);
+
 console.log('');
 for (const [key, spec] of Object.entries(ENTITIES)) {
   const risky = spec.fields.filter(
@@ -113,7 +121,8 @@ for (const [key, spec] of Object.entries(ENTITIES)) {
       // אולי ריק, אך לעולם לא null. שניהם אינם בסיכון 23502.
       field.type !== 'boolean' &&
       field.type !== 'text[]' &&
-      notNull.has(`${spec.table}.${field.name}`),
+      notNull.has(`${spec.table}.${field.name}`) &&
+      !KNOWN_SAFE.has(`${spec.table}.${field.name}`),
   );
   if (risky.length) {
     console.log(`✗ ${key}: שדות רשות שהעמודה שלהם not null — ${risky.map((f) => f.name).join(', ')}`);

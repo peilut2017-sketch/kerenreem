@@ -87,7 +87,8 @@ export const ENTITIES = {
     table: 'books',
     writeRole: 'editor',
     fields: [
-      f('slug', 'text', true),
+      // אינו חובה — ספר בלי מזהה מקבל אחד אוטומטית בשמירה (ראו actions.ts)
+      f('slug'),
       f('title_he', 'text', true),
       f('title_en'),
       f('subtitle_he'),
@@ -112,7 +113,6 @@ export const ENTITIES = {
       f('is_purchasable', 'boolean'),
       f('weight_grams', 'number'),
       f('is_published', 'boolean'),
-      fd('sort_order', 'number'),
       f('languages', 'text[]'),
       f('cover_alt'),
       f('meta_title'),
