@@ -4,22 +4,48 @@ import { EntityForm } from './EntityForm';
 import { CheckboxField, FieldSet, SelectField, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import { RichTextEditor } from './RichTextEditor';
-import type { Author, Book, Category } from '@/lib/supabase/types';
+import { TagPicker } from './TagPicker';
+import { createTag } from '@/lib/admin/actions';
+import type {
+  AttributeWithValues,
+  Author,
+  Book,
+  BookRelations,
+  Category,
+  Tag,
+} from '@/lib/supabase/types';
+
+/** רשימה סגורה: שפות אינן נערכות מהממשק ואין להן נתונים נלווים. */
+const LANGUAGES = [
+  { code: 'he', label: 'עברית' },
+  { code: 'en', label: 'אנגלית' },
+  { code: 'yi', label: 'יידיש' },
+  { code: 'fr', label: 'צרפתית' },
+  { code: 'ru', label: 'רוסית' },
+  { code: 'es', label: 'ספרדית' },
+];
 
 export function BookForm({
   book,
   authors,
   categories,
+  tags,
+  attributes,
+  relations,
   storeEnabled,
   canWrite,
 }: {
   book: Book | null;
   authors: Author[];
   categories: Category[];
+  tags: Tag[];
+  attributes: AttributeWithValues[];
+  relations: BookRelations;
   /** שדות המסחר מוסתרים עד להפעלת החנות — הם קיימים במסד גם בלעדיהם. */
   storeEnabled: boolean;
   canWrite: boolean;
 }) {
+  const languages = book?.languages ?? ['he'];
   return (
     <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
       {(errors) => (
@@ -187,6 +213,128 @@ export function BookForm({
               ) : null}
             </>
           )}
+
+          <FieldSet legend="קטגוריות משניות">
+            <p className="text-caption text-muted">
+              הקטגוריה הראשית קובעת היכן הספר יושב. אלה מוסיפות היכן עוד אפשר
+              למצוא אותו.
+            </p>
+            <div className="mt-3 grid gap-1 sm:grid-cols-2">
+              {categories.map((category) => (
+                <label
+                  key={category.id}
+                  className="flex items-center gap-2.5 py-1 text-small text-ink-soft"
+                >
+                  <input
+                    type="checkbox"
+                    name="category_ids"
+                    value={category.id}
+                    defaultChecked={relations.categoryIds.includes(category.id)}
+                    className="h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
+                  />
+                  {category.name_he}
+                </label>
+              ))}
+            </div>
+          </FieldSet>
+
+          <FieldSet legend="תגיות">
+            <TagPicker
+              allTags={tags}
+              selectedIds={relations.tagIds}
+              onCreate={async (name) => {
+                const result = await createTag(name);
+                return result.tag ?? null;
+              }}
+            />
+          </FieldSet>
+
+          {attributes.length > 0 ? (
+            <FieldSet legend="מאפיינים">
+              <div className="space-y-5">
+                {attributes.map((attribute) => (
+                  <fieldset key={attribute.id}>
+                    <legend className="field-label">{attribute.name_he}</legend>
+                    <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1">
+                      {attribute.values.map((value) => (
+                        <label
+                          key={value.id}
+                          className="flex items-center gap-2.5 py-1 text-small text-ink-soft"
+                        >
+                          <input
+                            /* radio למאפיין חד-ערכי, checkbox לרב-ערכי —
+                               אותו שם שדה בשני המקרים, ולכן השמירה גנרית */
+                            type={attribute.is_multi ? 'checkbox' : 'radio'}
+                            name="attribute_value_ids"
+                            value={value.id}
+                            defaultChecked={relations.attributeValueIds.includes(value.id)}
+                            className="h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
+                          />
+                          {value.name_he}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                ))}
+              </div>
+            </FieldSet>
+          ) : null}
+
+          <FieldSet legend="שפות">
+            <div className="flex flex-wrap gap-x-5 gap-y-1">
+              {LANGUAGES.map((language) => (
+                <label
+                  key={language.code}
+                  className="flex items-center gap-2.5 py-1 text-small text-ink-soft"
+                >
+                  <input
+                    type="checkbox"
+                    name="languages"
+                    value={language.code}
+                    defaultChecked={languages.includes(language.code)}
+                    className="h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
+                  />
+                  {language.label}
+                </label>
+              ))}
+            </div>
+          </FieldSet>
+
+          <FieldSet legend="חיפוש ומטא">
+            <TextField
+              name="cover_alt"
+              label="טקסט חלופי לכריכה"
+              defaultValue={book?.cover_alt}
+              hint="ברירת המחדל היא שם הספר. כדאי למלא רק אם הכריכה נושאת מידע נוסף."
+            />
+            <TextField
+              name="meta_title"
+              label="כותרת לתוצאות חיפוש"
+              defaultValue={book?.meta_title}
+              hint="עד 70 תווים. ריק — ייעשה שימוש בשם הספר."
+              error={errors.meta_title}
+            />
+            <TextField
+              name="meta_description"
+              label="תיאור לתוצאות חיפוש"
+              defaultValue={book?.meta_description}
+              hint="עד 160 תווים. טקסט ארוך יותר נחתך בגוגל באמצע משפט."
+              error={errors.meta_description}
+            />
+            <TextField
+              name="search_keywords"
+              label="מונחי חיפוש נוספים"
+              defaultValue={book?.search_keywords}
+              hint="שמות נוספים שהספר מוכר בהם, מופרדים בפסיק. אינם מוצגים באתר."
+            />
+            <TextField
+              name="canonical_url"
+              label="כתובת קנונית"
+              dir="ltr"
+              defaultValue={book?.canonical_url}
+              hint="רק אם אותו תוכן מתפרסם גם בכתובת אחרת."
+            />
+          </FieldSet>
 
           <FieldSet legend="פרסום">
             <CheckboxField

@@ -4,8 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { assertRole } from './auth';
-import { ENTITIES, isEntityKey, type EntityKey, type FieldSpec } from './schema';
+import {
+  ENTITIES,
+  isEntityKey,
+  type EntityKey,
+  type EntitySpec,
+  type FieldSpec,
+  type RelationSpec,
+} from './schema';
 import { sanitizeHtml } from '@/lib/sanitize';
+import type { Tag } from '@/lib/supabase/types';
 
 /**
  * תוצאת פעולה שאינה טופס.
@@ -24,8 +32,14 @@ export interface SaveState {
 }
 
 /** המרת ערך מהטופס לטיפוס העמודה. מחרוזת ריקה נשמרת כ-null ולא כ-"". */
-function coerce(spec: FieldSpec, raw: FormDataEntryValue | null): unknown {
+function coerce(spec: FieldSpec, raw: FormDataEntryValue | null, all: FormDataEntryValue[]): unknown {
   if (spec.type === 'boolean') return raw === 'on' || raw === 'true';
+
+  // עמודת מערך: כל הערכים שנבחרו, ולא רק האחרון. FormData.get מחזיר את
+  // הראשון בלבד, ולכן בחירה מרובה הייתה נשמרת כערך יחיד.
+  if (spec.type === 'text[]') {
+    return all.filter((value): value is string => typeof value === 'string' && value !== '');
+  }
 
   const value = typeof raw === 'string' ? raw.trim() : '';
   if (value === '') return null;
@@ -85,6 +99,57 @@ async function writeAudit(
 }
 
 /**
+ * סנכרון טבלאות הקישור של הישות.
+ *
+ * מחיקה מלאה ואז הכנסה, ולא חישוב הפרש: הפרש דורש לדעת מה היה בטופס
+ * כשנפתח, וטופס שנשאר פתוח בזמן שמישהו אחר ערך את אותו ספר היה מוחק את
+ * השינויים שלו בלי להודיע. סנכרון מלא הופך את "מה שרואים בטופס" למה
+ * שנשמר, וזו התנהגות שאפשר להסביר.
+ *
+ * כשל כאן אינו שקט: הספר עצמו כבר נשמר, אבל תגיות שלא נשמרו הן מידע
+ * שאבד, והעורך חייב לדעת שעליו לנסות שוב.
+ */
+async function syncRelations(
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+  relations: RelationSpec[],
+  ownerId: string,
+  formData: FormData,
+): Promise<string | null> {
+  for (const relation of relations) {
+    const ids = formData
+      .getAll(relation.field)
+      .filter((value): value is string => typeof value === 'string' && value !== '');
+
+    const removal = await supabase
+      .from(relation.table)
+      .delete()
+      .eq(relation.ownerColumn, ownerId);
+
+    if (removal.error) {
+      console.error('[admin:relations]', relation.table, removal.error.code, removal.error.message);
+      return `הרשומה נשמרה, אך עדכון ${relation.table} נכשל: ${removal.error.message}`;
+    }
+
+    if (ids.length === 0) continue;
+
+    const insertion = await supabase.from(relation.table).insert(
+      // כפילויות בטופס היו מפילות את ההכנסה על מפתח ראשי כפול
+      [...new Set(ids)].map((value) => ({
+        [relation.ownerColumn]: ownerId,
+        [relation.targetColumn]: value,
+      })),
+    );
+
+    if (insertion.error) {
+      console.error('[admin:relations]', relation.table, insertion.error.code, insertion.error.message);
+      return `הרשומה נשמרה, אך שמירת ${relation.table} נכשלה: ${insertion.error.message}`;
+    }
+  }
+
+  return null;
+}
+
+/**
  * שמירת רשומה — יצירה כשאין id, עדכון כשיש.
  *
  * ההרשאה נבדקת פעמיים: כאן לפי התפקיד, ושוב במסד עצמו דרך RLS. גם אם
@@ -105,7 +170,9 @@ export async function saveEntity(
   try {
     if (!isEntityKey(entityKey)) return { status: 'error', message: 'ישות לא מוכרת' };
 
-    const entity = ENTITIES[entityKey as EntityKey];
+    // הטיפוס המפורש נדרש: satisfies מצמצם כל ישות לצורתה המדויקת, ואז
+    // relations "אינו קיים" על ישויות שאין להן טבלאות קישור.
+    const entity: EntitySpec = ENTITIES[entityKey as EntityKey];
     const session = await assertRole(entity.writeRole);
     if ('error' in session) return { status: 'error', message: session.error };
 
@@ -118,7 +185,7 @@ export async function saveEntity(
     for (const spec of entity.fields) {
       // צ'ק־בוקס שלא סומן אינו נשלח כלל; חייבים לכתוב false במפורש.
       const raw = formData.has(spec.name) ? formData.get(spec.name) : null;
-      const value = coerce(spec, raw);
+      const value = coerce(spec, raw, formData.getAll(spec.name));
 
       if (spec.required && (value === null || value === '')) {
         fieldErrors[spec.name] = 'שדה חובה';
@@ -161,7 +228,14 @@ export async function saveEntity(
       };
     }
 
-    await writeAudit(supabase, session.userId, id ? 'update' : 'insert', entity.table, result.data?.id ?? null);
+    const savedId = result.data?.id ?? id;
+
+    if (savedId && entity.relations) {
+      const relationError = await syncRelations(supabase, entity.relations, savedId, formData);
+      if (relationError) return { status: 'error', message: relationError };
+    }
+
+    await writeAudit(supabase, session.userId, id ? 'update' : 'insert', entity.table, savedId);
     revalidateEntity(entityKey as EntityKey);
 
     if (!id && result.data?.id) redirectTo = `/admin/${entityKey}/${result.data.id}?created=1`;
@@ -290,6 +364,49 @@ export async function togglePublished(
     return {};
   } catch (error) {
     console.error('[admin:publish] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * יצירת תגית מתוך טופס הספר.
+ *
+ * ה-slug נגזר מהשם: אותיות עבריות אינן חוקיות ב-slug, ולכן שם עברי בלבד
+ * נופל לחלופה מבוססת חותמת זמן. זה מכוער אבל יציב, ועדיף על דחיית היצירה
+ * או על slug ריק שיתנגש עם הבא אחריו.
+ */
+export async function createTag(name: string): Promise<{ tag?: Tag; error?: string }> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return { error: session.error };
+
+    const trimmed = name.trim();
+    if (!trimmed) return { error: 'שם התגית ריק' };
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const latin = trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const slug = latin || `tag-${Date.now().toString(36)}`;
+
+    const { data, error } = await supabase
+      .from('tags')
+      .insert({ slug, name_he: trimmed })
+      .select('id, slug, name_he, name_en, is_system')
+      .maybeSingle();
+
+    if (error) {
+      console.error('[admin:createTag]', error.code, error.message);
+      return { error: describeDbError(error).message };
+    }
+
+    revalidatePath('/admin/books');
+    return { tag: (data as Tag) ?? undefined };
+  } catch (error) {
+    console.error('[admin:createTag] חריגה לא צפויה', error);
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }

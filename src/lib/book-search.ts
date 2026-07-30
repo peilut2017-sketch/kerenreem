@@ -75,6 +75,10 @@ export function searchCorpus(book: BookWithRelations): string {
       book.publication_year_ce?.toString(),
       book.format,
       book.binding,
+      // תגיות ומאפיינים הם בדיוק מה שאדם מקליד: "שבת", "כריכה קשה"
+      book.tags?.map((tag) => tag.name_he).join(' '),
+      book.attributeValues?.map((value) => value.name_he).join(' '),
+      book.search_keywords,
     ]
       .filter(Boolean)
       .join(' '),
@@ -100,6 +104,9 @@ export interface Filters {
   category: string;
   authors: string[];
   bindings: string[];
+  tags: string[];
+  attributeValues: string[];
+  languages: string[];
   yearFrom: number | null;
   yearTo: number | null;
   multiVolume: boolean;
@@ -114,6 +121,9 @@ export const EMPTY_FILTERS: Filters = {
   category: '',
   authors: [],
   bindings: [],
+  tags: [],
+  attributeValues: [],
+  languages: [],
   yearFrom: null,
   yearTo: null,
   multiVolume: false,
@@ -127,6 +137,9 @@ export function countActiveFilters(filters: Filters): number {
   return (
     filters.authors.length +
     filters.bindings.length +
+    filters.tags.length +
+    filters.attributeValues.length +
+    filters.languages.length +
     (filters.yearFrom !== null || filters.yearTo !== null ? 1 : 0) +
     (filters.multiVolume ? 1 : 0) +
     (filters.withSample ? 1 : 0) +
@@ -144,11 +157,40 @@ export function applyFilters(
   filters: Filters,
   corpora: Map<string, string>,
   favourites: Set<string>,
+  /** מזהה ערך → מזהה המאפיין שאליו הוא שייך */
+  attributeOf: Map<string, string> = new Map(),
 ): BookWithRelations[] {
   return books.filter((book) => {
     if (filters.category && book.category?.slug !== filters.category) return false;
     if (filters.authors.length && !filters.authors.includes(book.author?.slug ?? '')) return false;
     if (filters.bindings.length && !filters.bindings.includes(book.binding ?? '')) return false;
+
+    // כל תגית שנבחרה חייבת להימצא: בחירת "שבת" ו"הלכה" מבקשת ספרים
+    // ששייכים לשניהם, לא לאחד מהם. איחוד היה מרחיב את התוצאה בכל לחיצה
+    // נוספת, וזו התנהגות הפוכה למה שמצפים ממסנן.
+    if (filters.tags.length) {
+      const slugs = new Set((book.tags ?? []).map((tag) => tag.slug));
+      if (!filters.tags.every((slug) => slugs.has(slug))) return false;
+    }
+
+    if (filters.attributeValues.length) {
+      const ids = new Set((book.attributeValues ?? []).map((value) => value.id));
+      // ערכים של אותו מאפיין הם איחוד ביניהם (כריכה קשה *או* רכה), ובין
+      // מאפיינים שונים — חיתוך. אחרת בחירת שתי כריכות לא הייתה מחזירה דבר.
+      const byAttribute = new Map<string, string[]>();
+      for (const value of filters.attributeValues) {
+        const attribute = attributeOf.get(value) ?? '';
+        byAttribute.set(attribute, [...(byAttribute.get(attribute) ?? []), value]);
+      }
+      for (const group of byAttribute.values()) {
+        if (!group.some((value) => ids.has(value))) return false;
+      }
+    }
+
+    if (filters.languages.length) {
+      const languages = book.languages ?? [];
+      if (!filters.languages.some((code) => languages.includes(code))) return false;
+    }
     if (filters.multiVolume && (book.volume_count ?? 1) < 2) return false;
     if (filters.withSample && !book.sample_pdf_url) return false;
     if (filters.purchasableOnly && !book.is_purchasable) return false;

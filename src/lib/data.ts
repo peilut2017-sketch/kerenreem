@@ -4,6 +4,9 @@ import { createStaticClient } from './supabase/server';
 import { demo, isDemoContent } from './demo-content';
 import type {
   Activity,
+  Attribute,
+  AttributeValue,
+  AttributeWithValues,
   Banner,
   Author,
   Book,
@@ -12,6 +15,7 @@ import type {
   ContentPage,
   EventRecord,
   SiteSettings,
+  Tag,
 } from './supabase/types';
 
 /**
@@ -22,11 +26,42 @@ import type {
  * להיעלם בגלל תקלת רשת רגעית.
  */
 
+// התגיות והמאפיינים מגיעים בשליפה אחת עם הספר. שליפה נפרדת לכל אחד
+// הייתה שני סבבי רשת נוספים בכל טעינת קטלוג, ולצורך סינון בצד הלקוח
+// דרושה ממילא התמונה המלאה.
 const BOOK_SELECT = `
   *,
   author:authors ( id, slug, name_he, name_en ),
-  category:categories ( id, slug, name_he, name_en )
+  category:categories ( id, slug, name_he, name_en ),
+  tags:book_tags ( tag:tags ( id, slug, name_he, name_en ) ),
+  attributeValues:book_attributes ( value:attribute_values ( id, slug, name_he, attribute_id ) )
 `;
+
+/**
+ * PostgREST מחזיר טבלת קישור כמערך של עוטפים ({ tag: {...} }).
+ * השטחה כאן, פעם אחת, כדי שכל הצרכנים יקבלו מערך פשוט.
+ */
+type Wrapped<K extends string, T> = Record<K, T | null>[];
+
+function flatten<K extends string, T>(rows: unknown, key: K): T[] {
+  if (!Array.isArray(rows)) return [];
+  return (rows as Wrapped<K, T>)
+    .map((row) => row[key])
+    .filter((value): value is T => value !== null && value !== undefined);
+}
+
+function shapeBook(row: unknown): BookWithRelations {
+  const book = row as BookWithRelations & { tags?: unknown; attributeValues?: unknown };
+  return {
+    ...book,
+    tags: flatten(book.tags, 'tag'),
+    attributeValues: flatten(book.attributeValues, 'value'),
+  };
+}
+
+function shapeBooks(rows: unknown): BookWithRelations[] {
+  return Array.isArray(rows) ? rows.map(shapeBook) : [];
+}
 
 function warn(scope: string, error: unknown) {
   if (error) console.error(`[data:${scope}]`, error);
@@ -48,7 +83,7 @@ export async function getBooks(): Promise<BookWithRelations[]> {
     .order('title_he', { ascending: true });
 
   warn('getBooks', error);
-  return (data as BookWithRelations[] | null) ?? [];
+  return shapeBooks(data);
 }
 
 export async function getBookBySlug(slug: string): Promise<BookWithRelations | null> {
@@ -63,7 +98,7 @@ export async function getBookBySlug(slug: string): Promise<BookWithRelations | n
     .maybeSingle();
 
   warn('getBookBySlug', error);
-  return (data as BookWithRelations | null) ?? null;
+  return data ? shapeBook(data) : null;
 }
 
 /** ספרים נוספים להצגה בתחתית עמוד ספר — קודם מאותו מחבר, ואז מאותה קטגוריה. */
@@ -81,7 +116,7 @@ export async function getRelatedBooks(book: BookWithRelations, limit = 4): Promi
       .eq('author_id', book.author_id)
       .neq('id', book.id)
       .limit(limit);
-    collected.push(...((data as BookWithRelations[] | null) ?? []));
+    collected.push(...shapeBooks(data));
   }
 
   if (collected.length < limit && book.category_id) {
@@ -93,7 +128,7 @@ export async function getRelatedBooks(book: BookWithRelations, limit = 4): Promi
       .neq('id', book.id)
       .limit(limit);
 
-    for (const candidate of (data as BookWithRelations[] | null) ?? []) {
+    for (const candidate of shapeBooks(data)) {
       if (collected.length >= limit) break;
       if (!collected.some((existing) => existing.id === candidate.id)) collected.push(candidate);
     }
@@ -115,7 +150,7 @@ export async function getRecentBooks(limit = 6): Promise<BookWithRelations[]> {
     .limit(limit);
 
   warn('getRecentBooks', error);
-  return (data as BookWithRelations[] | null) ?? [];
+  return shapeBooks(data);
 }
 
 export async function getBookSlugs(): Promise<string[]> {
@@ -171,7 +206,7 @@ export async function getBooksByAuthor(authorId: string): Promise<BookWithRelati
     .order('sort_order', { ascending: true });
 
   warn('getBooksByAuthor', error);
-  return (data as BookWithRelations[] | null) ?? [];
+  return shapeBooks(data);
 }
 
 export async function getAuthorSlugs(): Promise<string[]> {
@@ -196,6 +231,35 @@ export async function getCategories(): Promise<Category[]> {
 
   warn('getCategories', error);
   return (data as Category[] | null) ?? [];
+}
+
+/* -------------------------------------------------------------------------- */
+/* תגיות ומאפיינים                                                             */
+/* -------------------------------------------------------------------------- */
+
+export async function getTags(): Promise<Tag[]> {
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase.from('tags').select('*').order('name_he');
+  warn('getTags', error);
+  return (data as Tag[] | null) ?? [];
+}
+
+export async function getAttributes(): Promise<AttributeWithValues[]> {
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('attributes')
+    .select('*, values:attribute_values(*)')
+    .order('sort_order');
+
+  warn('getAttributes', error);
+  return ((data as (Attribute & { values: AttributeValue[] })[] | null) ?? []).map((attribute) => ({
+    ...attribute,
+    values: [...attribute.values].sort((a, b) => a.sort_order - b.sort_order),
+  }));
 }
 
 /* -------------------------------------------------------------------------- */

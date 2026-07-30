@@ -19,7 +19,23 @@ import {
   type Filters,
   type SortKey,
 } from '@/lib/book-search';
-import type { Author, BookWithRelations, Category } from '@/lib/supabase/types';
+import type {
+  AttributeWithValues,
+  Author,
+  BookWithRelations,
+  Category,
+  Tag,
+} from '@/lib/supabase/types';
+
+/** שמות השפות לתצוגה. הרשימה סגורה וזהה לזו שבטופס הניהול. */
+const LANGUAGE_LABELS: Record<string, string> = {
+  he: 'עברית',
+  en: 'אנגלית',
+  yi: 'יידיש',
+  fr: 'צרפתית',
+  ru: 'רוסית',
+  es: 'ספרדית',
+};
 
 const BATCH = 24;
 
@@ -37,6 +53,8 @@ export function Catalogue({
   books,
   categories,
   authors,
+  tags,
+  attributes,
   locale,
   storeEnabled,
   covers,
@@ -46,6 +64,8 @@ export function Catalogue({
   books: BookWithRelations[];
   categories: Category[];
   authors: Author[];
+  tags: Tag[];
+  attributes: AttributeWithValues[];
   locale: string;
   storeEnabled: boolean;
   covers: string[];
@@ -99,10 +119,28 @@ export function Catalogue({
     [books],
   );
 
+  // מזהה ערך → המאפיין שאליו הוא שייך. נדרש כדי שערכים של אותו מאפיין
+  // יתנהגו כאיחוד ובין מאפיינים שונים כחיתוך.
+  const attributeOf = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const attribute of attributes) {
+      for (const value of attribute.values) map.set(value.id, attribute.id);
+    }
+    return map;
+  }, [attributes]);
+
   const results = useMemo(
-    () => sortBooks(applyFilters(books, deferredFilters, corpora, favourites), sort),
-    [books, deferredFilters, corpora, favourites, sort],
+    () => sortBooks(applyFilters(books, deferredFilters, corpora, favourites, attributeOf), sort),
+    [books, deferredFilters, corpora, favourites, attributeOf, sort],
   );
+
+  // רק שפות שקיימות בפועל בקטלוג — מסנן שמוביל תמיד לאפס מטעה
+  const languages = useMemo(() => {
+    const present = new Set(books.flatMap((book) => book.languages ?? []));
+    return [...present]
+      .filter((code) => LANGUAGE_LABELS[code])
+      .map((code) => ({ code, label: LANGUAGE_LABELS[code] }));
+  }, [books]);
 
   // הכתובת משקפת את המצב, כדי שאפשר יהיה לשתף ולרענן
   useEffect(() => {
@@ -208,6 +246,9 @@ export function Catalogue({
             onChange={changeFilters}
             authors={authors}
             bindings={bindings}
+            tags={tags}
+            attributes={attributes}
+            languages={languages}
             years={years}
             locale={locale}
             storeEnabled={storeEnabled}

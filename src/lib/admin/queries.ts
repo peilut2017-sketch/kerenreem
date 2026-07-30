@@ -2,10 +2,15 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import type {
   Activity,
+  Attribute,
+  AttributeValue,
+  AttributeWithValues,
   Banner,
   Author,
   Book,
+  BookRelations,
   Category,
+  Tag,
   ContentPage,
   EventRecord,
   Profile,
@@ -90,6 +95,52 @@ export async function getAuthor(id: string): Promise<Author | null> {
   const supabase = await client();
   const { data } = await supabase.from('authors').select('*').eq('id', id).maybeSingle();
   return (data as Author | null) ?? null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* שכבת המידע: תגיות, מאפיינים וקשרי הספר                                      */
+/* -------------------------------------------------------------------------- */
+
+export async function listTags(): Promise<Tag[]> {
+  const supabase = await client();
+  const { data } = await supabase.from('tags').select('*').order('name_he');
+  return (data as Tag[] | null) ?? [];
+}
+
+/**
+ * המאפיינים עם הערכים שלהם, בשליפה אחת.
+ *
+ * שתי שאילתות נפרדות היו מחייבות הרכבה ידנית וסבב רשת נוסף בכל פתיחת
+ * טופס. ההצטרפות המקוננת של PostgREST עושה זאת בבקשה אחת.
+ */
+export async function listAttributes(): Promise<AttributeWithValues[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('attributes')
+    .select('*, values:attribute_values(*)')
+    .order('sort_order');
+
+  return ((data as (Attribute & { values: AttributeValue[] })[] | null) ?? []).map((attribute) => ({
+    ...attribute,
+    values: [...attribute.values].sort((a, b) => a.sort_order - b.sort_order),
+  }));
+}
+
+/** הקשרים הנוכחיים של ספר, לטעינת הטופס. */
+export async function getBookRelations(bookId: string): Promise<BookRelations> {
+  const supabase = await client();
+
+  const [tags, categories, attributes] = await Promise.all([
+    supabase.from('book_tags').select('tag_id').eq('book_id', bookId),
+    supabase.from('book_categories').select('category_id').eq('book_id', bookId),
+    supabase.from('book_attributes').select('value_id').eq('book_id', bookId),
+  ]);
+
+  return {
+    tagIds: (tags.data ?? []).map((row: { tag_id: string }) => row.tag_id),
+    categoryIds: (categories.data ?? []).map((row: { category_id: string }) => row.category_id),
+    attributeValueIds: (attributes.data ?? []).map((row: { value_id: string }) => row.value_id),
+  };
 }
 
 export async function listCategoriesAdmin(): Promise<Category[]> {

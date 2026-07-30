@@ -63,14 +63,66 @@ export interface Book {
   /* ------------------------------------------------------- */
   is_published: boolean;
   sort_order: number;
+  /* --- שכבת המידע: שפות, טקסט חלופי ו-SEO --- */
+  languages: string[];
+  cover_alt: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  og_image_url: string | null;
+  canonical_url: string | null;
+  search_keywords: string | null;
+  /* ------------------------------------------ */
   created_at: string;
   updated_at: string;
+}
+
+/** תגית נושא. עצמאית מקטגוריה: קטגוריה היא מדף, תגית היא נושא. */
+export interface Tag {
+  id: string;
+  slug: string;
+  name_he: string;
+  name_en: string | null;
+  is_system: boolean;
+}
+
+/** סוג מאפיין — כריכה, פורמט, קהל יעד. */
+export interface Attribute {
+  id: string;
+  slug: string;
+  name_he: string;
+  name_en: string | null;
+  /** האם ניתן לבחור יותר מערך אחד */
+  is_multi: boolean;
+  sort_order: number;
+}
+
+export interface AttributeValue {
+  id: string;
+  attribute_id: string;
+  slug: string;
+  name_he: string;
+  name_en: string | null;
+  sort_order: number;
+}
+
+export interface AttributeWithValues extends Attribute {
+  values: AttributeValue[];
+}
+
+/** הקשרים של ספר, כפי שהם נשלפים לטופס העריכה. */
+export interface BookRelations {
+  tagIds: string[];
+  categoryIds: string[];
+  attributeValueIds: string[];
 }
 
 /** ספר עם היחסים שנשלפו יחד (join) — הצורה שבה הקטלוג צורך אותו. */
 export interface BookWithRelations extends Book {
   author: Pick<Author, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
   category: Pick<Category, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
+  /** מזהי תגיות ומאפיינים, כשהשליפה ביקשה אותם */
+  tags?: Pick<Tag, 'id' | 'slug' | 'name_he' | 'name_en'>[];
+  attributeValues?: Pick<AttributeValue, 'id' | 'slug' | 'name_he' | 'attribute_id'>[];
 }
 
 export interface Activity {

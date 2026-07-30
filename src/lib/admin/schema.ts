@@ -8,7 +8,16 @@ import type { UserRole } from '@/lib/supabase/types';
  * לעריכה (למשל id או created_at).
  */
 
-export type FieldType = 'text' | 'html' | 'number' | 'boolean' | 'date' | 'json' | 'uuid';
+export type FieldType =
+  | 'text'
+  | 'html'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'json'
+  | 'uuid'
+  /** מערך מחרוזות בעמודה אחת (text[]), למשל שפות הספר */
+  | 'text[]';
 
 export interface FieldSpec {
   name: string;
@@ -23,6 +32,24 @@ export interface FieldSpec {
    * ולכן שדה רשות כזה היה נכשל בדיוק כשמשאירים אותו ריק — המצב הנפוץ.
    */
   omitWhenEmpty?: boolean;
+}
+
+/**
+ * טבלת קישור שמסונכרנת עם הישות.
+ *
+ * הטופס שולח את המזהים שנבחרו, והשמירה מוחקת את הקיימים ומכניסה את
+ * החדשים. סנכרון מלא ולא הפרש: הפרש דורש לדעת מה היה קודם, וטופס שנפתח
+ * בשתי לשוניות היה מוחק בחירות שנעשו בשנייה.
+ */
+export interface RelationSpec {
+  /** שם השדה בטופס */
+  field: string;
+  /** טבלת הקישור */
+  table: string;
+  /** העמודה שמצביעה על הישות */
+  ownerColumn: string;
+  /** העמודה שמצביעה על הצד השני */
+  targetColumn: string;
 }
 
 export interface EntitySpec {
@@ -41,6 +68,8 @@ export interface EntitySpec {
    * המחרוזת הריקה מייצגת את עמוד הבית (/[locale]).
    */
   revalidate: string[];
+  /** טבלאות קישור לסנכרון אחרי השמירה */
+  relations?: RelationSpec[];
 }
 
 const f = (
@@ -84,6 +113,28 @@ export const ENTITIES = {
       f('weight_grams', 'number'),
       f('is_published', 'boolean'),
       fd('sort_order', 'number'),
+      f('languages', 'text[]'),
+      f('cover_alt'),
+      f('meta_title'),
+      f('meta_description'),
+      f('og_image_url'),
+      f('canonical_url'),
+      f('search_keywords'),
+    ],
+    relations: [
+      { field: 'tag_ids', table: 'book_tags', ownerColumn: 'book_id', targetColumn: 'tag_id' },
+      {
+        field: 'category_ids',
+        table: 'book_categories',
+        ownerColumn: 'book_id',
+        targetColumn: 'category_id',
+      },
+      {
+        field: 'attribute_value_ids',
+        table: 'book_attributes',
+        ownerColumn: 'book_id',
+        targetColumn: 'value_id',
+      },
     ],
     // ספר מופיע גם במסכי המחברים: עמוד המחבר מציג את ספריו, ומדד הספרים
     // ברשימת המחברים נספר מהם. בלי שני אלה ספר חדש נראה בקטלוג אבל לא

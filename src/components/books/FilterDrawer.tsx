@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { localized } from '@/lib/localized';
 import { countActiveFilters, type Filters } from '@/lib/book-search';
-import type { Author } from '@/lib/supabase/types';
+import type { Author, AttributeWithValues, Tag } from '@/lib/supabase/types';
 
 /**
  * מגירת הסינון.
@@ -20,6 +20,9 @@ export function FilterDrawer({
   onChange,
   authors,
   bindings,
+  tags,
+  attributes,
+  languages,
   years,
   locale,
   storeEnabled,
@@ -29,6 +32,9 @@ export function FilterDrawer({
   onChange: (next: Filters) => void;
   authors: Author[];
   bindings: string[];
+  tags: Tag[];
+  attributes: AttributeWithValues[];
+  languages: { code: string; label: string }[];
   years: { min: number; max: number } | null;
   locale: string;
   storeEnabled: boolean;
@@ -174,6 +180,62 @@ export function FilterDrawer({
                 </Group>
               ) : null}
 
+              {tags.length > 0 ? (
+                <Group title="תגיות">
+                  <p className="mb-2 text-caption text-muted">
+                    בחירת כמה תגיות מצמצמת: יוצגו רק ספרים שנושאים את כולן.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => {
+                      const selected = filters.tags.includes(tag.slug);
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => set('tags', toggleIn(filters.tags, tag.slug))}
+                          className={`rounded-[var(--radius-pill)] border px-3 py-1 text-caption transition-colors ${
+                            selected
+                              ? 'border-burgundy bg-burgundy text-white'
+                              : 'border-rule text-ink-soft hover:border-burgundy hover:text-burgundy'
+                          }`}
+                        >
+                          {localized(tag, 'name', locale)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Group>
+              ) : null}
+
+              {attributes.map((attribute) => (
+                <Group key={attribute.id} title={localized(attribute, 'name', locale)}>
+                  {attribute.values.map((value) => (
+                    <Check
+                      key={value.id}
+                      label={localized(value, 'name', locale)}
+                      checked={filters.attributeValues.includes(value.id)}
+                      onChange={() =>
+                        set('attributeValues', toggleIn(filters.attributeValues, value.id))
+                      }
+                    />
+                  ))}
+                </Group>
+              ))}
+
+              {languages.length > 0 ? (
+                <Group title="שפה">
+                  {languages.map((language) => (
+                    <Check
+                      key={language.code}
+                      label={language.label}
+                      checked={filters.languages.includes(language.code)}
+                      onChange={() => set('languages', toggleIn(filters.languages, language.code))}
+                    />
+                  ))}
+                </Group>
+              ) : null}
+
               {bindings.length > 0 ? (
                 <Group title="כריכה">
                   {bindings.map((binding) => (
@@ -269,6 +331,9 @@ export function FilterDrawer({
                       ...filters,
                       authors: [],
                       bindings: [],
+                      tags: [],
+                      attributeValues: [],
+                      languages: [],
                       yearFrom: null,
                       yearTo: null,
                       multiVolume: false,

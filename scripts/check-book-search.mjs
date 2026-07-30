@@ -64,6 +64,10 @@ const book = (over = {}) => ({
   binding: 'קשה',
   volume_count: 1,
   sample_pdf_url: null,
+  tags: over.tags ?? [],
+  attributeValues: over.attributeValues ?? [],
+  languages: over.languages ?? [],
+  search_keywords: null,
   is_purchasable: false,
   price: null,
   sort_order: 0,
@@ -96,6 +100,37 @@ check('סינון לפי ריבוי כרכים', ids(applyFilters(books, { ...EM
 check('סינון לפי קובץ לדוגמה', ids(applyFilters(books, { ...EMPTY_FILTERS, withSample: true }, corpora, new Set())), ['2']);
 check('סינון לפי מועדפים', ids(applyFilters(books, { ...EMPTY_FILTERS, favouritesOnly: true }, corpora, new Set(['3']))), ['3']);
 check('סינון לפי מחיר מרבי', ids(applyFilters(books, { ...EMPTY_FILTERS, priceMax: 100 }, corpora, new Set())), ['2']);
+
+/* --- תגיות, מאפיינים ושפות --- */
+const tagged = [
+  book({ id: 'A', tags: [{ id:'t1', slug:'shabbat', name_he:'שבת' }, { id:'t2', slug:'halacha', name_he:'הלכה' }],
+         attributeValues: [{ id:'v-hard', attribute_id:'binding', name_he:'קשה' }], languages: ['he'] }),
+  book({ id: 'B', tags: [{ id:'t1', slug:'shabbat', name_he:'שבת' }],
+         attributeValues: [{ id:'v-soft', attribute_id:'binding', name_he:'רכה' },
+                           { id:'v-kids', attribute_id:'audience', name_he:'ילדים' }], languages: ['he','en'] }),
+  book({ id: 'C', tags: [], attributeValues: [], languages: ['yi'] }),
+];
+const tCorpora = new Map(tagged.map((b) => [b.id, searchCorpus(b)]));
+const attributeOf = new Map([['v-hard','binding'], ['v-soft','binding'], ['v-kids','audience']]);
+const run = (f) => ids(applyFilters(tagged, { ...EMPTY_FILTERS, ...f }, tCorpora, new Set(), attributeOf));
+
+check('תגית אחת', run({ tags: ['shabbat'] }), ['A', 'B']);
+check('שתי תגיות הן חיתוך ולא איחוד', run({ tags: ['shabbat', 'halacha'] }), ['A']);
+check('שם התגית נכנס לחיפוש החופשי', matches(tCorpora.get('A'), 'הלכה'), true);
+check('שם המאפיין נכנס לחיפוש החופשי', matches(tCorpora.get('B'), 'ילדים'), true);
+check('ערך מאפיין יחיד', run({ attributeValues: ['v-hard'] }), ['A']);
+check(
+  'שני ערכים של אותו מאפיין הם איחוד',
+  run({ attributeValues: ['v-hard', 'v-soft'] }),
+  ['A', 'B'],
+);
+check(
+  'ערכים ממאפיינים שונים הם חיתוך',
+  run({ attributeValues: ['v-hard', 'v-kids'] }),
+  [],
+);
+check('שפה', run({ languages: ['en'] }), ['B']);
+check('שפה שאין לאיש', run({ languages: ['fr'] }), []);
 
 /* --- מיון --- */
 check('מיון א׳-ת׳ לפי סדר האלף-בית', ids(sortBooks(books, 'title')), ['1', '2', '3']);

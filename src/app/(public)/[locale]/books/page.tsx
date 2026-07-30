@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Catalogue } from '@/components/books/Catalogue';
-import { getAuthors, getBooks, getCategories, getSiteSettings } from '@/lib/data';
+import {
+  getAuthors,
+  getAttributes,
+  getBooks,
+  getCategories,
+  getSiteSettings,
+  getTags,
+} from '@/lib/data';
 import type { SortKey } from '@/lib/book-search';
 
 export const revalidate = 3600;
@@ -29,10 +36,12 @@ export default async function BooksPage({
   setRequestLocale(locale);
 
   const t = await getTranslations('books');
-  const [books, categories, authors, settings] = await Promise.all([
+  const [books, categories, authors, tags, attributes, settings] = await Promise.all([
     getBooks(),
     getCategories(),
     getAuthors(),
+    getTags(),
+    getAttributes(),
     getSiteSettings(),
   ]);
 
@@ -44,6 +53,11 @@ export default async function BooksPage({
   const usedCategories = categories.filter((category) =>
     books.some((book) => book.category_id === category.id),
   );
+
+  // רק תגיות שיש להן ספר: תגית שמובילה תמיד לאפס תוצאות מאריכה את
+  // המגירה ומטעה.
+  const usedTagSlugs = new Set(books.flatMap((book) => (book.tags ?? []).map((tag) => tag.slug)));
+  const usedTags = tags.filter((tag) => usedTagSlugs.has(tag.slug));
 
   const covers = books
     .map((book) => book.cover_image_url)
@@ -59,6 +73,8 @@ export default async function BooksPage({
         books={books}
         categories={usedCategories}
         authors={authorsWithBooks}
+        tags={usedTags}
+        attributes={attributes}
         locale={locale}
         storeEnabled={settings.store_enabled}
         covers={covers}

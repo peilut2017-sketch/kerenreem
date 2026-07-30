@@ -42,8 +42,7 @@ export function NavLinks({ items, label }: { items: readonly NavItem[]; label: s
    */
   const measure = useCallback(() => {
     const marker = markerRef.current;
-    const list = listRef.current;
-    if (!marker || !list) return;
+    if (!marker) return;
 
     const element = target === null ? null : itemRefs.current[target];
     if (!element) {
@@ -51,9 +50,14 @@ export function NavLinks({ items, label }: { items: readonly NavItem[]; label: s
       return;
     }
 
-    // offsetLeft נמדד מקצה השמאלי של ההורה בשני כיווני הכתיבה, ולכן
-    // מיקום ורוחב עובדים כאן גם בעברית וגם באנגלית בלי היפוך.
-    marker.style.transform = `translateX(${element.offsetLeft - list.offsetLeft}px)`;
+    // offsetLeft נמדד תמיד מקצה שמאל של ה-offsetParent, בשני כיווני
+    // הכתיבה. ה-ul הוא ה-offsetParent (הוא relative), ולכן הערך כבר יחסי
+    // אליו ואין להחסיר ממנו דבר — החסרה נוספת הזיזה את הסמן שמאלה.
+    //
+    // מכאן גם שהעיגון חייב להיות left פיזי ולא start הלוגי: ב-RTL,
+    // start-0 פירושו right:0, ואז כל פריט התחיל מקצהו הימני שלו ו"סטה"
+    // ביחס לרוחבו — לכן הסטייה הייתה שונה לכל פריט ולא קבועה.
+    marker.style.transform = `translateX(${element.offsetLeft}px)`;
     marker.style.width = `${element.offsetWidth}px`;
     marker.style.opacity = '1';
   }, [target]);
@@ -78,7 +82,7 @@ export function NavLinks({ items, label }: { items: readonly NavItem[]; label: s
           ref={markerRef}
           aria-hidden="true"
           style={{ opacity: 0 }}
-          className="glass pointer-events-none absolute inset-y-0 start-0 rounded-[var(--radius-pill)] transition-[transform,width,opacity] duration-500 ease-[var(--ease-spring)] motion-reduce:transition-none"
+          className="glass pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-pill)] transition-[transform,width,opacity] duration-500 ease-[var(--ease-spring)] motion-reduce:transition-none"
         />
 
         {items.map((item, index) => (

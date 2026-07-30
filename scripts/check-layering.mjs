@@ -56,6 +56,35 @@ const blur = await page.evaluate(() => {
 });
 check('הכותרת מטשטשת את מה שמתחתיה', /blur/.test(blur), blur || 'ללא');
 
+/* --- סמן הניווט יושב בדיוק על הפריט --- */
+// הסטייה כאן הייתה 21–31 פיקסלים ושונה לכל פריט, כי העיגון היה start-0
+// (כלומר right:0 ב-RTL) והמיקום חושב יחסית לקצה שמאל. שגיאה כזו אינה
+// מפילה דבר ואינה מופיעה בשום בדיקה אחרת — רק נראית רשלנית.
+await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+for (const label of ['ספרים', 'אירועים', 'אודות']) {
+  const item = page.locator('nav li', { hasText: label }).first();
+  if ((await item.count()) === 0) continue;
+  await item.hover();
+  await page.waitForTimeout(650);
+
+  const offset = await page.evaluate((name) => {
+    const li = [...document.querySelectorAll('nav li')].find((l) =>
+      l.textContent.trim().startsWith(name),
+    );
+    const marker = document.querySelector('nav ul > span');
+    if (!li || !marker) return null;
+    const a = li.getBoundingClientRect();
+    const b = marker.getBoundingClientRect();
+    return { drift: Math.round(b.left - a.left), width: Math.round(b.width - a.width) };
+  }, label);
+
+  check(
+    `הסמן יושב על "${label}"`,
+    offset !== null && Math.abs(offset.drift) <= 1 && Math.abs(offset.width) <= 1,
+    offset ? `סטייה ${offset.drift}px, הפרש רוחב ${offset.width}px` : 'לא נמצא',
+  );
+}
+
 await browser.close();
 console.log(failures === 0 ? '\nהמשטחים הצפים תקינים.' : `\n${failures} בדיקות נכשלו.`);
 process.exit(failures === 0 ? 0 : 1);

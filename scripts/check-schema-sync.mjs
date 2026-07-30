@@ -45,6 +45,17 @@ function readColumns() {
 
       tables.set(table, [...columns]);
     }
+
+    // עמודות שנוספו אחרי היצירה. בלי זה כל שדה שהתווסף ב-alter table
+    // נראה כאילו אין לו עמודה, והבדיקה מתריעה על תקלה שאינה קיימת.
+    const alterRe =
+      /alter table (\w+)\s+add column (?:if not exists )?([a-z_][a-z0-9_]*)([^;]*);/gi;
+    for (const [, table, column, rest] of sql.matchAll(alterRe)) {
+      const columns = new Set(tables.get(table) ?? []);
+      columns.add(column);
+      tables.set(table, [...columns]);
+      if (/\bnot null\b/i.test(rest)) notNull.add(`${table}.${column}`);
+    }
   }
 
   return tables;
@@ -98,8 +109,10 @@ for (const [key, spec] of Object.entries(ENTITIES)) {
     (field) =>
       !field.required &&
       !field.omitWhenEmpty &&
-      // צ'ק־בוקס תמיד נשמר כ-true/false ולעולם לא כ-null, ולכן אינו בסיכון
+      // צ'ק־בוקס נשמר תמיד כ-true/false, ושדה מערך נשמר תמיד כמערך —
+      // אולי ריק, אך לעולם לא null. שניהם אינם בסיכון 23502.
       field.type !== 'boolean' &&
+      field.type !== 'text[]' &&
       notNull.has(`${spec.table}.${field.name}`),
   );
   if (risky.length) {
@@ -121,13 +134,19 @@ for (const [key, spec] of Object.entries(ENTITIES)) {
 const actions = readFileSync('src/lib/admin/actions.ts', 'utf8');
 const generic = new Set();
 
-for (const [, columns] of actions.matchAll(/\.select\('([^']+)'\)/g)) {
-  for (const column of columns.split(',')) {
-    const name = column.trim();
-    if (name && name !== '*') generic.add(name);
+// רק שרשראות שמופנות אל entity.table הן גנריות. פונקציה שפונה לטבלה
+// מפורשת (למשל יצירת תגית) נוקבת בעמודות של אותה טבלה בלבד, ואין שום
+// סיבה שיהיו קיימות בכל הישויות — הבדיקה התריעה עליהן בטעות.
+for (const match of actions.matchAll(/from\(entity\.table\)([\s\S]{0,400}?);/g)) {
+  const chain = match[1];
+  for (const [, columns] of chain.matchAll(/\.select\('([^']+)'\)/g)) {
+    for (const column of columns.split(',')) {
+      const name = column.trim();
+      if (name && name !== '*') generic.add(name);
+    }
   }
+  for (const [, key] of chain.matchAll(/\.update\(\{\s*(\w+):/g)) generic.add(key);
 }
-for (const [, key] of actions.matchAll(/\.update\(\{\s*(\w+):/g)) generic.add(key);
 
 console.log('\nעמודות שהשכבה הגנרית נוקבת בהן:', [...generic].join(', '));
 
