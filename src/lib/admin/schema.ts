@@ -73,7 +73,10 @@ export const ENTITIES = {
       f('is_published', 'boolean'),
       f('sort_order', 'number'),
     ],
-    revalidate: ['/books', '/books/[slug]', ''],
+    // ספר מופיע גם במסכי המחברים: עמוד המחבר מציג את ספריו, ומדד הספרים
+    // ברשימת המחברים נספר מהם. בלי שני אלה ספר חדש נראה בקטלוג אבל לא
+    // אצל המחבר שלו, עד שפג ה-ISR.
+    revalidate: ['/books', '/books/[slug]', '/authors', '/authors/[slug]', ''],
   },
 
   authors: {
@@ -91,7 +94,10 @@ export const ENTITIES = {
       f('sort_order', 'number'),
       f('is_published', 'boolean'),
     ],
-    revalidate: ['/authors', '/authors/[slug]'],
+    // שם המחבר מוצג גם בעמוד הספר, בכרטיסי הקטלוג ובספרים המומלצים בדף
+    // הבית, והוא משמש כמסנן בקטלוג. שינוי שם שמתעדכן רק במסכי המחברים
+    // משאיר את כל אלה עם השם הישן.
+    revalidate: ['/authors', '/authors/[slug]', '/books', '/books/[slug]', ''],
   },
 
   events: {
@@ -174,7 +180,11 @@ export const ENTITIES = {
     table: 'categories',
     writeRole: 'editor',
     fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), f('sort_order', 'number')],
-    revalidate: ['/books', '/books/[slug]'],
+    // הרשימה נגזרת מהשאילתות ולא ממה שמוצג בפועל, ולכן היא רחבה מהנדרש:
+    // הקטגוריה מצורפת לכל שליפת ספרים גם במסלולים שאינם מציגים את שמה.
+    // רענון תבנית מסלול הוא זול, ובחירה ברשימה מדויקת הייתה מחייבת רשימת
+    // חריגים שתתיישן ברגע שמישהו יציג את שם הקטגוריה במקום נוסף.
+    revalidate: ['/books', '/books/[slug]', '/authors', '/authors/[slug]', ''],
   },
 } satisfies Record<string, EntitySpec>;
 

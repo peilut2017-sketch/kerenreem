@@ -6,11 +6,27 @@ import { ImageField } from './ImageField';
 import { RichTextEditor } from './RichTextEditor';
 import type { Author } from '@/lib/supabase/types';
 
-export function AuthorForm({ author, canWrite }: { author: Author | null; canWrite: boolean }) {
+export function AuthorForm({
+  author,
+  bookCount,
+  canWrite,
+}: {
+  author: Author | null;
+  bookCount: number;
+  canWrite: boolean;
+}) {
   return (
     <EntityForm entity="authors" id={author?.id ?? null} canWrite={canWrite} backHref="/admin/authors">
       {(errors) => (
         <>
+          {bookCount > 0 ? (
+            <p className="border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-ink-soft">
+              {bookCount} ספרים משויכים למחבר זה. מחיקתו לא תמחק אותם, אבל הם
+              יישארו בלי ייחוס — המסד מנתק את השיוך בשקט ואי אפשר לשחזר אותו
+              בלי לשייך כל ספר מחדש.
+            </p>
+          ) : null}
+
           <FieldSet legend="זיהוי">
             <TextField
               name="name_he"

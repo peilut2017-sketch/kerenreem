@@ -14,7 +14,9 @@
     "check:a11y-toolbar": "node scripts/check-a11y-toolbar.mjs",
     "check:login": "node scripts/check-login.mjs",
     "check:layering": "node scripts/check-layering.mjs",
-    "check:sanitize": "node --experimental-strip-types scripts/check-sanitize.mjs"
+    "check:sanitize": "node --experimental-strip-types scripts/check-sanitize.mjs",
+    "check:schema": "node --experimental-strip-types scripts/check-schema-sync.mjs",
+    "check:revalidate": "node --experimental-strip-types scripts/check-revalidate.mjs"
   },
   "dependencies": {
     "@hebcal/core": "^6.8.2",

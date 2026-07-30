@@ -9,7 +9,7 @@ export default async function NewAuthorPage() {
   return (
     <>
       <AdminHeader title="מחבר חדש" />
-      <AuthorForm author={null} canWrite={hasRole(session.profile.role, 'editor')} />
+      <AuthorForm author={null} bookCount={0} canWrite={hasRole(session.profile.role, 'editor')} />
     </>
   );
 }

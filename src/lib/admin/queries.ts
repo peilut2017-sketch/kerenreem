@@ -98,6 +98,43 @@ export async function listCategoriesAdmin(): Promise<Category[]> {
   return (data as Category[] | null) ?? [];
 }
 
+export async function getCategory(id: string): Promise<Category | null> {
+  const supabase = await client();
+  const { data } = await supabase.from('categories').select('*').eq('id', id).maybeSingle();
+  return (data as Category | null) ?? null;
+}
+
+/**
+ * מניין הספרים של כל מחבר. מחיקת מחבר אינה מוחקת את ספריו אלא מנתקת את
+ * השיוך בשקט (on delete set null), ובקטלוג תורני אובדן הייחוס הוא נזק
+ * ממשי — לכן המסך מזהיר לפני כן.
+ */
+export async function countBooksByAuthor(): Promise<Map<string, number>> {
+  const supabase = await client();
+  const { data } = await supabase.from('books').select('author_id');
+
+  const counts = new Map<string, number>();
+  for (const row of (data as { author_id: string | null }[] | null) ?? []) {
+    if (row.author_id) counts.set(row.author_id, (counts.get(row.author_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * מניין הספרים בכל קטגוריה — כדי שמסך הקטגוריות יראה מה בשימוש, ובעיקר
+ * כדי להזהיר לפני מחיקה: גם כאן השיוך מנותק בשקט ולא נחסם.
+ */
+export async function countBooksByCategory(): Promise<Map<string, number>> {
+  const supabase = await client();
+  const { data } = await supabase.from('books').select('category_id');
+
+  const counts = new Map<string, number>();
+  for (const row of (data as { category_id: string | null }[] | null) ?? []) {
+    if (row.category_id) counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 export async function listEventsAdmin(): Promise<EventRecord[]> {
   const supabase = await client();
   const { data } = await supabase

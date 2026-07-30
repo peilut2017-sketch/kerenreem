@@ -9,6 +9,7 @@ const ITEMS: { href: string; label: string; minRole: UserRole }[] = [
   { href: '/admin/banners', label: 'באנרים', minRole: 'viewer' },
   { href: '/admin/books', label: 'ספרים', minRole: 'viewer' },
   { href: '/admin/authors', label: 'מחברים', minRole: 'viewer' },
+  { href: '/admin/categories', label: 'קטגוריות', minRole: 'viewer' },
   { href: '/admin/events', label: 'אירועים', minRole: 'viewer' },
   { href: '/admin/activities', label: 'צירי פעילות', minRole: 'viewer' },
   { href: '/admin/pages', label: 'עמודי תוכן', minRole: 'viewer' },
