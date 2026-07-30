@@ -8,12 +8,15 @@ import type {
   Banner,
   Author,
   Book,
+  BookImage,
   BookRelations,
+  BookTocEntry,
   Category,
   Tag,
   ContentPage,
   EventRecord,
   Profile,
+  Series,
   SiteSettings,
 } from '@/lib/supabase/types';
 
@@ -119,6 +122,24 @@ export async function listTags(): Promise<Tag[]> {
   return (data as Tag[] | null) ?? [];
 }
 
+export async function getTag(id: string): Promise<Tag | null> {
+  const supabase = await client();
+  const { data } = await supabase.from('tags').select('*').eq('id', id).maybeSingle();
+  return (data as Tag | null) ?? null;
+}
+
+/** מניין הספרים הנושאים כל תגית — לאזהרה לפני מחיקה. */
+export async function countBooksByTag(): Promise<Map<string, number>> {
+  const supabase = await client();
+  const { data } = await supabase.from('book_tags').select('tag_id');
+
+  const counts = new Map<string, number>();
+  for (const row of (data as { tag_id: string }[] | null) ?? []) {
+    counts.set(row.tag_id, (counts.get(row.tag_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /**
  * המאפיינים עם הערכים שלהם, בשליפה אחת.
  *
@@ -155,6 +176,22 @@ export async function getBookRelations(bookId: string): Promise<BookRelations> {
   };
 }
 
+export async function getBookImages(bookId: string): Promise<BookImage[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('book_images')
+    .select('*')
+    .eq('book_id', bookId)
+    .order('sort_order');
+  return (data as BookImage[] | null) ?? [];
+}
+
+export async function getBookToc(bookId: string): Promise<BookTocEntry[]> {
+  const supabase = await client();
+  const { data } = await supabase.from('book_toc').select('*').eq('book_id', bookId).order('sort_order');
+  return (data as BookTocEntry[] | null) ?? [];
+}
+
 export async function listCategoriesAdmin(): Promise<Category[]> {
   const supabase = await client();
   const { data } = await supabase.from('categories').select('*').order('sort_order');
@@ -165,6 +202,18 @@ export async function getCategory(id: string): Promise<Category | null> {
   const supabase = await client();
   const { data } = await supabase.from('categories').select('*').eq('id', id).maybeSingle();
   return (data as Category | null) ?? null;
+}
+
+export async function listSeriesAdmin(): Promise<Series[]> {
+  const supabase = await client();
+  const { data } = await supabase.from('series').select('*').order('name_he');
+  return (data as Series[] | null) ?? [];
+}
+
+export async function getSeries(id: string): Promise<Series | null> {
+  const supabase = await client();
+  const { data } = await supabase.from('series').select('*').eq('id', id).maybeSingle();
+  return (data as Series | null) ?? null;
 }
 
 /**
@@ -194,6 +243,18 @@ export async function countBooksByCategory(): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   for (const row of (data as { category_id: string | null }[] | null) ?? []) {
     if (row.category_id) counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** מניין הספרים בכל סדרה — לאזהרה לפני מחיקה, כמו countBooksByCategory. */
+export async function countBooksBySeries(): Promise<Map<string, number>> {
+  const supabase = await client();
+  const { data } = await supabase.from('books').select('series_id');
+
+  const counts = new Map<string, number>();
+  for (const row of (data as { series_id: string | null }[] | null) ?? []) {
+    if (row.series_id) counts.set(row.series_id, (counts.get(row.series_id) ?? 0) + 1);
   }
   return counts;
 }

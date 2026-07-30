@@ -5,9 +5,10 @@ import { BookFormTabs } from './BookFormTabs';
 import { CheckboxField, FieldSet, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import { QuickAddSelect } from './QuickAddSelect';
+import { RepeatableTextField } from './RepeatableTextField';
 import { RichTextEditor } from './RichTextEditor';
 import { TagPicker } from './TagPicker';
-import { createAuthorQuick, createCategoryQuick, createTag } from '@/lib/admin/actions';
+import { createAuthorQuick, createCategoryQuick, createSeriesQuick, createTag } from '@/lib/admin/actions';
 import { computeCompletion } from '@/lib/completion';
 import type {
   AttributeWithValues,
@@ -15,6 +16,7 @@ import type {
   Book,
   BookRelations,
   Category,
+  Series,
   Tag,
 } from '@/lib/supabase/types';
 
@@ -34,6 +36,7 @@ export function BookForm({
   categories,
   tags,
   attributes,
+  series,
   relations,
   storeEnabled,
   canWrite,
@@ -43,6 +46,7 @@ export function BookForm({
   categories: Category[];
   tags: Tag[];
   attributes: AttributeWithValues[];
+  series: Series[];
   relations: BookRelations;
   /** קובע רק אם שדות המסחר מוצגים באתר הציבורי — בטופס הם ערוכים תמיד. */
   storeEnabled: boolean;
@@ -155,6 +159,37 @@ export function BookForm({
                     </FieldSet>
 
                     <FieldSet
+                      legend="סדרה"
+                      description="רק אם הספר הוא כרך בתוך מהדורה רב-כרכית. אפשר להשאיר ריק."
+                    >
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <QuickAddSelect
+                          name="series_id"
+                          label="סדרה"
+                          emptyLabel="— אינו חלק מסדרה —"
+                          defaultValue={book?.series_id}
+                          options={series.map((item) => ({ value: item.id, label: item.name_he }))}
+                          addLabel="+ סדרה חדשה"
+                          fieldLabel="שם הסדרה"
+                          onCreate={async (name) => {
+                            const result = await createSeriesQuick(name);
+                            return result.series
+                              ? { value: result.series.id, label: result.series.name_he }
+                              : null;
+                          }}
+                        />
+                        <TextField
+                          name="series_position"
+                          label="מיקום בסדרה"
+                          type="number"
+                          dir="ltr"
+                          defaultValue={book?.series_position}
+                          hint="כרך א׳ = 1, כרך ב׳ = 2 וכן הלאה."
+                        />
+                      </div>
+                    </FieldSet>
+
+                    <FieldSet
                       legend="שנת הוצאה"
                       description="השנה העברית היא המקור התיעודי; הלועזית משלימה כשהיא ידועה. אפשר למלא אחת מהן בלבד."
                     >
@@ -180,6 +215,14 @@ export function BookForm({
                         name="description_he"
                         label="תיאור הספר (עברית)"
                         defaultValue={book?.description_he}
+                      />
+                      <RepeatableTextField
+                        name="quotes"
+                        label="ציטוטים מתוך הספר"
+                        defaultValues={book?.quotes ?? []}
+                        multiline
+                        placeholder="ציטוט אחד לכל שורה"
+                        hint="מוצגים בעמוד הספר כקטע מודגש. אפשר להשאיר ריק."
                       />
                     </FieldSet>
 

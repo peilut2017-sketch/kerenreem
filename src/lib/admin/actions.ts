@@ -13,7 +13,7 @@ import {
   type RelationSpec,
 } from './schema';
 import { sanitizeHtml } from '@/lib/sanitize';
-import type { Author, Category, Tag } from '@/lib/supabase/types';
+import type { Author, Category, Series, Tag } from '@/lib/supabase/types';
 
 /**
  * תוצאת פעולה שאינה טופס.
@@ -360,6 +360,13 @@ export async function deleteEntity(entityKey: string, id: string): Promise<Actio
     const supabase = await createClient();
     if (!supabase) return { error: 'אין חיבור למסד' };
 
+    // תגית מערכת (חדש, רב מכר) נזרעת בקוד ולוגיקה אחרת עשויה להסתמך על
+    // ה-slug שלה — מחיקה מהממשק הייתה יוצרת מצב שאי אפשר לשחזר בלי SQL.
+    if (entityKey === 'tags') {
+      const { data: tag } = await supabase.from('tags').select('is_system').eq('id', id).maybeSingle();
+      if (tag?.is_system) return { error: 'תגית מערכת — אי אפשר למחוק אותה מהממשק.' };
+    }
+
     const { error } = await supabase.from(entity.table).delete().eq('id', id);
     if (error) {
       console.error('[admin:delete]', error.code, error.message);
@@ -575,6 +582,133 @@ export async function createCategoryQuick(name: string): Promise<{ category?: Ca
     return { category: (data as Category) ?? undefined };
   } catch (error) {
     console.error('[admin:createCategoryQuick] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function createSeriesQuick(name: string): Promise<{ series?: Series; error?: string }> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return { error: session.error };
+
+    const trimmed = name.trim();
+    if (!trimmed) return { error: 'שם הסדרה ריק' };
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const { data, error } = await supabase
+      .from('series')
+      .insert({ slug: slugify(trimmed, 'series'), name_he: trimmed })
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      console.error('[admin:createSeriesQuick]', error.code, error.message);
+      return { error: describeDbError(error, ENTITIES.series).message };
+    }
+
+    revalidatePath('/admin/books');
+    revalidatePath('/admin/series');
+    return { series: (data as Series) ?? undefined };
+  } catch (error) {
+    console.error('[admin:createSeriesQuick] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * שמירת גלריית התמונות או תוכן העניינים של ספר — מחיקה מלאה והכנסה
+ * מחדש, כמו syncRelations בשמירת הספר עצמו ומאותה סיבה: הפרש בין הישן
+ * לחדש דורש לדעת מה היה כשהטופס נפתח, וזה שביר כשיש שתי לשוניות פתוחות.
+ * שתי הטבלאות שייכות לספר אחד ולא לכל הקטלוג, ולכן אין כאן סיכון של
+ * "מחיקת הכול בטעות" כמו שהיה בטבלת קישור משותפת.
+ */
+export async function saveBookImages(
+  bookId: string,
+  images: { image_url: string; alt: string; caption_he: string }[],
+): Promise<ActionResult> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return session;
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const removal = await supabase.from('book_images').delete().eq('book_id', bookId);
+    if (removal.error) {
+      console.error('[admin:saveBookImages]', removal.error.code, removal.error.message);
+      return { error: describeDbError(removal.error).message };
+    }
+
+    const rows = images
+      .filter((image) => image.image_url)
+      .map((image, index) => ({
+        book_id: bookId,
+        image_url: image.image_url,
+        alt: image.alt || null,
+        caption_he: image.caption_he || null,
+        sort_order: index,
+      }));
+
+    if (rows.length > 0) {
+      const insertion = await supabase.from('book_images').insert(rows);
+      if (insertion.error) {
+        console.error('[admin:saveBookImages]', insertion.error.code, insertion.error.message);
+        return { error: describeDbError(insertion.error).message };
+      }
+    }
+
+    revalidatePath(`/[locale]/books/[slug]`, 'page');
+    revalidatePath(`/admin/books/${bookId}`);
+    return {};
+  } catch (error) {
+    console.error('[admin:saveBookImages] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function saveBookToc(
+  bookId: string,
+  entries: { title_he: string; level: number; page_number: number | null; summary_he: string }[],
+): Promise<ActionResult> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return session;
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const removal = await supabase.from('book_toc').delete().eq('book_id', bookId);
+    if (removal.error) {
+      console.error('[admin:saveBookToc]', removal.error.code, removal.error.message);
+      return { error: describeDbError(removal.error).message };
+    }
+
+    const rows = entries
+      .filter((entry) => entry.title_he.trim())
+      .map((entry, index) => ({
+        book_id: bookId,
+        title_he: entry.title_he.trim(),
+        level: entry.level,
+        page_number: entry.page_number,
+        summary_he: entry.summary_he || null,
+        sort_order: index,
+      }));
+
+    if (rows.length > 0) {
+      const insertion = await supabase.from('book_toc').insert(rows);
+      if (insertion.error) {
+        console.error('[admin:saveBookToc]', insertion.error.code, insertion.error.message);
+        return { error: describeDbError(insertion.error).message };
+      }
+    }
+
+    revalidatePath(`/[locale]/books/[slug]`, 'page');
+    revalidatePath(`/admin/books/${bookId}`);
+    return {};
+  } catch (error) {
+    console.error('[admin:saveBookToc] חריגה לא צפויה', error);
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }

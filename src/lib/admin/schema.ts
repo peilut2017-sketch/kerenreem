@@ -97,6 +97,8 @@ export const ENTITIES = {
       f('description_en', 'html'),
       f('author_id', 'uuid'),
       f('category_id', 'uuid'),
+      f('series_id', 'uuid'),
+      f('series_position', 'number'),
       f('publication_year_he'),
       f('publication_year_ce', 'number'),
       f('cover_image_url'),
@@ -120,6 +122,7 @@ export const ENTITIES = {
       f('og_image_url'),
       f('canonical_url'),
       f('search_keywords'),
+      f('quotes', 'text[]'),
     ],
     relations: [
       { field: 'tag_ids', table: 'book_tags', ownerColumn: 'book_id', targetColumn: 'tag_id' },
@@ -248,6 +251,22 @@ export const ENTITIES = {
     // רענון תבנית מסלול הוא זול, ובחירה ברשימה מדויקת הייתה מחייבת רשימת
     // חריגים שתתיישן ברגע שמישהו יציג את שם הקטגוריה במקום נוסף.
     revalidate: ['/books', '/books/[slug]', '/authors', '/authors/[slug]', ''],
+  },
+
+  series: {
+    table: 'series',
+    writeRole: 'editor',
+    fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), f('description_he')],
+    revalidate: ['/books', '/books/[slug]', ''],
+  },
+
+  tags: {
+    table: 'tags',
+    writeRole: 'editor',
+    fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), f('description_he')],
+    // is_system אינו כאן: הוא נקבע פעם אחת ביצירה (תגיות מערכת נזרעות
+    // בקוד, ראו 08_pim_stage_a.sql) ואינו אמור להיות שדה שעורך יכול לשנות.
+    revalidate: ['/books', '/books/[slug]', ''],
   },
 } satisfies Record<string, EntitySpec>;
 
