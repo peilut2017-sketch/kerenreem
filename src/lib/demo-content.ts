@@ -35,13 +35,13 @@ const categories: Category[] = [
 
 const authors: Author[] = [
   {
-    id: 'a1', slug: 'raam-hacohen', name_he: 'הרב רא״ם הכהן', name_en: null,
+    id: 'a1', catalogue_number: 1, slug: 'raam-hacohen', name_he: 'הרב רא״ם הכהן', name_en: null,
     bio_he: '<p>מחבר ועורך, מן הכותבים המרכזיים שהמכון מוציא לאור.</p>', bio_en: null,
     portrait_url: null, birth_year: 'תש״ח', death_year: null,
     sort_order: 10, is_published: true, ...base,
   },
   {
-    id: 'a2', slug: 'avraham-kook', name_he: 'הרב אברהם קוק', name_en: null,
+    id: 'a2', catalogue_number: 2, slug: 'avraham-kook', name_he: 'הרב אברהם קוק', name_en: null,
     bio_he: '<p>מכתביו ההדיר המכון כמה מהדורות.</p>', bio_en: null,
     portrait_url: null, birth_year: 'תרכ״ה', death_year: 'תרצ״ה',
     sort_order: 20, is_published: true, ...base,
@@ -56,7 +56,7 @@ function book(
   const author = authors[authorIndex];
   const category = categories[categoryIndex];
   return {
-    id, slug, title_he: title, title_en: null,
+    id, catalogue_number: Number(id.replace(/\D/g, '')) || 0, slug, title_he: title, title_en: null,
     subtitle_he: subtitle, subtitle_en: null,
     description_he: `<p>${subtitle ?? title} — מהדורה מוערת בהוצאת המכון.</p>`,
     description_en: null,

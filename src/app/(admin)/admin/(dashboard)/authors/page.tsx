@@ -17,11 +17,12 @@ export default async function AdminAuthorsPage() {
         action={{ href: '/admin/authors/new', label: 'מחבר חדש' }}
       />
       <AdminTable
-        columns={['שם', 'שנים', 'מצב ופעולות']}
+        columns={['#', 'שם', 'שנים', 'מצב ופעולות']}
         empty={authors.length === 0 ? 'טרם נוספו מחברים.' : undefined}
       >
         {authors.map((author) => (
           <AdminRow key={author.id}>
+            <AdminCell className="text-muted tabular-nums">{author.catalogue_number}</AdminCell>
             <AdminCell>
               <Link href={`/admin/authors/${author.id}`} className="font-semibold hover:text-burgundy">
                 {author.name_he}

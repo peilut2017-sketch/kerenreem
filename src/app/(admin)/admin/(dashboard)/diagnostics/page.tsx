@@ -143,11 +143,58 @@ export default async function DiagnosticsPage() {
       : 'הצליח',
   });
 
-  /* --- 3. אחסון קבצים --- */
+  /* --- 3. מדוע תוכן אינו מופיע באתר --- */
+  //
+  // "הוספתי ספר והוא לא מוצג" יכול לנבוע משלוש סיבות שנראות זהות מהניהול:
+  // הספר נשמר כטיוטה, ההצטרפות לטבלאות החדשות נכשלת ומחזירה אפס, או
+  // שהעמוד הציבורי עדיין מוגש ממטמון. הבדיקות כאן מפרידות ביניהן, ולכן
+  // הן מריצות את **אותה שאילתה** שהאתר הציבורי מריץ ולא ספירה משלהן.
+  const publicChecks: Check[] = [];
+
+  for (const table of ['books', 'authors', 'events', 'activities'] as const) {
+    const [all, published] = await Promise.all([
+      supabase.from(table).select('id', { count: 'exact', head: true }),
+      supabase.from(table).select('id', { count: 'exact', head: true }).eq('is_published', true),
+    ]);
+
+    const total = all.count ?? 0;
+    const live = published.count ?? 0;
+
+    publicChecks.push({
+      label: `${table} — מפורסמים`,
+      ok: total === 0 || live > 0,
+      detail:
+        total === 0
+          ? 'אין רשומות כלל'
+          : live === 0
+            ? `${total} רשומות, כולן טיוטה. סמנו "מפורסם באתר" בטופס — טיוטה אינה מוצגת באתר.`
+            : `${live} מתוך ${total}`,
+    });
+  }
+
+  // ההצטרפות שהאתר הציבורי משתמש בה. אם היא נכשלת, הקטלוג ריק לגמרי.
+  const joined = await supabase
+    .from('books')
+    .select('id, tags:book_tags ( tag:tags ( id ) ), attributeValues:book_attributes ( value_id )')
+    .eq('is_published', true)
+    .limit(1);
+
+  publicChecks.push({
+    label: 'שליפת הקטלוג עם תגיות',
+    ok: !joined.error,
+    detail: joined.error
+      ? `${joined.error.code ?? '—'}: ${joined.error.message} — הריצו supabase/08_pim_stage_a.sql`
+      : 'תקינה',
+  });
+
+  /* --- 4. אחסון קבצים --- */
   const storage: Check[] = await Promise.all(BUCKETS.map((name) => probeBucket(supabase, name)));
 
   const allOk =
-    reads.every((c) => c.ok) && writeChecks.every((c) => c.ok) && storage.every((c) => c.ok);
+    reads.every((c) => c.ok) &&
+    writeChecks.every((c) => c.ok) &&
+    publicChecks.every((c) => c.ok) &&
+    storage.every((c) => c.ok);
 
   return (
     <>
@@ -164,6 +211,14 @@ export default async function DiagnosticsPage() {
         {allOk
           ? 'כל הבדיקות עברו. אם שמירה עדיין נכשלת — שלחו את הודעת השגיאה המופיעה בטופס עצמו.'
           : 'נמצאו כשלים. הפרטים למטה כוללים את קוד השגיאה של Postgres.'}
+      </p>
+
+      <Section title="מדוע תוכן אינו מופיע באתר" checks={publicChecks} />
+
+      <p className="mb-8 text-caption leading-relaxed text-muted">
+        אם הכל תקין כאן והתוכן עדיין אינו מופיע — העמוד הציבורי מוגש ממטמון.
+        הוא מתרענן אוטומטית בכל שמירה, ובכל מקרה תוך שעה. רענון קשיח בדפדפן
+        (Ctrl+Shift+R) עוקף מטמון של הדפדפן בלבד ולא של השרת.
       </p>
 
       <Section title="הרשאת כתיבה — ניסיון אמיתי" checks={writeChecks} />

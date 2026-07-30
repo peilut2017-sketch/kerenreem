@@ -13,7 +13,7 @@ export default async function EditAuthorPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <AdminHeader title={author.name_he} />
+      <AdminHeader title={author.name_he} description={`מחבר #${author.catalogue_number}`} />
       <AuthorForm
         author={author}
         bookCount={counts.get(author.id) ?? 0}

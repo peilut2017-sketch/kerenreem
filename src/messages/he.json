@@ -74,7 +74,8 @@
     "sameCategory": "עוד בקטגוריה זו",
     "heroSubtitle": "חיפוש, עיון וגילוי בכותרי המכון.",
     "countLabel": "ספרים",
-    "sku": "מק״ט"
+    "sku": "מק״ט",
+    "catalogueNumber": "מספר קטלוגי"
   },
   "authors": {
     "title": "מחברים ודמויות",

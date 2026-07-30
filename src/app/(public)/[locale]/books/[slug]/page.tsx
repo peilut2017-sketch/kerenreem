@@ -83,6 +83,7 @@ export default async function BookPage({
     book.isbn ? [t('isbn'), book.isbn] : null,
     // המק״ט מוצג תמיד ולא רק כשהחנות פעילה: הוא המספר שבו פונים למשרד
     // כדי להזמין ספר גם בלי חנות מקוונת.
+    [t('catalogueNumber'), String(book.catalogue_number)],
     book.sku ? [t('sku'), book.sku] : null,
   ].filter(Boolean) as [string, string][];
 

@@ -33,7 +33,7 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
     <>
       <AdminHeader
         title={book.title_he}
-        description={book.is_published ? `מפורסם · /books/${book.slug}` : 'טיוטה'}
+        description={`ספר #${book.catalogue_number} · ${book.is_published ? `מפורסם · /books/${book.slug}` : 'טיוטה'}`}
       />
       <BookForm
         book={book}

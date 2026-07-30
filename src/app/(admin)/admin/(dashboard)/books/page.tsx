@@ -19,11 +19,12 @@ export default async function AdminBooksPage() {
       />
 
       <AdminTable
-        columns={['שם הספר', 'מחבר', 'שנה', 'מצב ופעולות']}
+        columns={['#', 'שם הספר', 'מחבר', 'שנה', 'מצב ופעולות']}
         empty={books.length === 0 ? 'טרם נוספו ספרים.' : undefined}
       >
         {books.map((book) => (
           <AdminRow key={book.id}>
+            <AdminCell className="text-muted tabular-nums">{book.catalogue_number}</AdminCell>
             <AdminCell>
               <Link href={`/admin/books/${book.id}`} className="font-semibold hover:text-burgundy">
                 {book.title_he}

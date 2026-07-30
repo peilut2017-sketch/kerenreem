@@ -19,6 +19,7 @@ export interface Category {
 
 export interface Author {
   id: string;
+  catalogue_number: number;
   slug: string;
   name_he: string;
   name_en: string | null;
@@ -35,6 +36,8 @@ export interface Author {
 
 export interface Book {
   id: string;
+  /** מספור רץ להצגה — לא ה-uuid. יציב, לא ניתן לעריכה ולא ממוחזר אחרי מחיקה. */
+  catalogue_number: number;
   slug: string;
   title_he: string;
   title_en: string | null;
