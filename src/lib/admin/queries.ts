@@ -28,7 +28,7 @@ async function client() {
   return supabase;
 }
 
-type BookRow = Book & { author: Pick<Author, 'name_he'> | null };
+export type BookRow = Book & { author: Pick<Author, 'name_he'> | null };
 
 export async function listBooks(): Promise<BookRow[]> {
   const supabase = await client();

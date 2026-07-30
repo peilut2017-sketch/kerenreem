@@ -398,6 +398,54 @@ export async function togglePublished(
 }
 
 /**
+ * פעולה אחת על כמה ספרים בבת אחת — מרשימת הניהול, אחרי בחירת שורות.
+ *
+ * שאילתה יחידה עם .in('id', ids) ולא לולאת קריאות: מאה ספרים נבחרים
+ * לא אמורים להיות מאה סבבי רשת. יומן הביקורת כן נכתב פר-ספר, כי הוא
+ * מתעד רשומות בודדות ולא קיים לו מקבילה מרוכזת.
+ */
+export async function bulkUpdateBooks(
+  ids: string[],
+  action: 'publish' | 'unpublish' | 'delete',
+): Promise<ActionResult> {
+  if (ids.length === 0) return {};
+
+  try {
+    const entity = ENTITIES.books;
+    const session = await assertRole(entity.writeRole);
+    if ('error' in session) return session;
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const { error } =
+      action === 'delete'
+        ? await supabase.from(entity.table).delete().in('id', ids)
+        : await supabase
+            .from(entity.table)
+            .update({ is_published: action === 'publish' })
+            .in('id', ids);
+
+    if (error) {
+      console.error('[admin:bulk]', entity.table, error.code, error.message);
+      return { error: describeDbError(error, entity).message };
+    }
+
+    await Promise.all(
+      ids.map((id) =>
+        writeAudit(supabase, session.userId, action === 'delete' ? 'delete' : 'update', entity.table, id),
+      ),
+    );
+
+    revalidateEntity('books');
+    return {};
+  } catch (error) {
+    console.error('[admin:bulk] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
  * יצירת תגית מתוך טופס הספר.
  *
  * ה-slug נגזר מהשם: אותיות עבריות אינן חוקיות ב-slug, ולכן שם עברי בלבד
