@@ -16,7 +16,9 @@
     "check:layering": "node scripts/check-layering.mjs",
     "check:sanitize": "node --experimental-strip-types scripts/check-sanitize.mjs",
     "check:schema": "node --experimental-strip-types scripts/check-schema-sync.mjs",
-    "check:revalidate": "node --experimental-strip-types scripts/check-revalidate.mjs"
+    "check:revalidate": "node --experimental-strip-types scripts/check-revalidate.mjs",
+    "check:books": "node --experimental-strip-types scripts/check-book-search.mjs",
+    "check:catalogue": "node scripts/check-catalogue.mjs"
   },
   "dependencies": {
     "@hebcal/core": "^6.8.2",

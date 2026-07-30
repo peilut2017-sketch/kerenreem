@@ -6,7 +6,7 @@ import { Container } from '@/components/Container';
 import { RichText } from '@/components/RichText';
 import { getActivityBySlug, getActivitySlugs } from '@/lib/data';
 import { localized, localizedOrNull } from '@/lib/localized';
-import { htmlToPlainText } from '@/lib/sanitize';
+import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
 
 export const revalidate = 3600;

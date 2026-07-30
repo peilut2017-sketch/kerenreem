@@ -7,7 +7,7 @@ import { HebrewDate } from '@/components/HebrewDate';
 import { SectionHeading } from '@/components/SectionHeading';
 import { getEvents } from '@/lib/data';
 import { localized } from '@/lib/localized';
-import { htmlToPlainText } from '@/lib/sanitize';
+import { htmlToPlainText } from '@/lib/html-text';
 import { isUpcoming, parseDateOnly } from '@/lib/hebrew-date';
 import type { EventRecord } from '@/lib/supabase/types';
 

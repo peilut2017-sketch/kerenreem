@@ -9,7 +9,7 @@ import { SectionHeading } from '@/components/SectionHeading';
 import { VideoEmbed } from '@/components/VideoEmbed';
 import { getEventBySlug, getEventSlugs } from '@/lib/data';
 import { localized } from '@/lib/localized';
-import { htmlToPlainText } from '@/lib/sanitize';
+import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
 
 export const revalidate = 3600;

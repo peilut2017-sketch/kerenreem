@@ -18,7 +18,7 @@ import {
   getSiteSettings,
 } from '@/lib/data';
 import { localized, localizedOrNull } from '@/lib/localized';
-import { htmlToPlainText } from '@/lib/sanitize';
+import { htmlToPlainText } from '@/lib/html-text';
 
 export const revalidate = 3600;
 

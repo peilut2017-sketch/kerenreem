@@ -8,7 +8,7 @@ import { RichText } from '@/components/RichText';
 import { SectionHeading } from '@/components/SectionHeading';
 import { getAuthorBySlug, getAuthorSlugs, getBooksByAuthor } from '@/lib/data';
 import { localized } from '@/lib/localized';
-import { htmlToPlainText } from '@/lib/sanitize';
+import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
 
 export const revalidate = 3600;

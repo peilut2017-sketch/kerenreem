@@ -41,7 +41,7 @@
     "title": "ספרים",
     "intro": "הכותרים שהמכון סייע בהוצאתם לאור.",
     "search": "חיפוש בקטלוג",
-    "searchPlaceholder": "שם ספר או מחבר",
+    "searchPlaceholder": "חפשו ספר, מחבר, נושא או מסת״ב…",
     "filterCategory": "קטגוריה",
     "filterAuthor": "מחבר",
     "allCategories": "כל הקטגוריות",
@@ -69,7 +69,9 @@
     "noCover": "אין כריכה",
     "byAuthor": "מאת {name}",
     "otherByAuthor": "עוד מאת {name}",
-    "sameCategory": "עוד בקטגוריה זו"
+    "sameCategory": "עוד בקטגוריה זו",
+    "heroSubtitle": "חיפוש, עיון וגילוי בכותרי המכון.",
+    "countLabel": "ספרים"
   },
   "authors": {
     "title": "מחברים ודמויות",

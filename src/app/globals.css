@@ -662,3 +662,18 @@ html[data-a11y-motion='off'] .group:hover .icon-chip { transform: none !importan
   body { background: #fff; color: #000; font-size: 11pt; }
   .on-dark { background: #fff !important; color: #000 !important; }
 }
+
+/* --------------------------------------------------------------------------
+   סימון ספר כמועדף
+   -------------------------------------------------------------------------- */
+/* הלב גדל ומתייצב. ההנפשה קצרה בכוונה: היא מאשרת פעולה, ולא מבקשת תשומת
+   לב לעצמה. מי שביקש להפחית תנועה מקבל את השינוי בלי הקפיצה. */
+@keyframes fav {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[fav_320ms_var\(--ease-spring\)\] { animation: none; }
+}

@@ -8,7 +8,8 @@
  *
  * הרצה: node --experimental-strip-types scripts/check-sanitize.mjs
  */
-import { sanitizeHtml, htmlToPlainText } from '../src/lib/sanitize.ts';
+import { sanitizeHtml } from '../src/lib/sanitize.ts';
+import { htmlToPlainText } from '../src/lib/html-text.ts';
 
 let failures = 0;
 

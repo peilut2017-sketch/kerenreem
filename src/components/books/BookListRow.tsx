@@ -1,0 +1,91 @@
+'use client';
+
+import { Link } from '@/i18n/navigation';
+import { BookCover } from '../BookCover';
+import { localized } from '@/lib/localized';
+import { htmlToPlainText } from '@/lib/html-text';
+import type { BookWithRelations } from '@/lib/supabase/types';
+
+/**
+ * שורת ספר בתצוגת רשימה.
+ *
+ * לא גרסה דחוסה של הכרטיס אלא תצוגה אחרת: כאן יש מקום לתקציר, לשנה
+ * ולמספר הכרכים — הנתונים שמאפשרים להשוות בין מהדורות בלי לפתוח כל אחת.
+ * זה מה שהופך את התצוגה לשימושית למי שמכיר את הקטלוג.
+ */
+export function BookListRow({
+  book,
+  locale,
+  isFavourite,
+  onToggleFavourite,
+  storeEnabled,
+}: {
+  book: BookWithRelations;
+  locale: string;
+  isFavourite: boolean;
+  onToggleFavourite: (book: BookWithRelations) => void;
+  storeEnabled: boolean;
+}) {
+  const title = localized(book, 'title', locale);
+  const authorName = book.author ? localized(book.author, 'name', locale) : null;
+  const categoryName = book.category ? localized(book.category, 'name', locale) : null;
+  const summary = htmlToPlainText(localized(book, 'description', locale), 190);
+
+  return (
+    <article className="card card-interactive group relative flex gap-5 p-4 sm:gap-6 sm:p-5">
+      <div className="w-20 shrink-0 sm:w-24">
+        <BookCover src={book.cover_image_url} title={title} alt={title} sizes="96px" />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <h3 className="font-serif text-[1.0625rem] leading-snug text-ink">
+          <Link href={`/books/${book.slug}`} className="after:absolute after:inset-0 hover:text-burgundy">
+            {title}
+          </Link>
+        </h3>
+
+        {authorName ? <p className="mt-1 text-small text-muted">{authorName}</p> : null}
+        {summary ? (
+          <p className="mt-2 line-clamp-2 text-small leading-relaxed text-ink-soft">{summary}</p>
+        ) : null}
+
+        <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-caption text-muted">
+          {categoryName ? <span>{categoryName}</span> : null}
+          {book.publication_year_he ? <span>{book.publication_year_he}</span> : null}
+          {(book.volume_count ?? 1) > 1 ? <span>{book.volume_count} כרכים</span> : null}
+          {book.pages ? <span>{book.pages} עמודים</span> : null}
+
+          {storeEnabled && book.price !== null && book.price !== undefined ? (
+            <span className="ms-auto font-serif text-[1rem] text-ink tabular-nums">
+              {new Intl.NumberFormat(locale === 'he' ? 'he-IL' : 'en-GB', {
+                style: 'currency',
+                currency: book.currency ?? 'ILS',
+                maximumFractionDigits: 0,
+              }).format(Number(book.price))}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onToggleFavourite(book)}
+        aria-pressed={isFavourite}
+        aria-label={isFavourite ? `הסרת ${title} מהמועדפים` : `הוספת ${title} למועדפים`}
+        className={`relative z-20 h-9 w-9 shrink-0 self-start rounded-[var(--radius-pill)] transition-colors ${
+          isFavourite ? 'text-burgundy' : 'text-muted hover:text-burgundy'
+        }`}
+      >
+        <svg viewBox="0 0 20 20" className="mx-auto h-4.5 w-4.5" aria-hidden="true">
+          <path
+            d="M10 16.5S3 12.4 3 7.9A3.4 3.4 0 0 1 10 6a3.4 3.4 0 0 1 7 1.9c0 4.5-7 8.6-7 8.6Z"
+            fill={isFavourite ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    </article>
+  );
+}

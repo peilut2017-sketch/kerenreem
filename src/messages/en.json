@@ -41,7 +41,7 @@
     "title": "Books",
     "intro": "Titles the institute has helped bring to print.",
     "search": "Search the catalogue",
-    "searchPlaceholder": "Title or author",
+    "searchPlaceholder": "Search a book, author, subject or ISBN…",
     "filterCategory": "Category",
     "filterAuthor": "Author",
     "allCategories": "All categories",
@@ -69,7 +69,9 @@
     "noCover": "No cover image",
     "byAuthor": "by {name}",
     "otherByAuthor": "More by {name}",
-    "sameCategory": "More in this category"
+    "sameCategory": "More in this category",
+    "heroSubtitle": "Search, browse and discover the institute’s titles.",
+    "countLabel": "books"
   },
   "authors": {
     "title": "Authors and figures",
