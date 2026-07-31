@@ -28,6 +28,8 @@ export interface Author {
   portrait_url: string | null;
   birth_year: string | null;
   death_year: string | null;
+  /** ציר תולדות חיים — שנה ומשפט קצר, לתצוגה כציר זמן אופקי בעמוד הספר. */
+  timeline: { year: string; text: string }[];
   sort_order: number;
   is_published: boolean;
   created_at: string;
@@ -45,6 +47,9 @@ export interface Book {
   subtitle_en: string | null;
   description_he: string | null;
   description_en: string | null;
+  /** תמצית קצרה ("30 שניות") — לצד התיאור המלא בעמוד הספר, לא במקומו. */
+  description_brief_he: string | null;
+  description_brief_en: string | null;
   author_id: string | null;
   category_id: string | null;
   publication_year_he: string | null;

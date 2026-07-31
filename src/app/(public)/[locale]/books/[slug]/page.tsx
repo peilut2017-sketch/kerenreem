@@ -95,6 +95,7 @@ export default async function BookPage({
   const authorName = book.author ? localized(book.author, 'name', locale) : null;
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
   const description = localizedOrNull(book, 'description', locale);
+  const descriptionBrief = localizedOrNull(book, 'description_brief', locale);
 
   // שנת ההוצאה: העברית היא המקור התיעודי, הלועזית משלימה כשהיא ידועה.
   const year = [book.publication_year_he, book.publication_year_ce]
@@ -199,14 +200,14 @@ export default async function BookPage({
         t={tValues}
       />
 
-      <StickyNav sections={sections} cover={book.cover_image_url} title={title} />
+      <StickyNav sections={sections} cover={book.cover_image_url} title={title} price={formattedPrice} />
 
       <Container className="space-y-20 py-16">
         {/* התקציר והדפדוף זה לצד זה: שניהם עונים על "מה יש בספר הזה",
             ומי שמעדיף לראות דף אמיתי על פני תיאור לא צריך לגלול בשבילו.
             בלי דפדוף אין שתי עמודות בכלל — כרטיס יחיד בחצי רוחב היה
             משאיר חצי מסך ריק לצדו. */}
-        <div className={`grid items-start gap-6 ${book.sample_pdf_url ? 'lg:grid-cols-2' : ''}`}>
+        <div className={`grid grid-cols-1 items-start gap-6 ${book.sample_pdf_url ? 'lg:grid-cols-2' : ''}`}>
           {book.sample_pdf_url ? (
             <section
               aria-labelledby="book-sample"
@@ -228,7 +229,7 @@ export default async function BookPage({
               {t('navSummary')}
             </h2>
             {description ? (
-              <SummaryCard html={description} />
+              <SummaryCard html={description} brief={descriptionBrief} />
             ) : (
               <p className="text-small text-muted">{t('noSummary')}</p>
             )}
@@ -252,7 +253,7 @@ export default async function BookPage({
         {/* מחבר וסדרה זה לצד זה: שניהם עונים על "מאיפה הספר הזה בא",
             ובמסך רחב אין סיבה להפוך אותם לשתי גלילות נפרדות. */}
         {author || (book.series && connections.sameSeries.length > 0) ? (
-          <div className="grid items-start gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
             {author ? (
               <AuthorSection
                 author={author}
@@ -279,7 +280,7 @@ export default async function BookPage({
           <ConnectionsSection connections={connections} authorName={authorName} locale={locale} />
         ) : null}
 
-        <KnowledgeMap nodes={knowledgeNodes} />
+        <KnowledgeMap nodes={knowledgeNodes} title={title} />
       </Container>
 
       <FloatingActions bookId={book.id} title={title} showBuy={showBuy} />

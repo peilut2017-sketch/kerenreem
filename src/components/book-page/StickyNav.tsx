@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 
 interface NavSection {
   id: string;
@@ -23,11 +24,15 @@ export function StickyNav({
   sections,
   cover,
   title,
+  price,
 }: {
   sections: NavSection[];
   cover: string | null;
   title: string;
+  /** מחיר מעוצב מראש — הכפתור מוצג רק כשהוא קיים, כמו ב-BookHeroActions */
+  price?: string | null;
 }) {
+  const t = useTranslations('books');
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(sections[0]?.id ?? '');
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -123,9 +128,9 @@ export function StickyNav({
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
       }`}
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 pt-1 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 pt-1 sm:gap-4 sm:px-6">
         {cover ? (
-          <span className="relative hidden h-10 w-7 shrink-0 overflow-hidden rounded-[var(--radius-xs)] bg-cream-2 sm:block">
+          <span className="relative h-9 w-6 shrink-0 overflow-hidden rounded-[var(--radius-xs)] bg-cream-2 sm:h-10 sm:w-7">
             <Image src={cover} alt="" fill sizes="28px" className="object-contain" />
           </span>
         ) : null}
@@ -138,7 +143,7 @@ export function StickyNav({
             <span
               ref={markerRef}
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-burgundy transition-[transform,width] duration-300 ease-[var(--ease-spring)]"
+              className="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-navy transition-[transform,width] duration-300 ease-[var(--ease-spring)]"
             />
             {sections.map((section) => (
               <li
@@ -152,7 +157,7 @@ export function StickyNav({
                   onClick={() => scrollToSection(section.id)}
                   aria-current={active === section.id ? 'true' : undefined}
                   className={`relative z-10 block whitespace-nowrap px-4 pb-3 pt-2.5 text-small transition-colors ${
-                    active === section.id ? 'font-semibold text-burgundy' : 'text-muted hover:text-ink'
+                    active === section.id ? 'font-semibold text-navy' : 'text-muted hover:text-ink'
                   }`}
                 >
                   {section.label}
@@ -161,6 +166,16 @@ export function StickyNav({
             ))}
           </ul>
         </nav>
+
+        {price ? (
+          <button
+            type="button"
+            onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            className="hidden shrink-0 items-center gap-1.5 rounded-[var(--radius-pill)] bg-navy px-4 py-2 text-caption text-cream transition-colors hover:bg-navy-2 sm:inline-flex"
+          >
+            {t('addToCart')} · {price}
+          </button>
+        ) : null}
       </div>
     </div>
   );

@@ -87,8 +87,8 @@ export function ConnectionsSection({
               onClick={() => setActive(chip.key)}
               className={`rounded-[var(--radius-pill)] border px-4 py-1.5 text-caption transition-colors ${
                 active === chip.key
-                  ? 'border-burgundy bg-burgundy text-white'
-                  : 'border-rule text-ink-soft hover:border-burgundy hover:text-burgundy'
+                  ? 'border-navy bg-navy text-cream'
+                  : 'border-rule text-ink-soft hover:border-gold-deep hover:text-gold-deep'
               }`}
             >
               {chip.label}
@@ -97,17 +97,18 @@ export function ConnectionsSection({
         </div>
       ) : null}
 
-      <ul className="flex gap-5 overflow-x-auto pb-2">
+      <ul className="flex gap-4 overflow-x-auto pb-2">
         {shown.map((book) => {
           const title = localized(book, 'title', locale);
           const author = book.author ? localized(book.author, 'name', locale) : null;
           return (
             <li key={book.id} className="w-36 shrink-0 sm:w-44">
-              <Link href={`/books/${book.slug}`} className="group block focus-visible:outline-offset-4">
-                <div className="transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-translate-y-1">
-                  <BookCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} sizes="176px" />
-                </div>
-                <h3 className="mt-3 line-clamp-2 text-small leading-snug text-ink group-hover:text-burgundy">
+              <Link
+                href={`/books/${book.slug}`}
+                className="group block rounded-[var(--radius-lg)] border border-rule bg-cream-2/50 p-3.5 transition-[transform,border-color] duration-300 ease-[var(--ease-spring)] hover:-translate-y-1.5 hover:border-gold-deep focus-visible:outline-offset-4"
+              >
+                <BookCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} sizes="176px" />
+                <h3 className="mt-3 line-clamp-2 text-small leading-snug text-ink group-hover:text-gold-deep">
                   {title}
                 </h3>
                 {author ? <p className="mt-0.5 text-caption text-muted">{author}</p> : null}

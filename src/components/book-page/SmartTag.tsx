@@ -43,7 +43,7 @@ export function SmartTag({
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        className="rounded-[var(--radius-pill)] border border-rule px-3 py-1 text-caption text-ink-soft transition-colors hover:border-burgundy hover:text-burgundy"
+        className="rounded-[var(--radius-pill)] border border-rule px-3 py-1 text-caption text-ink-soft transition-colors hover:border-gold-deep hover:text-gold-deep"
       >
         {label}
       </button>

@@ -2,7 +2,7 @@
 
 import { EntityForm } from './EntityForm';
 import { BookFormTabs } from './BookFormTabs';
-import { CheckboxField, FieldSet, TextField } from './Fields';
+import { CheckboxField, FieldSet, TextAreaField, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import { QuickAddSelect } from './QuickAddSelect';
 import { RepeatableTextField } from './RepeatableTextField';
@@ -216,6 +216,13 @@ export function BookForm({
                         label="תיאור הספר (עברית)"
                         defaultValue={book?.description_he}
                       />
+                      <TextAreaField
+                        name="description_brief_he"
+                        label="תמצית קצרה (עברית)"
+                        rows={3}
+                        defaultValue={book?.description_brief_he}
+                        hint="פסקה אחת קצרה — 'תמצית ב-30 שניות' לצד התיאור המלא בעמוד הספר. אפשר להשאיר ריק, ואז יוצג רק התיאור המלא."
+                      />
                       <RepeatableTextField
                         name="quotes"
                         label="ציטוטים מתוך הספר"
@@ -243,6 +250,12 @@ export function BookForm({
                         name="description_en"
                         label="Description"
                         defaultValue={book?.description_en}
+                      />
+                      <TextAreaField
+                        name="description_brief_en"
+                        label="Brief summary"
+                        rows={3}
+                        defaultValue={book?.description_brief_en}
                       />
                     </FieldSet>
 

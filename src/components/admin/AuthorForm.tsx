@@ -1,5 +1,6 @@
 'use client';
 
+import { AuthorTimelineField } from './AuthorTimelineField';
 import { EntityForm } from './EntityForm';
 import { CheckboxField, FieldSet, TextField } from './Fields';
 import { ImageField } from './ImageField';
@@ -68,6 +69,12 @@ export function AuthorForm({
           <FieldSet legend="תולדות חיים">
             <RichTextEditor name="bio_he" label="תיאור (עברית)" defaultValue={author?.bio_he} />
             <RichTextEditor name="bio_en" label="Biography" defaultValue={author?.bio_en} />
+            <AuthorTimelineField
+              name="timeline"
+              label="ציר תולדות חיים"
+              defaultValue={author?.timeline}
+              hint="שנה ומשפט קצר לכל תחנה — מוצג בעמוד הספר כציר זמן אופקי. אפשר להשאיר ריק."
+            />
           </FieldSet>
 
           <FieldSet legend="פרסום">

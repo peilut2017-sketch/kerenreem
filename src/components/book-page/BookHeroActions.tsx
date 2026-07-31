@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
+import { ShelfPicker } from './ShelfPicker';
 
 /**
  * שורת הפעולות ב-Hero: מחיר וקנייה (כשהחנות פעילה), שמירה למועדפים
@@ -60,6 +61,8 @@ export function BookHeroActions({
           {inStock ? t('addToCart') : t('outOfStock')}
         </button>
       ) : null}
+
+      <ShelfPicker bookId={bookId} />
 
       <button
         type="button"

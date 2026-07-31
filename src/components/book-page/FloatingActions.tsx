@@ -59,58 +59,41 @@ export function FloatingActions({
 
   return (
     <div
-      className={`fixed bottom-6 left-1/2 z-40 -translate-x-1/2 transition-all duration-500 ${
+      className={`on-dark fixed bottom-6 end-6 z-40 flex flex-col gap-1.5 rounded-[var(--radius-lg)] bg-navy p-2.5 shadow-[var(--shadow-float)] transition-all duration-500 ${
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
       }`}
     >
-      <div className="glass flex items-center gap-1 rounded-[var(--radius-pill)] p-1.5 shadow-[var(--shadow-float)]">
-        {showBuy ? (
-          <button
-            type="button"
-            onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' })}
-            className="rounded-[var(--radius-pill)] bg-burgundy px-5 py-2 text-small text-white transition-colors hover:bg-burgundy-deep"
-          >
-            {t('addToCart')}
-          </button>
+      {showBuy ? (
+        <button
+          type="button"
+          onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' })}
+          className="rounded-[var(--radius-md)] bg-gold px-4 py-2.5 text-small text-navy transition-colors hover:bg-gold-bright"
+        >
+          {t('addToCart')}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        aria-pressed={isFavourite}
+        onClick={() => toggle(bookId)}
+        className={`rounded-[var(--radius-md)] px-3 py-2 text-caption transition-colors hover:text-gold-bright ${
+          isFavourite ? 'text-gold-bright' : 'text-cream-2/75'
+        }`}
+      >
+        {isFavourite ? t('favouriteRemove') : t('favouriteAdd')}
+      </button>
+      <button
+        type="button"
+        onClick={() => void share()}
+        className="relative rounded-[var(--radius-md)] px-3 py-2 text-caption text-cream-2/75 transition-colors hover:text-gold-bright"
+      >
+        {t('share')}
+        {copied ? (
+          <span className="absolute bottom-full end-0 mb-2 whitespace-nowrap rounded-[var(--radius-sm)] bg-ink px-2.5 py-1 text-caption text-cream">
+            {t('shareCopied')}
+          </span>
         ) : null}
-        <button
-          type="button"
-          aria-pressed={isFavourite}
-          aria-label={isFavourite ? t('favouriteRemove') : t('favouriteAdd')}
-          onClick={() => toggle(bookId)}
-          className="rounded-[var(--radius-pill)] p-2.5 text-ink-soft transition-colors hover:text-burgundy"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill={isFavourite ? 'currentColor' : 'none'}>
-            <path
-              d="M12 20.5s-7.5-4.6-10-9.1C.5 8 2 4.5 5.5 4a5 5 0 0 1 6.5 2 5 5 0 0 1 6.5-2c3.5.5 5 4 3.5 7.4-2.5 4.5-10 9.1-10 9.1Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => void share()}
-          aria-label={t('share')}
-          className="relative rounded-[var(--radius-pill)] p-2.5 text-ink-soft transition-colors hover:text-burgundy"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none">
-            <path
-              d="M8.5 11.5v6a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-6M12 3v11m0-11-3.5 3.5M12 3l3.5 3.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {copied ? (
-            <span className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-[var(--radius-sm)] bg-ink px-2.5 py-1 text-caption text-cream">
-              {t('shareCopied')}
-            </span>
-          ) : null}
-        </button>
-      </div>
+      </button>
     </div>
   );
 }

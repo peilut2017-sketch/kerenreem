@@ -1,5 +1,4 @@
 import { Link } from '@/i18n/navigation';
-import { BookCover } from '@/components/BookCover';
 import { SectionHeading } from '@/components/SectionHeading';
 import { localized } from '@/lib/localized';
 import type { BookWithRelations, Series } from '@/lib/supabase/types';
@@ -30,40 +29,35 @@ export function SeriesTimeline({
   return (
     <section aria-labelledby="book-series">
       <SectionHeading level={2} eyebrow={t('seriesIntro')} title={seriesName} id="book-series" />
-      <ol className="flex gap-6 overflow-x-auto pb-2">
+      <ol className="flex items-start gap-1 overflow-x-auto pb-1">
         {all.map((volume) => {
           const isCurrent = volume.id === currentBook.id;
           const title = localized(volume, 'title', locale);
           const content = (
             <>
-              <div
-                className={`relative transition-transform duration-300 ${
-                  isCurrent ? '' : 'group-hover:-translate-y-1'
+              <span
+                aria-hidden="true"
+                className={`relative z-10 mx-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 font-serif text-small transition-colors ${
+                  isCurrent
+                    ? 'border-navy bg-navy text-gold-bright'
+                    : 'border-rule bg-cream text-muted group-hover:border-gold-deep group-hover:text-gold-deep'
                 }`}
               >
-                <BookCover
-                  src={volume.cover_image_url}
-                  title={title}
-                  alt={t('coverAlt', { title })}
-                  sizes="140px"
-                />
-                {isCurrent ? (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-[var(--radius-pill)] bg-burgundy px-2.5 py-0.5 text-caption text-white">
-                    {t('seriesCurrentVolume')}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-3 text-caption text-muted">
+                {volume.series_position ?? '·'}
+              </span>
+              <p className="mt-3.5 line-clamp-2 text-small leading-snug text-ink">{title}</p>
+              <p className="mt-0.5 text-caption text-muted">
                 {volume.series_position ? t('seriesVolume', { n: volume.series_position }) : null}
               </p>
-              <h3 className="line-clamp-2 text-small leading-snug text-ink">{title}</h3>
+              {isCurrent ? <p className="mt-1.5 text-caption text-gold-deep">{t('seriesCurrentVolume')}</p> : null}
             </>
           );
 
           return (
-            <li key={volume.id} className="w-28 shrink-0 sm:w-36">
+            <li key={volume.id} className="relative min-w-32 shrink-0 px-2 text-center sm:min-w-40">
+              <span aria-hidden="true" className="absolute start-0 end-0 top-4 -z-0 h-px bg-rule" />
               {isCurrent ? (
-                <div className="cursor-default">{content}</div>
+                <div className="group cursor-default">{content}</div>
               ) : (
                 <Link href={`/books/${volume.slug}`} className="group block focus-visible:outline-offset-4">
                   {content}

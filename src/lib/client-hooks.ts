@@ -143,3 +143,95 @@ export function useLocalList(key: string): {
 
 /** הפניה קבועה לרשימה ריקה, כדי שרינדור בלי אחסון לא ייצור מערך חדש בכל פעם. */
 const EMPTY: string[] = [];
+
+/* -------------------------------------------------------------------------- */
+
+const mapCaches = new Map<string, { raw: string; map: Record<string, string> }>();
+const mapListeners = new Map<string, Set<() => void>>();
+
+function parseMap(raw: string): Record<string, string> {
+  try {
+    const value = JSON.parse(raw);
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
+    const result: Record<string, string> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (typeof entry === 'string') result[key] = entry;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function notifyMap(key: string) {
+  mapListeners.get(key)?.forEach((listener) => listener());
+}
+
+const EMPTY_MAP: Record<string, string> = {};
+
+/**
+ * מפת מפתח→ערך שנשמרת מקומית — למשל "מדף אישי" (מזהה ספר → תווית מדף).
+ * אותו עיקרון בדיוק כמו useLocalList, אבל לכל מפתח ערך יחיד ולא חברות
+ * בקבוצה, כי מדף הוא בחירה אחת ("לקרוא" *או* "לקנות"), לא צירוף.
+ */
+export function useLocalMap(key: string): {
+  map: Record<string, string>;
+  get: (id: string) => string | undefined;
+  set: (id: string, value: string) => void;
+  clear: (id: string) => void;
+} {
+  const subscribe = useCallback(
+    (callback: () => void) => {
+      if (!mapListeners.has(key)) mapListeners.set(key, new Set());
+      mapListeners.get(key)!.add(callback);
+
+      const onStorage = (event: StorageEvent) => {
+        if (event.key !== key) return;
+        mapCaches.delete(key);
+        notifyMap(key);
+      };
+
+      window.addEventListener('storage', onStorage);
+      return () => {
+        mapListeners.get(key)?.delete(callback);
+        window.removeEventListener('storage', onStorage);
+      };
+    },
+    [key],
+  );
+
+  const getSnapshot = useCallback(() => {
+    const raw = readRaw(key);
+    const cached = mapCaches.get(key);
+    if (!cached || cached.raw !== raw) mapCaches.set(key, { raw, map: parseMap(raw) });
+    return mapCaches.get(key)!.raw;
+  }, [key]);
+
+  const raw = useSyncExternalStore(subscribe, getSnapshot, () => '{}');
+  const map = raw === '{}' ? EMPTY_MAP : (mapCaches.get(key)?.map ?? EMPTY_MAP);
+
+  const write = useCallback(
+    (next: Record<string, string>) => {
+      const raw = JSON.stringify(next);
+      try {
+        window.localStorage.setItem(key, raw);
+      } catch {
+        /* אין אחסון — לפחות המצב בזיכרון יתעדכן לאורך הביקור */
+      }
+      mapCaches.set(key, { raw, map: next });
+      notifyMap(key);
+    },
+    [key],
+  );
+
+  return {
+    map,
+    get: (id: string) => map[id],
+    set: (id: string, value: string) => write({ ...map, [id]: value }),
+    clear: (id: string) => {
+      const next = { ...map };
+      delete next[id];
+      write(next);
+    },
+  };
+}

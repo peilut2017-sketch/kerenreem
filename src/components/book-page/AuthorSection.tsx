@@ -1,7 +1,8 @@
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
+import { BookCover } from '@/components/BookCover';
 import { RichText } from '@/components/RichText';
-import { BookCarousel } from './BookCarousel';
+import { localized } from '@/lib/localized';
 import type { Author, BookWithRelations } from '@/lib/supabase/types';
 
 /**
@@ -27,7 +28,7 @@ export function AuthorSection({
       : null;
 
   return (
-    <section aria-labelledby="book-author" className="grid gap-8 sm:grid-cols-[10rem_minmax(0,1fr)]">
+    <section aria-labelledby="book-author" className="grid grid-cols-1 gap-8 sm:grid-cols-[10rem_minmax(0,1fr)]">
       <div>
         <div className="relative mx-auto aspect-square w-32 overflow-hidden rounded-full bg-cream-2 sm:w-full">
           {author.portrait_url ? (
@@ -57,14 +58,48 @@ export function AuthorSection({
           </Link>
         </p>
 
+        {author.timeline.length > 0 ? (
+          <ol className="mt-8 flex gap-6 overflow-x-auto pb-1">
+            {author.timeline.map((entry, index) => (
+              <li key={index} className="relative min-w-32 shrink-0 border-t border-rule pt-3.5">
+                <span aria-hidden="true" className="absolute -top-[3px] start-0 h-[5px] w-[5px] rounded-full bg-gold-deep" />
+                <div className="text-caption text-gold-deep">{entry.year}</div>
+                <div className="mt-1 text-small leading-snug text-ink-soft">{entry.text}</div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
         {otherBooks.length > 0 ? (
           <div className="mt-8">
             <h3 className="eyebrow mb-4">{t('authorAllBooks', { name: authorName })}</h3>
-            <BookCarousel
-              books={otherBooks}
-              locale={locale}
-              coverAltFor={(title) => t('coverAlt', { title })}
-            />
+            <ul className="flex flex-wrap gap-3">
+              {otherBooks.map((book) => {
+                const bookTitle = localized(book, 'title', locale);
+                const note = book.category ? localized(book.category, 'name', locale) : null;
+                return (
+                  <li key={book.id}>
+                    <Link
+                      href={`/books/${book.slug}`}
+                      className="group flex items-center gap-3 rounded-[var(--radius-md)] border border-rule bg-cream-2/60 py-2 pe-4 ps-2 transition-colors hover:border-gold-deep"
+                    >
+                      <span className="w-8 shrink-0">
+                        <BookCover
+                          src={book.cover_image_url}
+                          title={bookTitle}
+                          alt={t('coverAlt', { title: bookTitle })}
+                          sizes="34px"
+                        />
+                      </span>
+                      <span>
+                        <span className="block text-small text-ink group-hover:text-gold-deep">{bookTitle}</span>
+                        {note ? <span className="block text-caption text-muted">{note}</span> : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         ) : null}
       </div>

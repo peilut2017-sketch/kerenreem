@@ -20,7 +20,7 @@ export function QuoteCards({ quotes, t }: { quotes: string[]; t: (key: string) =
             >
               <span
                 aria-hidden="true"
-                className="absolute right-5 top-3 font-serif text-[2.75rem] leading-none text-gold-deep/40"
+                className="absolute end-5 top-3 font-serif text-[2.75rem] leading-none text-gold-deep/40"
               >
                 &rdquo;
               </span>

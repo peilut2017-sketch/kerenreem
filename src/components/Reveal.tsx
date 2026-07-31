@@ -17,12 +17,14 @@ export function Reveal({
   as: Tag = 'div',
   delay = 0,
   className = '',
+  id,
 }: {
   children: ReactNode;
   as?: ElementType;
   /** השהיה קטנה ליצירת מדרג בין פריטים סמוכים (במילישניות) */
   delay?: number;
   className?: string;
+  id?: string;
 }) {
   const ref = useRef<HTMLElement>(null);
 
@@ -53,6 +55,7 @@ export function Reveal({
   return (
     <Tag
       ref={ref}
+      id={id}
       className={`reveal ${className}`}
       style={delay ? { transitionDelay: `${delay}ms` } : undefined}
     >

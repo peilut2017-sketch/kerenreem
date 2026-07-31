@@ -39,13 +39,19 @@ const authors: Author[] = [
   {
     id: 'a1', catalogue_number: 1, slug: 'raam-hacohen', name_he: 'הרב רא״ם הכהן', name_en: null,
     bio_he: '<p>מחבר ועורך, מן הכותבים המרכזיים שהמכון מוציא לאור.</p>', bio_en: null,
-    portrait_url: null, birth_year: 'תש״ח', death_year: null,
+    portrait_url: null, birth_year: 'תש״ח', death_year: null, timeline: [],
     sort_order: 10, is_published: true, ...base,
   },
   {
     id: 'a2', catalogue_number: 2, slug: 'avraham-kook', name_he: 'הרב אברהם קוק', name_en: null,
     bio_he: '<p>מכתביו ההדיר המכון כמה מהדורות.</p>', bio_en: null,
     portrait_url: null, birth_year: 'תרכ״ה', death_year: 'תרצ״ה',
+    timeline: [
+      { year: 'תרכ״ה', text: 'נולד בגריבה, לטביה' },
+      { year: 'תרנ״ד', text: 'עלה לארץ ישראל' },
+      { year: 'תרפ״א', text: 'נתמנה לרב הראשי האשכנזי לארץ ישראל' },
+      { year: 'תרצ״ה', text: 'נסתלק בירושלים' },
+    ],
     sort_order: 20, is_published: true, ...base,
   },
 ];
@@ -62,6 +68,8 @@ function book(
     subtitle_he: subtitle, subtitle_en: null,
     description_he: `<p>${subtitle ?? title} — מהדורה מוערת בהוצאת המכון.</p>`,
     description_en: null,
+    description_brief_he: null,
+    description_brief_en: null,
     author_id: author.id, category_id: category.id,
     publication_year_he: yearHe, publication_year_ce: yearCe,
     cover_image_url: `/demo/cover-${cover}.svg`,
@@ -103,6 +111,7 @@ books[2] = {
   series_id: demoSeries.id,
   series_position: 1,
   series: demoSeries,
+  description_brief_he: 'שני כרכים על יסודות ההנהגה בציבור, מוגהים מכתבי היד ומלווים בביאורים ומפתחות.',
   quotes: [
     'כל המצר לישראל נעשה פרנס על הציבור — כך למדנו מכאן שהצער הוא עצמו הכשרה להנהגה.',
     'אין השראת השכינה שורה אלא מתוך שמחה של מצווה.',

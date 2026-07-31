@@ -10,7 +10,7 @@ export function HeroSpecStrip({ items }: { items: { label: string; value: string
   if (items.length === 0) return null;
 
   return (
-    <dl className="flex flex-wrap items-stretch justify-center gap-x-6 gap-y-4 lg:justify-start">
+    <dl className="flex flex-wrap items-stretch justify-center gap-x-6 gap-y-4 border-y border-rule/70 py-4 lg:justify-start">
       {items.map((item, index) => (
         <div
           key={item.label}

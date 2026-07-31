@@ -51,15 +51,28 @@ export function BookHero({
     book.pages ? { label: t('pages'), value: String(book.pages) } : null,
   ].filter((item): item is { label: string; value: string } => item !== null);
 
+  // תג המהדורה: קטגוריה + שנה עברית, לא טענה מומצאת ("מהדורה מבוארת")
+  // שאין לה מקור נתונים אמיתי בכל ספר.
+  const editionBadge = [categoryName, book.publication_year_he].filter(Boolean).join(' · ');
+
   return (
     <section id="book-hero" className="relative overflow-hidden">
       <HeroBackground colors={palette.colors} />
 
       <div className="relative mx-auto w-full max-w-[72rem] px-5 pb-16 pt-10 sm:px-8 lg:pb-20 lg:pt-14">
-        <div className="grid items-center gap-10 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-14">
+        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-14">
           <FloatingCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} />
 
           <div className="text-center lg:text-start">
+            {editionBadge ? (
+              <Reveal
+                as="span"
+                className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-rule bg-cream/80 px-3.5 py-1.5 text-caption text-muted"
+              >
+                {editionBadge}
+              </Reveal>
+            ) : null}
+
             {book.tags && book.tags.length > 0 ? (
               <Reveal className="mb-5 flex flex-wrap justify-center gap-2 lg:justify-start">
                 {book.tags.slice(0, 3).map((tag) => (
@@ -93,7 +106,7 @@ export function BookHero({
             ) : null}
 
             {actions ? (
-              <Reveal delay={290} className="mt-7">
+              <Reveal id="book-purchase" delay={290} className="mt-7">
                 {actions}
               </Reveal>
             ) : null}

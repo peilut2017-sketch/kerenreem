@@ -1,9 +1,8 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { Drawer } from '../Drawer';
 
 const HTMLFlipBook = dynamic(() => import('react-pageflip'), { ssr: false });
 
@@ -18,9 +17,12 @@ interface RenderedPage {
 const MAX_PAGES = 40;
 
 /**
- * דפדוף חי בדוגמה מתוך הספר — לא קישור ל-PDF שנפתח בכרטיסייה חדשה.
+ * דפדוף חי מוטמע בכרטיס — לא כפתור שפותח מגירה. הכרך עצמו, עם חצי
+ * דפדוף עגולים ופס התקדמות לצדו, ו"מסך מלא" הוא הגדלה של אותו מופע
+ * (Fullscreen API על אותו מכל) ולא עותק שני — כך שהעמוד הנוכחי לא
+ * מאבד את מקומו במעבר.
  *
- * הרינדור של pdf.js קורה רק כשהמשתמש פותח את הדפדוף, לא בטעינת העמוד:
+ * הרינדור של pdf.js קורה רק בלחיצה על "פתיחת דוגמה", לא בטעינת העמוד:
  * pdf.js הוא ספרייה כבדה, וספר שאין בו דוגמה, או שהמבקר לא מתעניין
  * בדפדוף, לא אמור לשלם את המחיר שלה בכלל.
  *
@@ -33,15 +35,26 @@ const MAX_PAGES = 40;
  */
 export function PdfFlipbook({ pdfUrl, title }: { pdfUrl: string; title: string }) {
   const t = useTranslations('books');
-  const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<RenderedPage[] | null>(null);
+  const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const loadedFor = useRef<string | null>(null);
-  const titleId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+  // react-pageflip אינו מייצא טיפוס ל-instance שה-ref מחזיק — ראו ה-@ts-expect-error למטה
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bookRef = useRef<any>(null);
 
-  async function openReader() {
-    setOpen(true);
+  useEffect(() => {
+    function onChange() {
+      setFullscreen(document.fullscreenElement === containerRef.current);
+    }
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  async function load() {
     if (loadedFor.current === pdfUrl) return;
 
     setLoading(true);
@@ -58,15 +71,15 @@ export function PdfFlipbook({ pdfUrl, title }: { pdfUrl: string; title: string }
       const rendered: RenderedPage[] = [];
 
       for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
-        const page = await doc.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: 1.4 });
+        const pdfPage = await doc.getPage(pageNumber);
+        const viewport = pdfPage.getViewport({ scale: 1.4 });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         const context = canvas.getContext('2d');
         if (!context) continue;
 
-        await page.render({ canvasContext: context, viewport }).promise;
+        await pdfPage.render({ canvasContext: context, viewport }).promise;
         rendered.push({ dataUrl: canvas.toDataURL('image/jpeg', 0.85), width: viewport.width, height: viewport.height });
       }
 
@@ -74,28 +87,34 @@ export function PdfFlipbook({ pdfUrl, title }: { pdfUrl: string; title: string }
       setPages(rendered);
     } catch (err) {
       console.error('[PdfFlipbook]', err);
-      setError('טעינת הדפדוף נכשלה. אפשר לפתוח את הקובץ ישירות.');
+      setError(t('flipbookError'));
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <>
-      <button type="button" onClick={() => void openReader()} className="btn btn-quiet">
-        {t('readSample')}
-      </button>
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      void containerRef.current?.requestFullscreen();
+    }
+  }
 
-      <Drawer
-        open={open}
-        onClose={() => setOpen(false)}
-        titleId={titleId}
-        title={title}
-        widthClassName="max-w-[min(96vw,64rem)]"
-        footer={<p className="text-caption text-muted">{t('flipbookHint')}</p>}
-      >
-        {loading ? (
-          <p className="py-16 text-center text-small text-muted">…</p>
+  return (
+    <div
+      ref={containerRef}
+      className={
+        fullscreen
+          ? 'flex h-full w-full flex-col items-center justify-center gap-5 bg-navy p-6'
+          : ''
+      }
+    >
+      {!pages ? (
+        loading ? (
+          <p role="status" className="py-16 text-center text-small text-muted">
+            …
+          </p>
         ) : error ? (
           <div className="py-10 text-center">
             <p className="text-small text-burgundy">{error}</p>
@@ -103,30 +122,89 @@ export function PdfFlipbook({ pdfUrl, title }: { pdfUrl: string; title: string }
               {pdfUrl}
             </a>
           </div>
-        ) : pages && pages.length > 0 ? (
-          <div className="mx-auto flex justify-center">
-            {/* @ts-expect-error -- react-pageflip's public types don't model children/style precisely */}
-            <HTMLFlipBook
-              width={pages[0].width}
-              height={pages[0].height}
-              size="stretch"
-              minWidth={220}
-              maxWidth={720}
-              minHeight={300}
-              maxHeight={960}
-              showCover
-              className="shadow-[var(--shadow-float)]"
+        ) : (
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="flex min-h-56 w-full flex-col items-center justify-center gap-3 rounded-[var(--radius-md)] border border-dashed border-rule-strong bg-cream-2/60 px-6 py-10 text-center transition-colors hover:border-gold-deep"
+          >
+            <span className="icon-chip h-11 w-11">
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 3.5h8l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z" />
+                <path d="M12 3.5v4h4" />
+              </svg>
+            </span>
+            <span className="text-small font-medium text-ink">{t('sample')}</span>
+          </button>
+        )
+      ) : (
+        <>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => bookRef.current?.pageFlip()?.flipPrev()}
+              disabled={page <= 0}
+              aria-label={t('pdfPrev')}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rule bg-cream text-ink-soft transition-colors hover:border-gold-deep disabled:opacity-40"
             >
-              {pages.map((page, index) => (
-                <div key={index} className="bg-cream">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- data URL מקומי שכבר בזיכרון, לא נכס שמתאים לאופטימיזציה של next/image */}
-                  <img src={page.dataUrl} alt="" className="h-full w-full object-contain" />
-                </div>
-              ))}
-            </HTMLFlipBook>
+              ‹
+            </button>
+
+            <div className="mx-auto flex justify-center">
+              {/* @ts-expect-error -- react-pageflip's public types don't model children/style precisely */}
+              <HTMLFlipBook
+                ref={bookRef}
+                width={pages[0].width}
+                height={pages[0].height}
+                size="stretch"
+                minWidth={200}
+                maxWidth={fullscreen ? 640 : 340}
+                minHeight={260}
+                maxHeight={fullscreen ? 860 : 460}
+                showCover
+                onFlip={(event: { data: number }) => setPage(event.data)}
+                className="shadow-[var(--shadow-float)]"
+              >
+                {pages.map((pdfPage, index) => (
+                  <div key={index} className="bg-cream">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- data URL מקומי שכבר בזיכרון, לא נכס שמתאים לאופטימיזציה של next/image */}
+                    <img src={pdfPage.dataUrl} alt="" className="h-full w-full object-contain" />
+                  </div>
+                ))}
+              </HTMLFlipBook>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => bookRef.current?.pageFlip()?.flipNext()}
+              disabled={page >= pages.length - 1}
+              aria-label={t('pdfNext')}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rule bg-cream text-ink-soft transition-colors hover:border-gold-deep disabled:opacity-40"
+            >
+              ›
+            </button>
           </div>
-        ) : null}
-      </Drawer>
-    </>
+
+          <div className="mt-5 flex items-center gap-3">
+            <span className="shrink-0 text-caption text-muted">{t('pdfPage', { current: page + 1, total: pages.length })}</span>
+            <span className="h-1 flex-1 overflow-hidden rounded-full bg-cream-3">
+              <span
+                className="block h-full rounded-full bg-gold-deep transition-[width] duration-300"
+                style={{ width: `${((page + 1) / pages.length) * 100}%` }}
+              />
+            </span>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="shrink-0 rounded-[var(--radius-md)] border border-rule bg-cream px-3.5 py-1.5 text-caption text-ink-soft transition-colors hover:border-gold-deep"
+            >
+              {fullscreen ? t('pdfExitFullscreen') : t('pdfOpenFullscreen')}
+            </button>
+          </div>
+
+          {fullscreen ? <p className="text-caption text-cream-2/70">{title}</p> : null}
+        </>
+      )}
+    </div>
   );
 }
