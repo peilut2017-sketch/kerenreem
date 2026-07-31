@@ -7,7 +7,8 @@ import { routing, localeDirection, type Locale } from '@/i18n/routing';
 import { getSiteSettings } from '@/lib/data';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { AccessibilityBar, A11Y_INIT_SCRIPT } from '@/components/AccessibilityBar';
+import { AccessibilityWidget } from '@/components/AccessibilityWidget';
+import { A11Y_INIT_SCRIPT } from '@/lib/a11y-preferences';
 import '../../globals.css';
 
 /**
@@ -95,7 +96,7 @@ export default async function PublicLayout({
             {children}
           </main>
           <SiteFooter settings={settings} locale={locale} />
-          <AccessibilityBar />
+          <AccessibilityWidget />
         </NextIntlClientProvider>
       </body>
     </html>

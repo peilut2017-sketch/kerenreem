@@ -238,7 +238,8 @@
     "address": "Address",
     "phoneLabel": "Phone",
     "emailLabel": "Email",
-    "lead": "Get in touch"
+    "lead": "Get in touch",
+    "tooMany": "Too many messages sent in a short time. Please wait a minute and try again."
   },
   "footer": {
     "navHeading": "Navigation",
@@ -262,7 +263,20 @@
     "reset": "Reset settings",
     "statementLink": "Full accessibility statement",
     "on": "on",
-    "off": "off"
+    "off": "off",
+    "increaseText": "Increase text size",
+    "decreaseText": "Decrease text size",
+    "increaseTextSpacing": "Increase letter spacing",
+    "decreaseTextSpacing": "Decrease letter spacing",
+    "increaseLineHeight": "Increase line spacing",
+    "decreaseLineHeight": "Decrease line spacing",
+    "grayHues": "Grayscale",
+    "bigCursor": "Large cursor",
+    "readingGuide": "Reading guide",
+    "textToSpeech": "Read text aloud",
+    "speechToText": "Speech to text",
+    "hotkeyPrefix": "Shortcut key: ",
+    "invertColors": "Invert colours"
   },
   "hebrewDate": {
     "separator": " ",

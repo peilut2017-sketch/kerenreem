@@ -238,7 +238,8 @@
     "address": "כתובת",
     "phoneLabel": "טלפון",
     "emailLabel": "דואר אלקטרוני",
-    "lead": "נשמח לשמוע"
+    "lead": "נשמח לשמוע",
+    "tooMany": "נשלחו יותר מדי פניות בזמן קצר. יש להמתין דקה ולנסות שוב."
   },
   "footer": {
     "navHeading": "ניווט",
@@ -262,7 +263,20 @@
     "reset": "איפוס הגדרות",
     "statementLink": "הצהרת הנגישות המלאה",
     "on": "פעיל",
-    "off": "כבוי"
+    "off": "כבוי",
+    "increaseText": "הגדלת טקסט",
+    "decreaseText": "הקטנת טקסט",
+    "increaseTextSpacing": "הגדלת ריווח אותיות",
+    "decreaseTextSpacing": "הקטנת ריווח אותיות",
+    "increaseLineHeight": "הגדלת ריווח שורות",
+    "decreaseLineHeight": "הקטנת ריווח שורות",
+    "grayHues": "גווני אפור",
+    "bigCursor": "סמן עכבר גדול",
+    "readingGuide": "סרגל קריאה",
+    "textToSpeech": "הקראת טקסט",
+    "speechToText": "דיבור לטקסט",
+    "hotkeyPrefix": "מקש קיצור: ",
+    "invertColors": "היפוך צבעים"
   },
   "hebrewDate": {
     "separator": "‏",

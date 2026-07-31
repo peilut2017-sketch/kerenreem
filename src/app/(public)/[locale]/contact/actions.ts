@@ -1,7 +1,40 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { getTranslations } from 'next-intl/server';
 import { createClient } from '@/lib/supabase/server';
+
+/**
+ * הגבלת קצב בזיכרון התהליך.
+ *
+ * מלכודת הבוטים (השדה המוסתר) עוצרת סורקים פשוטים, אבל לא כלי שנכתב מול
+ * הטופס הזה. בלי הגבלה כלשהי אפשר להזרים אלפי פניות לטבלה בדקה.
+ *
+ * מכוון: זו הגנה חלקית ולא מלאה. הזיכרון אינו משותף בין מופעים, ולכן
+ * בפריסה ללא שרת (Vercel) כל מופע סופר לעצמו, והמונה מתאפס בהתחלה קרה.
+ * זה עדיין חוסם את המקרה הנפוץ — סקריפט יחיד ששולח בלולאה — בעלות אפס
+ * ובלי תלות חיצונית. הגנה אמיתית דורשת מונה משותף (Upstash/Redis) או
+ * שכבת WAF, וזו החלטה שכדאי לקבל כשיהיה נפח אמיתי.
+ */
+const WINDOW_MS = 60_000;
+const MAX_PER_WINDOW = 5;
+const hits = new Map<string, number[]>();
+
+function rateLimited(key: string): boolean {
+  const now = Date.now();
+  const recent = (hits.get(key) ?? []).filter((time) => now - time < WINDOW_MS);
+  recent.push(now);
+  hits.set(key, recent);
+
+  // ניקוי עצלן: בלעדיו המפה גדלה לצמיתות עם כל כתובת שפנתה אי־פעם.
+  if (hits.size > 5000) {
+    for (const [entry, times] of hits) {
+      if (times.every((time) => now - time >= WINDOW_MS)) hits.delete(entry);
+    }
+  }
+
+  return recent.length > MAX_PER_WINDOW;
+}
 
 export interface ContactFormState {
   status: 'idle' | 'success' | 'error';
@@ -22,6 +55,18 @@ export async function submitContact(
   // מגיבים בהצלחה מדומה כדי לא ללמד את הבוט מה נכשל.
   if (String(formData.get('website') ?? '').trim() !== '') {
     return { status: 'success' };
+  }
+
+  // מזהה הפונה לצורך הגבלת הקצב. x-forwarded-for נשלט על ידי הלקוח ואינו
+  // ראיה קבילה לזהות — אבל כאן הוא לא משמש להרשאה, רק לספירה, ולכן די בו.
+  const requestHeaders = await headers();
+  const ip =
+    requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    requestHeaders.get('x-real-ip') ||
+    'unknown';
+
+  if (rateLimited(ip)) {
+    return { status: 'error', message: t('tooMany') };
   }
 
   const name = String(formData.get('name') ?? '').trim();
