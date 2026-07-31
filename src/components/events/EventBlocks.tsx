@@ -64,16 +64,23 @@ function hashString(value: string): number {
   return Math.abs(hash);
 }
 
-const SHAPES = [
-  { aspect: 'aspect-square', grow: 'flex-[1]' },
-  { aspect: 'aspect-video', grow: 'flex-[1.7]' },
-  { aspect: 'aspect-[3/4]', grow: 'flex-[0.85]' },
-] as const;
+/** יחסי רוחב אפשריים לאריח במוזאיקה — פנורמי, מרובע, אנכי. */
+const TILE_RATIOS = [1.6, 1, 0.75] as const;
 
 /**
- * שורת מוזאיקה — 2 עד 4 תמונות. הצורה של כל תמונה (מרובע/רחב/אנכי)
- * נגזרת מגיבוב כתובת התמונה עצמה, כך שאין שתי שורות נראות זהות בלי
- * שהעורך צריך לבחור "גודל תצוגה" בעצמו.
+ * שורת מוזאיקה — 2 עד 4 תמונות. הצורה של כל תמונה נגזרת מגיבוב כתובת
+ * התמונה עצמה, כך שאין שתי שורות שנראות זהות בלי שהעורך צריך לבחור
+ * "גודל תצוגה" בעצמו.
+ *
+ * שורה מיושרת בגובה אחיד, לא flex-wrap עם aspect לכל אריח. הניסיון
+ * הקודם (min-width + aspect שונה לכל אריח) נמדד בפועל והתברר כשבור:
+ * שלוש תמונות התפרסו כ-302×403 ו-358×201 בשורה אחת — חור לבן ענק מתחת
+ * לנמוכה — והשלישית גלשה לשורה משלה ונמתחה ל-672 פיקסלים, פי שניים
+ * מהשכנות. גובה קבוע + flex-grow לפי יחס הרוחב נותן בדיוק את אותו גיוון
+ * ברוחבים, אבל השורה תמיד נסגרת ישרה ואף פעם לא נשאר חור.
+ *
+ * בנייד השורה הופכת לרשת של שתיים: ארבע תמונות בשורה אחת על מסך צר הן
+ * ארבע בולים שאי אפשר לראות בהם דבר.
  */
 export function EventImageRowBlock({
   images,
@@ -84,33 +91,31 @@ export function EventImageRowBlock({
 }) {
   return (
     <ScrollFocus>
-      <div className="flex flex-wrap items-start gap-3">
-        {images.map((image, position) => {
-          const shape = SHAPES[hashString(image.url) % SHAPES.length];
-          return (
-            <LightboxTrigger
-              key={image.url}
-              index={indexes[position]}
-              className={`min-w-[45%] ${shape.grow}`}
-            >
-              {(open) => (
-                <button
-                  type="button"
-                  onClick={open}
-                  className={`group relative block w-full overflow-hidden rounded-[var(--radius-lg)] ${shape.aspect}`}
-                >
-                  <Image
-                    src={image.url}
-                    alt={image.alt ?? ''}
-                    fill
-                    sizes="(max-width: 768px) 50vw, 400px"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-                  />
-                </button>
-              )}
-            </LightboxTrigger>
-          );
-        })}
+      <div className="grid grid-cols-2 gap-3 sm:flex sm:h-64 sm:items-stretch md:h-72">
+        {images.map((image, position) => (
+          <LightboxTrigger
+            key={image.url}
+            index={indexes[position]}
+            className="min-h-0 [&>*]:h-full"
+            style={{ flexGrow: TILE_RATIOS[hashString(image.url) % TILE_RATIOS.length], flexBasis: 0 }}
+          >
+            {(open) => (
+              <button
+                type="button"
+                onClick={open}
+                className="group relative block aspect-square w-full overflow-hidden rounded-[var(--radius-lg)] sm:aspect-auto sm:h-full"
+              >
+                <Image
+                  src={image.url}
+                  alt={image.alt ?? ''}
+                  fill
+                  sizes="(max-width: 768px) 50vw, 400px"
+                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                />
+              </button>
+            )}
+          </LightboxTrigger>
+        ))}
       </div>
     </ScrollFocus>
   );
@@ -167,13 +172,16 @@ export function EventVideoBlock({
   );
 }
 
+/**
+ * ציטוט "על קלף". במכוון בלי ScrollFocus: עמעום בהירות על טקסט הוא
+ * הורדת ניגודיות, ולציטוט אין שום תועלת מזה — הוא לא מתחרה על תשומת
+ * לב עם תמונות שכנות אלא עוצר את הרצף.
+ */
 export function EventQuoteBlock({ text, attribution }: { text: string; attribution: string | null }) {
   return (
-    <ScrollFocus>
-      <blockquote className="mx-auto max-w-2xl rounded-[var(--radius-lg)] border border-gold/30 bg-gradient-to-br from-cream to-cream-2 px-8 py-10 text-center shadow-[var(--shadow-float)]">
-        <p className="font-serif text-h3 leading-relaxed text-ink">&ldquo;{text}&rdquo;</p>
-        {attribution ? <footer className="mt-4 text-small text-muted">— {attribution}</footer> : null}
-      </blockquote>
-    </ScrollFocus>
+    <blockquote className="mx-auto max-w-2xl rounded-[var(--radius-lg)] border border-gold/30 bg-gradient-to-br from-cream to-cream-2 px-8 py-10 text-center shadow-[var(--shadow-float)]">
+      <p className="font-serif text-h3 leading-relaxed text-ink">&ldquo;{text}&rdquo;</p>
+      {attribution ? <footer className="mt-4 text-small text-muted">— {attribution}</footer> : null}
+    </blockquote>
   );
 }

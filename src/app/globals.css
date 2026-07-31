@@ -527,11 +527,17 @@ body::before {
     filter: drop-shadow(0 18px 30px rgb(11 21 32 / 0.24));
   }
 
-  /* Scroll Focus — התמונה במרכז המסך מודגשת, האחרות מעט כהות ומטושטשות.
-     --focus (0–1) מוזרם ב-JS; 0 הוא ברירת המחדל הבטוחה בלי JS — גלוי
-     ורגיל, לא מטושטש, בדיוק כמו .reveal. */
+  /* Scroll Focus — התמונה במרכז המסך מודגשת, האחרות מעט כהות.
+     --focus (0–1) מוזרם ב-JS.
+
+     ברירת המחדל היא 1 ולא 0, מאותו נימוק בדיוק כמו .reveal: המצב הבטוח
+     הוא "הכול נראה רגיל". עם 0 כברירת מחדל כל התמונות היו מוגשות
+     מעומעמות ל-82%, והכיתובים (opacity: var(--focus)) בלתי נראים לגמרי —
+     לא רק בלי JS, אלא גם לכל מי שביקש prefers-reduced-motion, שכן
+     ScrollFocus יוצא מוקדם ולעולם אינו כותב את המשתנה. אובדן כיתוב
+     תמונה הוא אובדן מידע, לא אובדן אפקט. */
   .scroll-focus {
-    --focus: 0;
+    --focus: 1;
     filter: brightness(calc(0.82 + var(--focus) * 0.18)) saturate(calc(0.88 + var(--focus) * 0.12));
   }
   @media (prefers-reduced-motion: no-preference) {
@@ -544,8 +550,10 @@ body::before {
       will-change: transform, filter;
     }
   }
+  /* הכיתוב אף פעם לא נעלם לגמרי: 0.55 ברצפה גם כשהתמונה אינה במוקד.
+     כיתוב הוא מידע ("מי בתמונה", "מתי"), ולא קישוט שאפשר להעלים. */
   .scroll-focus-caption {
-    opacity: var(--focus);
+    opacity: calc(0.55 + var(--focus) * 0.45);
     transition: opacity 300ms var(--ease-spring);
   }
 

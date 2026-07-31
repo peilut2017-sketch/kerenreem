@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import { LightboxTrigger } from './EventLightbox';
 import type { LightboxImage } from './EventLightbox';
@@ -20,6 +21,7 @@ export function EventClosingGallery({
   images: LightboxImage[];
   startIndex: number;
 }) {
+  const t = useTranslations('events');
   const [expanded, setExpanded] = useState(images.length <= THRESHOLD);
   const shown = expanded ? images : images.slice(0, INITIAL_COUNT);
 
@@ -51,9 +53,9 @@ export function EventClosingGallery({
 
       {!expanded ? (
         <div className="mt-8 text-center">
-          <p className="mb-3 text-small text-muted">כבר ראיתם את עיקר האירוע</p>
+          <p className="mb-3 text-small text-muted">{t('closingGalleryLead')}</p>
           <button type="button" onClick={() => setExpanded(true)} className="btn btn-quiet">
-            המשך לגלריה המלאה ({images.length - INITIAL_COUNT} תמונות נוספות)
+            {t('showFullGallery', { count: images.length - INITIAL_COUNT })}
           </button>
         </div>
       ) : null}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { BookCard } from './BookCard';
 import { useLocalList } from '@/lib/client-hooks';
 import { localized } from '@/lib/localized';
@@ -24,6 +25,7 @@ export function BookCardGrid({
   storeEnabled: boolean;
   priorityCount?: number;
 }) {
+  const t = useTranslations('books');
   const { list, toggle } = useLocalList('kr:favourites');
   const favourites = useMemo(() => new Set(list), [list]);
   const [toast, setToast] = useState<string | null>(null);
@@ -31,10 +33,14 @@ export function BookCardGrid({
   const onToggleFavourite = useCallback(
     (book: BookWithRelations) => {
       const added = toggle(book.id);
-      setToast(added ? `${localized(book, 'title', locale)} נוסף למועדפים` : 'הוסר מהמועדפים');
+      setToast(
+        added
+          ? t('favouriteAdded', { title: localized(book, 'title', locale) })
+          : t('favouriteRemoved'),
+      );
       window.setTimeout(() => setToast(null), 2600);
     },
-    [toggle, locale],
+    [toggle, locale, t],
   );
 
   if (books.length === 0) return null;

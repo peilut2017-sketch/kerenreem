@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
 import { localized } from '@/lib/localized';
@@ -26,6 +27,7 @@ export function BookListRow({
   onToggleFavourite: (book: BookWithRelations) => void;
   storeEnabled: boolean;
 }) {
+  const t = useTranslations('books');
   const title = localized(book, 'title', locale);
   const authorName = book.author ? localized(book.author, 'name', locale) : null;
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
@@ -71,7 +73,7 @@ export function BookListRow({
         type="button"
         onClick={() => onToggleFavourite(book)}
         aria-pressed={isFavourite}
-        aria-label={isFavourite ? `הסרת ${title} מהמועדפים` : `הוספת ${title} למועדפים`}
+        aria-label={isFavourite ? t('favouriteRemoveNamed', { title }) : t('favouriteAddNamed', { title })}
         className={`relative z-20 h-9 w-9 shrink-0 self-start rounded-[var(--radius-pill)] transition-colors ${
           isFavourite ? 'text-burgundy' : 'text-muted hover:text-burgundy'
         }`}

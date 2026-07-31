@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
 import { localized } from '@/lib/localized';
@@ -95,12 +96,13 @@ function FavouriteButton({
   isFavourite: boolean;
   onToggle: () => void;
 }) {
+  const t = useTranslations('books');
   return (
     <button
       type="button"
       onClick={onToggle}
       aria-pressed={isFavourite}
-      aria-label={isFavourite ? `הסרת ${title} מהמועדפים` : `הוספת ${title} למועדפים`}
+      aria-label={isFavourite ? t('favouriteRemoveNamed', { title }) : t('favouriteAddNamed', { title })}
       /* z-20 מעל שכבת הקישור הפרוש, אחרת הלחיצה על הלב פותחת את הספר */
       className={`glass absolute end-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-[var(--radius-pill)] transition-[opacity,transform,color] duration-300 ease-[var(--ease-spring)] hover:scale-110 focus-visible:opacity-100 motion-reduce:transition-none ${
         isFavourite

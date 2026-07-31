@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 /**
  * חזרה לראש העמוד אחרי גלילה משמעותית.
@@ -12,6 +13,7 @@ import { useEffect, useState } from 'react';
  * בדיוק סוג התנועה שגורם לסחרחורת אצל מי שביקש להפחית תנועה.
  */
 export function BackToTop() {
+  const t = useTranslations('books');
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export function BackToTop() {
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         window.scrollTo({ top: 0, behavior: reduced ? 'instant' : 'smooth' });
       }}
-      aria-label="חזרה לראש העמוד"
+      aria-label={t('backToTop')}
       className="glass fixed bottom-24 end-4 z-30 flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft shadow-[var(--shadow-float)] transition-[transform,color] duration-300 ease-[var(--ease-spring)] hover:scale-110 hover:text-burgundy"
     >
       <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">

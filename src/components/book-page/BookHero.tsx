@@ -31,7 +31,10 @@ export function BookHero({
   t: (key: string, values?: Record<string, string | number | Date>) => string;
 }) {
   return (
-    <section id="book-hero" className="relative -mx-4 overflow-hidden px-4 pb-16 pt-10 sm:-mx-6 sm:px-6">
+    /* בלי -mx-*: ה-Hero יושב ישירות תחת <article> ברמת העמוד, לא בתוך
+       Container. שוליים שליליים כאן אינם "בליטה עד הקצה" אלא גלישה
+       אופקית ממשית של המסמך כולו — נמדד: 1328px רוחב במסך 1280. */
+    <section id="book-hero" className="relative overflow-hidden px-4 pb-16 pt-10 sm:px-6">
       <HeroBackground colors={palette.colors} />
 
       <div className="relative mx-auto grid max-w-5xl gap-10 sm:grid-cols-[16rem_minmax(0,1fr)] sm:items-center sm:gap-14">

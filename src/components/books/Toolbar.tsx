@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useReducedMotion } from '@/lib/client-hooks';
 import type { SortKey } from '@/lib/book-search';
 
@@ -74,6 +75,7 @@ export function Toolbar({
   onViewChange: (next: ViewMode) => void;
   filterSlot: React.ReactNode;
 }) {
+  const t = useTranslations('books');
   const sortId = useId();
 
   return (
@@ -90,7 +92,7 @@ export function Toolbar({
               ביותר ותיק ביותר א׳-ת׳" כשם השדה. */}
           <div className="flex items-center gap-2 text-small text-muted">
             <label htmlFor={sortId} className="whitespace-nowrap">
-              מיון
+              {t('sort')}
             </label>
             <select
               id={sortId}
@@ -98,17 +100,17 @@ export function Toolbar({
               onChange={(event) => onSortChange(event.target.value as SortKey)}
               className="rounded-[var(--radius-pill)] border border-rule bg-white/70 px-3 py-1.5 text-small text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
             >
-              <option value="recommended">מומלצים</option>
-              <option value="newest">חדש ביותר</option>
-              <option value="oldest">ותיק ביותר</option>
-              <option value="title">א׳–ת׳</option>
+              <option value="recommended">{t('sortRecommended')}</option>
+              <option value="newest">{t('sortNewest')}</option>
+              <option value="oldest">{t('sortOldest')}</option>
+              <option value="title">{t('sortTitle')}</option>
             </select>
           </div>
 
-          <div role="group" aria-label="תצוגה" className="flex items-center gap-1">
-            <ViewButton current={view} mode="grid" onSelect={onViewChange} label="רשת" />
-            <ViewButton current={view} mode="large" onSelect={onViewChange} label="רשת רחבה" />
-            <ViewButton current={view} mode="list" onSelect={onViewChange} label="רשימה" />
+          <div role="group" aria-label={t('view')} className="flex items-center gap-1">
+            <ViewButton current={view} mode="grid" onSelect={onViewChange} label={t('viewGrid')} />
+            <ViewButton current={view} mode="large" onSelect={onViewChange} label={t('viewLarge')} />
+            <ViewButton current={view} mode="list" onSelect={onViewChange} label={t('viewList')} />
           </div>
         </div>
       </div>

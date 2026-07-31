@@ -24,6 +24,7 @@ export function Drawer({
   footer,
   widthClassName = 'max-w-[24rem]',
   returnFocusTo,
+  closeLabel = 'סגירה',
 }: {
   open: boolean;
   onClose: () => void;
@@ -34,6 +35,12 @@ export function Drawer({
   widthClassName?: string;
   /** אלמנט שהמיקוד חוזר אליו בסגירה. ברירת המחדל: מה שהיה ממוקד לפני הפתיחה. */
   returnFocusTo?: HTMLElement | null;
+  /**
+   * כיתוב נגיש לכפתורי הסגירה. ברירת המחדל בעברית משרתת את מסכי הניהול,
+   * שהם עברית בלבד; האתר הציבורי מעביר כאן מחרוזת מתורגמת, אחרת קורא מסך
+   * באנגלית שומע "סגירה".
+   */
+  closeLabel?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -91,7 +98,7 @@ export function Drawer({
     <div className="fixed inset-0 z-50 flex justify-end">
       <button
         type="button"
-        aria-label="סגירה"
+        aria-label={closeLabel}
         onClick={onClose}
         className="absolute inset-0 bg-navy/40 backdrop-blur-sm"
       />
@@ -110,7 +117,7 @@ export function Drawer({
           <button
             type="button"
             onClick={onClose}
-            aria-label="סגירה"
+            aria-label={closeLabel}
             className="rounded-[var(--radius-pill)] p-1.5 text-muted transition-colors hover:text-burgundy"
           >
             <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none">

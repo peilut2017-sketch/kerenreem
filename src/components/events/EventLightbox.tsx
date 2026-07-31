@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 
 export interface LightboxImage {
@@ -95,6 +96,7 @@ function LightboxOverlay({
   onClose: () => void;
   onStep: (delta: number) => void;
 }) {
+  const t = useTranslations('events');
   const touchStartX = useRef<number | null>(null);
   const image = images[index];
 
@@ -142,12 +144,12 @@ function LightboxOverlay({
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <button type="button" aria-label="סגירה" onClick={onClose} className="absolute inset-0" />
+      <button type="button" aria-label={t('close')} onClick={onClose} className="absolute inset-0" />
 
       <button
         type="button"
         onClick={() => onStep(1)}
-        aria-label="התמונה הבאה"
+        aria-label={t('nextImage')}
         className="absolute start-3 top-1/2 z-10 -translate-y-1/2 rounded-[var(--radius-pill)] bg-white/10 p-3 text-white transition-colors hover:bg-white/20 sm:start-6"
       >
         <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none">
@@ -157,7 +159,7 @@ function LightboxOverlay({
       <button
         type="button"
         onClick={() => onStep(-1)}
-        aria-label="התמונה הקודמת"
+        aria-label={t('prevImage')}
         className="absolute end-3 top-1/2 z-10 -translate-y-1/2 rounded-[var(--radius-pill)] bg-white/10 p-3 text-white transition-colors hover:bg-white/20 sm:end-6"
       >
         <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none">
@@ -168,7 +170,7 @@ function LightboxOverlay({
       <button
         type="button"
         onClick={onClose}
-        aria-label="סגירה"
+        aria-label={t('close')}
         className="absolute end-3 top-3 z-10 rounded-[var(--radius-pill)] bg-white/10 p-2.5 text-white transition-colors hover:bg-white/20 sm:end-6 sm:top-6"
       >
         <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none">
@@ -194,7 +196,7 @@ function LightboxOverlay({
           <figcaption className="mt-4 max-w-2xl text-center text-small text-white/80">{image.caption}</figcaption>
         ) : null}
         <p className="mt-2 text-caption tabular-nums text-white/50">
-          {index + 1} / {images.length}
+          {t('imageCounter', { index: index + 1, total: images.length })}
         </p>
       </figure>
     </div>
@@ -215,17 +217,22 @@ function LightboxOverlay({
 export function LightboxTrigger({
   index,
   className,
+  style,
   children,
 }: {
   index: number;
   className?: string;
+  style?: React.CSSProperties;
   children: (open: () => void) => React.ReactNode;
 }) {
   const open = useOpenLightbox();
   const activeIndex = useActiveLightboxIndex();
   const isActive = activeIndex === index;
   return (
-    <div className={`transition-opacity duration-300 ${isActive ? 'opacity-60' : ''} ${className ?? ''}`}>
+    <div
+      style={style}
+      className={`transition-opacity duration-300 ${isActive ? 'opacity-60' : ''} ${className ?? ''}`}
+    >
       {children(() => open(index))}
     </div>
   );

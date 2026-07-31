@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Drawer } from '../Drawer';
 import { localized } from '@/lib/localized';
 import { countActiveFilters, type Filters } from '@/lib/book-search';
@@ -39,6 +40,7 @@ export function FilterDrawer({
   storeEnabled: boolean;
   maxPrice: number | null;
 }) {
+  const t = useTranslations('books');
   const [open, setOpen] = useState(false);
   const [authorQuery, setAuthorQuery] = useState('');
   const titleId = useId();
@@ -69,7 +71,7 @@ export function FilterDrawer({
         <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">
           <path d="M3 6h14M6 10h8M9 14h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
-        סינון
+        {t('filter')}
         {active > 0 ? (
           <span className="rounded-[var(--radius-pill)] bg-burgundy px-1.5 text-caption text-white tabular-nums">
             {active}
@@ -81,12 +83,13 @@ export function FilterDrawer({
         open={open}
         onClose={() => setOpen(false)}
         titleId={titleId}
-        title="סינון"
+        title={t('filter')}
+        closeLabel={t('close')}
         widthClassName="max-w-[24rem]"
         footer={
           <>
             <button type="button" onClick={() => setOpen(false)} className="btn btn-solid flex-1">
-              הצגת התוצאות
+              {t('filterShowResults')}
             </button>
             {active > 0 ? (
               <button
@@ -110,7 +113,7 @@ export function FilterDrawer({
                 }
                 className="text-small text-muted underline underline-offset-4"
               >
-                ניקוי
+                {t('filterClear')}
               </button>
             ) : null}
           </>
@@ -118,13 +121,13 @@ export function FilterDrawer({
       >
         <div className="space-y-7">
           {authors.length > 0 ? (
-            <Group title="מחבר">
+            <Group title={t('filterAuthor')}>
               <input
                 type="text"
                 value={authorQuery}
                 onChange={(event) => setAuthorQuery(event.target.value)}
-                placeholder="חיפוש בשמות המחברים"
-                aria-label="חיפוש בשמות המחברים"
+                placeholder={t('filterAuthorSearch')}
+                aria-label={t('filterAuthorSearch')}
                 className="field-input mb-3"
               />
               <div className="max-h-52 space-y-1 overflow-y-auto">
@@ -137,16 +140,16 @@ export function FilterDrawer({
                   />
                 ))}
                 {visibleAuthors.length === 0 ? (
-                  <p className="text-caption text-muted">אין מחבר בשם זה.</p>
+                  <p className="text-caption text-muted">{t('filterAuthorEmpty')}</p>
                 ) : null}
               </div>
             </Group>
           ) : null}
 
           {tags.length > 0 ? (
-            <Group title="תגיות">
+            <Group title={t('filterTags')}>
               <p className="mb-2 text-caption text-muted">
-                בחירת כמה תגיות מצמצמת: יוצגו רק ספרים שנושאים את כולן.
+                {t('filterTagsHint')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => {
@@ -185,7 +188,7 @@ export function FilterDrawer({
           ))}
 
           {languages.length > 0 ? (
-            <Group title="שפה">
+            <Group title={t('filterLanguage')}>
               {languages.map((language) => (
                 <Check
                   key={language.code}
@@ -198,7 +201,7 @@ export function FilterDrawer({
           ) : null}
 
           {bindings.length > 0 ? (
-            <Group title="כריכה">
+            <Group title={t('binding')}>
               {bindings.map((binding) => (
                 <Check
                   key={binding}
@@ -211,17 +214,19 @@ export function FilterDrawer({
           ) : null}
 
           {years ? (
-            <Group title="שנת הוצאה">
+            <Group title={t('filterYear')}>
               <div className="flex items-center gap-3">
                 <NumberField
-                  label="משנת"
+                  label={t('filterYearFrom')}
+                  placeholder={years.min}
                   value={filters.yearFrom}
                   min={years.min}
                   max={years.max}
                   onChange={(value) => set('yearFrom', value)}
                 />
                 <NumberField
-                  label="עד שנת"
+                  label={t('filterYearTo')}
+                  placeholder={years.max}
                   value={filters.yearTo}
                   min={years.min}
                   max={years.max}
@@ -229,30 +234,30 @@ export function FilterDrawer({
                 />
               </div>
               <p className="mt-2 text-caption text-muted">
-                בקטלוג: {years.min}–{years.max}
+                {t('filterYearRange', { min: years.min, max: years.max })}
               </p>
             </Group>
           ) : null}
 
-          <Group title="זמינות">
+          <Group title={t('filterAvailability')}>
             <Check
-              label="רק ספרים עם דפדוף לדוגמה"
+              label={t('filterWithSample')}
               checked={filters.withSample}
               onChange={() => set('withSample', !filters.withSample)}
             />
             <Check
-              label="רק מהדורות רב-כרכיות"
+              label={t('filterMultiVolume')}
               checked={filters.multiVolume}
               onChange={() => set('multiVolume', !filters.multiVolume)}
             />
             <Check
-              label="רק המועדפים שלי"
+              label={t('filterFavourites')}
               checked={filters.favouritesOnly}
               onChange={() => set('favouritesOnly', !filters.favouritesOnly)}
             />
             {storeEnabled ? (
               <Check
-                label="רק ספרים לרכישה"
+                label={t('filterPurchasable')}
                 checked={filters.purchasableOnly}
                 onChange={() => set('purchasableOnly', !filters.purchasableOnly)}
               />
@@ -260,9 +265,9 @@ export function FilterDrawer({
           </Group>
 
           {storeEnabled && maxPrice !== null ? (
-            <Group title="מחיר">
+            <Group title={t('price')}>
               <label className="flex items-center gap-3 text-small text-ink-soft">
-                <span className="whitespace-nowrap">עד</span>
+                <span className="whitespace-nowrap">{t('filterPriceUpTo')}</span>
                 <input
                   type="range"
                   min={0}
@@ -315,12 +320,15 @@ function Check({
 
 function NumberField({
   label,
+  placeholder,
   value,
   min,
   max,
   onChange,
 }: {
   label: string;
+  /** מפורש, ולא נגזר מהשוואת הכיתוב: כיתוב מתורגם שובר השוואת מחרוזת בשקט. */
+  placeholder: number;
   value: number | null;
   min: number;
   max: number;
@@ -335,7 +343,7 @@ function NumberField({
         min={min}
         max={max}
         value={value ?? ''}
-        placeholder={String(label === 'משנת' ? min : max)}
+        placeholder={String(placeholder)}
         onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
         className="field-input mt-1 tabular-nums"
         dir="ltr"

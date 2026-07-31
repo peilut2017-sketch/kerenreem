@@ -71,13 +71,21 @@ export function FloatingCover({
           )}
         </div>
 
-        {/* השתקפות: אותה תמונה, הפוכה ודוהה — כאילו מונחת על משטח מבריק */}
+        {/* השתקפות: רק הרצועה העליונה של הכריכה, הפוכה ודוהה — כאילו
+            מונחת על משטח מבריק.
+
+            רצועה ולא עותק מלא. הגרסה הקודמת שכפלה את הכריכה בגובה מלא
+            (aspect-3/4) ורק החילה מסכה: זה הכפיל את גובה ה-Hero והצטייר
+            כספר שני, כהה וחתוך, תלוי מתחת לראשון — תקלה ולא עידון.
+            השתקפות אמיתית על שולחן זכוכית נראית רק סנטימטרים ספורים. */}
         {src ? (
           <div
             aria-hidden="true"
-            className="relative mt-1 aspect-3/4 w-full overflow-hidden rounded-[var(--radius-md)] bg-cream-2 opacity-20 [mask-image:linear-gradient(to_bottom,black,transparent_65%)] [transform:scaleY(-1)]"
+            className="relative mt-1 h-16 w-full overflow-hidden rounded-b-[var(--radius-md)] opacity-[0.18] [mask-image:linear-gradient(to_bottom,black,transparent)]"
           >
-            <Image src={src} alt="" fill sizes="240px" className="object-contain" />
+            <div className="absolute inset-x-0 top-0 aspect-3/4 [transform:scaleY(-1)]">
+              <Image src={src} alt="" fill sizes="240px" className="object-contain object-bottom" />
+            </div>
           </div>
         ) : null}
       </div>

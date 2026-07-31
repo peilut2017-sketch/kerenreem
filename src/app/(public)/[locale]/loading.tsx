@@ -1,13 +1,17 @@
+import { getTranslations } from 'next-intl/server';
+
 /**
  * שלד טעינה לעמודי האתר.
  *
  * המעבר בין עמודים מיידי גם כשהנתונים עדיין בדרך, במקום שהדפדפן יישאר על
  * העמוד הקודם ויראה כאילו הלחיצה לא נקלטה.
  */
-export default function PublicLoading() {
+export default async function PublicLoading() {
+  const t = await getTranslations('books');
+
   return (
     <div aria-busy="true" aria-live="polite" className="mx-auto w-full max-w-[82rem] px-5 py-16 sm:px-8">
-      <span className="sr-only">טוען…</span>
+      <span className="sr-only">{t('loading')}</span>
 
       <div aria-hidden="true" className="animate-pulse">
         <div className="h-4 w-28 rounded-[var(--radius-sm)] bg-rule" />

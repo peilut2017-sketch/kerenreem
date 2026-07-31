@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { SearchBar } from './SearchBar';
 import { FilterDrawer } from './FilterDrawer';
 import { Toolbar, type ViewMode } from './Toolbar';
@@ -28,13 +29,14 @@ import type {
 } from '@/lib/supabase/types';
 
 /** שמות השפות לתצוגה. הרשימה סגורה וזהה לזו שבטופס הניהול. */
-const LANGUAGE_LABELS: Record<string, string> = {
-  he: 'עברית',
-  en: 'אנגלית',
-  yi: 'יידיש',
-  fr: 'צרפתית',
-  ru: 'רוסית',
-  es: 'ספרדית',
+/** קוד שפה → מפתח תרגום. שם השפה עצמו מתורגם, אחרת מבקר אנגלי רואה "עברית". */
+const LANGUAGE_KEYS: Record<string, string> = {
+  he: 'langHe',
+  en: 'langEn',
+  yi: 'langYi',
+  fr: 'langFr',
+  ru: 'langRu',
+  es: 'langEs',
 };
 
 const BATCH = 24;
@@ -81,6 +83,7 @@ export function Catalogue({
     clear: string;
   };
 }) {
+  const t = useTranslations('books');
   const [filters, setFilters] = useState<Filters>({
     ...EMPTY_FILTERS,
     query: initial.query,
@@ -138,9 +141,9 @@ export function Catalogue({
   const languages = useMemo(() => {
     const present = new Set(books.flatMap((book) => book.languages ?? []));
     return [...present]
-      .filter((code) => LANGUAGE_LABELS[code])
-      .map((code) => ({ code, label: LANGUAGE_LABELS[code] }));
-  }, [books]);
+      .filter((code) => LANGUAGE_KEYS[code])
+      .map((code) => ({ code, label: t(LANGUAGE_KEYS[code]) }));
+  }, [books, t]);
 
   // הכתובת משקפת את המצב, כדי שאפשר יהיה לשתף ולרענן
   useEffect(() => {
@@ -158,9 +161,13 @@ export function Catalogue({
   const onToggleFavourite = useCallback(
     (book: BookWithRelations) => {
       const added = toggle(book.id);
-      setToast(added ? `${localized(book, 'title', locale)} נוסף למועדפים` : 'הוסר מהמועדפים');
+      setToast(
+        added
+          ? t('favouriteAdded', { title: localized(book, 'title', locale) })
+          : t('favouriteRemoved'),
+      );
     },
-    [toggle, locale],
+    [toggle, locale, t],
   );
 
   // ההודעה נעלמת מעצמה, אבל היא אינה הדרך היחידה לדעת מה קרה: מצב הלב
@@ -213,7 +220,7 @@ export function Catalogue({
       {categories.length > 0 ? (
         <ul className="mb-8 flex flex-wrap justify-center gap-2">
           <Chip
-            label="הכל"
+            label={t('allCategoriesChip')}
             selected={!filters.category}
             onSelect={() => changeFilters((current) => ({ ...current, category: '' }))}
           />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { normalise, matches } from '@/lib/book-search';
 import { useLocalList } from '@/lib/client-hooks';
 import { localized } from '@/lib/localized';
@@ -47,6 +48,7 @@ export function SearchBar({
   placeholder: string;
   label: string;
 }) {
+  const t = useTranslations('books');
   const id = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -185,7 +187,7 @@ export function SearchBar({
               onChange('');
               setActive(-1);
             }}
-            aria-label="ניקוי החיפוש"
+            aria-label={t('clearSearch')}
             className="shrink-0 rounded-[var(--radius-pill)] p-1 text-muted transition-colors hover:text-burgundy"
           >
             <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">

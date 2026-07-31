@@ -9,9 +9,12 @@ import type { EventRecord } from '@/lib/supabase/types';
  */
 export function EventHero({ event, title }: { event: EventRecord; title: string }) {
   return (
+    /* בלי -mx-*: ה-Hero הוא ילד ישיר של <article> ברמת העמוד ולא יושב
+       בתוך Container, ולכן שוליים שליליים כאן יוצרים גלילה אופקית
+       למסמך כולו במקום "בליטה עד הקצה". */
     <div
       id="event-hero"
-      className="relative -mx-4 flex min-h-[56vh] items-end overflow-hidden bg-navy sm:-mx-6 sm:min-h-[68vh]"
+      className="relative flex min-h-[56vh] items-end overflow-hidden bg-navy sm:min-h-[68vh]"
     >
       {event.cover_image_url ? <EventHeroBackground src={event.cover_image_url} /> : null}
       <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/45 to-transparent" />

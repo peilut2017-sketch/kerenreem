@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 /**
  * מד ההתקדמות במסע האירוע: קבלת פנים → דברי פתיחה → השיעור → ... —
@@ -16,6 +17,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
  * (ראו ההערה על event_blocks.stage_label במיגרציה).
  */
 export function EventJourneyProgress({ stages, heroId }: { stages: string[]; heroId: string }) {
+  const t = useTranslations('events');
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -82,7 +84,7 @@ export function EventJourneyProgress({ stages, heroId }: { stages: string[]; her
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
       }`}
     >
-      <nav aria-label="התקדמות באירוע" className="mx-auto max-w-4xl overflow-x-auto px-4 py-2.5 sm:px-6">
+      <nav aria-label={t('journey')} className="mx-auto max-w-4xl overflow-x-auto px-4 py-2.5 sm:px-6">
         <ul ref={listRef} className="relative flex w-max items-center gap-1">
           <span
             ref={markerRef}

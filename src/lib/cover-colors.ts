@@ -2,6 +2,7 @@ import 'server-only';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { rgbToHex, toTint, type RGB } from './color';
 
 /**
  * שלושת הצבעים הדומיננטיים של הכריכה, ל-Hero של עמוד הספר.
@@ -33,14 +34,6 @@ async function readCoverBytes(url: string): Promise<Buffer | null> {
   } catch {
     return null;
   }
-}
-
-type RGB = [number, number, number];
-
-function rgbToHex([r, g, b]: RGB): string {
-  return `#${[r, g, b]
-    .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
-    .join('')}`;
 }
 
 /**
@@ -110,7 +103,7 @@ export async function getCoverPalette(coverUrl: string | null): Promise<CoverPal
     }
 
     const clusters = dominantColors(pixels, 3).sort((a, b) => b.count - a.count);
-    const colors = clusters.map((cluster) => rgbToHex(cluster.color));
+    const colors = clusters.map((cluster) => rgbToHex(toTint(cluster.color)));
 
     // תמונה חד-גונית מאוד (כריכה לבנה, למשל) עשויה להחזיר פחות משלושה
     // אשכולות שנבדלים זה מזה — משלימים מהצבע הדומיננטי ביותר

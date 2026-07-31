@@ -75,8 +75,17 @@ export default async function EventPage({
   const gallery = buildEventGalleryIndex(event);
   const { labels: stages, blockStageIndex } = extractEventStages(blocks);
 
-  // דגימה קטנה מהגלריה המסיימת לפס הזיכרונות — לא כל הגלריה, רק טעימה
-  const memoryImages = gallery.images.slice(gallery.closingGalleryStart, gallery.closingGalleryStart + 8);
+  /**
+   * פס הזיכרונות הוא *טעימה* מהגלריה המסיימת, ולכן מוצג רק כשיש ממה
+   * לטעום: בגלריה קטנה הוא הציג בדיוק את אותן תמונות שמופיעות שורה
+   * אחת מתחתיו — כפילות מלאה, לא קדימון. הסף (12) מבטיח שהפס תמיד
+   * מראה פחות ממה שמחכה בהמשך.
+   */
+  const closingCount = gallery.images.length - gallery.closingGalleryStart;
+  const memoryImages =
+    closingCount >= 12
+      ? gallery.images.slice(gallery.closingGalleryStart, gallery.closingGalleryStart + 8)
+      : [];
 
   return (
     <article>
