@@ -153,7 +153,14 @@
     "langYi": "יידיש",
     "langFr": "צרפתית",
     "langRu": "רוסית",
-    "langEs": "ספרדית"
+    "langEs": "ספרדית",
+    "weight": "משקל",
+    "grams": "{n} גרם",
+    "language": "שפה",
+    "noSummary": "טרם נכתב תקציר לספר זה.",
+    "connectionsAll": "הכל",
+    "connectionsSeries": "מאותה סדרה",
+    "connectionsFilter": "סינון ספרים קשורים"
   },
   "authors": {
     "title": "מחברים ודמויות",

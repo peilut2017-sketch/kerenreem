@@ -153,7 +153,14 @@
     "langYi": "Yiddish",
     "langFr": "French",
     "langRu": "Russian",
-    "langEs": "Spanish"
+    "langEs": "Spanish",
+    "weight": "Weight",
+    "grams": "{n} g",
+    "language": "Language",
+    "noSummary": "No summary has been written for this book yet.",
+    "connectionsAll": "All",
+    "connectionsSeries": "Same series",
+    "connectionsFilter": "Filter related books"
   },
   "authors": {
     "title": "Authors and figures",

@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/Container';
-import { BookPurchase } from '@/components/BookPurchase';
 import { AuthorSection } from '@/components/book-page/AuthorSection';
 import { BookHero } from '@/components/book-page/BookHero';
+import { BookHeroActions } from '@/components/book-page/BookHeroActions';
 import { ConnectionsSection } from '@/components/book-page/ConnectionsSection';
 import { FloatingActions } from '@/components/book-page/FloatingActions';
 import { Gallery } from '@/components/book-page/Gallery';
@@ -12,6 +12,7 @@ import { KnowledgeMap, type KnowledgeMapNode } from '@/components/book-page/Know
 import { PdfFlipbook } from '@/components/book-page/PdfFlipbook';
 import { QuoteCards } from '@/components/book-page/QuoteCards';
 import { SeriesTimeline } from '@/components/book-page/SeriesTimeline';
+import { SpecGrid, type SpecItem } from '@/components/book-page/SpecGrid';
 import { StickyNav } from '@/components/book-page/StickyNav';
 import { SummaryCard } from '@/components/book-page/SummaryCard';
 import { TableOfContents } from '@/components/book-page/TableOfContents';
@@ -100,18 +101,32 @@ export default async function BookPage({
     .filter(Boolean)
     .join(book.publication_year_he && book.publication_year_ce ? ' · ' : '');
 
-  const spec: [string, string][] = [
-    year ? [t('publicationYear'), year] : null,
-    book.volume_count && book.volume_count > 1 ? [t('volumes'), String(book.volume_count)] : null,
-    book.pages ? [t('pages'), String(book.pages)] : null,
-    book.format ? [t('format'), book.format] : null,
-    book.binding ? [t('binding'), book.binding] : null,
-    book.isbn ? [t('isbn'), book.isbn] : null,
+  const LANGUAGE_NAMES: Record<string, string> = {
+    he: t('langHe'), en: t('langEn'), yi: t('langYi'),
+    fr: t('langFr'), ru: t('langRu'), es: t('langEs'),
+  };
+
+  const spec: SpecItem[] = [
+    book.pages ? { icon: 'pages', label: t('pages'), value: String(book.pages) } : null,
+    book.volume_count && book.volume_count > 1
+      ? { icon: 'binding', label: t('volumes'), value: String(book.volume_count) }
+      : null,
+    book.binding ? { icon: 'binding', label: t('binding'), value: book.binding } : null,
+    book.format ? { icon: 'size', label: t('format'), value: book.format } : null,
+    book.weight_grams ? { icon: 'weight', label: t('weight'), value: t('grams', { n: book.weight_grams }) } : null,
+    book.languages && book.languages.length > 0
+      ? {
+          icon: 'language',
+          label: t('language'),
+          value: book.languages.map((code) => LANGUAGE_NAMES[code] ?? code).join(', '),
+        }
+      : null,
+    book.isbn ? { icon: 'isbn', label: t('isbn'), value: book.isbn } : null,
     // המק״ט מוצג תמיד ולא רק כשהחנות פעילה: הוא המספר שבו פונים למשרד
     // כדי להזמין ספר גם בלי חנות מקוונת.
-    [t('catalogueNumber'), String(book.catalogue_number)],
-    book.sku ? [t('sku'), book.sku] : null,
-  ].filter(Boolean) as [string, string][];
+    { icon: 'isbn', label: t('catalogueNumber'), value: String(book.catalogue_number) },
+    book.sku ? { icon: 'isbn', label: t('sku'), value: book.sku } : null,
+  ].filter((item): item is SpecItem => item !== null);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -148,6 +163,13 @@ export default async function BookPage({
   ].filter((section): section is { id: string; label: string } => section !== null);
 
   const showBuy = settings.store_enabled && book.is_purchasable && book.price != null;
+  const formattedPrice = showBuy
+    ? new Intl.NumberFormat(locale === 'en' ? 'en-IL' : 'he-IL', {
+        style: 'currency',
+        currency: book.currency ?? 'ILS',
+        maximumFractionDigits: 2,
+      }).format(book.price!)
+    : null;
 
   return (
     <>
@@ -166,44 +188,58 @@ export default async function BookPage({
         authorName={authorName}
         categoryName={categoryName}
         year={year}
+        actions={
+          <BookHeroActions
+            bookId={book.id}
+            title={title}
+            price={formattedPrice}
+            inStock={(book.stock_quantity ?? 0) > 0}
+          />
+        }
         t={tValues}
       />
 
       <StickyNav sections={sections} cover={book.cover_image_url} title={title} />
 
       <Container className="space-y-20 py-16">
-        <article className="mx-auto max-w-2xl">
-          <div id="book-purchase">
-            <BookPurchase book={book} storeEnabled={settings.store_enabled} />
-          </div>
-
+        {/* התקציר והדפדוף זה לצד זה: שניהם עונים על "מה יש בספר הזה",
+            ומי שמעדיף לראות דף אמיתי על פני תיאור לא צריך לגלול בשבילו.
+            בלי דפדוף אין שתי עמודות בכלל — כרטיס יחיד בחצי רוחב היה
+            משאיר חצי מסך ריק לצדו. */}
+        <div className={`grid items-start gap-6 ${book.sample_pdf_url ? 'lg:grid-cols-2' : ''}`}>
           {book.sample_pdf_url ? (
-            <p className="mt-5">
-              <PdfFlipbook pdfUrl={book.sample_pdf_url} title={title} />
-            </p>
-          ) : null}
-
-          {spec.length > 0 ? (
-            <section className="mt-10" aria-labelledby="book-spec">
-              <h2 id="book-spec" className="eyebrow mb-4">
-                {t('details')}
+            <section
+              aria-labelledby="book-sample"
+              className="rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-7 shadow-[var(--shadow-soft)]"
+            >
+              <h2 id="book-sample" className="mb-4 font-serif text-h3 text-ink">
+                {t('readSample')}
               </h2>
-              <dl className="border-t border-rule">
-                {spec.map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="flex flex-wrap gap-x-6 gap-y-1 border-b border-rule py-2.5 text-small"
-                  >
-                    <dt className="min-w-32 text-muted">{label}</dt>
-                    <dd className="text-ink-soft">{value}</dd>
-                  </div>
-                ))}
-              </dl>
+              <PdfFlipbook pdfUrl={book.sample_pdf_url} title={title} />
             </section>
           ) : null}
-        </article>
 
-        {description ? <SummaryCard html={description} t={t} /> : null}
+          <section
+            id="book-summary"
+            aria-labelledby="book-summary-heading"
+            className="rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-7 shadow-[var(--shadow-soft)] sm:px-8"
+          >
+            <h2 id="book-summary-heading" className="mb-4 font-serif text-h3 text-ink">
+              {t('navSummary')}
+            </h2>
+            {description ? (
+              <SummaryCard html={description} />
+            ) : (
+              <p className="text-small text-muted">{t('noSummary')}</p>
+            )}
+
+            {spec.length > 0 ? (
+              <div className="mt-8 border-t border-rule pt-7">
+                <SpecGrid items={spec} />
+              </div>
+            ) : null}
+          </section>
+        </div>
 
         {book.quotes.length > 0 ? <QuoteCards quotes={book.quotes} t={t} /> : null}
 
@@ -213,28 +249,34 @@ export default async function BookPage({
           <Gallery images={book.images} title={title} t={tValues} />
         ) : null}
 
-        {author ? (
-          <AuthorSection
-            author={author}
-            authorName={authorName ?? author.name_he}
-            otherBooks={connections.sameAuthor}
-            locale={locale}
-            t={tValues}
-          />
-        ) : null}
+        {/* מחבר וסדרה זה לצד זה: שניהם עונים על "מאיפה הספר הזה בא",
+            ובמסך רחב אין סיבה להפוך אותם לשתי גלילות נפרדות. */}
+        {author || (book.series && connections.sameSeries.length > 0) ? (
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            {author ? (
+              <AuthorSection
+                author={author}
+                authorName={authorName ?? author.name_he}
+                otherBooks={connections.sameAuthor}
+                locale={locale}
+                t={tValues}
+              />
+            ) : null}
 
-        {book.series && connections.sameSeries.length > 0 ? (
-          <SeriesTimeline
-            series={book.series}
-            currentBook={book}
-            volumes={connections.sameSeries}
-            locale={locale}
-            t={tValues}
-          />
+            {book.series && connections.sameSeries.length > 0 ? (
+              <SeriesTimeline
+                series={book.series}
+                currentBook={book}
+                volumes={connections.sameSeries}
+                locale={locale}
+                t={tValues}
+              />
+            ) : null}
+          </div>
         ) : null}
 
         {hasConnections ? (
-          <ConnectionsSection connections={connections} authorName={authorName} locale={locale} t={tValues} />
+          <ConnectionsSection connections={connections} authorName={authorName} locale={locale} />
         ) : null}
 
         <KnowledgeMap nodes={knowledgeNodes} />

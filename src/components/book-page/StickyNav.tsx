@@ -123,7 +123,7 @@ export function StickyNav({
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
       }`}
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 pt-1 sm:px-6">
         {cover ? (
           <span className="relative hidden h-10 w-7 shrink-0 overflow-hidden rounded-[var(--radius-xs)] bg-cream-2 sm:block">
             <Image src={cover} alt="" fill sizes="28px" className="object-contain" />
@@ -134,11 +134,11 @@ export function StickyNav({
         </span>
 
         <nav aria-label={title} className="min-w-0 flex-1 overflow-x-auto">
-          <ul ref={listRef} className="relative flex w-max items-center gap-1">
+          <ul ref={listRef} className="relative flex w-max items-end gap-1">
             <span
               ref={markerRef}
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-1 left-0 rounded-[var(--radius-pill)] bg-cream-2 transition-[transform,width] duration-300 ease-[var(--ease-spring)]"
+              className="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-burgundy transition-[transform,width] duration-300 ease-[var(--ease-spring)]"
             />
             {sections.map((section) => (
               <li
@@ -151,8 +151,8 @@ export function StickyNav({
                   type="button"
                   onClick={() => scrollToSection(section.id)}
                   aria-current={active === section.id ? 'true' : undefined}
-                  className={`relative z-10 block whitespace-nowrap rounded-[var(--radius-pill)] px-3.5 py-1.5 text-caption transition-colors ${
-                    active === section.id ? 'font-semibold text-burgundy' : 'text-ink-soft hover:text-burgundy'
+                  className={`relative z-10 block whitespace-nowrap px-4 pb-3 pt-2.5 text-small transition-colors ${
+                    active === section.id ? 'font-semibold text-burgundy' : 'text-muted hover:text-ink'
                   }`}
                 >
                   {section.label}
