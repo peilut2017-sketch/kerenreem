@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 
 /**
  * כריכת ספר — האלמנט הוויזואלי המרכזי באתר.

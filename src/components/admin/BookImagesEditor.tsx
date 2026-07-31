@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { uploadToBucket } from './ImageField';
 import { Spinner } from './SubmitButton';
 import { saveBookImages } from '@/lib/admin/actions';

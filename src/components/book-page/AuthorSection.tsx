@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '@/components/BookCover';
 import { RichText } from '@/components/RichText';

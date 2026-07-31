@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Ornament } from '../Ornament';

@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { SectionHeading } from '@/components/SectionHeading';
 import type { BookImage } from '@/lib/supabase/types';
 

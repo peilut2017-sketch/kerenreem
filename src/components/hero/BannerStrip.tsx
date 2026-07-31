@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { useCallback, useId, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import type { Banner } from '@/lib/supabase/types';

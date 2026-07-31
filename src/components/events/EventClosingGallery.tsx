@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { LightboxTrigger } from './EventLightbox';
 import type { LightboxImage } from './EventLightbox';
 

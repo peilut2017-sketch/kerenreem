@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { VideoEmbed, getYouTubeThumbnail } from '../VideoEmbed';
 import { ScrollFocus } from './ScrollFocus';
 import { LightboxTrigger } from './EventLightbox';

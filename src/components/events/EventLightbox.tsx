@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 
 export interface LightboxImage {
   url: string;

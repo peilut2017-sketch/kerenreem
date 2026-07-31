@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { isProjectStorageUrl } from '@/lib/image-src';
 
 export type StorageBucket = 'covers' | 'events' | 'portraits' | 'samples' | 'site';
 
@@ -61,6 +62,13 @@ export function ImageField({
   const [url, setUrl] = useState(defaultValue ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * כתובת חיצונית תישמר, אבל לא תוצג באתר: מדיניות ה-CSP מתירה תמונות
+   * מאחסון הפרויקט בלבד. עדיף לומר את זה כאן, בזמן ההזנה, מאשר להשאיר
+   * את העורך לגלות ריבוע ריק בעמוד החי — הוא לא יידע למה.
+   */
+  const foreignUrl = url.trim() !== '' && !isProjectStorageUrl(url.trim());
 
   async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -142,6 +150,13 @@ export function ImageField({
       ) : hint ? (
         <span id={`${id}-hint`} className="field-hint">
           {hint}
+        </span>
+      ) : null}
+
+      {foreignUrl ? (
+        <span role="status" className="field-error">
+          הכתובת אינה מאחסון האתר, ולכן התמונה לא תוצג בעמוד הציבורי. יש להעלות
+          את הקובץ בכפתור ההעלאה שלמעלה.
         </span>
       ) : null}
     </div>

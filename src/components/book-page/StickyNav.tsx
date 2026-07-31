@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { useTranslations } from 'next-intl';
 
 interface NavSection {

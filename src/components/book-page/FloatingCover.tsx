@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import Image from 'next/image';
+import { Img as Image } from '@/components/Img';
 import { useReducedMotion } from '@/lib/client-hooks';
 
 /**
