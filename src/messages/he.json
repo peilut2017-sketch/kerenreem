@@ -209,7 +209,9 @@
     "flipPageAlt": "עמוד {page} מתוך {title}",
     "flipEnlarge": "קריאה מוגדלת",
     "flipOpenPdf": "פתיחת ה-PDF",
-    "flipPageRange": "עמודים {from}–{to} מתוך {total}"
+    "flipPageRange": "עמודים {from}–{to} מתוך {total}",
+    "authorBioExpand": "עוד על המחבר",
+    "authorBioCollapse": "הצגה מקוצרת"
   },
   "authors": {
     "title": "מחברים ודמויות",
@@ -218,7 +220,8 @@
     "bookCount": "{count, plural, =0 {אין ספרים בקטלוג} one {ספר אחד בקטלוג} two {שני ספרים בקטלוג} other {# ספרים בקטלוג}}",
     "booksHeading": "בקטלוג",
     "empty": "טרם נוספו מחברים.",
-    "portraitAlt": "דיוקן {name}"
+    "portraitAlt": "דיוקן {name}",
+    "timelineHeading": "קורות חיים"
   },
   "activities": {
     "title": "פעילות המכון",
