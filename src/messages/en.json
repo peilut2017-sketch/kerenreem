@@ -209,7 +209,9 @@
     "flipPageAlt": "Page {page} of {title}",
     "flipEnlarge": "Enlarged reading",
     "flipOpenPdf": "Open the PDF",
-    "flipPageRange": "Pages {from}–{to} of {total}"
+    "flipPageRange": "Pages {from}–{to} of {total}",
+    "authorBioExpand": "More about the author",
+    "authorBioCollapse": "Show less"
   },
   "authors": {
     "title": "Authors and figures",
@@ -218,7 +220,8 @@
     "bookCount": "{count, plural, =0 {No books in the catalogue} one {One book in the catalogue} other {# books in the catalogue}}",
     "booksHeading": "In the catalogue",
     "empty": "No authors have been added yet.",
-    "portraitAlt": "Portrait of {name}"
+    "portraitAlt": "Portrait of {name}",
+    "timelineHeading": "Life events"
   },
   "activities": {
     "title": "Activities",
