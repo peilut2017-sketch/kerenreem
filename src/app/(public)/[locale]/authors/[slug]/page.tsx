@@ -91,6 +91,29 @@ export default async function AuthorPage({
         <div className="mt-10">
           <RichText html={localized(author, 'bio', locale)} />
         </div>
+
+        {/* ציר תולדות החיים ישב קודם בעמוד הספר. הוא הועבר לכאן: זהו
+            מידע על המחבר ולא על הספר, ובעמוד הספר הוא דחק את שאר ספריו
+            של המחבר מטה. */}
+        {author.timeline.length > 0 ? (
+          <section className="mt-14" aria-labelledby="author-timeline">
+            <h2 id="author-timeline" className="eyebrow mb-5">
+              {t('timelineHeading')}
+            </h2>
+            <ol className="flex gap-6 overflow-x-auto pb-1">
+              {author.timeline.map((entry, index) => (
+                <li key={index} className="relative min-w-32 shrink-0 border-t border-rule pt-3.5">
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-[3px] start-0 h-[5px] w-[5px] rounded-full bg-gold-deep"
+                  />
+                  <div className="text-caption text-gold-deep">{entry.year}</div>
+                  <div className="mt-1 text-small leading-snug text-ink-soft">{entry.text}</div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
       </article>
 
       {books.length > 0 ? (

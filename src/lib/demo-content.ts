@@ -44,7 +44,20 @@ const authors: Author[] = [
   },
   {
     id: 'a2', catalogue_number: 2, slug: 'avraham-kook', name_he: 'הרב אברהם קוק', name_en: null,
-    bio_he: '<p>מכתביו ההדיר המכון כמה מהדורות.</p>', bio_en: null,
+    // ביוגרפיה בת כמה פסקאות בכוונה: היא מה שמפעיל את הקיצור וההרחבה
+    // באזור המחבר שבעמוד הספר (ראו AuthorBio), ובלעדיה אי אפשר לבדוק אותו.
+    bio_he:
+      '<p>מגדולי הפוסקים והוגי הדעות של הדורות האחרונים. נולד בגריבה שבלטביה, ' +
+      'למד בישיבת וולוז׳ין, וכיהן ברבנות בכמה קהילות באירופה טרם עלייתו לארץ.</p>' +
+      '<p>בשנת תרנ״ד עלה לארץ ישראל וכיהן כרבה של יפו והמושבות. בתקופה זו החל ' +
+      'לגבש את משנתו הרחבה, שעסקה ביחס שבין תורה לחיי המעשה, ובמקומה של ' +
+      'ההלכה בחיי ציבור מתחדשים.</p>' +
+      '<p>בשנת תרפ״א נתמנה לרב הראשי האשכנזי הראשון לארץ ישראל. בשנים אלו ' +
+      'הרבה לכתוב תשובות בהלכה, וכן חיבורים בענייני אמונה ומחשבה, שרבים מהם ' +
+      'ראו אור רק לאחר פטירתו.</p>' +
+      '<p>מכתביו ההדיר המכון כמה מהדורות, ובהן מהדורות מוערות שיצאו בשנים ' +
+      'האחרונות בליווי מפתחות וביאורים.</p>',
+    bio_en: null,
     portrait_url: null, birth_year: 'תרכ״ה', death_year: 'תרצ״ה',
     timeline: [
       { year: 'תרכ״ה', text: 'נולד בגריבה, לטביה' },
@@ -83,6 +96,10 @@ function book(
     canonical_url: null, search_keywords: null,
     is_published: true, sort_order: 0,
     series_id: null, series_position: null, quotes: [], view_count: 0,
+    publisher_he: null, publisher_en: null, edition_he: null, edition_en: null,
+    accent_primary: null, accent_secondary: null,
+    is_featured: false, preorder_enabled: false, preorder_release_date: null,
+    hero_mockup_url: null,
     ...base,
     author: { id: author.id, slug: author.slug, name_he: author.name_he, name_en: author.name_en },
     category: { id: category.id, slug: category.slug, name_he: category.name_he, name_en: category.name_en },
@@ -135,6 +152,17 @@ books[2] = {
     { id: 't5', book_id: books[2].id, title_he: 'נספחים', level: 0, page_number: 88, summary_he: null, sort_order: 4 },
   ],
   view_count: 214,
+  // דפי דוגמה מומרים — בדמו הם SVG סטטיים, במסד הם WebP שהופקו בניהול.
+  // קיימים כאן כדי שאפשר יהיה לבדוק את הדפדוף (וכיוון ה-RTL שלו) בלי מסד.
+  previewPages: [1, 2, 3, 4, 5, 6].map((pageNumber) => ({
+    id: `pp${pageNumber}`,
+    book_id: books[2].id,
+    page_number: pageNumber,
+    image_url: `/demo/page-${pageNumber}.svg`,
+    width: 700,
+    height: 900,
+    created_at: base.created_at,
+  })),
 };
 books[4] = { ...books[4], series_id: demoSeries.id, series_position: 2, series: demoSeries, view_count: 96 };
 
@@ -326,6 +354,7 @@ export const demo = {
   connections: (book: BookWithRelations) => {
     const tagIds = new Set((book.tags ?? []).map((tag) => tag.id));
     return {
+      manual: [],
       sameAuthor: books.filter((b) => b.id !== book.id && b.author_id === book.author_id),
       sameSeries: books.filter((b) => b.id !== book.id && book.series_id && b.series_id === book.series_id),
       sameCategory: books.filter((b) => b.id !== book.id && b.category_id === book.category_id),

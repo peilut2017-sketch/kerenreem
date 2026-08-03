@@ -1,13 +1,17 @@
 import { Img as Image } from '@/components/Img';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '@/components/BookCover';
-import { RichText } from '@/components/RichText';
 import { localized } from '@/lib/localized';
+import { AuthorBio } from './AuthorBio';
 import type { Author, BookWithRelations } from '@/lib/supabase/types';
 
 /**
- * אזור המחבר החי — לא כרטיס קטן בצד. תמונה, ביוגרפיה, שנות חיים אם
- * ידועות, וכל ספריו האחרים בקטלוג בקרוסלה אחת.
+ * אזור המחבר בעמוד הספר — היכרות, לא ביוגרפיה מלאה.
+ *
+ * מה שנשאר כאן: דיוקן, שם, שנות חיים, פתיח קצר מהביוגרפיה (עם הרחבה
+ * ל"עוד קצת"), וכל ספריו האחרים בקטלוג. מה שעבר לעמוד המחבר: הביוגרפיה
+ * המלאה וציר תולדות החיים. הנימוק פשוט — מי שנמצא בעמוד הספר מחפש את
+ * הספר, וביוגרפיה ארוכה דחקה את ספרי המחבר האחרים אל מתחת לקפל.
  */
 export function AuthorSection({
   author,
@@ -46,29 +50,13 @@ export function AuthorSection({
           {authorName}
         </h2>
         {years ? <p className="mt-1 text-caption text-muted">{years}</p> : null}
-        {author.bio_he ? (
-          <div className="mt-4 max-w-prose">
-            <RichText html={author.bio_he} />
-          </div>
-        ) : null}
+        {author.bio_he ? <AuthorBio html={author.bio_he} /> : null}
 
         <p className="mt-4">
-          <Link href={`/authors/${author.slug}`} className="link text-small">
+          <Link href={`/authors/${author.slug}`} className="link-more">
             {t('authorPageLink')}
           </Link>
         </p>
-
-        {author.timeline.length > 0 ? (
-          <ol className="mt-8 flex gap-6 overflow-x-auto pb-1">
-            {author.timeline.map((entry, index) => (
-              <li key={index} className="relative min-w-32 shrink-0 border-t border-rule pt-3.5">
-                <span aria-hidden="true" className="absolute -top-[3px] start-0 h-[5px] w-[5px] rounded-full bg-gold-deep" />
-                <div className="text-caption text-gold-deep">{entry.year}</div>
-                <div className="mt-1 text-small leading-snug text-ink-soft">{entry.text}</div>
-              </li>
-            ))}
-          </ol>
-        ) : null}
 
         {otherBooks.length > 0 ? (
           <div className="mt-8">

@@ -1,18 +1,20 @@
 import { loadEditBookFormData } from '@/lib/admin/book-form-data';
-import { getBookImages, getBookToc } from '@/lib/admin/queries';
+import { getBookImages, getBookPreviewPages, getBookToc } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { BookForm } from '@/components/admin/BookForm';
 import { BookImagesEditor } from '@/components/admin/BookImagesEditor';
+import { BookPreviewGenerator } from '@/components/admin/books/BookPreviewGenerator';
 import { BookTocEditor } from '@/components/admin/BookTocEditor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditBookPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [data, images, toc] = await Promise.all([
+  const [data, images, toc, previewPages] = await Promise.all([
     loadEditBookFormData(id),
     getBookImages(id),
     getBookToc(id),
+    getBookPreviewPages(id),
   ]);
 
   return (
@@ -36,6 +38,15 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
       <div className="mt-10 border-t border-rule pt-8">
         <h2 className="eyebrow mb-4">תוכן עניינים</h2>
         <BookTocEditor bookId={id} entries={toc} />
+      </div>
+
+      <div className="mt-10 border-t border-rule pt-8">
+        <h2 className="eyebrow mb-4">דפי דוגמה לדפדוף</h2>
+        <BookPreviewGenerator
+          bookId={id}
+          pdfUrl={data.book!.sample_pdf_url}
+          existingPages={previewPages}
+        />
       </div>
     </>
   );

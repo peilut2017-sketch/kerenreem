@@ -90,8 +90,68 @@ export interface Book {
   /** ספירה גסה, לא ייחודית למבקר — ראו 10_book_page_stage_c.sql */
   view_count: number;
   /* -------------------------------- */
+  /* --- שלב ד׳: מרחב הגילוי (14_book_page_v3.sql) --- */
+  publisher_he: string | null;
+  publisher_en: string | null;
+  edition_he: string | null;
+  edition_en: string | null;
+  /** גוון "#rrggbb", override ידני לרקע ה-Hero. null = חילוץ אוטומטי מהכריכה. */
+  accent_primary: string | null;
+  accent_secondary: string | null;
+  is_featured: boolean;
+  preorder_enabled: boolean;
+  preorder_release_date: string | null;
+  /* ------------------------------------------------ */
+  /** הדמיית כריכה שקופה ל-Hero (שדרה/עובי/תאורה מוכנים) — 15_book_flip_preview.sql. */
+  hero_mockup_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** דף דוגמה שעבר המרה חד-פעמית ל-WebP — ראו book_preview_pages. */
+export interface BookPreviewPage {
+  id: string;
+  book_id: string;
+  page_number: number;
+  image_url: string;
+  width: number;
+  height: number;
+  created_at: string;
+}
+
+/** מצב הזמינות הציבורי — לעולם לא כמות מספרית. */
+export type BookAvailability = 'catalog_only' | 'in_stock' | 'out_of_stock' | 'preorder';
+
+/** צורת ספר קלה, לכרטיס בקבוצת גילוי (קשרים, סדרה) — לא BookWithRelations המלא. */
+export interface RelatedBookCard {
+  id: string;
+  slug: string;
+  title_he: string;
+  title_en: string | null;
+  cover_image_url: string | null;
+  price: number | null;
+  currency: string | null;
+  is_purchasable: boolean;
+  stock_quantity: number | null;
+  author: Pick<Author, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
+}
+
+export type BookRelationType =
+  | 'complements'
+  | 'recommended'
+  | 'previous_edition'
+  | 'next_edition'
+  | 'staff_pick'
+  | 'bundle';
+
+/** קשר ידני שנקבע בניהול — ראו book_relations, 14_book_page_v3.sql. */
+export interface BookRelation {
+  id: string;
+  relation_type: BookRelationType;
+  sort_order: number;
+  note_he: string | null;
+  note_en: string | null;
+  target: RelatedBookCard;
 }
 
 /** תגית נושא. עצמאית מקטגוריה: קטגוריה היא מדף, תגית היא נושא. */
@@ -179,6 +239,10 @@ export interface BookWithRelations extends Book {
   series?: Pick<Series, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
   images?: BookImage[];
   toc?: BookTocEntry[];
+  /** קשרים ידניים שהצוות קבע — נשלפים רק בעמוד הספר הבודד. */
+  relations?: BookRelation[];
+  /** דפי דוגמה שעברו המרה — נשלפים רק בעמוד הספר הבודד, ממוינים לפי page_number. */
+  previewPages?: BookPreviewPage[];
 }
 
 export interface Activity {

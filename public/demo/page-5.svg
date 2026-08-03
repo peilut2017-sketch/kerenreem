@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 900" width="700" height="900">
+  <rect width="700" height="900" fill="#fdfbf6"/>
+  <rect x="40" y="40" width="620" height="820" fill="none" stroke="#e0d8c6" stroke-width="2"/>
+  <text x="350" y="150" font-family="serif" font-size="40" fill="#14120e" text-anchor="middle">משכן אבנה</text>
+  <text x="350" y="480" font-family="serif" font-size="220" fill="#c8a868" text-anchor="middle">5</text>
+  <text x="350" y="620" font-family="serif" font-size="30" fill="#6b6455" text-anchor="middle">עמוד 5</text>
+  <text x="350" y="820" font-family="serif" font-size="22" fill="#6b6455" text-anchor="middle">מכון קרן רא״ם</text>
+</svg>

@@ -10,6 +10,7 @@ import type {
   Banner,
   Author,
   Book,
+  BookRelation,
   BookWithRelations,
   Category,
   ContentPage,
@@ -95,6 +96,35 @@ const BOOK_DETAIL_SELECT = `
   toc:book_toc ( id, book_id, title_he, level, page_number, summary_he, sort_order )
 `;
 
+/**
+ * שכבה נוספת מעל BOOK_DETAIL_SELECT: קשרים ידניים בין ספרים
+ * (book_relations, 14_book_page_v3.sql). שכבה נפרדת ולא מוצמדת ל-select
+ * הקודם — בדיוק אותו נימוק כמו BOOK_DETAIL_SELECT מול BOOK_SELECT: מסד
+ * שטרם הריץ את המיגרציה הזאת עדיין מקבל את שאר עמוד הספר במלואו, ורק
+ * גוש הקשרים הידניים נעדר.
+ */
+const BOOK_DETAIL_SELECT_V3 = `
+  ${BOOK_DETAIL_SELECT},
+  relations:book_relations!book_relations_source_book_id_fkey (
+    id, relation_type, sort_order, note_he, note_en,
+    target:books!book_relations_target_book_id_fkey (
+      id, slug, title_he, title_en, cover_image_url, price, currency, is_purchasable, stock_quantity,
+      author:authors ( id, slug, name_he, name_en )
+    )
+  )
+`;
+
+/**
+ * שכבה נוספת מעל BOOK_DETAIL_SELECT_V3: דפי דוגמה שעברו המרה
+ * (book_preview_pages, 15_book_flip_preview.sql). hero_mockup_url עצמו
+ * אינו זקוק לשכבה נפרדת — הוא עמודה על books ונשלף כבר דרך ה-`*` הקיים
+ * ב-BOOK_BASE_SELECT, בדיוק כמו שאר עמודות הסקאלר שנוספו בשלב ד׳.
+ */
+const BOOK_DETAIL_SELECT_V4 = `
+  ${BOOK_DETAIL_SELECT_V3},
+  previewPages:book_preview_pages ( id, book_id, page_number, image_url, width, height, created_at )
+`;
+
 const MISSING_SCHEMA_CODES = new Set(['42P01', '42703', 'PGRST200']);
 
 /**
@@ -166,6 +196,11 @@ function bySortOrder<T extends { sort_order: number }>(rows: T[] | undefined): T
   return rows ? [...rows].sort((a, b) => a.sort_order - b.sort_order) : undefined;
 }
 
+/** ממיין דפי דוגמה לפי מספר העמוד — אין להם sort_order נפרד, המספר עצמו הוא הסדר. */
+function byPageNumber<T extends { page_number: number }>(rows: T[] | undefined): T[] | undefined {
+  return rows ? [...rows].sort((a, b) => a.page_number - b.page_number) : undefined;
+}
+
 function shapeBook(row: unknown): BookWithRelations {
   const book = row as BookWithRelations & { tags?: unknown; attributeValues?: unknown };
   return {
@@ -174,6 +209,8 @@ function shapeBook(row: unknown): BookWithRelations {
     attributeValues: flatten(book.attributeValues, 'value'),
     images: bySortOrder(book.images),
     toc: bySortOrder(book.toc),
+    relations: bySortOrder(book.relations as BookRelation[] | undefined),
+    previewPages: byPageNumber(book.previewPages),
     // quotes ו-view_count הן עמודות ששלב ג׳ הוסיף (10_book_page_stage_c.sql).
     // אם המיגרציה טרם רצה הן פשוט חסרות בשורה שחוזרת מהמסד — undefined
     // ולא []/0 — וכל קוד שקורא book.quotes.length קורס עם TypeError.
@@ -212,7 +249,7 @@ export async function getBookBySlug(slug: string): Promise<BookWithRelations | n
   const rows = await runBookQuery<BookWithRelations>(
     (select) => supabase.from('books').select(select).eq('slug', slug).eq('is_published', true),
     'getBookBySlug',
-    [BOOK_DETAIL_SELECT, BOOK_SELECT, BOOK_BASE_SELECT],
+    [BOOK_DETAIL_SELECT_V4, BOOK_DETAIL_SELECT_V3, BOOK_DETAIL_SELECT, BOOK_SELECT, BOOK_BASE_SELECT],
   );
   return rows[0] ?? null;
 }
@@ -227,6 +264,8 @@ export async function getBookBySlug(slug: string): Promise<BookWithRelations | n
  * אחת — שתי שאילתות פשוטות בטוחות יותר משאילתה אחת עדינה.
  */
 export interface BookConnections {
+  /** קשרים ידניים שהצוות קבע — עדיפות ראשונה, ראו book_relations. */
+  manual: BookRelation[];
   sameAuthor: BookWithRelations[];
   /** ריק אם הספר אינו שייך לסדרה. ממוין לפי מיקום הכרך. */
   sameSeries: BookWithRelations[];
@@ -235,19 +274,31 @@ export interface BookConnections {
 }
 
 const EMPTY_CONNECTIONS: BookConnections = {
+  manual: [],
   sameAuthor: [],
   sameSeries: [],
   sameCategory: [],
   sameTags: [],
 };
 
+/**
+ * "להמשיך מכאן" נגזר מכמה קבוצות עם עדיפות יורדת: קשר ידני (שהצוות קבע
+ * בעצמו) → סדרה → מחבר → קטגוריה/תגיות. ספר שכבר הופיע בקבוצה גבוהה
+ * יותר לא חוזר בקבוצה נמוכה ממנה — אחרת "להמשיך מכאן" מציג את אותו
+ * ספר פעמיים בשני שבבי סינון שונים, מה שנראה כמו טעות ולא כמו כוונה.
+ *
+ * בכוונה אין כאן "נרכשו יחד" או "נצפו לאחריו": שניהם דורשים נתוני
+ * רכישה/מעקב מבקרים שאין היום — ראו ההסבר המלא ב-10_book_page_stage_c.sql.
+ */
 export async function getBookConnections(book: BookWithRelations, limit = 8): Promise<BookConnections> {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.connections(book) : EMPTY_CONNECTIONS;
 
   const tagIds = (book.tags ?? []).map((tag) => tag.id);
+  const manual = book.relations ?? [];
+  const excluded = new Set<string>([book.id, ...manual.map((relation) => relation.target.id)]);
 
-  const [sameAuthor, sameSeries, sameCategory, sameTags] = await Promise.all([
+  const [sameAuthorRaw, sameSeriesRaw, sameCategoryRaw, sameTagsRaw] = await Promise.all([
     book.author_id
       ? runBookQuery<BookWithRelations>(
           (select) =>
@@ -295,7 +346,20 @@ export async function getBookConnections(book: BookWithRelations, limit = 8): Pr
     tagIds.length > 0 ? getBooksSharingTags(supabase, tagIds, book.id, limit) : Promise.resolve([]),
   ]);
 
-  return { sameAuthor, sameSeries, sameCategory, sameTags };
+  // סדרה קודמת למחבר, ומחבר קודם לקטגוריה/תגיות — כל שלב מסנן את מה
+  // שכבר הופיע בשלב הקודם ומוסיף את עצמו לרשימת המוצא הבאה.
+  const sameSeries = sameSeriesRaw.filter((candidate) => !excluded.has(candidate.id));
+  sameSeries.forEach((candidate) => excluded.add(candidate.id));
+
+  const sameAuthor = sameAuthorRaw.filter((candidate) => !excluded.has(candidate.id));
+  sameAuthor.forEach((candidate) => excluded.add(candidate.id));
+
+  const sameCategory = sameCategoryRaw.filter((candidate) => !excluded.has(candidate.id));
+  sameCategory.forEach((candidate) => excluded.add(candidate.id));
+
+  const sameTags = sameTagsRaw.filter((candidate) => !excluded.has(candidate.id));
+
+  return { manual, sameAuthor, sameSeries, sameCategory, sameTags };
 }
 
 async function getBooksSharingTags(

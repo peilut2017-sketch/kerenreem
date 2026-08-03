@@ -245,6 +245,13 @@ export function BookForm({
                           dir="ltr"
                           defaultValue={book?.subtitle_en}
                         />
+                        <TextField
+                          name="publisher_en"
+                          label="Publisher"
+                          dir="ltr"
+                          defaultValue={book?.publisher_en}
+                        />
+                        <TextField name="edition_en" label="Edition" dir="ltr" defaultValue={book?.edition_en} />
                       </div>
                       <RichTextEditor
                         name="description_en"
@@ -267,12 +274,27 @@ export function BookForm({
                         defaultValue={book?.cover_image_url}
                         hint="עדיף צילום כריכה איכותי על רקע נקי. הכריכות הן האלמנט הוויזואלי המרכזי באתר."
                       />
+                      {/* שתי תמונות שונות ולשני מקומות שונים: שדרה שטוחה
+                          למדף בעמוד הבית, והדמיה מרוכבת ל-Hero של עמוד
+                          הספר. אחת אינה מחליפה את השנייה. */}
                       <ImageField
                         name="spine_image_url"
                         label="שדרה (רשות)"
                         bucket="covers"
                         defaultValue={book?.spine_image_url}
                         hint="צילום צר וגבוה של שדרת הספר, למדף בעמוד הבית. אם לא תועלה, השדרה תיגזר אוטומטית מהכריכה."
+                      />
+                      <ImageField
+                        name="hero_mockup_url"
+                        label="הדמיית כריכה ל-Hero"
+                        bucket="covers"
+                        accept="image/png,image/webp"
+                        defaultValue={book?.hero_mockup_url}
+                        hint={
+                          'מומלץ להעלות PNG או WebP עם רקע שקוף, הכולל כריכה, שדרה ועובי ספר. ' +
+                          'מומלץ 1400×1600 ומעלה, עד 2MB. אם השדה ריק תוצג הכריכה השטוחה. ' +
+                          'אין לייצר את ההדמיה ב-AI — טקסט עברי על הכריכה משתבש.'
+                        }
                       />
                       <ImageField
                         name="sample_pdf_url"
@@ -283,8 +305,32 @@ export function BookForm({
                       />
                     </FieldSet>
 
+                    <FieldSet
+                      legend="אווירה (רשות)"
+                      description="ברירת המחדל היא חילוץ צבע אוטומטי מהכריכה. למילוי רק אם הצבע שנחלץ אינו מתאים — פורמט #rrggbb."
+                    >
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <TextField
+                          name="accent_primary"
+                          label="גוון ראשי"
+                          dir="ltr"
+                          placeholder="#c8a868"
+                          defaultValue={book?.accent_primary}
+                        />
+                        <TextField
+                          name="accent_secondary"
+                          label="גוון משני"
+                          dir="ltr"
+                          placeholder="#0b1520"
+                          defaultValue={book?.accent_secondary}
+                        />
+                      </div>
+                    </FieldSet>
+
                     <FieldSet legend="מפרט המהדורה">
                       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <TextField name="publisher_he" label="הוצאה לאור" defaultValue={book?.publisher_he} />
+                        <TextField name="edition_he" label="מהדורה" defaultValue={book?.edition_he} />
                         <TextField
                           name="pages"
                           label="מספר עמודים"
@@ -516,6 +562,19 @@ export function BookForm({
                       label="ניתן לרכישה באתר"
                       defaultChecked={book?.is_purchasable ?? false}
                     />
+                    <CheckboxField
+                      name="preorder_enabled"
+                      label="הזמנה מראש (בקרוב)"
+                      defaultChecked={book?.preorder_enabled ?? false}
+                      hint="מציג תג 'בקרוב' ומאפשר הזמנה מראש גם ללא מלאי."
+                    />
+                    <TextField
+                      name="preorder_release_date"
+                      label="תאריך יציאה משוער"
+                      type="date"
+                      dir="ltr"
+                      defaultValue={book?.preorder_release_date ?? undefined}
+                    />
                   </FieldSet>
                 ),
               },
@@ -530,6 +589,12 @@ export function BookForm({
                       label="מפורסם באתר"
                       defaultChecked={book?.is_published ?? false}
                       hint="ספר שאינו מפורסם נראה בממשק הניהול בלבד."
+                    />
+                    <CheckboxField
+                      name="is_featured"
+                      label="בחירת המכון"
+                      defaultChecked={book?.is_featured ?? false}
+                      hint="מציג תג 'בחירת המכון' בעמוד הספר."
                     />
                   </FieldSet>
                 ),

@@ -3,13 +3,16 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/Container';
 import { AuthorSection } from '@/components/book-page/AuthorSection';
+import { BookBreadcrumbs } from '@/components/book-page/BookBreadcrumbs';
+import { BookFinalCta } from '@/components/book-page/BookFinalCta';
 import { BookHero } from '@/components/book-page/BookHero';
 import { BookHeroActions } from '@/components/book-page/BookHeroActions';
 import { ConnectionsSection } from '@/components/book-page/ConnectionsSection';
 import { FloatingActions } from '@/components/book-page/FloatingActions';
 import { Gallery } from '@/components/book-page/Gallery';
 import { KnowledgeMap, type KnowledgeMapNode } from '@/components/book-page/KnowledgeMap';
-import { PdfFlipbook } from '@/components/book-page/PdfFlipbook';
+import { BookFlipViewer } from '@/components/book-page/BookFlipViewer';
+import { BookSampleViewer } from '@/components/book-page/BookSampleViewer';
 import { QuoteCards } from '@/components/book-page/QuoteCards';
 import { SeriesTimeline } from '@/components/book-page/SeriesTimeline';
 import { SpecGrid, type SpecItem } from '@/components/book-page/SpecGrid';
@@ -19,6 +22,7 @@ import { TableOfContents } from '@/components/book-page/TableOfContents';
 import { ViewTracker } from '@/components/book-page/ViewTracker';
 import { getAuthorBySlug, getBookBySlug, getBookConnections, getBookSlugs, getSiteSettings } from '@/lib/data';
 import { getCoverPalette } from '@/lib/cover-colors';
+import { getBookAvailability } from '@/lib/books/availability';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
@@ -56,15 +60,36 @@ export async function generateMetadata({
   const subtitle = localizedOrNull(book, 'subtitle', locale);
   const description =
     htmlToPlainText(localized(book, 'description', locale), 160) || subtitle || title;
+  const ogImage = book.og_image_url ?? book.cover_image_url;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const localePrefix = locale === routing.defaultLocale ? '' : `/${locale}`;
+  const canonicalUrl = book.canonical_url ?? `${siteUrl}${localePrefix}/books/${book.slug}`;
 
   return {
     title,
     description,
+    alternates: {
+      canonical: canonicalUrl,
+      languages: Object.fromEntries(
+        routing.locales.map((loc) => [
+          loc,
+          `${siteUrl}${loc === routing.defaultLocale ? '' : `/${loc}`}/books/${book.slug}`,
+        ]),
+      ),
+    },
     openGraph: {
       title,
       description,
       type: 'book',
-      images: book.cover_image_url ? [{ url: book.cover_image_url, alt: title }] : undefined,
+      url: canonicalUrl,
+      images: ogImage ? [{ url: ogImage, alt: title }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
     },
   };
 }
@@ -83,12 +108,26 @@ export default async function BookPage({
   const t = await getTranslations('books');
   const tValues = (key: string, values?: Record<string, string | number | Date>) => t(key, values);
 
-  const [connections, settings, author, palette] = await Promise.all([
+  const [connections, settings, author, extractedPalette] = await Promise.all([
     getBookConnections(book),
     getSiteSettings(),
     book.author ? getAuthorBySlug(book.author.slug) : Promise.resolve(null),
-    getCoverPalette(book.cover_image_url),
+    // אין טעם לחלץ צבע מהכריכה כשכבר הוגדרו גוונים ידנית בניהול —
+    // חיסכון בעבודת sharp/k-means שהתוצאה שלה ממילא לא תוצג.
+    book.accent_primary ? Promise.resolve(null) : getCoverPalette(book.cover_image_url),
   ]);
+
+  // גוונים ידניים (accent_primary/secondary, סעיף 6 במפרט) גוברים על
+  // החילוץ האוטומטי מהכריכה; החילוץ נשאר ברירת המחדל כשלא הוגדרו.
+  const palette = book.accent_primary
+    ? {
+        colors: [
+          book.accent_primary,
+          book.accent_secondary ?? book.accent_primary,
+          book.accent_secondary ?? book.accent_primary,
+        ] as [string, string, string],
+      }
+    : extractedPalette!;
 
   const title = localized(book, 'title', locale);
   const subtitle = localizedOrNull(book, 'subtitle', locale);
@@ -107,7 +146,18 @@ export default async function BookPage({
     fr: t('langFr'), ru: t('langRu'), es: t('langEs'),
   };
 
+  const publisher = localizedOrNull(book, 'publisher', locale);
+  const edition = localizedOrNull(book, 'edition', locale);
+
+  // דפי דוגמה שהומרו מראש בניהול. כשהם קיימים הם *מחליפים* את קורא
+  // ה-PDF החי: אין טעם להציג את אותה דוגמה פעמיים, ובוודאי לא לטעון
+  // pdf.js אצל המבקר כשיש כבר WebP מוכן.
+  const previewPages = book.previewPages ?? [];
+  const showInlineSample = previewPages.length === 0 && Boolean(book.sample_pdf_url);
+
   const spec: SpecItem[] = [
+    publisher ? { icon: 'publisher', label: t('publisher'), value: publisher } : null,
+    edition ? { icon: 'edition', label: t('edition'), value: edition } : null,
     book.pages ? { icon: 'pages', label: t('pages'), value: String(book.pages) } : null,
     book.volume_count && book.volume_count > 1
       ? { icon: 'binding', label: t('volumes'), value: String(book.volume_count) }
@@ -129,22 +179,19 @@ export default async function BookPage({
     book.sku ? { icon: 'isbn', label: t('sku'), value: book.sku } : null,
   ].filter((item): item is SpecItem => item !== null);
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Book',
-    name: title,
-    ...(authorName ? { author: { '@type': 'Person', name: authorName } } : {}),
-    ...(book.isbn ? { isbn: book.isbn } : {}),
-    ...(book.sku ? { sku: book.sku } : {}),
-    ...(book.pages ? { numberOfPages: book.pages } : {}),
-    ...(book.publication_year_ce ? { datePublished: String(book.publication_year_ce) } : {}),
-    ...(book.cover_image_url ? { image: book.cover_image_url } : {}),
-    inLanguage: 'he',
-    publisher: { '@type': 'Organization', name: 'מכון קרן רא״ם' },
-  };
+  // כתובת מוחלטת: נדרשת ל-canonical, ל-BreadcrumbList ולזמינות ה-Offer,
+  // ולא רק לתצוגה — לכן מחושבת פעם אחת כאן ולא מושארת יחסית.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const localePrefix = locale === routing.defaultLocale ? '' : `/${locale}`;
+  const canonicalUrl = `${siteUrl}${localePrefix}/books/${book.slug}`;
+  const categoryHref = book.category ? `/books?category=${book.category.slug}` : null;
 
   const hasConnections =
-    connections.sameAuthor.length > 0 || connections.sameCategory.length > 0 || connections.sameTags.length > 0;
+    connections.manual.length > 0 ||
+    connections.sameSeries.length > 0 ||
+    connections.sameAuthor.length > 0 ||
+    connections.sameCategory.length > 0 ||
+    connections.sameTags.length > 0;
 
   const knowledgeNodes: KnowledgeMapNode[] = [
     { id: 'book-connections', label: t('knowledgeMapAuthor'), count: connections.sameAuthor.length },
@@ -156,6 +203,7 @@ export default async function BookPage({
   const sections = [
     { id: 'book-hero', label: t('navOverview') },
     description ? { id: 'book-summary', label: t('navSummary') } : null,
+    previewPages.length > 0 || showInlineSample ? { id: 'book-sample', label: t('readSample') } : null,
     book.toc && book.toc.length > 0 ? { id: 'book-toc', label: t('navToc') } : null,
     book.images && book.images.length > 0 ? { id: 'book-gallery', label: t('navGallery') } : null,
     author ? { id: 'book-author', label: t('navAuthor') } : null,
@@ -163,7 +211,8 @@ export default async function BookPage({
     hasConnections ? { id: 'book-connections', label: t('navConnections') } : null,
   ].filter((section): section is { id: string; label: string } => section !== null);
 
-  const showBuy = settings.store_enabled && book.is_purchasable && book.price != null;
+  const availability = getBookAvailability(book, settings.store_enabled);
+  const showBuy = availability !== 'catalog_only';
   const formattedPrice = showBuy
     ? new Intl.NumberFormat(locale === 'en' ? 'en-IL' : 'he-IL', {
         style: 'currency',
@@ -171,6 +220,85 @@ export default async function BookPage({
         maximumFractionDigits: 2,
       }).format(book.price!)
     : null;
+  const formattedPreorderDate =
+    availability === 'preorder' && book.preorder_release_date
+      ? new Intl.DateTimeFormat(locale === 'en' ? 'en' : 'he', { dateStyle: 'long' }).format(
+          new Date(book.preorder_release_date),
+        )
+      : null;
+
+  // עד שני תגים (סעיף 8): "בקרוב" קודם ל"בחירת המכון", ושניהם קודמים
+  // לתג המהדורה (categoryName + שנה) שממשיך להיות מוצג ב-BookHero כברירת
+  // מחדל כשאין תג סטטוס.
+  const badges = [
+    availability === 'preorder' ? t('statusPreorder') : null,
+    book.is_featured ? t('badgeFeatured') : null,
+  ].filter((badge): badge is string => badge !== null);
+
+  const nav = await getTranslations('nav');
+  const organizationLd = { '@type': 'Organization', name: 'מכון קרן רא״ם', url: siteUrl };
+
+  const breadcrumbItems = [
+    { name: nav('home'), url: siteUrl + localePrefix },
+    { name: nav('books'), url: `${siteUrl}${localePrefix}/books` },
+    ...(categoryName && categoryHref ? [{ name: categoryName, url: `${siteUrl}${localePrefix}${categoryHref}` }] : []),
+    { name: title, url: canonicalUrl },
+  ];
+
+  // Product/Offer רק כשהחנות פעילה והספר ניתן לרכישה בפועל: סימון מחיר
+  // וזמינות על ספר שלא ניתן לקנות הוא בדיוק ההבדל שגוגל מציינת בין
+  // Product Snippet רגיל לבין Merchant Listing (סעיף 32 במפרט).
+  const productLd = showBuy
+    ? {
+        '@type': 'Product',
+        name: title,
+        ...(book.cover_image_url ? { image: book.cover_image_url } : {}),
+        ...(book.sku ? { sku: book.sku } : {}),
+        offers: {
+          '@type': 'Offer',
+          url: canonicalUrl,
+          priceCurrency: book.currency ?? 'ILS',
+          price: book.price,
+          availability:
+            availability === 'preorder'
+              ? 'https://schema.org/PreOrder'
+              : availability === 'in_stock'
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+        },
+      }
+    : null;
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      organizationLd,
+      {
+        '@type': 'Book',
+        '@id': `${canonicalUrl}#book`,
+        name: title,
+        url: canonicalUrl,
+        ...(authorName ? { author: { '@type': 'Person', name: authorName } } : {}),
+        ...(book.isbn ? { isbn: book.isbn } : {}),
+        ...(book.sku ? { sku: book.sku } : {}),
+        ...(book.pages ? { numberOfPages: book.pages } : {}),
+        ...(book.publication_year_ce ? { datePublished: String(book.publication_year_ce) } : {}),
+        ...(book.cover_image_url ? { image: book.cover_image_url } : {}),
+        inLanguage: 'he',
+        publisher: organizationLd,
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: breadcrumbItems.map((item, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: item.name,
+          item: item.url,
+        })),
+      },
+      ...(productLd ? [productLd] : []),
+    ],
+  };
 
   return (
     <>
@@ -181,6 +309,8 @@ export default async function BookPage({
 
       <ViewTracker slug={book.slug} />
 
+      <BookBreadcrumbs categoryName={categoryName} categoryHref={categoryHref} title={title} />
+
       <BookHero
         book={book}
         palette={palette}
@@ -189,12 +319,14 @@ export default async function BookPage({
         authorName={authorName}
         categoryName={categoryName}
         year={year}
+        badges={badges}
         actions={
           <BookHeroActions
             bookId={book.id}
             title={title}
             price={formattedPrice}
-            inStock={(book.stock_quantity ?? 0) > 0}
+            availability={availability}
+            preorderDate={formattedPreorderDate}
           />
         }
         t={tValues}
@@ -202,28 +334,31 @@ export default async function BookPage({
 
       <StickyNav sections={sections} cover={book.cover_image_url} title={title} price={formattedPrice} />
 
-      <Container className="space-y-20 py-16">
-        {/* התקציר והדפדוף זה לצד זה: שניהם עונים על "מה יש בספר הזה",
-            ומי שמעדיף לראות דף אמיתי על פני תיאור לא צריך לגלול בשבילו.
+      <Container className="space-y-[var(--space-section)] py-16 lg:py-24">
+        {/* התקציר והדפדוף זה לצד זה, ביחס א-סימטרי (5/7, סעיף 14 במפרט)
+            ולא שתי עמודות שוות — שניהם עונים על "מה יש בספר הזה", ומי
+            שמעדיף לראות דף אמיתי על פני תיאור לא צריך לגלול בשבילו.
             בלי דפדוף אין שתי עמודות בכלל — כרטיס יחיד בחצי רוחב היה
             משאיר חצי מסך ריק לצדו. */}
-        <div className={`grid grid-cols-1 items-start gap-6 ${book.sample_pdf_url ? 'lg:grid-cols-2' : ''}`}>
-          {book.sample_pdf_url ? (
+        <div
+          className={`grid grid-cols-1 items-start gap-6 ${showInlineSample ? 'lg:grid-cols-[5fr_7fr]' : ''}`}
+        >
+          {showInlineSample ? (
             <section
               aria-labelledby="book-sample"
-              className="rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-7 shadow-[var(--shadow-soft)]"
+              className="rounded-[var(--radius-lg)] border border-rule bg-cream px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
             >
               <h2 id="book-sample" className="mb-4 font-serif text-h3 text-ink">
                 {t('readSample')}
               </h2>
-              <PdfFlipbook pdfUrl={book.sample_pdf_url} title={title} />
+              <BookSampleViewer pdfUrl={book.sample_pdf_url!} title={title} locale={locale} />
             </section>
           ) : null}
 
           <section
             id="book-summary"
             aria-labelledby="book-summary-heading"
-            className="rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-7 shadow-[var(--shadow-soft)] sm:px-8"
+            className="rounded-[var(--radius-lg)] border border-rule bg-cream px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
           >
             <h2 id="book-summary-heading" className="mb-4 font-serif text-h3 text-ink">
               {t('navSummary')}
@@ -241,6 +376,28 @@ export default async function BookPage({
             ) : null}
           </section>
         </div>
+
+        {/* הדפדוף המוחשי מקבל רוחב מלא ולא חצי עמודה: זו פתיחה של ספר,
+            spread של שני עמודים, ולא כרטיס מידע. מוצג רק כשיש דפים
+            שהומרו מראש בניהול — בלי דפים אין כאן אזור בכלל, וה-PDF
+            מוצג במקומו ככרטיס לצד התקציר (ראו showInlineSample). */}
+        {previewPages.length > 0 ? (
+          <section id="book-sample" aria-labelledby="book-sample-heading">
+            <h2 id="book-sample-heading" className="mb-6 font-serif text-h2 text-ink">
+              {t('readSample')}
+            </h2>
+            <BookFlipViewer
+              pages={previewPages.map((page) => ({
+                id: page.id,
+                imageUrl: page.image_url,
+                pageNumber: page.page_number,
+              }))}
+              title={title}
+              pdfUrl={book.sample_pdf_url}
+              locale={locale}
+            />
+          </section>
+        ) : null}
 
         {book.quotes.length > 0 ? <QuoteCards quotes={book.quotes} t={t} /> : null}
 
@@ -281,9 +438,18 @@ export default async function BookPage({
         ) : null}
 
         <KnowledgeMap nodes={knowledgeNodes} title={title} />
+
+        <BookFinalCta
+          bookId={book.id}
+          title={title}
+          cover={book.cover_image_url}
+          price={formattedPrice}
+          showBuy={showBuy}
+          availability={availability}
+        />
       </Container>
 
-      <FloatingActions bookId={book.id} title={title} showBuy={showBuy} />
+      <FloatingActions bookId={book.id} title={title} price={formattedPrice} showBuy={showBuy} />
     </>
   );
 }
