@@ -197,7 +197,7 @@ function BookOnShelf({
               src={book.coverUrl}
               alt={book.coverAlt}
               fill
-              sizes="152px"
+              sizes="176px"
               className="object-cover"
             />
           ) : (
@@ -205,13 +205,17 @@ function BookOnShelf({
               {book.title}
             </span>
           )}
-        </span>
 
-        {/* ברק אלכסוני עדין — נותן לנייר תחושת חומר ולא מלבן שטוח */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,color-mix(in_srgb,#fff_22%,transparent)_50%,transparent_62%)]"
-        />
+          {/* ברק אלכסוני — על החזית בלבד.
+              קודם הוא ישב מעל שתי הפאות, וזו הייתה טעות: על שדרה ברוחב
+              44px פס האור תופס חלק ניכר מהרוחב, וכל השדרה נראתה מטושטשת
+              ושטופה במקום מבריקה. על החזית הרחבה אותו פס נקרא כברק על
+              נייר, וזו הכוונה המקורית. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,color-mix(in_srgb,#fff_22%,transparent)_50%,transparent_62%)]"
+          />
+        </span>
       </Link>
     </li>
   );
@@ -225,7 +229,7 @@ function BookOnShelf({
  */
 function Spine({ book }: { book: ShelfBook }) {
   if (book.spineUrl) {
-    return <Image src={book.spineUrl} alt="" fill sizes="36px" className="object-cover" />;
+    return <Image src={book.spineUrl} alt="" fill sizes="44px" className="object-cover" />;
   }
 
   return (
