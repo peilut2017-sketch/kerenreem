@@ -53,7 +53,10 @@ export function AccessibilityWidget() {
         // הליגטורה של Material Icons) לפני ש-fontFallback מחליף אותה
         // באמוג'י, כך שבלי הערך הזה הכפתור מציג את המילה "accessibility"
         // כטקסט גולמי במקום סמל.
-        icon: { useEmojis: true, tabIndex: 0, imgElem: { type: '#text', text: '♿' } },
+        // ︎ (variation selector-15) מבקש מהגופן הצגת טקסט חד-צבעית
+        // במקום אמוג'י צבעוני מלא — בלעדיה ♿ מגיע עם "תג" כחול משלו,
+        // שמתנגש עם הרקע הכהה של הכפתור (ראו העיצוב למטה).
+        icon: { useEmojis: true, tabIndex: 0, imgElem: { type: '#text', text: '♿︎' } },
         session: { persistent: true },
         // מקשי הקיצור כבויים כברירת מחדל בחבילה. Ctrl+Alt+A לפתיחת התפריט
         // ושאר הצירופים הם תוספת ממשית למי שמנווט במקלדת, והכותרות
@@ -150,6 +153,32 @@ export function AccessibilityWidget() {
       const icon = document.querySelector('._access-icon');
       icon?.setAttribute('role', 'button');
       icon?.setAttribute('aria-label', t('open'));
+
+      // עיצוב: border-radius ורקע נקבעים כמשתני --_access-icon-* — הדרך
+      // הנתמכת של החבילה עצמה, ובטוחה למינפייר (ראו ההערה על .glass
+      // למעלה בקובץ הזה על !important שמתמזג עם הכלל הבסיסי). transform
+      // ו-box-shadow הבסיסיים אין להם משתנה מקביל בחבילה (ה-skew מוצמד
+      // ל-useEmojis:true), אז הם נקבעים ב-inline style ולא בדריסת
+      // גיליון עיצוב, מאותה סיבה בדיוק.
+      document.documentElement.style.setProperty('--_access-icon-border-radius', '50%');
+      document.documentElement.style.setProperty('--_access-icon-bg', 'var(--color-navy)');
+
+      if (icon instanceof HTMLElement) {
+        icon.style.transform = 'none';
+        icon.style.boxShadow = 'var(--shadow-float)';
+        icon.style.transition = 'box-shadow .25s ease';
+
+        const lift = () => {
+          icon.style.boxShadow = 'var(--shadow-lift)';
+        };
+        const settle = () => {
+          icon.style.boxShadow = 'var(--shadow-float)';
+        };
+        icon.addEventListener('pointerenter', lift);
+        icon.addEventListener('pointerleave', settle);
+        icon.addEventListener('focus', lift);
+        icon.addEventListener('blur', settle);
+      }
     });
 
     return () => {
@@ -161,6 +190,8 @@ export function AccessibilityWidget() {
       } catch {
         /* החבילה כבר פורקה או שלא הספיקה להיטען */
       }
+      document.documentElement.style.removeProperty('--_access-icon-border-radius');
+      document.documentElement.style.removeProperty('--_access-icon-bg');
     };
   }, [locale, t]);
 
