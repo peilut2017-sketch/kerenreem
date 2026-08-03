@@ -58,7 +58,10 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       aria-roledescription="carousel"
       aria-label={t('label')}
       onKeyDown={onKeyDown}
-      className="on-dark relative isolate mx-3 mt-3 overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mx-5"
+      // אותה טכניקה כמו ב-BannerStrip.tsx: מתחיל מראש העמוד עם ה-header
+      // צף מעליו, ובאותו רוחב בערך — כדי שהמעבר בין קרוסלת הגיבוי לבאנר
+      // אמיתי לא ישנה את פריסת ראש העמוד.
+      className="on-dark relative isolate mx-auto mt-[calc(-1*var(--site-header-h,4.75rem))] w-[calc(100%-1.5rem)] max-w-[82rem] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mt-[calc(-1*var(--site-header-h,5.5rem))] sm:w-[calc(100%-2.5rem)]"
     >
       <div className="grid min-h-[32rem] lg:min-h-[38rem] lg:grid-cols-[minmax(0,1fr)_minmax(0,2.6fr)_minmax(0,1fr)]">
         {/* שכנה קודמת — נרמזת בלבד, מוסתרת מהנגישות כי היא כפילות */}

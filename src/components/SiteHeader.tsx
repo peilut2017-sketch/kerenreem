@@ -3,6 +3,7 @@ import { MobileNav } from './MobileNav';
 import { NavLinks } from './NavLinks';
 import { LocaleSwitch } from './LocaleSwitch';
 import { SearchLauncher } from './SearchLauncher';
+import { SiteHeaderHeightVar } from './SiteHeaderHeightVar';
 import { Wordmark } from './Wordmark';
 import type { SiteSettings } from '@/lib/supabase/types';
 
@@ -27,6 +28,7 @@ export async function SiteHeader({ settings }: { settings: SiteSettings }) {
 
   return (
     <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5 sm:pt-5">
+      <SiteHeaderHeightVar />
       <div className="glass mx-auto flex w-full max-w-[82rem] items-center gap-6 rounded-[var(--radius-xl)] px-4 py-2.5 sm:px-6">
         <Wordmark
           logoUrl={settings.logo_url}

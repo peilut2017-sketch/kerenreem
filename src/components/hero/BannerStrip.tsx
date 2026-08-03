@@ -75,6 +75,11 @@ export function BannerStrip({
     <section
       aria-roledescription="carousel"
       aria-label={label}
+      // margin-top שלילי בגובה ה-header (--site-header-h, ראו
+      // SiteHeaderHeightVar) מושך את הבאנר מתחת לניווט הצף — הוא מתחיל
+      // מראש העמוד ממש, וה-header מרחף שקוף מעליו במקום לתפוס שורה
+      // משלו. הרוחב (w/max-w) חוזר בדיוק על מבנה ה-header (px-3/sm:px-5
+      // עד max-w-[82rem]) כדי ששני הרצועות ייראו כמעט באותו רוחב.
       onKeyDown={(event) => {
         if (event.key === 'ArrowRight') {
           event.preventDefault();
@@ -84,7 +89,7 @@ export function BannerStrip({
           go(index - 1);
         }
       }}
-      className="group relative isolate mx-3 overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mx-5"
+      className="group relative isolate mx-auto mt-[calc(-1*var(--site-header-h,4.75rem))] w-[calc(100%-1.5rem)] max-w-[82rem] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mt-[calc(-1*var(--site-header-h,5.5rem))] sm:w-[calc(100%-2.5rem)]"
     >
       {/* היחס נשמר בין המסכים כדי שהבאנר לא ייחתך בגובה משתנה */}
       <div className="relative aspect-4/5 w-full sm:aspect-16/7">
