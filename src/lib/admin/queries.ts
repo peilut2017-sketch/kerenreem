@@ -9,6 +9,7 @@ import type {
   Author,
   Book,
   BookImage,
+  BookPreviewPage,
   BookRelations,
   BookTocEntry,
   Category,
@@ -191,6 +192,16 @@ export async function getBookToc(bookId: string): Promise<BookTocEntry[]> {
   const supabase = await client();
   const { data } = await supabase.from('book_toc').select('*').eq('book_id', bookId).order('sort_order');
   return (data as BookTocEntry[] | null) ?? [];
+}
+
+export async function getBookPreviewPages(bookId: string): Promise<BookPreviewPage[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('book_preview_pages')
+    .select('*')
+    .eq('book_id', bookId)
+    .order('page_number');
+  return (data as BookPreviewPage[] | null) ?? [];
 }
 
 export async function listCategoriesAdmin(): Promise<Category[]> {

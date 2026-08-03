@@ -114,6 +114,17 @@ const BOOK_DETAIL_SELECT_V3 = `
   )
 `;
 
+/**
+ * שכבה נוספת מעל BOOK_DETAIL_SELECT_V3: דפי דוגמה שעברו המרה
+ * (book_preview_pages, 15_book_flip_preview.sql). hero_mockup_url עצמו
+ * אינו זקוק לשכבה נפרדת — הוא עמודה על books ונשלף כבר דרך ה-`*` הקיים
+ * ב-BOOK_BASE_SELECT, בדיוק כמו שאר עמודות הסקאלר שנוספו בשלב ד׳.
+ */
+const BOOK_DETAIL_SELECT_V4 = `
+  ${BOOK_DETAIL_SELECT_V3},
+  previewPages:book_preview_pages ( id, book_id, page_number, image_url, width, height, created_at )
+`;
+
 const MISSING_SCHEMA_CODES = new Set(['42P01', '42703', 'PGRST200']);
 
 /**
@@ -185,6 +196,11 @@ function bySortOrder<T extends { sort_order: number }>(rows: T[] | undefined): T
   return rows ? [...rows].sort((a, b) => a.sort_order - b.sort_order) : undefined;
 }
 
+/** ממיין דפי דוגמה לפי מספר העמוד — אין להם sort_order נפרד, המספר עצמו הוא הסדר. */
+function byPageNumber<T extends { page_number: number }>(rows: T[] | undefined): T[] | undefined {
+  return rows ? [...rows].sort((a, b) => a.page_number - b.page_number) : undefined;
+}
+
 function shapeBook(row: unknown): BookWithRelations {
   const book = row as BookWithRelations & { tags?: unknown; attributeValues?: unknown };
   return {
@@ -194,6 +210,7 @@ function shapeBook(row: unknown): BookWithRelations {
     images: bySortOrder(book.images),
     toc: bySortOrder(book.toc),
     relations: bySortOrder(book.relations as BookRelation[] | undefined),
+    previewPages: byPageNumber(book.previewPages),
     // quotes ו-view_count הן עמודות ששלב ג׳ הוסיף (10_book_page_stage_c.sql).
     // אם המיגרציה טרם רצה הן פשוט חסרות בשורה שחוזרת מהמסד — undefined
     // ולא []/0 — וכל קוד שקורא book.quotes.length קורס עם TypeError.
@@ -232,7 +249,7 @@ export async function getBookBySlug(slug: string): Promise<BookWithRelations | n
   const rows = await runBookQuery<BookWithRelations>(
     (select) => supabase.from('books').select(select).eq('slug', slug).eq('is_published', true),
     'getBookBySlug',
-    [BOOK_DETAIL_SELECT_V3, BOOK_DETAIL_SELECT, BOOK_SELECT, BOOK_BASE_SELECT],
+    [BOOK_DETAIL_SELECT_V4, BOOK_DETAIL_SELECT_V3, BOOK_DETAIL_SELECT, BOOK_SELECT, BOOK_BASE_SELECT],
   );
   return rows[0] ?? null;
 }

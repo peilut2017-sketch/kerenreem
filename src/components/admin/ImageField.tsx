@@ -23,11 +23,21 @@ function safeName(original: string): string {
   return `${stamp}-${random}.${extension.replace(/[^a-z0-9]/g, '')}`;
 }
 
-export async function uploadToBucket(bucket: StorageBucket, file: File): Promise<string> {
+/**
+ * pathPrefix אופציונלי — לנכסים שנוצרים בקבוצה ושייכים לישות אחת
+ * (דפי דוגמה של ספר, למשל), כדי שיישבו יחד תחת תיקייה ולא יתפזרו בשורש
+ * ה-bucket. שם הקובץ עצמו נשאר אקראי גם אז, כדי שיצירה מחדש לא תדרוס
+ * קובץ שעדיין מוגש מהמטמון.
+ */
+export async function uploadToBucket(
+  bucket: StorageBucket,
+  file: File,
+  pathPrefix?: string,
+): Promise<string> {
   const supabase = createClient();
   if (!supabase) throw new Error('אין חיבור לאחסון');
 
-  const path = safeName(file.name);
+  const path = pathPrefix ? `${pathPrefix.replace(/\/+$/, '')}/${safeName(file.name)}` : safeName(file.name);
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     cacheControl: '31536000',
     upsert: false,

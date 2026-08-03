@@ -204,7 +204,12 @@
     "reasonBundle": "מארז משלים",
     "publisher": "הוצאה לאור",
     "edition": "מהדורה",
-    "badgeFeatured": "בחירת המכון"
+    "badgeFeatured": "בחירת המכון",
+    "flipAriaLabel": "דפדוף בספר {title}",
+    "flipPageAlt": "עמוד {page} מתוך {title}",
+    "flipEnlarge": "קריאה מוגדלת",
+    "flipOpenPdf": "פתיחת ה-PDF",
+    "flipPageRange": "עמודים {from}–{to} מתוך {total}"
   },
   "authors": {
     "title": "מחברים ודמויות",

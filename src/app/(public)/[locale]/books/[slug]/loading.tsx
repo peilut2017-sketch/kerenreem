@@ -18,9 +18,9 @@ export default async function BookPageLoading() {
           <div className="h-4 w-40 rounded-[var(--radius-sm)] bg-rule/70" />
         </Container>
 
-        <div className="mt-6 px-5 sm:px-8">
-          <div className="mx-auto grid w-full max-w-[72rem] grid-cols-1 items-center gap-10 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-14">
-            <div className="mx-auto aspect-3/4 w-full max-w-[19rem] rounded-[3px] bg-cream-3 lg:max-w-[21rem]" />
+        <div className="mt-5 px-4 sm:px-6 lg:px-10 xl:px-14">
+          <div className="mx-auto grid w-full max-w-[92rem] grid-cols-1 items-center gap-12 rounded-[2rem] bg-cream-2/50 px-6 py-14 lg:grid-cols-[5fr_7fr] lg:gap-16 lg:rounded-[2.5rem] lg:px-16 lg:py-20">
+            <div className="mx-auto aspect-4/5 w-full max-w-[29rem] rounded-[var(--radius-md)] bg-cream-3" />
 
             <div>
               <div className="mx-auto h-6 w-32 rounded-[var(--radius-pill)] bg-rule/60 lg:mx-0" />
@@ -33,9 +33,11 @@ export default async function BookPageLoading() {
           </div>
         </div>
 
-        <Container className="mt-20 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Container className="mt-20 space-y-6">
+          {/* אזור התקציר */}
           <div className="h-64 rounded-[var(--radius-lg)] bg-cream-3" />
-          <div className="h-64 rounded-[var(--radius-lg)] bg-cream-3" />
+          {/* אזור הדפדוף — רוחב מלא, כמו בעמוד עצמו */}
+          <div className="aspect-16/10 rounded-[2rem] bg-cream-3" />
         </Container>
       </div>
     </div>

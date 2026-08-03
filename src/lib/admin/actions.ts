@@ -714,6 +714,69 @@ export async function saveBookToc(
 }
 
 /**
+ * שמירת דפי הדוגמה של ספר — נקראת רק אחרי שכל הדפים החדשים כבר הועלו
+ * בהצלחה ל-Storage (ראו BookPreviewGenerator/render-preview-pages.ts).
+ * מחיקה מלאה והכנסה מחדש, כמו saveBookImages/saveBookToc — אבל בשלב הזה
+ * כל התוכן החדש כבר יושב באחסון, כך שכשל כאן משאיר את הקבצים הישנים
+ * זמינים גם אם השורות במסד לא התעדכנו (אין מחיקה יזומה של קבצי אחסון
+ * ישנים בכלל, כמו בשאר האתר — קובץ יתום אינו מסוכן, ספר בלי preview כן).
+ */
+export async function saveBookPreviewPages(
+  bookId: string,
+  pages: { page_number: number; image_url: string; width: number; height: number }[],
+): Promise<ActionResult> {
+  try {
+    const session = await assertRole('editor');
+    if ('error' in session) return session;
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const rows = pages
+      .filter((page) => page.image_url)
+      .map((page) => ({
+        book_id: bookId,
+        page_number: page.page_number,
+        image_url: page.image_url,
+        width: page.width,
+        height: page.height,
+      }));
+
+    if (rows.length > 0) {
+      const insertion = await supabase.from('book_preview_pages').upsert(rows, { onConflict: 'book_id,page_number' });
+      if (insertion.error) {
+        console.error('[admin:saveBookPreviewPages]', insertion.error.code, insertion.error.message);
+        return { error: describeDbError(insertion.error).message };
+      }
+    }
+
+    // מחיקת השורות הישנות שאינן בין מספרי העמודים החדשים — לא delete-all,
+    // כדי שלא יהיה רגע שבו הטבלה ריקה בזמן שהכתיבה החדשה עדיין באמצע.
+    const keptPageNumbers = rows.map((row) => row.page_number);
+    const removal =
+      keptPageNumbers.length > 0
+        ? await supabase
+            .from('book_preview_pages')
+            .delete()
+            .eq('book_id', bookId)
+            .not('page_number', 'in', `(${keptPageNumbers.join(',')})`)
+        : await supabase.from('book_preview_pages').delete().eq('book_id', bookId);
+
+    if (removal.error) {
+      console.error('[admin:saveBookPreviewPages]', removal.error.code, removal.error.message);
+      return { error: describeDbError(removal.error).message };
+    }
+
+    revalidatePath(`/[locale]/books/[slug]`, 'page');
+    revalidatePath(`/admin/books/${bookId}`);
+    return {};
+  } catch (error) {
+    console.error('[admin:saveBookPreviewPages] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
  * רצף בלוקי הסיפור של אירוע — מוחלף במלואו, לא מחושב כהפרש.
  * אותו נימוק כמו syncRelations/saveBookToc: הפרש דורש לדעת מה היה קודם,
  * וטופס שנשאר פתוח בזמן שמישהו אחר ערך היה מוחק בשקט את השינויים שלו.

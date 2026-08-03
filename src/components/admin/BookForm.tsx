@@ -275,6 +275,18 @@ export function BookForm({
                         hint="עדיף צילום כריכה איכותי על רקע נקי. הכריכות הן האלמנט הוויזואלי המרכזי באתר."
                       />
                       <ImageField
+                        name="hero_mockup_url"
+                        label="הדמיית כריכה ל-Hero"
+                        bucket="covers"
+                        accept="image/png,image/webp"
+                        defaultValue={book?.hero_mockup_url}
+                        hint={
+                          'מומלץ להעלות PNG או WebP עם רקע שקוף, הכולל כריכה, שדרה ועובי ספר. ' +
+                          'מומלץ 1400×1600 ומעלה, עד 2MB. אם השדה ריק תוצג הכריכה השטוחה. ' +
+                          'אין לייצר את ההדמיה ב-AI — טקסט עברי על הכריכה משתבש.'
+                        }
+                      />
+                      <ImageField
                         name="sample_pdf_url"
                         label="דפדוף לדוגמה (PDF)"
                         bucket="samples"

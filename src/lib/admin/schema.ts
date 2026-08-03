@@ -135,6 +135,8 @@ export const ENTITIES = {
       f('is_featured', 'boolean'),
       f('preorder_enabled', 'boolean'),
       f('preorder_release_date', 'date'),
+      // הדמיית כריכה ל-Hero (15_book_flip_preview.sql)
+      f('hero_mockup_url'),
     ],
     relations: [
       { field: 'tag_ids', table: 'book_tags', ownerColumn: 'book_id', targetColumn: 'tag_id' },
