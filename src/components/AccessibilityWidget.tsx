@@ -48,7 +48,12 @@ export function AccessibilityWidget() {
       };
 
       instance = new Accessibility({
-        icon: { useEmojis: true, tabIndex: 0 },
+        // imgElem מפורש: ב-6.1.0 useEmojis לבדו לא מספיק לכפתור הפותח
+        // עצמו — imgElem מחושב מברירת המחדל ("accessibility", שם
+        // הליגטורה של Material Icons) לפני ש-fontFallback מחליף אותה
+        // באמוג'י, כך שבלי הערך הזה הכפתור מציג את המילה "accessibility"
+        // כטקסט גולמי במקום סמל.
+        icon: { useEmojis: true, tabIndex: 0, imgElem: { type: '#text', text: '♿' } },
         session: { persistent: true },
         // מקשי הקיצור כבויים כברירת מחדל בחבילה. Ctrl+Alt+A לפתיחת התפריט
         // ושאר הצירופים הם תוספת ממשית למי שמנווט במקלדת, והכותרות
@@ -138,6 +143,13 @@ export function AccessibilityWidget() {
           hotkeyPrefix: t('hotkeyPrefix'),
         },
       }) as unknown as { destroy: () => void };
+
+      // החבילה מזריקה <i tabIndex="0"> בלי role או aria-label — כלומר
+      // כפתור הפתיחה לא נקרא כלחצן בקורא מסך, ורק ה-title (מקש הקיצור)
+      // מזהה אותו. a11y.open קיים בתרגומים בדיוק לשם כך.
+      const icon = document.querySelector('._access-icon');
+      icon?.setAttribute('role', 'button');
+      icon?.setAttribute('aria-label', t('open'));
     });
 
     return () => {

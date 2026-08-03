@@ -87,7 +87,7 @@ for (const viewport of VIEWPORTS) {
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
 
   const widgets = [
-    ['סרגל נגישות', 'button[aria-label="פתיחת סרגל נגישות"]'],
+    ['סרגל נגישות', '[aria-label="פתיחת סרגל נגישות"]'],
     ...(viewport.width < 1024 ? [['תפריט נייד', 'button[aria-controls="mobile-nav-panel"]']] : []),
   ];
 

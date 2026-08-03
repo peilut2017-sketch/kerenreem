@@ -51,12 +51,18 @@ export function BannerStrip({
 
   const image = (
     <>
-      {/* גרסת נייד נפרדת כשהועלתה: קידוד תמונה רחבה למסך צר חותך את מרכז
-          העניין, ו-picture נותן לדפדפן לבחור לפני ההורדה. */}
+      {/* גרסת נייד נפרדת כשהועלתה: picture נותן לדפדפן לבחור לפני ההורדה.
+          object-contain בנייד — לא חותך: כל התמונה מוצגת, פשוט קטנה
+          יותר. ב-sm ומעלה חוזרים ל-cover, כדי שהבאנר הרחב ימלא את
+          הרצועה כרגיל. */}
       {active.image_mobile_url ? (
         <picture>
-          <source media="(min-width: 768px)" srcSet={active.image_url ?? ''} />
-          <img src={active.image_mobile_url} alt={alt} className="h-full w-full object-cover" />
+          <source media="(min-width: 640px)" srcSet={active.image_url ?? ''} />
+          <img
+            src={active.image_mobile_url}
+            alt={alt}
+            className="h-full w-full object-contain sm:object-cover"
+          />
         </picture>
       ) : active.image_url ? (
         <Image
@@ -65,7 +71,7 @@ export function BannerStrip({
           fill
           priority
           sizes="100vw"
-          className={`object-cover ${FOCAL_CLASS[active.focal_point ?? 'center']}`}
+          className={`object-contain sm:object-cover sm:${FOCAL_CLASS[active.focal_point ?? 'center']}`}
         />
       ) : null}
     </>
@@ -91,8 +97,10 @@ export function BannerStrip({
       }}
       className="group relative isolate mx-auto mt-[calc(-1*var(--site-header-h,4.75rem))] w-[calc(100%-1.5rem)] max-w-[82rem] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mt-[calc(-1*var(--site-header-h,5.5rem))] sm:w-[calc(100%-2.5rem)]"
     >
-      {/* היחס נשמר בין המסכים כדי שהבאנר לא ייחתך בגובה משתנה */}
-      <div className="relative aspect-4/5 w-full sm:aspect-16/7">
+      {/* אותו יחס גובה-רוחב בכל המסכים — אותה תמונה משמשת לשניהם (ראו
+          object-contain למעלה), אז הרצועה עצמה נשארת ברוחב הרחב
+          המומלץ בניהול, ופשוט קטנה יותר על מסך צר. */}
+      <div className="relative aspect-16/7 w-full">
         {/* ההחלפה יזומה תמיד, ולכן בטוח להכריז עליה */}
         <div aria-live="polite" aria-atomic="true" className="absolute inset-0">
           {href ? (
