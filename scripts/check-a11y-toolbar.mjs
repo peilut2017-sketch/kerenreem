@@ -20,7 +20,7 @@ const check = (label, condition) => {
 await page.goto(BASE + '/', { waitUntil: 'networkidle' });
 
 // פתיחת הסרגל
-await page.click('button[aria-label="פתיחת סרגל נגישות"]');
+await page.click('[aria-label="פתיחת סרגל נגישות"]');
 check('הלוח נפתח', await page.locator('div[role="dialog"]').isVisible());
 
 // הפעלת ניגודיות גבוהה
@@ -49,7 +49,7 @@ check(
 
 // המתגים בלוח משקפים את המצב השמור אחרי הטעינה
 await page.waitForLoadState('networkidle');
-await page.click('button[aria-label="פתיחת סרגל נגישות"]');
+await page.click('[aria-label="פתיחת סרגל נגישות"]');
 check(
   'המתג בלוח מציג "פעיל" אחרי טעינה מחדש',
   (await page.getAttribute('button:has-text("ניגודיות גבוהה")', 'aria-pressed')) === 'true',
@@ -60,7 +60,7 @@ await page.click('button:has-text("איפוס הגדרות")');
 check('איפוס מסיר את הסימון', (await page.getAttribute('html', 'data-a11y-contrast')) === null);
 
 // סגירה במקלדת והחזרת המיקוד — דרישת ניווט מקלדת
-await page.click('button[aria-label="פתיחת סרגל נגישות"]');
+await page.click('[aria-label="פתיחת סרגל נגישות"]');
 await page.keyboard.press('Escape');
 check('Escape סוגר את הלוח', (await page.locator('div[role="dialog"]').count()) === 0);
 check(

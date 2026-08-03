@@ -3,44 +3,43 @@ import { Img as Image } from '@/components/Img';
 /**
  * אזור הפתיחה של הקטלוג.
  *
- * נמוך במכוון — כ-320px. Hero גבוה בעמוד שכל תכליתו למצוא ספר דוחף את
- * התוצאות מתחת לקו הקיפול, ומכריח גלילה לפני הפעולה הראשונה.
+ * מתחיל מראש העמוד ממש וה-header הצף מרחף מעליו — אותה טכניקה כמו
+ * ב-BannerStrip.tsx (margin-top שלילי בגובה --site-header-h, ראו
+ * SiteHeaderHeightVar), ואותו רוחב בערך כמו הניווט. ה-padding העליון של
+ * גוש הטקסט מפצה על כך בדיוק, כדי שהכותרת עצמה תישאר במקומה המקורי
+ * ולא תיעלם מתחת לזכוכית.
  *
- * הרקע בנוי מכריכות אמיתיות מהקטלוג, מטושטשות ומוחלשות. אין כאן תמונת
- * מלאי: מה שנרמז ברקע הוא מה שבאמת נמצא בקטלוג. כשאין כריכות עדיין,
- * נשארת ההילה בלבד — ריק מכובד ולא מסגרת שבורה.
+ * הרקע הוא צילום קבוע של מדף ספרים (public/books-shelf.jpg), לא תמונת
+ * מלאי גנרית — הוחלף כאן במקום התצוגה הקודמת שהרכיבה רקע מכריכות
+ * מטושטשות מהקטלוג עצמו.
  */
 export function BooksHero({
   title,
   subtitle,
-  covers,
   children,
 }: {
   title: string;
   subtitle: string;
-  covers: string[];
   children: React.ReactNode;
 }) {
   return (
-    <section className="relative isolate mx-3 overflow-hidden rounded-[var(--radius-xl)] sm:mx-5">
+    <section className="group relative isolate mx-auto mt-[calc(-1*var(--site-header-h,4.75rem))] w-[calc(100%-1.5rem)] max-w-[82rem] overflow-hidden rounded-[var(--radius-xl)] sm:mt-[calc(-1*var(--site-header-h,5.5rem))] sm:w-[calc(100%-2.5rem)]">
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-cream-2">
-        {covers.length > 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center gap-8 opacity-55 blur-[40px]">
-            {covers.map((src, index) => (
-              <div key={`${src}-${index}`} className="relative h-64 w-44 shrink-0">
-                <Image src={src} alt="" fill sizes="176px" className="object-cover" />
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <Image
+          src="/books-shelf.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[68%_50%]"
+        />
 
-        {/* הילה רכה שמאחדת את הכריכות לרקע אחד ולא לשורת מלבנים.
-            המרכז שקוף למחצה בלבד — כיסוי חזק מדי מוחק את הכריכות לגמרי
-            ומשאיר שטח בז׳ ריק, וזו הייתה התוצאה בגרסה הראשונה. */}
+        {/* הילה רכה שמבטיחה שהכותרת תישאר קריאה בלי תלות בתוכן הצילום
+            שמתחתיה — אותה שכבה כמו בגרסה הקודמת עם הכריכות המטושטשות. */}
         <div className="absolute inset-0 bg-[radial-gradient(130%_120%_at_50%_45%,color-mix(in_srgb,var(--color-cream)_55%,transparent)_0%,color-mix(in_srgb,var(--color-cream)_88%,transparent)_55%,var(--color-cream)_100%)]" />
       </div>
 
-      <div className="px-5 py-14 text-center sm:px-8 lg:py-16">
+      <div className="px-5 pb-14 pt-[calc(3.5rem+var(--site-header-h,4.75rem))] text-center sm:px-8 sm:pt-[calc(3.5rem+var(--site-header-h,5.5rem))] lg:pb-16 lg:pt-[calc(4rem+var(--site-header-h,5.5rem))]">
         <h1 className="font-serif text-[clamp(1.75rem,4vw,2.5rem)] leading-tight text-ink">{title}</h1>
         <p className="mx-auto mt-3 max-w-[46ch] text-body text-muted">{subtitle}</p>
 

@@ -70,16 +70,11 @@ export default async function BooksPage({
   const usedTagSlugs = new Set(books.flatMap((book) => (book.tags ?? []).map((tag) => tag.slug)));
   const usedTags = tags.filter((tag) => usedTagSlugs.has(tag.slug));
 
-  const covers = books
-    .map((book) => book.cover_image_url)
-    .filter((url): url is string => Boolean(url))
-    .slice(0, 5);
-
   const requestedSort = query.sort as SortKey | undefined;
   const page = Number(query.page);
 
   return (
-    <div className="pt-3 pb-20">
+    <div className="pb-20">
       <Catalogue
         books={books}
         categories={usedCategories}
@@ -88,7 +83,6 @@ export default async function BooksPage({
         attributes={attributes}
         locale={locale}
         storeEnabled={settings.store_enabled}
-        covers={covers}
         initial={{
           query: query.q ?? '',
           category: query.category ?? '',

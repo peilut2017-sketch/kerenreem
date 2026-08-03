@@ -28,7 +28,7 @@ const headerPos = await page.evaluate(
 check('הכותרת דביקה', headerPos === 'sticky', `position: ${headerPos}`);
 
 const barPos = await page.evaluate(() => {
-  const el = document.querySelector('[aria-label="פתיחת סרגל נגישות"]')?.closest('div');
+  const el = document.querySelector('[aria-label="פתיחת סרגל נגישות"]');
   return el ? getComputedStyle(el).position : 'לא נמצא';
 });
 check('סרגל הנגישות צף', barPos === 'fixed', `position: ${barPos}`);

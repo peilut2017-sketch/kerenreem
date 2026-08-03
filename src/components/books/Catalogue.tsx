@@ -59,7 +59,6 @@ export function Catalogue({
   attributes,
   locale,
   storeEnabled,
-  covers,
   initial,
   labels,
 }: {
@@ -70,7 +69,6 @@ export function Catalogue({
   attributes: AttributeWithValues[];
   locale: string;
   storeEnabled: boolean;
-  covers: string[];
   initial: { query: string; category: string; sort: SortKey; page: number };
   labels: {
     title: string;
@@ -200,7 +198,7 @@ export function Catalogue({
 
   return (
     <>
-      <BooksHero title={labels.title} subtitle={labels.subtitle} covers={covers}>
+      <BooksHero title={labels.title} subtitle={labels.subtitle}>
         <div className="mx-auto max-w-[42rem]">
           <SearchBar
             value={filters.query}
