@@ -12,35 +12,50 @@ export function Wordmark({
   name,
   tagline,
   variant = 'light',
+  compact = false,
 }: {
   logoUrl: string | null;
   name: string;
   tagline?: string;
   /** 'light' — על נייר, 'dark' — על הכחול העמוק */
   variant?: 'light' | 'dark';
+  /** גרסה מכווצת — לוגו וטקסט קטנים יותר, לניווט במצב צף */
+  compact?: boolean;
 }) {
   return (
-    <Link href="/" className="group flex items-center gap-3 focus-visible:outline-offset-4">
+    <Link
+      href="/"
+      className="group flex items-center gap-3 transition-[gap] duration-[420ms] ease-[var(--ease-spring)] focus-visible:outline-offset-4 motion-reduce:transition-none"
+    >
       {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- הלוגו מוגדר ב-CMS ומוגש כפי שהוא
-        <img src={logoUrl} alt={name} className="h-11 w-auto sm:h-12" />
+        <img
+          src={logoUrl}
+          alt={name}
+          className={`w-auto transition-[height] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+            compact ? 'h-8 sm:h-9' : 'h-11 sm:h-12'
+          }`}
+        />
       ) : (
-        <MarkSvg className={variant === 'dark' ? 'text-gold' : 'text-gold-deep'} />
+        <MarkSvg
+          compact={compact}
+          className={variant === 'dark' ? 'text-gold' : 'text-gold-deep'}
+        />
       )}
 
       <span className="leading-tight">
         <span
-          className={`block font-serif text-[1.1875rem] sm:text-[1.3125rem] ${
-            variant === 'dark' ? 'text-white' : 'text-ink group-hover:text-burgundy'
-          } transition-colors`}
+          className={`block font-serif transition-[font-size] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+            compact ? 'text-[1rem] sm:text-[1.0625rem]' : 'text-[1.1875rem] sm:text-[1.3125rem]'
+          } ${variant === 'dark' ? 'text-white' : 'text-ink group-hover:text-burgundy'} transition-colors`}
         >
           {name}
         </span>
         {tagline ? (
           <span
             className={`mt-0.5 hidden text-caption leading-snug sm:block ${
-              variant === 'dark' ? 'text-cream-2/70' : 'text-muted'
-            }`}
+              compact ? 'sm:hidden' : ''
+            } ${variant === 'dark' ? 'text-cream-2/70' : 'text-muted'}`}
           >
             {tagline}
           </span>
@@ -50,11 +65,13 @@ export function Wordmark({
   );
 }
 
-function MarkSvg({ className = '' }: { className?: string }) {
+function MarkSvg({ className = '', compact = false }: { className?: string; compact?: boolean }) {
   return (
     <svg
       viewBox="0 0 48 56"
-      className={`h-11 w-auto shrink-0 sm:h-12 ${className}`}
+      className={`w-auto shrink-0 transition-[height] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+        compact ? 'h-8 sm:h-9' : 'h-11 sm:h-12'
+      } ${className}`}
       fill="none"
       stroke="currentColor"
       aria-hidden="true"

@@ -11,7 +11,7 @@ import { useRouter } from '@/i18n/navigation';
  * ל-/books עם פרמטר q, כך שהחיפוש נשאר בכתובת — אפשר לשתף אותו, לחזור
  * אליו, ולסמן אותו כמועדף.
  */
-export function SearchLauncher() {
+export function SearchLauncher({ onDark = false }: { onDark?: boolean }) {
   const t = useTranslations('books');
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -49,7 +49,11 @@ export function SearchLauncher() {
         onClick={() => setOpen(true)}
         aria-label={t('search')}
         aria-expanded={false}
-        className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft transition-[background-color,color,transform] duration-300 hover:bg-white/70 hover:text-burgundy active:scale-95"
+        className={`flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] transition-[background-color,color,transform] duration-300 active:scale-95 ${
+          onDark
+            ? 'text-cream-2/85 hover:bg-white/10 hover:text-gold-bright'
+            : 'text-ink-soft hover:bg-white/70 hover:text-burgundy'
+        }`}
       >
         <SearchIcon />
       </button>

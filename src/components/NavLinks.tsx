@@ -20,7 +20,19 @@ interface NavItem {
  * המדידה נעשית מה-DOM ולא מחישוב רוחב טקסט: הגופן העברי, מצב הניגודיות
  * וגודל הגופן שהמשתמש בחר בסרגל הנגישות כולם משנים את הרוחב בפועל.
  */
-export function NavLinks({ items, label }: { items: readonly NavItem[]; label: string }) {
+export function NavLinks({
+  items,
+  label,
+  onDark = false,
+  compact = false,
+}: {
+  items: readonly NavItem[];
+  label: string;
+  /** על הבאנר בעמוד הבית לפני גלילה — טקסט בהיר על רקע כהה במקום כהה על נייר */
+  onDark?: boolean;
+  /** מצב צף — מרווחים מכווצים מעט */
+  compact?: boolean;
+}) {
   const pathname = usePathname();
   const listRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
@@ -76,13 +88,17 @@ export function NavLinks({ items, label }: { items: readonly NavItem[]; label: s
 
   return (
     <nav aria-label={label} className="mx-auto hidden lg:block">
-      <ul ref={listRef} className="relative flex items-center gap-1" onMouseLeave={() => setHovered(null)}>
+      <ul
+        ref={listRef}
+        className={`relative flex items-center transition-[gap] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${compact ? 'gap-0.5' : 'gap-1'}`}
+        onMouseLeave={() => setHovered(null)}
+      >
         {/* הסמן מוסתר מהנגישות: המצב כבר מוסר דרך aria-current על הקישור */}
         <span
           ref={markerRef}
           aria-hidden="true"
           style={{ opacity: 0 }}
-          className="glass pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-pill)] transition-[transform,width,opacity] duration-500 ease-[var(--ease-spring)] motion-reduce:transition-none"
+          className={`pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-pill)] transition-[transform,width,opacity] duration-500 ease-[var(--ease-spring)] motion-reduce:transition-none ${onDark ? 'glass-dark' : 'glass'}`}
         />
 
         {items.map((item, index) => (
@@ -98,11 +114,19 @@ export function NavLinks({ items, label }: { items: readonly NavItem[]; label: s
               aria-current={index === activeIndex ? 'page' : undefined}
               onFocus={() => setHovered(index)}
               onBlur={() => setHovered(null)}
-              className={`relative z-10 block rounded-[var(--radius-pill)] px-4 py-2 text-small transition-colors duration-300 ${
-                index === activeIndex ? 'font-semibold text-burgundy' : 'text-ink-soft hover:text-burgundy'
+              className={`relative z-10 block rounded-[var(--radius-pill)] text-small transition-[color,padding] duration-300 ${
+                compact ? 'px-3 py-1.5' : 'px-4 py-2'
+              } ${
+                onDark
+                  ? index === activeIndex
+                    ? 'font-semibold text-gold-bright'
+                    : 'text-cream-2/85 hover:text-gold-bright'
+                  : index === activeIndex
+                    ? 'font-semibold text-burgundy'
+                    : 'text-ink-soft hover:text-burgundy'
               }`}
             >
-              <NavLabel>{item.label}</NavLabel>
+              <NavLabel onDark={onDark}>{item.label}</NavLabel>
             </Link>
           </li>
         ))}
@@ -117,7 +141,7 @@ export function NavLinks({ items, label }: { items: readonly NavItem[]; label: s
  * useLinkStatus מדווח על מעבר שהתחיל ועדיין לא הסתיים. בלעדיו לחיצה על
  * קישור לעמוד שנטען לאט נראית כאילו לא נקלטה, והמשתמש לוחץ שוב.
  */
-function NavLabel({ children }: { children: React.ReactNode }) {
+function NavLabel({ children, onDark }: { children: React.ReactNode; onDark: boolean }) {
   const { pending } = useLinkStatus();
 
   return (
@@ -125,7 +149,7 @@ function NavLabel({ children }: { children: React.ReactNode }) {
       {children}
       <span
         aria-hidden="true"
-        className={`h-1 w-1 rounded-full bg-burgundy transition-opacity duration-200 ${
+        className={`h-1 w-1 rounded-full transition-opacity duration-200 ${onDark ? 'bg-gold-bright' : 'bg-burgundy'} ${
           pending ? 'animate-pulse opacity-100' : 'opacity-0'
         }`}
       />
