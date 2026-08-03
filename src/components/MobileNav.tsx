@@ -13,13 +13,11 @@ export function MobileNav({
   openLabel,
   closeLabel,
   searchLabel,
-  onDark = false,
 }: {
   items: { href: string; label: string }[];
   openLabel: string;
   closeLabel: string;
   searchLabel: string;
-  onDark?: boolean;
 }) {
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -55,9 +53,7 @@ export function MobileNav({
         onClick={() => setOpenedFor(open ? null : pathname)}
         aria-expanded={open}
         aria-controls="mobile-nav-panel"
-        className={`flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] transition-[background-color,color,transform] duration-300 active:scale-95 ${
-          onDark ? 'text-white hover:bg-white/10' : 'text-ink hover:bg-white/70'
-        }`}
+        className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] text-ink transition-[background-color,color,transform] duration-300 hover:bg-white/70 active:scale-95"
         aria-label={open ? closeLabel : openLabel}
       >
         {open ? (

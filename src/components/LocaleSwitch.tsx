@@ -9,7 +9,7 @@ import { useTransition } from 'react';
  * מעבר בין עברית לאנגלית באותו עמוד. קישור טקסטואלי — לא דגלים
  * (דגל מסמן מדינה, לא שפה) ולא תפריט נפתח עבור שתי אפשרויות.
  */
-export function LocaleSwitch({ onDark = false }: { onDark?: boolean }) {
+export function LocaleSwitch() {
   const locale = useLocale();
   const t = useTranslations('nav');
   const router = useRouter();
@@ -30,11 +30,7 @@ export function LocaleSwitch({ onDark = false }: { onDark?: boolean }) {
           router.replace({ pathname, params }, { locale: target });
         });
       }}
-      className={`rounded-[var(--radius-pill)] px-3 py-2 text-small font-semibold transition-[background-color,color,transform] duration-300 active:scale-95 ${
-        onDark
-          ? 'text-cream-2/85 hover:bg-white/10 hover:text-gold-bright'
-          : 'text-ink-soft hover:bg-white/70 hover:text-burgundy'
-      }`}
+      className="rounded-[var(--radius-pill)] px-3 py-2 text-small font-semibold text-ink-soft transition-[background-color,color,transform] duration-300 hover:bg-white/70 hover:text-burgundy active:scale-95"
     >
       {t('switchToEnglish')}
     </button>

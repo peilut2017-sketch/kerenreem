@@ -1,6 +1,5 @@
 'use client';
 
-import { usePathname } from '@/i18n/navigation';
 import { useHeaderState } from './useHeaderState';
 import { SiteHeaderHeightVar } from './SiteHeaderHeightVar';
 import { Wordmark } from './Wordmark';
@@ -15,19 +14,19 @@ interface NavItem {
 }
 
 /**
- * ניווט משתלב-ב-Hero (Morphing Navigation).
+ * הניווט: שורה יציבה לרוחב המסך בראש העמוד, קפסולת זכוכית צפה בגלילה.
  *
- * בראש עמוד עם Hero מלא (הבאנר בעמוד הבית, הצילום בעמוד הספרים) הניווט
- * מתחיל שקוף וללא קפסולה — חלק ממה שמתחתיו. אחרי גלילה קצרה (עם
- * hysteresis, ראו useHeaderState) הוא נסגר לקפסולת זכוכית צפה, בדיוק
- * כפי שהוא נראה תמיד בשאר העמודים.
+ * בראש כל עמוד הניווט הוא פס מלא מקצה לקצה, יושב יציב ואטום — לא משטח
+ * מרחף. אחרי גלילה קצרה (hysteresis, ראו useHeaderState) הוא נאסף
+ * לקפסולת הזכוכית הצפה שמלווה את הגלילה. אותה התנהגות בכל עמודי האתר,
+ * כולל עמוד הספר: אין עמוד שמתחיל כבר במצב צף.
  *
- * בעמודים בלי Hero מלא אין "מצב משולב" — הניווט תמיד בקפסולת הזכוכית,
- * בדיוק כמו לפני השדרוג הזה. רק שני העמודים עם Hero משנים מראה בגלילה.
+ * הפס עצמו תמיד לרוחב המסך המלא, אבל תוכנו (לוגו, קישורים, פעולות)
+ * מוגבל לאותו max-w של תוכן העמוד ומיושר אליו — כך שברוחב מסך גדול
+ * הלוגו אינו נדבק לקצה הפיזי של הצג.
  *
- * הרוחב הפנימי (max-w-[82rem]) קבוע בשני המצבים ותמיד ממורכז, כדי
- * שהתוכן יתיישר עם קצוות ה-Hero גם כשההיקף החיצוני "נוגע" בשולי המסך
- * במצב הפתוח. רק ה-padding החיצוני, שיוצר את המרווח מהקצה, משתנה.
+ * שלוש שכבות בכוונה: מיקום (header), משטח (הרקע/הזכוכית/הפינות),
+ * ותוכן. ההפרדה מאפשרת להנפיש רוחב ורקע בלי לגעת בפריסת התוכן.
  */
 export function SiteHeaderClient({
   logoUrl,
@@ -49,73 +48,75 @@ export function SiteHeaderClient({
   searchLabel: string;
 }) {
   const { isFloating } = useHeaderState();
-  const pathname = usePathname();
-
-  // "משולב ב-Hero": רק עמודים שבהם Hero מלא מתחיל בראש העמוד ממש.
-  const integrated = pathname === '/' || pathname === '/books';
-  const expanded = integrated && !isFloating;
-  // הבאנר בעמוד הבית מועלה בניהול ואין דרך לדעת מראש אם הוא בהיר או
-  // כהה (ראו BannerStrip.tsx) — לכן טקסט בהיר + מסך כהה, שעובד סביר על
-  // רוב הצילומים. עמוד הספרים משתמש בצילום קבוע ובהיר (books-shelf.jpg)
-  // שכבר ידוע, ולכן נשאר טקסט כהה רגיל.
-  const onDark = expanded && pathname === '/';
 
   return (
     <header
       className={`sticky top-0 z-50 transition-[padding] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-        expanded ? 'px-0 pt-0' : 'px-3 pt-3 sm:px-5 sm:pt-5'
+        isFloating ? 'px-3 pt-3 sm:px-5 sm:pt-5' : 'px-0 pt-0'
       }`}
     >
       <SiteHeaderHeightVar />
+
+      {/* המשטח: מלא-רוחב ואטום למעלה, קפסולת זכוכית ממורכזת בגלילה */}
       <div
-        className={`relative mx-auto flex w-full max-w-[82rem] items-center gap-4 overflow-hidden transition-[border-radius,padding] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none sm:gap-6 ${
-          expanded ? 'rounded-none px-4 py-3.5 sm:px-8 sm:py-5' : 'rounded-[var(--radius-xl)] px-4 py-2.5 sm:px-6'
+        className={`relative mx-auto w-full transition-[max-width,border-radius] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+          isFloating
+            ? 'max-w-[82rem] rounded-[var(--radius-xl)]'
+            : 'max-w-none rounded-none'
         }`}
       >
-        {/* שכבת הזכוכית: העוצמה (blur) קבועה תמיד, רק השקיפות מונפשת —
-            הנפשת backdrop-filter עצמו יקרה וקופצנית. */}
+        {/* הזכוכית מונפשת ב-opacity בלבד — הנפשת backdrop-filter עצמו
+            יקרה וקופצנית. מתחתיה רקע אטום בצבע העמוד, שנחוץ במצב
+            היציב: עד סף הגלילה כבר נכנס תוכן מתחת לפס, ובלי אטימות
+            הוא היה נראה דרכו. */}
         <span
           aria-hidden="true"
-          className={`glass absolute inset-0 -z-10 transition-opacity duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-            expanded ? 'opacity-0' : 'opacity-100'
+          className={`absolute inset-0 -z-10 bg-cream transition-opacity duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+            isFloating ? 'opacity-0' : 'opacity-100'
           }`}
         />
-        {/* מסך רך במצב הפתוח בלבד: מבטיח ניגודיות לטקסט הניווט בלי תלות
-            בתוכן ה-Hero שמתחתיו — כהה על הבאנר, בהיר על צילום הספרים. */}
-        {expanded ? (
-          <span
-            aria-hidden="true"
-            className={`absolute inset-0 -z-10 ${
-              onDark
-                ? 'bg-gradient-to-b from-black/45 via-black/10 to-transparent'
-                : 'bg-gradient-to-b from-white/70 via-white/25 to-transparent'
-            }`}
-          />
-        ) : null}
-
-        <Wordmark
-          logoUrl={logoUrl}
-          name={siteName}
-          tagline={tagline}
-          variant={onDark ? 'dark' : 'light'}
-          compact={!expanded}
+        <span
+          aria-hidden="true"
+          className={`glass absolute inset-0 -z-10 rounded-[inherit] transition-opacity duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+            isFloating ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+        {/* קו הפרדה דק במצב היציב בלבד — במצב הצף מסגרת הזכוכית
+            כבר מגדירה את הקצה, ושני הקווים יחד נראים ככפילות. */}
+        <span
+          aria-hidden="true"
+          className={`absolute inset-x-0 bottom-0 h-px bg-rule transition-opacity duration-[420ms] motion-reduce:transition-none ${
+            isFloating ? 'opacity-0' : 'opacity-100'
+          }`}
         />
 
-        <NavLinks label={navLabel} items={navItems} onDark={onDark} compact={!expanded} />
-
-        <div className="ms-auto flex items-center gap-3 lg:ms-0">
-          <div className="hidden items-center gap-3 lg:flex">
-            <SearchLauncher onDark={onDark} />
-            <LocaleSwitch onDark={onDark} />
-          </div>
-
-          <MobileNav
-            items={navItems}
-            openLabel={openLabel}
-            closeLabel={closeLabel}
-            searchLabel={searchLabel}
-            onDark={onDark}
+        <div
+          className={`mx-auto flex w-full max-w-[82rem] items-center gap-4 transition-[padding] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none sm:gap-6 ${
+            isFloating ? 'px-4 py-2.5 sm:px-6' : 'px-5 py-3.5 sm:px-8'
+          }`}
+        >
+          <Wordmark
+            logoUrl={logoUrl}
+            name={siteName}
+            tagline={tagline}
+            compact={isFloating}
           />
+
+          <NavLinks label={navLabel} items={navItems} compact={isFloating} />
+
+          <div className="ms-auto flex items-center gap-3 lg:ms-0">
+            <div className="hidden items-center gap-3 lg:flex">
+              <SearchLauncher />
+              <LocaleSwitch />
+            </div>
+
+            <MobileNav
+              items={navItems}
+              openLabel={openLabel}
+              closeLabel={closeLabel}
+              searchLabel={searchLabel}
+            />
+          </div>
         </div>
       </div>
     </header>

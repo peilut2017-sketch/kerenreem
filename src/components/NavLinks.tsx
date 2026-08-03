@@ -23,13 +23,10 @@ interface NavItem {
 export function NavLinks({
   items,
   label,
-  onDark = false,
   compact = false,
 }: {
   items: readonly NavItem[];
   label: string;
-  /** על הבאנר בעמוד הבית לפני גלילה — טקסט בהיר על רקע כהה במקום כהה על נייר */
-  onDark?: boolean;
   /** מצב צף — מרווחים מכווצים מעט */
   compact?: boolean;
 }) {
@@ -98,7 +95,7 @@ export function NavLinks({
           ref={markerRef}
           aria-hidden="true"
           style={{ opacity: 0 }}
-          className={`pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-pill)] transition-[transform,width,opacity] duration-500 ease-[var(--ease-spring)] motion-reduce:transition-none ${onDark ? 'glass-dark' : 'glass'}`}
+          className="glass pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-pill)] transition-[transform,width,opacity] duration-500 ease-[var(--ease-spring)] motion-reduce:transition-none"
         />
 
         {items.map((item, index) => (
@@ -117,16 +114,12 @@ export function NavLinks({
               className={`relative z-10 block rounded-[var(--radius-pill)] text-small transition-[color,padding] duration-300 ${
                 compact ? 'px-3 py-1.5' : 'px-4 py-2'
               } ${
-                onDark
-                  ? index === activeIndex
-                    ? 'font-semibold text-gold-bright'
-                    : 'text-cream-2/85 hover:text-gold-bright'
-                  : index === activeIndex
-                    ? 'font-semibold text-burgundy'
-                    : 'text-ink-soft hover:text-burgundy'
+                index === activeIndex
+                  ? 'font-semibold text-burgundy'
+                  : 'text-ink-soft hover:text-burgundy'
               }`}
             >
-              <NavLabel onDark={onDark}>{item.label}</NavLabel>
+              <NavLabel>{item.label}</NavLabel>
             </Link>
           </li>
         ))}
@@ -141,7 +134,7 @@ export function NavLinks({
  * useLinkStatus מדווח על מעבר שהתחיל ועדיין לא הסתיים. בלעדיו לחיצה על
  * קישור לעמוד שנטען לאט נראית כאילו לא נקלטה, והמשתמש לוחץ שוב.
  */
-function NavLabel({ children, onDark }: { children: React.ReactNode; onDark: boolean }) {
+function NavLabel({ children }: { children: React.ReactNode }) {
   const { pending } = useLinkStatus();
 
   return (
@@ -149,7 +142,7 @@ function NavLabel({ children, onDark }: { children: React.ReactNode; onDark: boo
       {children}
       <span
         aria-hidden="true"
-        className={`h-1 w-1 rounded-full transition-opacity duration-200 ${onDark ? 'bg-gold-bright' : 'bg-burgundy'} ${
+        className={`h-1 w-1 rounded-full bg-burgundy transition-opacity duration-200 ${
           pending ? 'animate-pulse opacity-100' : 'opacity-0'
         }`}
       />
