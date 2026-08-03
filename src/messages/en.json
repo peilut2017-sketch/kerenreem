@@ -204,7 +204,12 @@
     "reasonBundle": "Completes the set",
     "publisher": "Publisher",
     "edition": "Edition",
-    "badgeFeatured": "Editors' pick"
+    "badgeFeatured": "Editors' pick",
+    "flipAriaLabel": "Page through {title}",
+    "flipPageAlt": "Page {page} of {title}",
+    "flipEnlarge": "Enlarged reading",
+    "flipOpenPdf": "Open the PDF",
+    "flipPageRange": "Pages {from}–{to} of {total}"
   },
   "authors": {
     "title": "Authors and figures",

@@ -11,6 +11,7 @@ import { ConnectionsSection } from '@/components/book-page/ConnectionsSection';
 import { FloatingActions } from '@/components/book-page/FloatingActions';
 import { Gallery } from '@/components/book-page/Gallery';
 import { KnowledgeMap, type KnowledgeMapNode } from '@/components/book-page/KnowledgeMap';
+import { BookFlipViewer } from '@/components/book-page/BookFlipViewer';
 import { BookSampleViewer } from '@/components/book-page/BookSampleViewer';
 import { QuoteCards } from '@/components/book-page/QuoteCards';
 import { SeriesTimeline } from '@/components/book-page/SeriesTimeline';
@@ -148,6 +149,12 @@ export default async function BookPage({
   const publisher = localizedOrNull(book, 'publisher', locale);
   const edition = localizedOrNull(book, 'edition', locale);
 
+  // דפי דוגמה שהומרו מראש בניהול. כשהם קיימים הם *מחליפים* את קורא
+  // ה-PDF החי: אין טעם להציג את אותה דוגמה פעמיים, ובוודאי לא לטעון
+  // pdf.js אצל המבקר כשיש כבר WebP מוכן.
+  const previewPages = book.previewPages ?? [];
+  const showInlineSample = previewPages.length === 0 && Boolean(book.sample_pdf_url);
+
   const spec: SpecItem[] = [
     publisher ? { icon: 'publisher', label: t('publisher'), value: publisher } : null,
     edition ? { icon: 'edition', label: t('edition'), value: edition } : null,
@@ -196,6 +203,7 @@ export default async function BookPage({
   const sections = [
     { id: 'book-hero', label: t('navOverview') },
     description ? { id: 'book-summary', label: t('navSummary') } : null,
+    previewPages.length > 0 || showInlineSample ? { id: 'book-sample', label: t('readSample') } : null,
     book.toc && book.toc.length > 0 ? { id: 'book-toc', label: t('navToc') } : null,
     book.images && book.images.length > 0 ? { id: 'book-gallery', label: t('navGallery') } : null,
     author ? { id: 'book-author', label: t('navAuthor') } : null,
@@ -333,9 +341,9 @@ export default async function BookPage({
             בלי דפדוף אין שתי עמודות בכלל — כרטיס יחיד בחצי רוחב היה
             משאיר חצי מסך ריק לצדו. */}
         <div
-          className={`grid grid-cols-1 items-start gap-6 ${book.sample_pdf_url ? 'lg:grid-cols-[5fr_7fr]' : ''}`}
+          className={`grid grid-cols-1 items-start gap-6 ${showInlineSample ? 'lg:grid-cols-[5fr_7fr]' : ''}`}
         >
-          {book.sample_pdf_url ? (
+          {showInlineSample ? (
             <section
               aria-labelledby="book-sample"
               className="rounded-[var(--radius-lg)] border border-rule bg-cream px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
@@ -343,7 +351,7 @@ export default async function BookPage({
               <h2 id="book-sample" className="mb-4 font-serif text-h3 text-ink">
                 {t('readSample')}
               </h2>
-              <BookSampleViewer pdfUrl={book.sample_pdf_url} title={title} locale={locale} />
+              <BookSampleViewer pdfUrl={book.sample_pdf_url!} title={title} locale={locale} />
             </section>
           ) : null}
 
@@ -368,6 +376,28 @@ export default async function BookPage({
             ) : null}
           </section>
         </div>
+
+        {/* הדפדוף המוחשי מקבל רוחב מלא ולא חצי עמודה: זו פתיחה של ספר,
+            spread של שני עמודים, ולא כרטיס מידע. מוצג רק כשיש דפים
+            שהומרו מראש בניהול — בלי דפים אין כאן אזור בכלל, וה-PDF
+            מוצג במקומו ככרטיס לצד התקציר (ראו showInlineSample). */}
+        {previewPages.length > 0 ? (
+          <section id="book-sample" aria-labelledby="book-sample-heading">
+            <h2 id="book-sample-heading" className="mb-6 font-serif text-h2 text-ink">
+              {t('readSample')}
+            </h2>
+            <BookFlipViewer
+              pages={previewPages.map((page) => ({
+                id: page.id,
+                imageUrl: page.image_url,
+                pageNumber: page.page_number,
+              }))}
+              title={title}
+              pdfUrl={book.sample_pdf_url}
+              locale={locale}
+            />
+          </section>
+        ) : null}
 
         {book.quotes.length > 0 ? <QuoteCards quotes={book.quotes} t={t} /> : null}
 

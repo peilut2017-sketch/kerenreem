@@ -100,8 +100,21 @@ export interface Book {
   preorder_enabled: boolean;
   preorder_release_date: string | null;
   /* ------------------------------------------------ */
+  /** הדמיית כריכה שקופה ל-Hero (שדרה/עובי/תאורה מוכנים) — 15_book_flip_preview.sql. */
+  hero_mockup_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** דף דוגמה שעבר המרה חד-פעמית ל-WebP — ראו book_preview_pages. */
+export interface BookPreviewPage {
+  id: string;
+  book_id: string;
+  page_number: number;
+  image_url: string;
+  width: number;
+  height: number;
+  created_at: string;
 }
 
 /** מצב הזמינות הציבורי — לעולם לא כמות מספרית. */
@@ -226,6 +239,8 @@ export interface BookWithRelations extends Book {
   toc?: BookTocEntry[];
   /** קשרים ידניים שהצוות קבע — נשלפים רק בעמוד הספר הבודד. */
   relations?: BookRelation[];
+  /** דפי דוגמה שעברו המרה — נשלפים רק בעמוד הספר הבודד, ממוינים לפי page_number. */
+  previewPages?: BookPreviewPage[];
 }
 
 export interface Activity {

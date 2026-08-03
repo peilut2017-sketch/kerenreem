@@ -1,6 +1,6 @@
 import { Link } from '@/i18n/navigation';
 import { Reveal } from '@/components/Reveal';
-import { FloatingCover } from './FloatingCover';
+import { BookCoverStage } from './BookCoverStage';
 import { HeroBackground } from './HeroBackground';
 import { HeroSpecStrip } from './HeroSpecStrip';
 import { SmartTag } from './SmartTag';
@@ -71,7 +71,12 @@ export function BookHero({
 
         <div className="relative mx-auto flex w-full max-w-[92rem] items-center px-6 pb-16 pt-14 sm:px-10 lg:min-h-[45rem] lg:px-16 lg:pb-24 lg:pt-20">
           <div className="grid w-full grid-cols-1 items-center gap-12 lg:grid-cols-[5fr_7fr] lg:gap-16 xl:gap-20">
-            <FloatingCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} />
+            <BookCoverStage
+              cover={book.cover_image_url}
+              mockup={book.hero_mockup_url}
+              title={title}
+              alt={t('coverAlt', { title })}
+            />
 
             <div className="text-center lg:text-start">
               {/* עד שני תגים ראשיים בלבד (סעיף 8 במפרט): תגי סטטוס (בקרוב /
@@ -135,11 +140,10 @@ export function BookHero({
                 </Reveal>
               ) : null}
 
-              {book.view_count > 0 ? (
-                <Reveal delay={350} className="mt-4 text-caption text-muted">
-                  {t('viewCount', { count: book.view_count })}
-                </Reveal>
-              ) : null}
+              {/* מונה הצפיות הוסר מה-Hero במכוון: הוא נתון על *העמוד*, לא על
+                  הספר, ואין לו מה לעשות בין שם המחבר למחיר. ה-Hero נשאר
+                  מרווח — תג אחד, שם, מחבר, כותרת משנה, עד ארבעה נתונים
+                  ופעולה. */}
             </div>
           </div>
         </div>

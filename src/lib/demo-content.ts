@@ -85,6 +85,7 @@ function book(
     publisher_he: null, publisher_en: null, edition_he: null, edition_en: null,
     accent_primary: null, accent_secondary: null,
     is_featured: false, preorder_enabled: false, preorder_release_date: null,
+    hero_mockup_url: null,
     ...base,
     author: { id: author.id, slug: author.slug, name_he: author.name_he, name_en: author.name_en },
     category: { id: category.id, slug: category.slug, name_he: category.name_he, name_en: category.name_en },
@@ -137,6 +138,17 @@ books[2] = {
     { id: 't5', book_id: books[2].id, title_he: 'נספחים', level: 0, page_number: 88, summary_he: null, sort_order: 4 },
   ],
   view_count: 214,
+  // דפי דוגמה מומרים — בדמו הם SVG סטטיים, במסד הם WebP שהופקו בניהול.
+  // קיימים כאן כדי שאפשר יהיה לבדוק את הדפדוף (וכיוון ה-RTL שלו) בלי מסד.
+  previewPages: [1, 2, 3, 4, 5, 6].map((pageNumber) => ({
+    id: `pp${pageNumber}`,
+    book_id: books[2].id,
+    page_number: pageNumber,
+    image_url: `/demo/page-${pageNumber}.svg`,
+    width: 700,
+    height: 900,
+    created_at: base.created_at,
+  })),
 };
 books[4] = { ...books[4], series_id: demoSeries.id, series_position: 2, series: demoSeries, view_count: 96 };
 
