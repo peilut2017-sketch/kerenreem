@@ -3,7 +3,8 @@
     "name": "Keren Reem Institute",
     "shortName": "Keren Reem",
     "tagline": "Publishing, Torah support and chesed",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "backToTop": "Back to top"
   },
   "nav": {
     "home": "Home",
@@ -37,7 +38,9 @@
     "eventDetails": "Read more",
     "activityDetails": "Read more",
     "newBooksLead": "New on the shelf",
-    "newBooksTitle": "Latest titles"
+    "newBooksTitle": "Latest titles",
+    "shelfHint": "Move your cursor or finger along the shelf to see each cover, and tap to open the book.",
+    "shelfLabel": "Shelf of latest titles"
   },
   "books": {
     "title": "Books",
@@ -107,7 +110,6 @@
     "favouriteRemove": "Remove from favourites",
     "share": "Share",
     "shareCopied": "Link copied",
-    "backToTop": "Back to top",
     "readSample": "Flip through the book",
     "flipbookError": "Loading the preview failed. You can open the file directly.",
     "pdfPrev": "Previous page",

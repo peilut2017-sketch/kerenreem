@@ -53,7 +53,7 @@ export function MobileNav({
         onClick={() => setOpenedFor(open ? null : pathname)}
         aria-expanded={open}
         aria-controls="mobile-nav-panel"
-        className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] text-ink transition-[background-color,transform] duration-300 hover:bg-white/70 active:scale-95"
+        className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] text-ink transition-[background-color,color,transform] duration-300 hover:bg-white/70 active:scale-95"
         aria-label={open ? closeLabel : openLabel}
       >
         {open ? (
@@ -71,7 +71,12 @@ export function MobileNav({
         <div
           id="mobile-nav-panel"
           ref={panelRef}
-          className="glass absolute inset-x-0 top-[calc(100%+0.5rem)] z-40 rounded-[var(--radius-xl)]"
+          // fixed ולא absolute: הכפתור יושב היום בתוך משטח שגם רץ בין
+          // מצב פתוח לצף וגם overflow-hidden (לגזירת שכבת הזכוכית) —
+          // absolute עם top:100% נגד ancestor כזה חישב מיקום שגוי. fixed
+          // עם --site-header-h (אותו משתנה שמזין את שאר האתר) עצמאי
+          // מהמבנה של ה-header ונכון בשני מצביו.
+          className="glass fixed inset-x-0 top-[calc(var(--site-header-h,4.75rem)+0.5rem)] z-40 rounded-[var(--radius-xl)]"
         >
           <div className="mx-auto w-full max-w-[82rem] px-5 py-6 sm:px-6">
             <form

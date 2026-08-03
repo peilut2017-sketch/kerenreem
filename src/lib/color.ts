@@ -63,3 +63,18 @@ export function toTint(rgb: RGB): RGB {
   const lightness = Math.min(0.68, Math.max(0.46, l));
   return hslToRgb([h, saturation, lightness]);
 }
+
+/**
+ * אותו גוון, בטווח של שדרת ספר: עמוק ורווי, לא מולבן.
+ *
+ * ההפך מ-toTint. שם הצבע נמרח על רקע בשקיפות ולכן חייב להיות בהיר;
+ * כאן הוא הצבע המלא של גוף השדרה, ולכן דווקא כהה — וגם כדי שכיתוב
+ * הזהב שעליו יעמוד ביחס ניגודיות תקין תמיד, בלי לבדוק כל כריכה בנפרד.
+ * החסם העליון על הבהירות (0.34) הוא מה שמבטיח את זה.
+ */
+export function toSpine(rgb: RGB): RGB {
+  const [h, s, l] = rgbToHsl(rgb);
+  const saturation = s < 0.06 ? s : Math.min(0.7, Math.max(0.22, s));
+  const lightness = Math.min(0.34, Math.max(0.14, l));
+  return hslToRgb([h, saturation, lightness]);
+}

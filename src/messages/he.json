@@ -3,7 +3,8 @@
     "name": "מכון קרן רא״ם",
     "shortName": "קרן רא״ם",
     "tagline": "הוצאה לאור, אחזקת תורה וחסד",
-    "skipToContent": "דילוג לתוכן הראשי"
+    "skipToContent": "דילוג לתוכן הראשי",
+    "backToTop": "חזרה לראש העמוד"
   },
   "nav": {
     "home": "בית",
@@ -37,7 +38,9 @@
     "eventDetails": "לפרטים נוספים",
     "activityDetails": "קראו עוד",
     "newBooksLead": "חדש על המדף",
-    "newBooksTitle": "הכותרים האחרונים"
+    "newBooksTitle": "הכותרים האחרונים",
+    "shelfHint": "עברו עם העכבר או האצבע על המדף כדי לראות את הכריכה, ולחצו לעמוד הספר.",
+    "shelfLabel": "מדף הכותרים האחרונים"
   },
   "books": {
     "title": "ספרים",
@@ -107,7 +110,6 @@
     "favouriteRemove": "הסרה מהמועדפים",
     "share": "שיתוף",
     "shareCopied": "הקישור הועתק",
-    "backToTop": "חזרה לראש העמוד",
     "readSample": "דפדוף בספר",
     "flipbookError": "טעינת הדפדוף נכשלה. אפשר לפתוח את הקובץ ישירות.",
     "pdfPrev": "העמוד הקודם",

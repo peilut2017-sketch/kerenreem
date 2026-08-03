@@ -274,6 +274,16 @@ export function BookForm({
                         defaultValue={book?.cover_image_url}
                         hint="עדיף צילום כריכה איכותי על רקע נקי. הכריכות הן האלמנט הוויזואלי המרכזי באתר."
                       />
+                      {/* שתי תמונות שונות ולשני מקומות שונים: שדרה שטוחה
+                          למדף בעמוד הבית, והדמיה מרוכבת ל-Hero של עמוד
+                          הספר. אחת אינה מחליפה את השנייה. */}
+                      <ImageField
+                        name="spine_image_url"
+                        label="שדרה (רשות)"
+                        bucket="covers"
+                        defaultValue={book?.spine_image_url}
+                        hint="צילום צר וגבוה של שדרת הספר, למדף בעמוד הבית. אם לא תועלה, השדרה תיגזר אוטומטית מהכריכה."
+                      />
                       <ImageField
                         name="hero_mockup_url"
                         label="הדמיית כריכה ל-Hero"

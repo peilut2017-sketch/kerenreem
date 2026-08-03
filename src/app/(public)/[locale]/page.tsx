@@ -2,7 +2,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { HeroCarousel } from '@/components/hero/HeroCarousel';
 import { BannerStrip } from '@/components/hero/BannerStrip';
-import { BookCardGrid } from '@/components/books/BookCardGrid';
+import { BookShelf, type ShelfBook } from '@/components/home/BookShelf';
 import type { HeroSlide } from '@/components/hero/types';
 import { AboutBand } from '@/components/home/AboutBand';
 import { EventsRow } from '@/components/home/EventsRow';
@@ -20,6 +20,7 @@ import {
 } from '@/lib/data';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
+import { getSpineLook } from '@/lib/cover-colors';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -111,6 +112,31 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   const aboutExcerpt = htmlToPlainText(localized(about, 'body', locale), 330);
 
+  /* ------------------------------------------------------------------------
+     המדף: צבע השדרה נגזר מהכריכה בשרת, פעם אחת לכל בנייה מחדש (ISR,
+     revalidate למעלה) ולא לכל מבקר. עשרה ספרים לכל היותר — זה מה שנכנס
+     לרוחב מסך טלפון בלי גלישה, ראו BookShelf.tsx.
+     ------------------------------------------------------------------------ */
+  const shelfBooks: ShelfBook[] = await Promise.all(
+    books.slice(0, 10).map(async (book) => {
+      const title = localized(book, 'title', locale);
+      const { base, edge } = book.spine_image_url
+        ? { base: '', edge: '' } // שדרה שצולמה — הצבעים אינם בשימוש
+        : await getSpineLook(book.cover_image_url);
+
+      return {
+        slug: book.slug,
+        title,
+        author: book.author ? localized(book.author, 'name', locale) : null,
+        coverUrl: book.cover_image_url,
+        coverAlt: t('books.coverAlt', { title }),
+        spineUrl: book.spine_image_url,
+        spineBase: base,
+        spineEdge: edge,
+      };
+    }),
+  );
+
   return (
     <>
       {banners.length > 0 ? (
@@ -132,27 +158,26 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </section>
       )}
 
-      {books.length > 0 ? (
+      {shelfBooks.length > 0 ? (
         <section className="section-y">
           <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
-            <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="eyebrow">{t('home.newBooksLead')}</p>
-                <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
-                  {t('home.newBooksTitle')}
-                </h2>
-              </div>
-              <Link href="/books" className="link-more">
-                {t('home.catalogueAll')}
-              </Link>
+            <header className="mb-10 text-center">
+              <p className="eyebrow">{t('home.newBooksLead')}</p>
+              <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
+                {t('home.newBooksTitle')}
+              </h2>
+              <p className="mx-auto mt-3 max-w-[46ch] text-small text-muted">
+                {t('home.shelfHint')}
+              </p>
             </header>
+          </div>
 
-            <BookCardGrid
-              books={books}
-              locale={locale}
-              storeEnabled={settings.store_enabled}
-              priorityCount={5}
-            />
+          <BookShelf books={shelfBooks} label={t('home.shelfLabel')} />
+
+          <div className="mx-auto mt-10 w-full max-w-[82rem] px-5 text-center sm:px-8">
+            <Link href="/books" className="link-more">
+              {t('home.catalogueAll')}
+            </Link>
           </div>
         </section>
       ) : null}

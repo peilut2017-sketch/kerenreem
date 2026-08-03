@@ -81,11 +81,9 @@ export function BannerStrip({
     <section
       aria-roledescription="carousel"
       aria-label={label}
-      // margin-top שלילי בגובה ה-header (--site-header-h, ראו
-      // SiteHeaderHeightVar) מושך את הבאנר מתחת לניווט הצף — הוא מתחיל
-      // מראש העמוד ממש, וה-header מרחף שקוף מעליו במקום לתפוס שורה
-      // משלו. הרוחב (w/max-w) חוזר בדיוק על מבנה ה-header (px-3/sm:px-5
-      // עד max-w-[82rem]) כדי ששני הרצועות ייראו כמעט באותו רוחב.
+      // הבאנר מתחיל אחרי פס הניווט, עם מרווח — לא מתחתיו. הרוחב
+      // (w/max-w) חוזר על מבנה תוכן ה-header (max-w-[82rem]) כדי
+      // ששניהם יתיישרו לאותם קצוות.
       onKeyDown={(event) => {
         if (event.key === 'ArrowRight') {
           event.preventDefault();
@@ -95,7 +93,7 @@ export function BannerStrip({
           go(index - 1);
         }
       }}
-      className="group relative isolate mx-auto mt-[calc(-1*var(--site-header-h,4.75rem))] w-[calc(100%-1.5rem)] max-w-[82rem] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mt-[calc(-1*var(--site-header-h,5.5rem))] sm:w-[calc(100%-2.5rem)]"
+      className="group relative isolate mx-auto mt-5 w-[calc(100%-2.5rem)] max-w-[82rem] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mt-7 sm:w-[calc(100%-4rem)]"
     >
       {/* אותו יחס גובה-רוחב בכל המסכים — אותה תמונה משמשת לשניהם (ראו
           object-contain למעלה), אז הרצועה עצמה נשארת ברוחב הרחב

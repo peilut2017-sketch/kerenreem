@@ -8,6 +8,7 @@ import { getSiteSettings } from '@/lib/data';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { AccessibilityWidget } from '@/components/AccessibilityWidget';
+import { BackToTop } from '@/components/BackToTop';
 import { A11Y_INIT_SCRIPT } from '@/lib/a11y-preferences';
 import '../../globals.css';
 
@@ -97,6 +98,7 @@ export default async function PublicLayout({
           </main>
           <SiteFooter settings={settings} locale={locale} />
           <AccessibilityWidget />
+          <BackToTop />
         </NextIntlClientProvider>
       </body>
     </html>

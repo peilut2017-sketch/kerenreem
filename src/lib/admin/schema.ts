@@ -104,6 +104,7 @@ export const ENTITIES = {
       f('publication_year_he'),
       f('publication_year_ce', 'number'),
       f('cover_image_url'),
+      f('spine_image_url'),
       f('pages', 'number'),
       f('format'),
       f('binding'),

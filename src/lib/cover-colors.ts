@@ -2,7 +2,7 @@ import 'server-only';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
-import { rgbToHex, toTint, type RGB } from './color';
+import { rgbToHex, toSpine, toTint, type RGB } from './color';
 
 /**
  * שלושת הצבעים הדומיננטיים של הכריכה, ל-Hero של עמוד הספר.
@@ -82,6 +82,54 @@ function dominantColors(pixels: RGB[], k: number, iterations = 8): { color: RGB;
   });
 
   return centers.map((color, i) => ({ color, count: counts[i] })).filter((entry) => entry.count > 0);
+}
+
+/** צבע גוף השדרה וקצה כהה יותר שנותן לה נפח. */
+export interface SpineLook {
+  base: string;
+  edge: string;
+}
+
+/** בורגונדי עמוק — לספר בלי כריכה, או כשקריאת התמונה נכשלה. */
+const SPINE_FALLBACK: SpineLook = { base: '#4b1418', edge: '#2c0b0e' };
+
+/**
+ * הצבע שממנו נבנית שדרה שלא צולמה (ראו BookSpine.tsx).
+ *
+ * נגזר מהכריכה עצמה ולא מפלטה קבועה, כך שכל ספר עומד על המדף בצבעו
+ * שלו וששדרה גזורה נראית כמו המשך של הכריכה שלצדה — ולא כמו מלבן
+ * גנרי שהודבק ליד תמונה אמיתית.
+ */
+export async function getSpineLook(coverUrl: string | null): Promise<SpineLook> {
+  if (!coverUrl) return SPINE_FALLBACK;
+
+  const bytes = await readCoverBytes(coverUrl);
+  if (!bytes) return SPINE_FALLBACK;
+
+  try {
+    const { data, info } = await sharp(bytes)
+      .resize(24, 24, { fit: 'cover' })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const pixels: RGB[] = [];
+    for (let i = 0; i + 2 < data.length; i += info.channels) {
+      pixels.push([data[i], data[i + 1], data[i + 2]]);
+    }
+
+    const clusters = dominantColors(pixels, 3).sort((a, b) => b.count - a.count);
+    if (clusters.length === 0) return SPINE_FALLBACK;
+
+    const [r, g, b] = toSpine(clusters[0].color);
+    return {
+      base: rgbToHex([r, g, b]),
+      edge: rgbToHex([r * 0.62, g * 0.62, b * 0.62]),
+    };
+  } catch (error) {
+    console.error('[cover-colors:spine]', error);
+    return SPINE_FALLBACK;
+  }
 }
 
 export async function getCoverPalette(coverUrl: string | null): Promise<CoverPalette> {

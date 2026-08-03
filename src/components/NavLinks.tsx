@@ -20,7 +20,16 @@ interface NavItem {
  * המדידה נעשית מה-DOM ולא מחישוב רוחב טקסט: הגופן העברי, מצב הניגודיות
  * וגודל הגופן שהמשתמש בחר בסרגל הנגישות כולם משנים את הרוחב בפועל.
  */
-export function NavLinks({ items, label }: { items: readonly NavItem[]; label: string }) {
+export function NavLinks({
+  items,
+  label,
+  compact = false,
+}: {
+  items: readonly NavItem[];
+  label: string;
+  /** מצב צף — מרווחים מכווצים מעט */
+  compact?: boolean;
+}) {
   const pathname = usePathname();
   const listRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
@@ -76,7 +85,11 @@ export function NavLinks({ items, label }: { items: readonly NavItem[]; label: s
 
   return (
     <nav aria-label={label} className="mx-auto hidden lg:block">
-      <ul ref={listRef} className="relative flex items-center gap-1" onMouseLeave={() => setHovered(null)}>
+      <ul
+        ref={listRef}
+        className={`relative flex items-center transition-[gap] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${compact ? 'gap-0.5' : 'gap-1'}`}
+        onMouseLeave={() => setHovered(null)}
+      >
         {/* הסמן מוסתר מהנגישות: המצב כבר מוסר דרך aria-current על הקישור */}
         <span
           ref={markerRef}
@@ -98,8 +111,12 @@ export function NavLinks({ items, label }: { items: readonly NavItem[]; label: s
               aria-current={index === activeIndex ? 'page' : undefined}
               onFocus={() => setHovered(index)}
               onBlur={() => setHovered(null)}
-              className={`relative z-10 block rounded-[var(--radius-pill)] px-4 py-2 text-small transition-colors duration-300 ${
-                index === activeIndex ? 'font-semibold text-burgundy' : 'text-ink-soft hover:text-burgundy'
+              className={`relative z-10 block rounded-[var(--radius-pill)] text-small transition-[color,padding] duration-300 ${
+                compact ? 'px-3 py-1.5' : 'px-4 py-2'
+              } ${
+                index === activeIndex
+                  ? 'font-semibold text-burgundy'
+                  : 'text-ink-soft hover:text-burgundy'
               }`}
             >
               <NavLabel>{item.label}</NavLabel>
