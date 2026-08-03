@@ -59,83 +59,91 @@ export function BookHero({
   const editionBadge = [categoryName, book.publication_year_he].filter(Boolean).join(' · ');
 
   return (
-    <section id="book-hero" className="relative overflow-hidden">
-      <HeroBackground colors={palette.colors} />
+    // מעטפת רחבה עם שוליים מהקצה, כדי שה-Hero יהיה כרטיס עומד בפני עצמו
+    // (border-radius 32px, overflow hidden) ולא רצועה צמודה לקצוות המסך —
+    // זה ההבדל החזותי הראשון שאומר "שולחן עיון", לא "עמוד תוכן" (סעיף 8).
+    <div className="px-4 pt-5 sm:px-6 lg:px-10 lg:pt-8 xl:px-14">
+      <section
+        id="book-hero"
+        className="relative mx-auto max-w-[92rem] overflow-hidden rounded-[2rem] lg:min-h-[45rem] lg:rounded-[2.5rem]"
+      >
+        <HeroBackground colors={palette.colors} />
 
-      <div className="relative mx-auto w-full max-w-[72rem] px-5 pb-16 pt-10 sm:px-8 lg:pb-20 lg:pt-14">
-        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-14">
-          <FloatingCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} />
+        <div className="relative mx-auto flex w-full max-w-[92rem] items-center px-6 pb-16 pt-14 sm:px-10 lg:min-h-[45rem] lg:px-16 lg:pb-24 lg:pt-20">
+          <div className="grid w-full grid-cols-1 items-center gap-12 lg:grid-cols-[5fr_7fr] lg:gap-16 xl:gap-20">
+            <FloatingCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} />
 
-          <div className="text-center lg:text-start">
-            {/* עד שני תגים ראשיים בלבד (סעיף 8 במפרט): תגי סטטוס (בקרוב /
-                בחירת המכון) קודמים, ותג המהדורה (קטגוריה + שנה) מוצג רק
-                כשאין תג סטטוס — כדי שלא נחרוג משניים. */}
-            {badges.length > 0 ? (
-              <Reveal className="mb-4 flex flex-wrap justify-center gap-2 lg:justify-start">
-                {badges.slice(0, 2).map((badge) => (
-                  <span
-                    key={badge}
-                    className="inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-gold-deep/40 bg-cream/80 px-3.5 py-1.5 text-caption text-gold-deep"
-                  >
-                    {badge}
-                  </span>
-                ))}
+            <div className="text-center lg:text-start">
+              {/* עד שני תגים ראשיים בלבד (סעיף 8 במפרט): תגי סטטוס (בקרוב /
+                  בחירת המכון) קודמים, ותג המהדורה (קטגוריה + שנה) מוצג רק
+                  כשאין תג סטטוס — כדי שלא נחרוג משניים. */}
+              {badges.length > 0 ? (
+                <Reveal className="mb-4 flex flex-wrap justify-center gap-2 lg:justify-start">
+                  {badges.slice(0, 2).map((badge) => (
+                    <span
+                      key={badge}
+                      className="inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-gold-deep/40 bg-cream/80 px-3.5 py-1.5 text-caption text-gold-deep"
+                    >
+                      {badge}
+                    </span>
+                  ))}
+                </Reveal>
+              ) : editionBadge ? (
+                <Reveal
+                  as="span"
+                  className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-rule bg-cream/80 px-3.5 py-1.5 text-caption text-muted"
+                >
+                  {editionBadge}
+                </Reveal>
+              ) : null}
+
+              {book.tags && book.tags.length > 0 ? (
+                <Reveal className="mb-5 flex flex-wrap justify-center gap-2 lg:justify-start">
+                  {book.tags.slice(0, 3).map((tag) => (
+                    <SmartTag key={tag.id} label={tag.name_he} slug={tag.slug} description={tag.description_he} />
+                  ))}
+                </Reveal>
+              ) : null}
+
+              <Reveal as="h1" className="font-serif text-[clamp(2.75rem,5.2vw,4.75rem)] leading-[1.03] text-ink">
+                {title}
               </Reveal>
-            ) : editionBadge ? (
-              <Reveal
-                as="span"
-                className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-rule bg-cream/80 px-3.5 py-1.5 text-caption text-muted"
-              >
-                {editionBadge}
-              </Reveal>
-            ) : null}
 
-            {book.tags && book.tags.length > 0 ? (
-              <Reveal className="mb-5 flex flex-wrap justify-center gap-2 lg:justify-start">
-                {book.tags.slice(0, 3).map((tag) => (
-                  <SmartTag key={tag.id} label={tag.name_he} slug={tag.slug} description={tag.description_he} />
-                ))}
-              </Reveal>
-            ) : null}
+              {authorName ? (
+                <Reveal delay={90} as="p" className="mt-2 font-serif text-[clamp(1.2rem,1.9vw,1.55rem)] text-ink-soft">
+                  <Link href={`/authors/${book.author!.slug}`} className="link">
+                    {authorName}
+                  </Link>
+                </Reveal>
+              ) : null}
 
-            <Reveal as="h1" className="font-serif text-[clamp(2.25rem,4.4vw,3.4rem)] leading-[1.08] text-ink">
-              {title}
-            </Reveal>
+              {subtitle ? (
+                <Reveal delay={150} as="p" className="mx-auto mt-4 max-w-xl text-lead text-muted lg:mx-0">
+                  {subtitle}
+                </Reveal>
+              ) : null}
 
-            {authorName ? (
-              <Reveal delay={90} as="p" className="mt-2 font-serif text-[clamp(1.2rem,1.9vw,1.55rem)] text-ink-soft">
-                <Link href={`/authors/${book.author!.slug}`} className="link">
-                  {authorName}
-                </Link>
-              </Reveal>
-            ) : null}
+              {specs.length > 0 ? (
+                <Reveal delay={220} className="mt-7">
+                  <HeroSpecStrip items={specs} />
+                </Reveal>
+              ) : null}
 
-            {subtitle ? (
-              <Reveal delay={150} as="p" className="mx-auto mt-4 max-w-xl text-lead text-muted lg:mx-0">
-                {subtitle}
-              </Reveal>
-            ) : null}
+              {actions ? (
+                <Reveal id="book-purchase" delay={290} className="mt-7">
+                  {actions}
+                </Reveal>
+              ) : null}
 
-            {specs.length > 0 ? (
-              <Reveal delay={220} className="mt-7">
-                <HeroSpecStrip items={specs} />
-              </Reveal>
-            ) : null}
-
-            {actions ? (
-              <Reveal id="book-purchase" delay={290} className="mt-7">
-                {actions}
-              </Reveal>
-            ) : null}
-
-            {book.view_count > 0 ? (
-              <Reveal delay={350} className="mt-4 text-caption text-muted">
-                {t('viewCount', { count: book.view_count })}
-              </Reveal>
-            ) : null}
+              {book.view_count > 0 ? (
+                <Reveal delay={350} className="mt-4 text-caption text-muted">
+                  {t('viewCount', { count: book.view_count })}
+                </Reveal>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

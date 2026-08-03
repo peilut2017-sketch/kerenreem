@@ -51,7 +51,7 @@ export function FloatingCover({
       ref={wrapperRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      className="relative mx-auto w-full max-w-[19rem] [perspective:1400px] lg:max-w-[21rem]"
+      className="relative mx-auto w-full max-w-[19rem] [perspective:1400px] lg:max-w-[25rem]"
     >
       <div
         ref={cardRef}
@@ -73,7 +73,7 @@ export function FloatingCover({
                 alt={alt}
                 fill
                 priority
-                sizes="(max-width: 1024px) 60vw, 336px"
+                sizes="(max-width: 1024px) 60vw, 400px"
                 className="object-contain"
               />
             ) : (
