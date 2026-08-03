@@ -30,6 +30,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
           <div>
             <Wordmark
               logoUrl={settings.logo_url}
+              darkLogoUrl={settings.logo_dark_url}
               name={t('site.name')}
               tagline={t('site.tagline')}
               variant="dark"

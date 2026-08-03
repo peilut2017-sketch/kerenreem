@@ -6,6 +6,7 @@ import { bulkUpdateBooks } from '@/lib/admin/actions';
 import type { BookRow } from '@/lib/admin/queries';
 import { computeCompletion } from '@/lib/completion';
 import { useLocalList } from '@/lib/client-hooks';
+import { AdminIcon } from './AdminIcons';
 import { CompletionBadge } from './CompletionBadge';
 import { RowActions } from './RowActions';
 import { Spinner } from './SubmitButton';
@@ -167,14 +168,20 @@ export function BooksDataGrid({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="חיפוש בשם, מחבר או מק״ט"
-          aria-label="חיפוש בטבלת הספרים"
-          className="field-input max-w-xs"
-        />
+        <div className="relative max-w-xs flex-1">
+          <AdminIcon
+            name="search"
+            className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted"
+          />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="חיפוש בשם, מחבר או מק״ט"
+            aria-label="חיפוש בטבלת הספרים"
+            className="admin-field-input ps-9"
+          />
+        </div>
         <span className="text-caption text-muted">
           {sorted.length} מתוך {books.length}
         </span>
@@ -185,21 +192,25 @@ export function BooksDataGrid({
             onClick={() => setColumnsOpen((open) => !open)}
             aria-haspopup="true"
             aria-expanded={columnsOpen}
-            className="btn btn-quiet"
+            className="admin-btn admin-btn-quiet"
           >
+            <AdminIcon name="columns" className="h-4 w-4" />
             עמודות
           </button>
           {columnsOpen ? (
-            <div className="absolute end-0 z-10 mt-2 w-48 rounded-[var(--radius-md)] border border-rule bg-cream-2 p-3 shadow-[var(--shadow-float)]">
+            <div className="admin-nav-dropdown admin-nav-dropdown-end">
               {TOGGLEABLE.map((column) => (
-                <label key={column.id} className="flex items-center gap-2.5 py-1 text-small text-ink-soft">
+                <label
+                  key={column.id}
+                  className="admin-nav-dropdown-item cursor-pointer justify-between"
+                >
+                  {column.label}
                   <input
                     type="checkbox"
                     checked={shown(column.id)}
                     onChange={() => hiddenColumns.toggle(column.id)}
-                    className="h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
+                    className="h-4 w-4 shrink-0 accent-[var(--admin-accent)]"
                   />
-                  {column.label}
                 </label>
               ))}
             </div>
@@ -209,18 +220,18 @@ export function BooksDataGrid({
 
       {selected.size > 0 ? <BulkActionBar selected={selected} onDone={() => setSelected(new Set())} /> : null}
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[36rem] border-collapse text-small">
+      <div className="admin-table-wrap overflow-x-auto">
+        <table className="admin-table min-w-[36rem]">
           <thead>
-            <tr className="border-y border-rule text-start">
-              <th scope="col" className="py-2.5 pe-4">
+            <tr>
+              <th scope="col">
                 <input
                   ref={selectAllRef}
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={toggleAllVisible}
                   aria-label="בחירת כל הספרים המוצגים"
-                  className="h-4 w-4 accent-[var(--color-burgundy)]"
+                  className="h-4 w-4 accent-[var(--admin-accent)]"
                 />
               </th>
               {shown('catalogue_number') ? (
@@ -236,54 +247,58 @@ export function BooksDataGrid({
               {shown('completion') ? (
                 <SortableHeader label="השלמה" active={sortIndicator('completion')} onClick={() => toggleSort('completion')} />
               ) : null}
-              <th scope="col" className="py-2.5 pe-4 text-start font-semibold text-muted">
-                מצב ופעולות
-              </th>
+              <th scope="col">מצב ופעולות</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map(({ book, relations }) => (
-              <tr key={book.id} className="border-b border-rule align-top">
-                <td className="py-3 pe-4">
+              <tr key={book.id}>
+                <td>
                   <input
                     type="checkbox"
                     checked={selected.has(book.id)}
                     onChange={() => toggleRow(book.id)}
                     aria-label={`בחירת ${book.title_he}`}
-                    className="h-4 w-4 accent-[var(--color-burgundy)]"
+                    className="h-4 w-4 accent-[var(--admin-accent)]"
                   />
                 </td>
                 {shown('catalogue_number') ? (
-                  <td className="py-3 pe-4 text-muted tabular-nums">{book.catalogue_number}</td>
+                  <td className="text-muted tabular-nums">{book.catalogue_number}</td>
                 ) : null}
-                <td className="py-3 pe-4">
-                  <Link href={`/admin/books/${book.id}`} className="font-semibold hover:text-burgundy">
+                <td>
+                  <Link href={`/admin/books/${book.id}`} className="font-semibold hover:text-[var(--admin-accent)]">
                     {book.title_he}
                   </Link>
                   {book.subtitle_he ? (
                     <span className="mt-0.5 block text-caption text-muted">{book.subtitle_he}</span>
                   ) : null}
                 </td>
-                {shown('author') ? <td className="py-3 pe-4 text-muted">{book.author?.name_he ?? '—'}</td> : null}
+                {shown('author') ? <td className="text-muted">{book.author?.name_he ?? '—'}</td> : null}
                 {shown('year') ? (
-                  <td className="py-3 pe-4 text-muted">
+                  <td className="text-muted">
                     {book.publication_year_he || book.publication_year_ce || '—'}
                   </td>
                 ) : null}
                 {shown('completion') ? (
-                  <td className="py-3 pe-4">
+                  <td>
                     <CompletionBadge book={book} relations={relations} />
                   </td>
                 ) : null}
-                <td className="py-3 pe-4">
-                  <RowActions entity="books" id={book.id} label={book.title_he} published={book.is_published} />
+                <td>
+                  <RowActions
+                    entity="books"
+                    id={book.id}
+                    label={book.title_he}
+                    published={book.is_published}
+                    viewHref={`/books/${book.slug}`}
+                  />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         {sorted.length === 0 ? (
-          <p className="py-8 text-muted">
+          <p className="px-4 py-10 text-center text-muted">
             {books.length === 0 ? 'טרם נוספו ספרים.' : 'אין ספר התואם את החיפוש.'}
           </p>
         ) : null}
@@ -302,7 +317,7 @@ function SortableHeader({
   onClick: () => void;
 }) {
   return (
-    <th scope="col" className="py-2.5 pe-4 text-start font-semibold text-muted">
+    <th scope="col">
       <button type="button" onClick={onClick} className="inline-flex items-center gap-1 hover:text-ink">
         {label}
         <span aria-hidden="true">{active ?? ''}</span>
@@ -331,55 +346,50 @@ function BulkActionBar({ selected, onDone }: { selected: Set<string>; onDone: ()
   }
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] border border-rule-strong bg-cream-2 px-4 py-3">
-      <span className="text-small font-semibold text-ink">{selected.size} נבחרו</span>
+    <div className="admin-card mb-4 flex flex-wrap items-center gap-3 px-4 py-3">
+      <span className="admin-badge admin-badge-accent">{selected.size} נבחרו</span>
 
       {confirmingDelete ? (
         <>
-          <span role="alert" className="text-small text-burgundy">
+          <span role="alert" className="text-small font-semibold text-[var(--admin-danger)]">
             למחוק לצמיתות {selected.size} ספרים?
           </span>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run('delete')}
-            className="inline-flex items-center gap-1.5 text-small font-semibold text-burgundy underline underline-offset-4"
-          >
-            {pending ? <Spinner className="h-3 w-3" /> : null}
+          <button type="button" disabled={pending} onClick={() => run('delete')} className="admin-btn admin-btn-danger">
+            {pending ? <Spinner className="h-3.5 w-3.5" /> : <AdminIcon name="check" className="h-4 w-4" />}
             כן, למחוק
           </button>
-          <button
-            type="button"
-            onClick={() => setConfirmingDelete(false)}
-            className="text-small text-muted underline underline-offset-4"
-          >
+          <button type="button" onClick={() => setConfirmingDelete(false)} className="admin-btn admin-btn-ghost">
             ביטול
           </button>
         </>
       ) : (
         <>
-          <button type="button" disabled={pending} onClick={() => run('publish')} className="btn btn-quiet">
+          <button type="button" disabled={pending} onClick={() => run('publish')} className="admin-btn admin-btn-quiet">
+            <AdminIcon name="check" className="h-4 w-4" />
             פרסום
           </button>
-          <button type="button" disabled={pending} onClick={() => run('unpublish')} className="btn btn-quiet">
+          <button type="button" disabled={pending} onClick={() => run('unpublish')} className="admin-btn admin-btn-quiet">
+            <AdminIcon name="x" className="h-4 w-4" />
             ביטול פרסום
           </button>
           <button
             type="button"
             disabled={pending}
             onClick={() => setConfirmingDelete(true)}
-            className="text-small text-burgundy underline underline-offset-4"
+            className="admin-btn admin-btn-danger"
           >
+            <AdminIcon name="trash" className="h-4 w-4" />
             מחיקה
           </button>
-          <button type="button" onClick={onDone} className="ms-auto text-small text-muted underline underline-offset-4">
+          <button type="button" onClick={onDone} className="admin-btn admin-btn-ghost ms-auto">
+            <AdminIcon name="x" className="h-4 w-4" />
             ניקוי בחירה
           </button>
         </>
       )}
 
       {error ? (
-        <span role="alert" className="w-full text-caption text-burgundy">
+        <span role="alert" className="w-full text-caption text-[var(--admin-danger)]">
           {error}
         </span>
       ) : null}

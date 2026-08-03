@@ -25,6 +25,7 @@ export function Drawer({
   widthClassName = 'max-w-[24rem]',
   returnFocusTo,
   closeLabel = 'סגירה',
+  variant = 'side',
 }: {
   open: boolean;
   onClose: () => void;
@@ -41,6 +42,13 @@ export function Drawer({
    * באנגלית שומע "סגירה".
    */
   closeLabel?: string;
+  /**
+   * 'side' (ברירת מחדל) — פאנל צף מהקצה, למגירות סינון וכדומה.
+   * 'center' — דיאלוג ממורכז בעמוד, לתוכן גדול יותר כמו טופס ספר שלם:
+   * הצפה מקצה המסך אינה מתאימה לטופס ארוך עם לשוניות, בעוד מרכז העמוד
+   * נותן לו את מלוא תשומת הלב, כפי שדיאלוג עריכה מרכזי מצופה להיראות.
+   */
+  variant?: 'side' | 'center';
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -94,8 +102,12 @@ export function Drawer({
 
   if (!open) return null;
 
+  const centered = variant === 'center';
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div
+      className={`fixed inset-0 z-50 flex ${centered ? 'items-center justify-center p-4' : 'justify-end'}`}
+    >
       <button
         type="button"
         aria-label={closeLabel}
@@ -108,7 +120,9 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`glass relative m-3 flex w-full ${widthClassName} flex-col overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)]`}
+        className={`glass relative flex w-full ${widthClassName} flex-col overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] ${
+          centered ? 'max-h-[88vh]' : 'm-3'
+        }`}
       >
         <div className="flex items-center justify-between border-b border-rule px-6 py-4">
           <h2 id={titleId} className="font-serif text-h3 text-ink">

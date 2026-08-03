@@ -49,6 +49,33 @@ check('תכונת style מוסרת', '<p style="position:fixed;inset:0">a</p>', 
   hasNot: ['style', 'fixed'],
 });
 
+/* --- style מוגבל: רק text-align ו-font-family, ורק ערכים מוכרים מראש ---
+   (ראו allowedStyles ב-sanitize.ts — נוסף עבור כפתורי היישור והגופן
+   בעורך). הבדיקה למעלה (position:fixed) חייבת להישאר ירוקה גם אחרי
+   הפתיחה הזו: allowedStyles הוא רשימת היתר סגורה, לא ביטול החסימה. */
+check('text-align מותר נשמר', '<p style="text-align:center">a</p>', {
+  has: ['text-align', 'center'],
+});
+
+check('גוון text-align לא מוכר נחסם', '<p style="text-align:sneaky">a</p>', {
+  hasNot: ['sneaky'],
+});
+
+check('font-family מוכר (משתנה CSS של האתר) נשמר', '<span style="font-family:var(--font-heebo)">a</span>', {
+  has: ['font-family', '--font-heebo'],
+});
+
+check('font-family שרירותי נחסם', '<span style="font-family:Arial">a</span>', {
+  hasNot: ['Arial'],
+});
+
+check('color אינו ברשימת ההיתר גם כש-style מותר עקרונית', '<p style="color:red;text-align:center">a</p>', {
+  has: ['text-align', 'center'],
+  hasNot: ['color', 'red'],
+});
+
+check('mark (הדגשה בצבע) נשמר', '<p><mark>מודגש</mark></p>', { has: ['<mark>', '</mark>'] });
+
 check('כתובת javascript: מוסרת', '<a href="javascript:alert(1)">קישור</a>', {
   hasNot: ['javascript', 'alert'],
 });

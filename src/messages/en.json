@@ -190,6 +190,7 @@
     "pdfPageInputLabel": "Go to page",
     "pdfSampleNotice": "Limited sample from the book",
     "pdfRetry": "Try again",
+    "pdfLoadingMore": "Loading the rest of the pages…",
     "pdfDialogTitle": "Sample from {title}",
     "statusInStock": "In stock",
     "statusOutOfStock": "Temporarily out of stock",

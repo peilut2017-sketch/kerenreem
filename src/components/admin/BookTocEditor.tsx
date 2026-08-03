@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { saveBookToc } from '@/lib/admin/actions';
+import { AdminIcon } from './AdminIcons';
+import { Spinner } from './SubmitButton';
 import type { BookTocEntry } from '@/lib/supabase/types';
 
 interface Row {
@@ -22,6 +24,16 @@ function makeRow(entry?: Pick<BookTocEntry, 'title_he' | 'level' | 'page_number'
     page_number: entry?.page_number != null ? String(entry.page_number) : '',
     summary_he: entry?.summary_he ?? '',
   };
+}
+
+/**
+ * מונע ש-Enter בשדה טקסט כאן ישלח בטעות את טופס הספר החיצוני — ראו את
+ * אותה הערה ב-BookImagesEditor.tsx לסיבה המלאה.
+ */
+function guardEnterSubmit(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') {
+    event.preventDefault();
+  }
 }
 
 /**
@@ -74,73 +86,74 @@ export function BookTocEditor({ bookId, entries }: { bookId: string; entries: Bo
   }
 
   return (
-    <div>
+    <div onKeyDown={guardEnterSubmit}>
       <div className="space-y-3">
         {rows.map((row, index) => (
-          <div key={row.key} className="grid gap-3 border border-rule p-4 sm:grid-cols-[1fr_7rem_5rem_auto]">
+          <div key={row.key} className="admin-card grid gap-3 p-4 sm:grid-cols-[1fr_7rem_5rem_auto]">
             <label className="block">
-              <span className="field-label">כותרת הפרק</span>
+              <span className="admin-field-label">כותרת הפרק</span>
               <input
                 value={row.title_he}
                 onChange={(event) => update(row.key, { title_he: event.target.value })}
-                className="field-input mt-1"
+                className="admin-field-input mt-1"
               />
             </label>
             <label className="block">
-              <span className="field-label">עומק</span>
+              <span className="admin-field-label">עומק</span>
               <select
                 value={row.level}
                 onChange={(event) => update(row.key, { level: Number(event.target.value) === 1 ? 1 : 0 })}
-                className="field-input mt-1"
+                className="admin-field-input mt-1"
               >
                 <option value={0}>פרק ראשי</option>
                 <option value={1}>תת-פרק</option>
               </select>
             </label>
             <label className="block">
-              <span className="field-label">עמוד</span>
+              <span className="admin-field-label">עמוד</span>
               <input
                 type="number"
                 dir="ltr"
                 value={row.page_number}
                 onChange={(event) => update(row.key, { page_number: event.target.value })}
-                className="field-input mt-1"
+                className="admin-field-input mt-1"
               />
             </label>
-            <div className="flex items-end gap-2 pb-0.5">
+            <div className="flex items-end gap-1.5 pb-0.5">
               <button
                 type="button"
                 onClick={() => move(row.key, -1)}
                 disabled={index === 0}
                 aria-label="הזזה למעלה"
-                className="rounded-[var(--radius-sm)] border border-rule px-2 py-1.5 text-caption disabled:opacity-40"
+                className="admin-btn admin-btn-quiet admin-btn-icon"
               >
-                ↑
+                <AdminIcon name="chevron-down" className="h-4 w-4 rotate-180" />
               </button>
               <button
                 type="button"
                 onClick={() => move(row.key, 1)}
                 disabled={index === rows.length - 1}
                 aria-label="הזזה למטה"
-                className="rounded-[var(--radius-sm)] border border-rule px-2 py-1.5 text-caption disabled:opacity-40"
+                className="admin-btn admin-btn-quiet admin-btn-icon"
               >
-                ↓
+                <AdminIcon name="chevron-down" className="h-4 w-4" />
               </button>
             </div>
             <label className="block sm:col-span-4">
-              <span className="field-label">תקציר הפרק (אופציונלי)</span>
+              <span className="admin-field-label">תקציר הפרק (אופציונלי)</span>
               <textarea
                 value={row.summary_he}
                 onChange={(event) => update(row.key, { summary_he: event.target.value })}
                 rows={2}
-                className="field-input mt-1"
+                className="admin-field-input mt-1"
               />
             </label>
             <button
               type="button"
               onClick={() => setRows((current) => current.filter((r) => r.key !== row.key))}
-              className="text-caption text-burgundy underline underline-offset-4 sm:col-span-4"
+              className="admin-btn admin-btn-ghost self-start sm:col-span-4"
             >
+              <AdminIcon name="trash" className="h-4 w-4" />
               הסרת השורה
             </button>
           </div>
@@ -150,18 +163,25 @@ export function BookTocEditor({ bookId, entries }: { bookId: string; entries: Bo
       <button
         type="button"
         onClick={() => setRows((current) => [...current, makeRow()])}
-        className="btn btn-quiet mt-4"
+        className="admin-btn admin-btn-quiet mt-4"
       >
-        + הוספת פרק
+        <AdminIcon name="plus" className="h-4 w-4" />
+        הוספת פרק
       </button>
 
       <div className="mt-5 flex items-center gap-3 border-t border-rule pt-5">
-        <button type="button" onClick={save} disabled={pending} className="btn btn-solid">
+        <button type="button" onClick={save} disabled={pending} className="admin-btn admin-btn-solid">
+          {pending ? <Spinner className="h-3.5 w-3.5" /> : <AdminIcon name="check" className="h-4 w-4" />}
           {pending ? 'שומר…' : 'שמירת תוכן העניינים'}
         </button>
-        {status === 'saved' ? <span className="text-small text-ink-soft">נשמר.</span> : null}
+        {status === 'saved' ? (
+          <span className="admin-badge admin-badge-success">
+            <span className="admin-badge-dot" aria-hidden="true" />
+            נשמר
+          </span>
+        ) : null}
         {error ? (
-          <span role="alert" className="text-small text-burgundy">
+          <span role="alert" className="text-small text-[var(--admin-danger)]">
             {error}
           </span>
         ) : null}

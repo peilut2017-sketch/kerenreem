@@ -30,7 +30,7 @@ const OPTIONS: IOptions = {
   allowedTags: [
     'p', 'br', 'hr', 'span', 'div',
     'h2', 'h3', 'h4',
-    'strong', 'b', 'em', 'i', 'u', 's', 'sub', 'sup',
+    'strong', 'b', 'em', 'i', 'u', 's', 'sub', 'sup', 'mark',
     'ul', 'ol', 'li',
     'blockquote', 'pre', 'code',
     'a', 'img', 'figure', 'figcaption',
@@ -40,7 +40,7 @@ const OPTIONS: IOptions = {
 
   allowedAttributes: {
     a: ['href', 'target', 'rel', 'title'],
-    img: ['src', 'alt', 'width', 'height', 'loading'],
+    img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
     iframe: [
       'src', 'title', 'width', 'height',
       'loading', 'referrerpolicy', 'allow', 'allowfullscreen', 'frameborder',
@@ -48,12 +48,32 @@ const OPTIONS: IOptions = {
     div: ['data-youtube-video'],
     th: ['colspan', 'rowspan'],
     td: ['colspan', 'rowspan'],
-    // כיוון ושפה נחוצים בתוכן דו-לשוני, ומותרים בכל תגית
-    '*': ['dir', 'lang'],
+    // כיוון ושפה נחוצים בתוכן דו-לשוני, ומותרים בכל תגית. style מותר בכל
+    // תגית גם כן, אבל allowedStyles למטה מצמצם אותו לשתי תכונות בלבד עם
+    // ערכים קבועים מראש — ראו שם.
+    '*': ['dir', 'lang', 'style'],
   },
 
-  // אין צורך ברשימת איסור נפרדת: style, onerror, onload ו-onclick אינם
-  // ברשימת המותרים ולכן נופלים. script ו-style גם מאבדים את תוכנם.
+  /**
+   * style מותר, אבל לא כל CSS: allowedStyles מסנן תכונה-תכונה, וכל מה
+   * שלא תואם בדיוק לביטוי הרגולרי נופל — לא רק "חשוד" נופל, אלא כל דבר
+   * שאינו בדיוק אחת האפשרויות המפורשות. text-align משרת את כפתור היישור
+   * בעורך; font-family מוגבל בכוונה למשתני ה-CSS של הגופנים שהאתר טוען
+   * בפועל (ראו lib/fonts.ts) — לא לשם גופן חופשי, שהיה מאפשר להזריק כל
+   * מחרוזת (כולל ניסיון escape מתוחכם) לתוך CSS שמוגש לדפדפן של מבקר אחר.
+   */
+  allowedStyles: {
+    '*': {
+      'text-align': [/^(?:left|right|center|justify)$/],
+      'font-family': [
+        /^var\(--font-(?:assistant|frank|heebo|rubik|noto-hebrew|david-libre|secular-one|alef)\)$/,
+      ],
+    },
+  },
+
+  // onerror, onload, onclick וכל שאר מאזיני האירועים אינם ברשימת
+  // התכונות המותרות ולכן נופלים תמיד — ללא תלות ב-style. script מאבד
+  // גם הוא את תוכנו, כי אינו ברשימת allowedTags.
   allowedSchemes: ['https', 'http', 'mailto', 'tel'],
   allowedSchemesAppliedToAttributes: ['href', 'src'],
 

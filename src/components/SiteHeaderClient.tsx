@@ -66,12 +66,15 @@ export function SiteHeaderClient({
         }`}
       >
         {/* הזכוכית מונפשת ב-opacity בלבד — הנפשת backdrop-filter עצמו
-            יקרה וקופצנית. מתחתיה רקע אטום בצבע העמוד, שנחוץ במצב
-            היציב: עד סף הגלילה כבר נכנס תוכן מתחת לפס, ובלי אטימות
-            הוא היה נראה דרכו. */}
+            יקרה וקופצנית. מתחתיה משטח אטום בגוון זהב שדועך כלפי מטה, שנחוץ
+            במצב היציב: עד סף הגלילה כבר נכנס תוכן מתחת לפס, ובלי אטימות
+            הוא היה נראה דרכו.
+            הדעיכה עצמה (גוון + צל רך) היא גם מה שמחליף את קו ההפרדה הישן:
+            קו חד בתחתית הסרגל הוא שפה גרפית מיושנת; משטח שדועך לרקע העמוד
+            נותן את אותה הפרדה בעדינות, בלי קו. */}
         <span
           aria-hidden="true"
-          className={`absolute inset-0 -z-10 bg-cream transition-opacity duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+          className={`header-surface-tint absolute inset-0 -z-10 transition-opacity duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
             isFloating ? 'opacity-0' : 'opacity-100'
           }`}
         />
@@ -81,18 +84,15 @@ export function SiteHeaderClient({
             isFloating ? 'opacity-100' : 'opacity-0'
           }`}
         />
-        {/* קו הפרדה דק במצב היציב בלבד — במצב הצף מסגרת הזכוכית
-            כבר מגדירה את הקצה, ושני הקווים יחד נראים ככפילות. */}
-        <span
-          aria-hidden="true"
-          className={`absolute inset-x-0 bottom-0 h-px bg-rule transition-opacity duration-[420ms] motion-reduce:transition-none ${
-            isFloating ? 'opacity-0' : 'opacity-100'
-          }`}
-        />
 
+        {/* התוכן: קפסולה צפה נשארת ממורכזת ומוגבלת ברוחב; הסרגל היציב
+            פרוש לרוחב המסך המלא כדי שהלוגו יישב בקצה הפיזי (ימין בעברית)
+            והפעולות בקצה הנגדי, ולא רק בקצה גוש התוכן הממורכז. */}
         <div
-          className={`mx-auto flex w-full max-w-[82rem] items-center gap-4 transition-[padding] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none sm:gap-6 ${
-            isFloating ? 'px-4 py-2.5 sm:px-6' : 'px-5 py-3.5 sm:px-8'
+          className={`mx-auto flex w-full items-center gap-4 transition-[padding,max-width] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none sm:gap-6 ${
+            isFloating
+              ? 'max-w-[82rem] px-4 py-2.5 sm:px-6'
+              : 'max-w-none px-5 py-5 sm:px-9 lg:px-12'
           }`}
         >
           <Wordmark
@@ -105,9 +105,12 @@ export function SiteHeaderClient({
           <NavLinks label={navLabel} items={navItems} compact={isFloating} />
 
           <div className="ms-auto flex items-center gap-3 lg:ms-0">
-            <div className="hidden items-center gap-3 lg:flex">
-              <SearchLauncher />
+            {/* חיפוש אחרון בסדר ה-DOM ולא ראשון: ב-RTL זה מה שממקם אותו
+                בקצה השמאלי הקיצוני של הקבוצה, כפי שהתבקש — לא רק לצד
+                מתג השפה. */}
+            <div className="hidden items-center gap-2 lg:flex">
               <LocaleSwitch />
+              <SearchLauncher />
             </div>
 
             <MobileNav

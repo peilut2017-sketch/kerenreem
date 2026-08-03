@@ -14,7 +14,10 @@ export default async function AdminBooksPage() {
       <AdminHeader
         title="ספרים"
         description="הקטלוג — הנכס המרכזי של האתר."
-        action={{ href: '/admin/books/new', label: 'ספר חדש' }}
+        action={[
+          { href: '/admin/books/new', label: 'ספר חדש', icon: 'plus' },
+          { href: '/admin/books/settings', label: 'הגדרות קטלוג וחנות', icon: 'settings', variant: 'quiet' },
+        ]}
       />
 
       {/* Set אינו נשלח כפי שהוא לרכיב לקוח — ההמרה למערך כאן, לא שם */}

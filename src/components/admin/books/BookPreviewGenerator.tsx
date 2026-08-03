@@ -2,10 +2,22 @@
 
 import { useState, useTransition } from 'react';
 import { uploadToBucket } from '../ImageField';
+import { AdminIcon } from '../AdminIcons';
 import { Spinner } from '../SubmitButton';
 import { saveBookPreviewPages } from '@/lib/admin/actions';
 import { MAX_PREVIEW_PAGES } from '@/lib/books/render-preview-pages';
 import type { BookPreviewPage } from '@/lib/supabase/types';
+
+/**
+ * מונע ש-Enter בשדה טקסט כאן ישלח בטעות את טופס הספר החיצוני — ראו את
+ * אותה הערה ב-BookImagesEditor.tsx לסיבה המלאה. אין כאן שדות טקסט בפועל
+ * כרגע, אבל ההגנה נשארת כאן כדי שהוספת שדה עתידית לא תפתח מחדש את הבאג.
+ */
+function guardEnterSubmit(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') {
+    event.preventDefault();
+  }
+}
 
 type Stage = 'idle' | 'scanning' | 'choosing' | 'rendering' | 'saving' | 'done' | 'error';
 
@@ -120,7 +132,7 @@ export function BookPreviewGenerator({
   }
 
   return (
-    <div>
+    <div onKeyDown={guardEnterSubmit}>
       {existingPages.length > 0 && stage === 'idle' ? (
         <div className="mb-5">
           <p className="text-small text-ink-soft">
@@ -133,7 +145,7 @@ export function BookPreviewGenerator({
                 <img
                   src={page.image_url}
                   alt={`עמוד ${page.page_number}`}
-                  className="w-full border border-rule object-contain"
+                  className="w-full rounded-[var(--admin-radius-btn)] border border-rule object-contain"
                 />
                 <span className="block text-center text-caption text-muted">{page.page_number}</span>
               </li>
@@ -143,7 +155,8 @@ export function BookPreviewGenerator({
       ) : null}
 
       {stage === 'idle' || stage === 'error' || stage === 'done' ? (
-        <button type="button" onClick={() => void scan()} className="btn btn-solid">
+        <button type="button" onClick={() => void scan()} className="admin-btn admin-btn-solid">
+          <AdminIcon name="image" className="h-4 w-4" />
           {existingPages.length > 0 ? 'יצירת דפי דוגמה מחדש' : 'צור דפי דוגמה'}
         </button>
       ) : null}
@@ -160,7 +173,7 @@ export function BookPreviewGenerator({
             סמנו אילו עמודים מותרים לפרסום. נבחרו {selected.size} מתוך {MAX_PREVIEW_PAGES} המרביים.
           </p>
 
-          <ul className="mt-4 grid max-h-96 grid-cols-3 gap-3 overflow-y-auto border border-rule p-3 sm:grid-cols-5 lg:grid-cols-8">
+          <ul className="mt-4 grid max-h-96 grid-cols-3 gap-3 overflow-y-auto rounded-[var(--admin-radius-card)] border border-rule p-3 sm:grid-cols-5 lg:grid-cols-8">
             {thumbnails.map((thumbnail) => {
               const isSelected = selected.has(thumbnail.pageNumber);
               return (
@@ -177,8 +190,8 @@ export function BookPreviewGenerator({
                     <img
                       src={thumbnail.dataUrl}
                       alt=""
-                      className={`w-full border-2 object-contain ${
-                        isSelected ? 'border-burgundy' : 'border-rule opacity-60'
+                      className={`w-full rounded-[var(--admin-radius-btn)] border-2 object-contain ${
+                        isSelected ? 'border-[var(--admin-accent)]' : 'border-rule opacity-60'
                       }`}
                     />
                     <span className="text-caption text-muted">{thumbnail.pageNumber}</span>
@@ -193,11 +206,13 @@ export function BookPreviewGenerator({
               type="button"
               onClick={() => void generate()}
               disabled={selected.size === 0}
-              className="btn btn-solid"
+              className="admin-btn admin-btn-solid"
             >
+              <AdminIcon name="check" className="h-4 w-4" />
               המר {selected.size} עמודים והעלה
             </button>
-            <button type="button" onClick={() => setStage('idle')} className="btn btn-quiet">
+            <button type="button" onClick={() => setStage('idle')} className="admin-btn admin-btn-ghost">
+              <AdminIcon name="x" className="h-4 w-4" />
               ביטול
             </button>
           </div>
@@ -217,13 +232,14 @@ export function BookPreviewGenerator({
       ) : null}
 
       {stage === 'done' ? (
-        <p className="mt-3 text-small text-ink-soft">
+        <p className="admin-badge admin-badge-success mt-3">
+          <span className="admin-badge-dot" aria-hidden="true" />
           דפי הדוגמה נשמרו. רעננו את העמוד כדי לראות את התצוגה המעודכנת.
         </p>
       ) : null}
 
       {error ? (
-        <p role="alert" className="mt-3 text-small text-burgundy">
+        <p role="alert" className="mt-3 text-small text-[var(--admin-danger)]">
           {error}
         </p>
       ) : null}

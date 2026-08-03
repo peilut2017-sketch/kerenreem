@@ -7,6 +7,7 @@ import {
   listUpcomingEvents,
 } from '@/lib/admin/queries';
 import { AdminHeader, PublishBadge } from '@/components/admin/AdminList';
+import { AdminIcon, type AdminIconName } from '@/components/admin/AdminIcons';
 import { formatDate, parseDateOnly } from '@/lib/hebrew-date';
 
 export const dynamic = 'force-dynamic';
@@ -26,12 +27,12 @@ export default async function AdminDashboard({
     listUpcomingEvents(),
   ]);
 
-  const stats = [
-    { label: 'ספרים בקטלוג', value: counts.books, href: '/admin/books' },
-    { label: 'טיוטות', value: counts.drafts, href: '/admin/books' },
-    { label: 'מחברים', value: counts.authors, href: '/admin/authors' },
-    { label: 'אירועים', value: counts.events, href: '/admin/events' },
-    { label: 'פניות שלא טופלו', value: counts.messages, href: '/admin/messages' },
+  const stats: { label: string; value: number; href: string; icon: AdminIconName }[] = [
+    { label: 'ספרים בקטלוג', value: counts.books, href: '/admin/books', icon: 'books' },
+    { label: 'טיוטות', value: counts.drafts, href: '/admin/books', icon: 'edit' },
+    { label: 'מחברים', value: counts.authors, href: '/admin/authors', icon: 'authors' },
+    { label: 'אירועים', value: counts.events, href: '/admin/events', icon: 'events' },
+    { label: 'פניות שלא טופלו', value: counts.messages, href: '/admin/messages', icon: 'messages' },
   ];
 
   return (
@@ -39,87 +40,105 @@ export default async function AdminDashboard({
       <AdminHeader title={`שלום, ${session.profile.full_name || 'עורך'}`} />
 
       {denied ? (
-        <p role="alert" className="mb-8 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small">
+        <p
+          role="alert"
+          className="admin-card mb-8 border-s-2 border-s-[var(--admin-danger)] px-4 py-3 text-small"
+        >
           אין לך הרשאה לאזור שביקשת.
         </p>
       ) : null}
 
-      <dl className="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-3 lg:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-cream p-4">
-            <dt className="text-caption text-muted">
-              <Link href={stat.href} className="hover:text-burgundy">
-                {stat.label}
-              </Link>
-            </dt>
-            <dd className="mt-1 font-serif text-h2 tabular-nums text-ink">{stat.value}</dd>
-          </div>
+          <Link key={stat.label} href={stat.href} className="admin-stat">
+            <span className="admin-icon-chip h-11 w-11">
+              <AdminIcon name={stat.icon} className="h-5 w-5" />
+            </span>
+            <span>
+              <dt className="text-caption text-muted">{stat.label}</dt>
+              <dd className="mt-0.5 font-serif text-h3 tabular-nums text-ink">{stat.value}</dd>
+            </span>
+          </Link>
         ))}
       </dl>
 
-      <div className="mt-12 grid gap-12 lg:grid-cols-2">
-        <section aria-labelledby="dash-drafts">
-          <h2 id="dash-drafts" className="eyebrow mb-3">
+      <div className="mt-12 grid gap-8 lg:grid-cols-2">
+        <section aria-labelledby="dash-drafts" className="admin-card p-6">
+          <h2 id="dash-drafts" className="mb-4 flex items-center gap-2 text-small font-bold text-ink">
+            <AdminIcon name="edit" className="h-4 w-4 text-muted" />
             טיוטות ממתינות
           </h2>
           {drafts.length === 0 ? (
             <p className="text-small text-muted">אין טיוטות פתוחות.</p>
           ) : (
-            <ul className="border-t border-rule">
+            <ul className="space-y-1">
               {drafts.map((book) => (
-                <li key={book.id} className="flex items-center justify-between gap-4 border-b border-rule py-2.5">
-                  <Link href={`/admin/books/${book.id}`} className="text-small hover:text-burgundy">
+                <li key={book.id}>
+                  <Link
+                    href={`/admin/books/${book.id}`}
+                    className="flex items-center justify-between gap-4 rounded-[var(--admin-radius-btn)] px-2.5 py-2.5 text-small transition-colors hover:bg-cream-2"
+                  >
                     {book.title_he}
+                    <PublishBadge published={book.is_published} />
                   </Link>
-                  <PublishBadge published={book.is_published} />
                 </li>
               ))}
             </ul>
           )}
         </section>
 
-        <section aria-labelledby="dash-recent">
-          <h2 id="dash-recent" className="eyebrow mb-3">
+        <section aria-labelledby="dash-recent" className="admin-card p-6">
+          <h2 id="dash-recent" className="mb-4 flex items-center gap-2 text-small font-bold text-ink">
+            <AdminIcon name="books" className="h-4 w-4 text-muted" />
             נערכו לאחרונה
           </h2>
           {recent.length === 0 ? (
             <p className="text-small text-muted">טרם נוספו ספרים.</p>
           ) : (
-            <ul className="border-t border-rule">
+            <ul className="space-y-1">
               {recent.map((book) => (
-                <li key={book.id} className="flex items-center justify-between gap-4 border-b border-rule py-2.5">
-                  <Link href={`/admin/books/${book.id}`} className="text-small hover:text-burgundy">
+                <li key={book.id}>
+                  <Link
+                    href={`/admin/books/${book.id}`}
+                    className="flex items-center justify-between gap-4 rounded-[var(--admin-radius-btn)] px-2.5 py-2.5 text-small transition-colors hover:bg-cream-2"
+                  >
                     {book.title_he}
+                    <span className="shrink-0 text-caption text-muted">
+                      {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(
+                        new Date(book.updated_at),
+                      )}
+                    </span>
                   </Link>
-                  <span className="shrink-0 text-caption text-muted">
-                    {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(
-                      new Date(book.updated_at),
-                    )}
-                  </span>
                 </li>
               ))}
             </ul>
           )}
         </section>
 
-        <section aria-labelledby="dash-events">
-          <h2 id="dash-events" className="eyebrow mb-3">
+        <section aria-labelledby="dash-events" className="admin-card p-6 lg:col-span-2">
+          <h2 id="dash-events" className="mb-4 flex items-center gap-2 text-small font-bold text-ink">
+            <AdminIcon name="events" className="h-4 w-4 text-muted" />
             אירועים קרובים
           </h2>
           {upcoming.length === 0 ? (
             <p className="text-small text-muted">אין אירועים קרובים.</p>
           ) : (
-            <ul className="border-t border-rule">
+            <ul className="grid gap-1 sm:grid-cols-2">
               {upcoming.map((event) => {
                 const date = parseDateOnly(event.event_date ?? '');
                 return (
-                  <li key={event.id} className="border-b border-rule py-2.5">
-                    <Link href={`/admin/events/${event.id}`} className="text-small hover:text-burgundy">
+                  <li key={event.id}>
+                    <Link
+                      href={`/admin/events/${event.id}`}
+                      className="block rounded-[var(--admin-radius-btn)] px-2.5 py-2.5 text-small transition-colors hover:bg-cream-2"
+                    >
                       {event.title_he}
+                      {date ? (
+                        <span className="mt-0.5 block text-caption text-muted">
+                          {formatDate(date, 'he', 'both')}
+                        </span>
+                      ) : null}
                     </Link>
-                    {date ? (
-                      <p className="mt-0.5 text-caption text-muted">{formatDate(date, 'he', 'both')}</p>
-                    ) : null}
                   </li>
                 );
               })}

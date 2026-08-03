@@ -190,6 +190,7 @@
     "pdfPageInputLabel": "מעבר לעמוד",
     "pdfSampleNotice": "דוגמה מוגבלת מתוך הספר",
     "pdfRetry": "ניסיון חוזר",
+    "pdfLoadingMore": "טוען את שאר העמודים…",
     "pdfDialogTitle": "דוגמה מתוך {title}",
     "statusInStock": "במלאי",
     "statusOutOfStock": "אזל זמנית",

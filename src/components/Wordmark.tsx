@@ -9,12 +9,15 @@ import { Link } from '@/i18n/navigation';
  */
 export function Wordmark({
   logoUrl,
+  darkLogoUrl,
   name,
   tagline,
   variant = 'light',
   compact = false,
 }: {
   logoUrl: string | null;
+  /** גרסה הפוכה/בהירה ללוגו, לשימוש כש-variant='dark'. null — נופל ל-logoUrl עם משטח עוגן. */
+  darkLogoUrl?: string | null;
   name: string;
   tagline?: string;
   /** 'light' — על נייר, 'dark' — על הכחול העמוק */
@@ -22,20 +25,42 @@ export function Wordmark({
   /** גרסה מכווצת — לוגו וטקסט קטנים יותר, לניווט במצב צף */
   compact?: boolean;
 }) {
+  const resolvedLogo = variant === 'dark' ? (darkLogoUrl || logoUrl) : logoUrl;
+
+  /**
+   * לוגו שהועלה בלי גרסה ייעודית לרקע כהה עשוי להיות כהה בעצמו — למשל
+   * כיתוב שחור על נייר שקוף — ואז הוא נבלע ברקע הכחול-עמוק. במקום להניח
+   * שהקובץ יתאים, הוא יושב על משטח בהיר קטן וקבוע שמבטיח ניגודיות בכל
+   * מקרה. ברגע שתועלה גרסה ייעודית (logo_dark_url) העטיפה הזו מתבטלת —
+   * הקובץ שהועלה במיוחד לרקע כהה מוצג כמו שהוא, בלי משטח מתחתיו.
+   */
+  const needsBackerPlate = variant === 'dark' && !darkLogoUrl && Boolean(logoUrl);
+
   return (
     <Link
       href="/"
       className="group flex items-center gap-3 transition-[gap] duration-[420ms] ease-[var(--ease-spring)] focus-visible:outline-offset-4 motion-reduce:transition-none"
     >
-      {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- הלוגו מוגדר ב-CMS ומוגש כפי שהוא
-        <img
-          src={logoUrl}
-          alt={name}
-          className={`w-auto transition-[height] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-            compact ? 'h-8 sm:h-9' : 'h-11 sm:h-12'
-          }`}
-        />
+      {resolvedLogo ? (
+        needsBackerPlate ? (
+          <span
+            className={`inline-flex w-auto shrink-0 items-center rounded-[var(--radius-sm)] bg-cream px-2 py-1 shadow-[var(--shadow-soft)] transition-[height] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+              compact ? 'h-8 sm:h-9' : 'h-11 sm:h-12'
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- הלוגו מוגדר ב-CMS ומוגש כפי שהוא */}
+            <img src={resolvedLogo} alt={name} className="h-full w-auto object-contain" />
+          </span>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- הלוגו מוגדר ב-CMS ומוגש כפי שהוא
+          <img
+            src={resolvedLogo}
+            alt={name}
+            className={`w-auto transition-[height] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+              compact ? 'h-8 sm:h-9' : 'h-11 sm:h-12'
+            }`}
+          />
+        )
       ) : (
         <MarkSvg
           compact={compact}

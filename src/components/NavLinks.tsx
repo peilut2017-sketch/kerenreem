@@ -111,12 +111,12 @@ export function NavLinks({
               aria-current={index === activeIndex ? 'page' : undefined}
               onFocus={() => setHovered(index)}
               onBlur={() => setHovered(null)}
-              className={`relative z-10 block rounded-[var(--radius-pill)] text-small transition-[color,padding] duration-300 ${
-                compact ? 'px-3 py-1.5' : 'px-4 py-2'
+              className={`relative z-10 block rounded-[var(--radius-pill)] transition-[color,padding,font-size] duration-300 ${
+                compact ? 'px-3 py-1.5 text-small' : 'px-5 py-2.5 text-body'
               } ${
                 index === activeIndex
                   ? 'font-semibold text-burgundy'
-                  : 'text-ink-soft hover:text-burgundy'
+                  : `text-ink-soft hover:text-burgundy ${compact ? '' : 'font-medium'}`
               }`}
             >
               <NavLabel>{item.label}</NavLabel>

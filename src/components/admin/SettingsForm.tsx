@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import { saveSettings, type SettingsState } from '@/lib/admin/settings-actions';
-import { CheckboxField, FieldSet, TextField } from './Fields';
+import { FieldSet, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import type { SiteSettings } from '@/lib/supabase/types';
 
@@ -17,6 +17,16 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
     <form action={action} className="space-y-8">
       <FieldSet legend="זהות">
         <ImageField name="logo_url" label="לוגו" bucket="site" defaultValue={settings.logo_url} />
+        <ImageField
+          name="logo_dark_url"
+          label="לוגו לרקע כהה (רשות)"
+          bucket="site"
+          defaultValue={settings.logo_dark_url}
+          hint={
+            'גרסה הפוכה/בהירה של הלוגו, לתחתית האתר ולרצועות הכהות. ' +
+            'ריק — הלוגו הרגיל יוצג שם על גבי משטח בהיר קטן, כדי שיישאר קריא.'
+          }
+        />
       </FieldSet>
 
       <FieldSet legend="פרטי קשר">
@@ -63,30 +73,20 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         </div>
       </FieldSet>
 
-      <FieldSet
-        legend="דגלי פיצ'ר"
-        description="הפעלת החנות חושפת מחירים וכפתורי רכישה בעמודי הספרים שסומנו כניתנים לרכישה. אין להפעיל לפני חיבור ספק סליקה ופרסום תנאי רכישה, ביטול והחזרים בתקנון."
-      >
-        <CheckboxField
-          name="store_enabled"
-          label="חנות פעילה"
-          defaultChecked={settings.store_enabled}
-        />
-      </FieldSet>
-
       {state.status === 'error' ? (
-        <p role="alert" className="border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small">
+        <p role="alert" className="admin-card border-s-2 border-s-[var(--admin-danger)] px-4 py-3 text-small">
           {state.message}
         </p>
       ) : null}
       {state.status === 'saved' ? (
-        <p role="status" className="border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small">
-          ההגדרות נשמרו.
+        <p role="status" className="admin-badge admin-badge-success">
+          <span className="admin-badge-dot" aria-hidden="true" />
+          ההגדרות נשמרו
         </p>
       ) : null}
 
       <div className="border-t border-rule pt-6">
-        <button type="submit" disabled={pending} className="btn btn-solid">
+        <button type="submit" disabled={pending} className="admin-btn admin-btn-solid">
           {pending ? 'שומר…' : 'שמירה'}
         </button>
       </div>

@@ -119,10 +119,12 @@ export function BookShelf({ books, label }: { books: ShelfBook[]; label: string 
           ))}
         </ul>
 
-        {/* לוח המדף: קו אופקי וצל רך שמניח עליו את הספרים */}
+        {/* לוח המדף: קו זהב וזוהר חם מתחתיו — לא קו כהה. הרצועה שמסביב
+            כהה בגווני הלוגו (ראו page.tsx), וקו בגוון ה-rule הרגיל היה
+            נבלע בה; זהב הוא כבר הגוון שמייצג "עץ" בשדרת ספר בלי צילום. */}
         <div aria-hidden="true">
-          <div className="h-[3px] rounded-full bg-gradient-to-l from-transparent via-rule-strong to-transparent" />
-          <div className="mx-auto h-6 w-[92%] bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--color-ink)_16%,transparent),transparent_70%)]" />
+          <div className="h-[3px] rounded-full bg-gradient-to-l from-transparent via-gold/80 to-transparent" />
+          <div className="mx-auto h-6 w-[92%] bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--color-gold)_20%,transparent),transparent_70%)]" />
         </div>
       </div>
     </section>

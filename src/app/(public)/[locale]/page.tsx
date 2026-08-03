@@ -159,14 +159,23 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       )}
 
       {shelfBooks.length > 0 ? (
-        <section className="section-y">
+        /* רצועה כהה בגווני הלוגו (כחול עמוק + זהב), כמו יתר הרצועות
+           הכהות בעמוד — כך שהמדף קורא כפינה משלו ולא כרשימה שיושבת על
+           רקע העמוד הרגיל. הזהב יורד מלמעלה כהילה רכה, בדיוק בגוון
+           שממנו נגזרת שדרת הספר חסרת הצילום (ראו cover-colors.ts). */
+        <section className="on-dark relative isolate overflow-hidden py-20 lg:py-24">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-[radial-gradient(64rem_28rem_at_50%_-12%,color-mix(in_srgb,var(--color-gold)_22%,transparent),transparent_65%)]"
+          />
+
           <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
             <header className="mb-10 text-center">
               <p className="eyebrow">{t('home.newBooksLead')}</p>
-              <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
+              <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-white">
                 {t('home.newBooksTitle')}
               </h2>
-              <p className="mx-auto mt-3 max-w-[46ch] text-small text-muted">
+              <p className="mx-auto mt-3 max-w-[46ch] text-small text-cream-2/75">
                 {t('home.shelfHint')}
               </p>
             </header>

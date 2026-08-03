@@ -49,7 +49,7 @@ export function SearchLauncher() {
         onClick={() => setOpen(true)}
         aria-label={t('search')}
         aria-expanded={false}
-        className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft transition-[background-color,color,transform] duration-300 hover:bg-white/70 hover:text-burgundy active:scale-95"
+        className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft transition-[background-color,color,transform] duration-300 hover:bg-white/70 hover:text-burgundy active:scale-95"
       >
         <SearchIcon />
       </button>
@@ -79,9 +79,9 @@ export function SearchLauncher() {
 
 function SearchIcon() {
   return (
-    <svg viewBox="0 0 20 20" className="h-[1.15rem] w-[1.15rem]" fill="none" aria-hidden="true">
-      <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5" />
-      <path d="m13.5 13.5 3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden="true">
+      <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.6" />
+      <path d="m13.5 13.5 3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

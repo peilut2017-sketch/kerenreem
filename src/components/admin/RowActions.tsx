@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { deleteEntity, togglePublished } from '@/lib/admin/actions';
+import { AdminIcon } from './AdminIcons';
 import { Spinner } from './SubmitButton';
 
 /**
@@ -33,6 +34,7 @@ export function PublishToggle({
         disabled={pending}
         aria-pressed={published}
         aria-label={`${published ? 'הסתרת' : 'פרסום'} ${label}`}
+        title={published ? 'מפורסם — לחיצה תסיר מהאתר' : 'טיוטה — לחיצה תפרסם'}
         onClick={() =>
           startTransition(async () => {
             setError(null);
@@ -40,17 +42,13 @@ export function PublishToggle({
             if (result?.error) setError(result.error);
           })
         }
-        className={`inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border px-2.5 py-1 text-caption transition-colors disabled:opacity-60 ${
-          published
-            ? 'border-rule-strong text-muted hover:border-burgundy hover:text-burgundy'
-            : 'border-burgundy text-burgundy hover:bg-burgundy/5'
-        }`}
+        className={`admin-badge admin-badge-button ${published ? 'admin-badge-success' : 'admin-badge-warning'}`}
       >
-        {pending ? <Spinner className="h-3 w-3" /> : null}
+        {pending ? <Spinner className="h-3 w-3" /> : <span className="admin-badge-dot" aria-hidden="true" />}
         {published ? 'מפורסם' : 'טיוטה'}
       </button>
       {error ? (
-        <span role="alert" className="text-caption text-burgundy">
+        <span role="alert" className="text-caption text-[var(--admin-danger)]">
           {error}
         </span>
       ) : null}
@@ -82,45 +80,49 @@ export function RowDelete({
         type="button"
         onClick={() => setConfirming(true)}
         aria-label={`מחיקת ${label}`}
-        className="text-caption text-burgundy underline underline-offset-4"
+        title="מחיקה"
+        className="admin-btn admin-btn-icon admin-btn-ghost"
       >
-        מחיקה
+        <AdminIcon name="trash" className="h-4 w-4" />
       </button>
     );
   }
 
   return (
-    <span className="inline-flex flex-col items-start gap-1 text-caption">
-      <span className="flex items-center gap-2">
-        <span role="alert">למחוק?</span>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              setError(null);
-              const result = await deleteEntity(entity, id);
-              if (result?.error) {
-                setError(result.error);
-                setConfirming(false);
-              }
-            })
-          }
-          className="inline-flex items-center gap-1.5 font-semibold text-burgundy underline underline-offset-4"
-        >
-          {pending ? <Spinner className="h-3 w-3" /> : null}
-          {pending ? 'מוחק…' : 'כן'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirming(false)}
-          className="text-muted underline underline-offset-4"
-        >
-          ביטול
-        </button>
+    <span className="inline-flex flex-wrap items-center gap-2 text-caption">
+      <span role="alert" className="font-semibold text-[var(--admin-danger)]">
+        למחוק?
       </span>
+      <button
+        type="button"
+        disabled={pending}
+        aria-label={`אישור מחיקת ${label}`}
+        title="כן, למחוק"
+        onClick={() =>
+          startTransition(async () => {
+            setError(null);
+            const result = await deleteEntity(entity, id);
+            if (result?.error) {
+              setError(result.error);
+              setConfirming(false);
+            }
+          })
+        }
+        className="admin-btn admin-btn-danger admin-btn-icon"
+      >
+        {pending ? <Spinner className="h-3.5 w-3.5" /> : <AdminIcon name="check" className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirming(false)}
+        aria-label="ביטול מחיקה"
+        title="ביטול"
+        className="admin-btn admin-btn-ghost admin-btn-icon"
+      >
+        <AdminIcon name="x" className="h-4 w-4" />
+      </button>
       {error ? (
-        <span role="alert" className="text-burgundy">
+        <span role="alert" className="w-full text-[var(--admin-danger)]">
           {error}
         </span>
       ) : null}
@@ -129,35 +131,52 @@ export function RowDelete({
 }
 
 /**
- * עמודת הפעולות של שורה: עריכה, מצב פרסום ומחיקה.
- *
- * קודם לכן השורה הייתה קישור אחד על הכותרת בלבד — לא היה שום רמז שאפשר
- * למחוק או לשנות מצב פרסום בלי להיכנס לרשומה.
+ * עמודת הפעולות של שורה: מעבר לעמוד הציבורי (כשיש), עריכה, מצב פרסום
+ * ומחיקה — כפתורי אייקון עם tooltip, לא קישורי טקסט מקווקוים.
  */
 export function RowActions({
   entity,
   id,
   label,
   published,
+  viewHref,
 }: {
   entity: string;
   id: string;
   label: string;
   /** undefined לישות שאין לה מצב פרסום, כמו קטגוריה */
   published?: boolean;
+  /** קישור לתצוגה החיה באתר הציבורי, כשקיימת (ראו BooksDataGrid) */
+  viewHref?: string;
 }) {
   return (
-    <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <span className="flex flex-wrap items-center gap-2">
+      {viewHref ? (
+        <a
+          href={viewHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`צפייה ב-${label} באתר`}
+          title="צפייה באתר"
+          className="admin-btn admin-btn-icon admin-btn-ghost"
+        >
+          <AdminIcon name="external" className="h-4 w-4" />
+        </a>
+      ) : null}
+
       <Link
         href={`/admin/${entity}/${id}`}
         aria-label={`עריכת ${label}`}
-        className="text-caption text-ink underline underline-offset-4 hover:text-burgundy"
+        title="עריכה"
+        className="admin-btn admin-btn-icon admin-btn-ghost"
       >
-        עריכה
+        <AdminIcon name="edit" className="h-4 w-4" />
       </Link>
+
       {published === undefined ? null : (
         <PublishToggle entity={entity} id={id} published={published} label={label} />
       )}
+
       <RowDelete entity={entity} id={id} label={label} />
     </span>
   );

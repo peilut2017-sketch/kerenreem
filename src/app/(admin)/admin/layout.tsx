@@ -1,25 +1,14 @@
 import type { Metadata } from 'next';
-import { Frank_Ruhl_Libre, Assistant } from 'next/font/google';
+import { FONT_VARIABLES } from '@/lib/fonts';
 import '../../globals.css';
-
-const frank = Frank_Ruhl_Libre({
-  subsets: ['hebrew', 'latin'],
-  weight: ['400', '500'],
-  variable: '--font-frank',
-  display: 'swap',
-});
-
-const assistant = Assistant({
-  subsets: ['hebrew', 'latin'],
-  weight: ['400', '600', '700'],
-  variable: '--font-assistant',
-  display: 'swap',
-});
+import './admin.css';
 
 export const metadata: Metadata = {
   title: 'ניהול · מכון קרן רא״ם',
   // ממשק פנימי — לא נכנס למנועי חיפוש
   robots: { index: false, follow: false },
+  // אותו אייקון דינמי כמו באתר הציבורי — ראו src/app/site-icon/route.ts
+  icons: { icon: '/site-icon' },
 };
 
 /**
@@ -28,7 +17,7 @@ export const metadata: Metadata = {
  */
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="he" dir="rtl" className={`${frank.variable} ${assistant.variable}`}>
+    <html lang="he" dir="rtl" className={FONT_VARIABLES}>
       <body className="bg-cream">{children}</body>
     </html>
   );
