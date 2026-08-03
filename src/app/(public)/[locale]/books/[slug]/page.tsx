@@ -326,16 +326,19 @@ export default async function BookPage({
 
       <StickyNav sections={sections} cover={book.cover_image_url} title={title} price={formattedPrice} />
 
-      <Container className="space-y-20 py-16">
-        {/* התקציר והדפדוף זה לצד זה: שניהם עונים על "מה יש בספר הזה",
-            ומי שמעדיף לראות דף אמיתי על פני תיאור לא צריך לגלול בשבילו.
+      <Container className="space-y-[var(--space-section)] py-16 lg:py-24">
+        {/* התקציר והדפדוף זה לצד זה, ביחס א-סימטרי (5/7, סעיף 14 במפרט)
+            ולא שתי עמודות שוות — שניהם עונים על "מה יש בספר הזה", ומי
+            שמעדיף לראות דף אמיתי על פני תיאור לא צריך לגלול בשבילו.
             בלי דפדוף אין שתי עמודות בכלל — כרטיס יחיד בחצי רוחב היה
             משאיר חצי מסך ריק לצדו. */}
-        <div className={`grid grid-cols-1 items-start gap-6 ${book.sample_pdf_url ? 'lg:grid-cols-2' : ''}`}>
+        <div
+          className={`grid grid-cols-1 items-start gap-6 ${book.sample_pdf_url ? 'lg:grid-cols-[5fr_7fr]' : ''}`}
+        >
           {book.sample_pdf_url ? (
             <section
               aria-labelledby="book-sample"
-              className="rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-7 shadow-[var(--shadow-soft)]"
+              className="rounded-[var(--radius-lg)] border border-rule bg-cream px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
             >
               <h2 id="book-sample" className="mb-4 font-serif text-h3 text-ink">
                 {t('readSample')}
@@ -347,7 +350,7 @@ export default async function BookPage({
           <section
             id="book-summary"
             aria-labelledby="book-summary-heading"
-            className="rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-7 shadow-[var(--shadow-soft)] sm:px-8"
+            className="rounded-[var(--radius-lg)] border border-rule bg-cream px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
           >
             <h2 id="book-summary-heading" className="mb-4 font-serif text-h3 text-ink">
               {t('navSummary')}
