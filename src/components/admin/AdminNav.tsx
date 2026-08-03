@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AdminIcon, type AdminIconName } from './AdminIcons';
 import type { UserRole } from '@/lib/supabase/types';
 
@@ -73,11 +74,16 @@ function matchesLink(pathname: string, href: string): boolean {
 export function AdminNav({ role }: { role: UserRole }) {
   const pathname = usePathname();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  // מיקום התפריט הנפתח — נמדד בזמן הלחיצה מ-getBoundingClientRect של
+  // הכפתור, ולא מחושב ב-CSS יחסית ל-li: התפריט מרונדר ב-portal אל
+  // document.body (ראו למטה), כך שאין לו הורה ממוקם לחשב ממנו יחסית.
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   // ממוזכר כדי לזהות ניווט לעמוד חדש ולסגור תפריט פתוח — במהלך הרינדור
   // ולא באפקט, באותו דפוס בדיוק כמו BookFormTabs.tsx: זו "התאמת state
   // לפי props שהשתנו", לא סנכרון עם משהו חיצוני.
   const [seenPathname, setSeenPathname] = useState(pathname);
   const wrapRef = useRef<HTMLUListElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(
     () =>
@@ -100,16 +106,28 @@ export function AdminNav({ role }: { role: UserRole }) {
   useEffect(() => {
     if (!openGroup) return;
     function onPointerDown(event: PointerEvent) {
-      if (!wrapRef.current?.contains(event.target as Node)) setOpenGroup(null);
+      const target = event.target as Node;
+      // התפריט עצמו יושב ב-portal מחוץ ל-wrapRef (ה-ul), ולכן צריך להיבדק
+      // בנפרד — אחרת לחיצה בתוכו הייתה נחשבת "מחוץ לתפריט" ונסגרת מיד.
+      if (wrapRef.current?.contains(target) || dropdownRef.current?.contains(target)) return;
+      setOpenGroup(null);
     }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') setOpenGroup(null);
     }
+    // גלילה אופקית של רצועת הניווט (בנייד) מזיזה את הכפתור מתחת לתפריט
+    // הממוקם ב-fixed, שאינו נגלל איתו — סוגרים במקום להשאיר אותו תלוש.
+    function onScroll() {
+      setOpenGroup(null);
+    }
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
+    wrapRef.current?.addEventListener('scroll', onScroll);
+    const wrapEl = wrapRef.current;
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
+      wrapEl?.removeEventListener('scroll', onScroll);
     };
   }, [openGroup]);
 
@@ -147,7 +165,15 @@ export function AdminNav({ role }: { role: UserRole }) {
                 type="button"
                 aria-haspopup="true"
                 aria-expanded={open}
-                onClick={() => setOpenGroup(open ? null : item.label)}
+                onClick={(event) => {
+                  if (open) {
+                    setOpenGroup(null);
+                    return;
+                  }
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                  setOpenGroup(item.label);
+                }}
                 className={`admin-nav-link ${active ? 'admin-nav-link-active' : ''}`}
               >
                 <AdminIcon name={item.icon} className="h-4 w-4" />
@@ -158,30 +184,44 @@ export function AdminNav({ role }: { role: UserRole }) {
                 />
               </button>
 
-              {open ? (
-                <div className="admin-nav-dropdown" role="menu">
-                  {item.items.map((sub, index) => {
-                    const subActive = matchesLink(pathname, sub.href);
-                    // הגדרות קטלוג/חנות מופרדת בקו — היא הגדרה, לא רשומת תוכן כמו השאר
-                    const showDivider = sub.href === '/admin/books/settings' && index > 0;
-                    return (
-                      <div key={sub.href}>
-                        {showDivider ? <div className="admin-nav-dropdown-divider" /> : null}
-                        <Link
-                          href={sub.href}
-                          role="menuitem"
-                          aria-current={subActive ? 'page' : undefined}
-                          onClick={() => setOpenGroup(null)}
-                          className={`admin-nav-dropdown-item ${subActive ? 'admin-nav-dropdown-item-active' : ''}`}
-                        >
-                          <AdminIcon name={sub.icon} className="h-4 w-4" />
-                          {sub.label}
-                        </Link>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
+              {/* התפריט מרונדר ב-portal אל document.body, לא כילד רגיל כאן:
+                  ה-ul שמסביב נגלל אופקית (overflow-x-auto), ומכיוון ש-CSS
+                  מכריח את overflow-y להיות auto גם כן ברגע שאחד הצירים אינו
+                  visible, כל תוכן שגולש מתחת לגובה השורה הקצרה שלו — כמו
+                  התפריט הזה — נחתך ונעלם, גם כשהוא position:absolute. portal
+                  עם position:fixed ממוקם לפי מדידה אמיתית עוקף את זה לגמרי. */}
+              {open && menuPos
+                ? createPortal(
+                    <div
+                      ref={dropdownRef}
+                      role="menu"
+                      className="admin-nav-dropdown"
+                      style={{ position: 'fixed', top: menuPos.top, right: menuPos.right }}
+                    >
+                      {item.items.map((sub, index) => {
+                        const subActive = matchesLink(pathname, sub.href);
+                        // הגדרות קטלוג/חנות מופרדת בקו — היא הגדרה, לא רשומת תוכן כמו השאר
+                        const showDivider = sub.href === '/admin/books/settings' && index > 0;
+                        return (
+                          <div key={sub.href}>
+                            {showDivider ? <div className="admin-nav-dropdown-divider" /> : null}
+                            <Link
+                              href={sub.href}
+                              role="menuitem"
+                              aria-current={subActive ? 'page' : undefined}
+                              onClick={() => setOpenGroup(null)}
+                              className={`admin-nav-dropdown-item ${subActive ? 'admin-nav-dropdown-item-active' : ''}`}
+                            >
+                              <AdminIcon name={sub.icon} className="h-4 w-4" />
+                              {sub.label}
+                            </Link>
+                          </div>
+                        );
+                      })}
+                    </div>,
+                    document.body,
+                  )
+                : null}
             </li>
           );
         })}
