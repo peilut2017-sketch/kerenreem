@@ -374,6 +374,20 @@ body::before {
     background-color: var(--color-gold);
   }
 
+  /* --- כותרת האתר: משטח יציב עם גוון זהב שדועך כלפי מטה ---
+     מחליף מילוי שטוח + קו הפרדה קשיח בתחתית: הדעיכה עצמה, יחד עם צל רך,
+     היא ההפרדה מהתוכן שמתחתיה. box-shadow על משטח שממילא פרוש לכל רוחב
+     המסך ותפור לראש החלון — הצדדים והחלק העליון של הצל נופלים מחוץ
+     לתצוגה, ומה שנשאר נראה הוא בדיוק הדעיכה הרכה בתחתית שהתבקשה. */
+  .header-surface-tint {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-gold) 10%, var(--color-cream)),
+      var(--color-cream) 92%
+    );
+    box-shadow: 0 18px 32px -22px color-mix(in srgb, var(--color-ink) 38%, transparent);
+  }
+
   /* --- טפסים --- */
   .field-label {
     display: block;

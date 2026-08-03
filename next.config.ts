@@ -18,6 +18,19 @@ const supabaseHost = (() => {
 })();
 
 /**
+ * Google Analytics 4 מוגדר-תצורה: מופעל רק כש-NEXT_PUBLIC_GA_MEASUREMENT_ID
+ * קיים (ראו src/components/GoogleAnalytics.tsx). ה-CSP מורחב לספקי גוגל
+ * *רק* כשהמשתנה מוגדר בזמן הבנייה — אתר שלא הגדיר GA4 ממשיך לקבל את
+ * ה-CSP המחמיר המקורי בלי אף מתחם חיצוני נוסף.
+ */
+const gaEnabled = Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID);
+const GA_SCRIPT_SRC = gaEnabled ? ' https://www.googletagmanager.com' : '';
+const GA_CONNECT_SRC = gaEnabled
+  ? ' https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com'
+  : '';
+const GA_IMG_SRC = gaEnabled ? ' https://www.google-analytics.com https://*.google-analytics.com' : '';
+
+/**
  * כותרות אבטחה.
  *
  * ה-CSP מתיר `unsafe-inline` לסקריפטים משום ש-Next מזריק סקריפטים מוטבעים
@@ -25,6 +38,10 @@ const supabaseHost = (() => {
  * nonce ב-proxy ובכל תגית script — שדרוג ראוי, אך לא תנאי לעלייה לאוויר.
  * frame-src מוגבל למקורות הווידאו המאושרים, באותה רשימה שבה משתמש
  * ה-sanitizer (src/lib/sanitize.ts) — שני המקומות חייבים להישאר מסונכרנים.
+ *
+ * האנליטיקס העצמאי (page_views) אינו מופיע כאן: הוא נשלח כ-Server Action
+ * לאותו מקור (same-origin), ולא דרך fetch/script בצד הלקוח — 'self' כבר
+ * מכסה אותו במלואו, בלי שום הרחבה.
  */
 const CSP = [
   "default-src 'self'",
@@ -32,11 +49,11 @@ const CSP = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${GA_SCRIPT_SRC}`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  `img-src 'self' data: blob:${supabaseHost ? ` https://${supabaseHost}` : ''} https://i.ytimg.com`,
-  `connect-src 'self'${supabaseHost ? ` https://${supabaseHost} wss://${supabaseHost}` : ''}`,
+  `img-src 'self' data: blob:${supabaseHost ? ` https://${supabaseHost}` : ''} https://i.ytimg.com${GA_IMG_SRC}`,
+  `connect-src 'self'${supabaseHost ? ` https://${supabaseHost} wss://${supabaseHost}` : ''}${GA_CONNECT_SRC}`,
   "frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com",
   'upgrade-insecure-requests',
 ].join('; ');

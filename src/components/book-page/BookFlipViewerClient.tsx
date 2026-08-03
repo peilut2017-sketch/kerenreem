@@ -37,11 +37,14 @@ export function BookFlipViewerClient({
   title,
   pdfUrl,
   locale,
+  onReady,
 }: {
   pages: PreviewPage[];
   title: string;
   pdfUrl: string | null;
   locale: string;
+  /** נקרא פעם אחת אחרי ה-mount — מודיע ל-BookFlipViewer שאפשר להחליף מהתצוגה הסטטית לדפדוף החי. */
+  onReady?: () => void;
 }) {
   const t = useTranslations('books');
   const rtl = isRtl(locale);
@@ -50,6 +53,11 @@ export function BookFlipViewerClient({
   const flipBookRef = useRef<FlipBookRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const enlargeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    onReady?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- מדווח פעם אחת ב-mount; onReady לא אמור להשתנות לאורך חיי המופע
+  }, []);
 
   // סדר התצוגה של הספרייה. בעברית — הפוך, ראו הערת הרכיב.
   const orderedPages = useMemo(() => (rtl ? [...pages].reverse() : pages), [pages, rtl]);

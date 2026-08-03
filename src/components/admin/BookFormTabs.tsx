@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { AdminIcon, type AdminIconName } from './AdminIcons';
 
 export interface BookFormTab {
   id: string;
   label: string;
+  icon: AdminIconName;
   hasError: boolean;
   content: ReactNode;
 }
@@ -39,7 +41,7 @@ export function BookFormTabs({
 
   return (
     <div>
-      <div role="tablist" aria-label="קטעי טופס הספר" className="mb-8 flex flex-wrap gap-1 border-b border-rule">
+      <div role="tablist" aria-label="קטעי טופס הספר" className="admin-nav-shell mb-8 flex-wrap">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -49,17 +51,14 @@ export function BookFormTabs({
             aria-selected={activeTab === tab.id}
             aria-controls={`book-form-panel-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
-            className={`relative -mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-small transition-colors ${
-              activeTab === tab.id
-                ? 'border-burgundy font-semibold text-burgundy'
-                : 'border-transparent text-muted hover:text-ink'
-            }`}
+            className={`admin-nav-link ${activeTab === tab.id ? 'admin-nav-link-active' : ''}`}
           >
+            <AdminIcon name={tab.icon} className="h-4 w-4" />
             {tab.label}
             {tab.hasError ? (
               <span
                 aria-label="חסרה השלמה בלשונית זו"
-                className="inline-block h-1.5 w-1.5 rounded-full bg-burgundy"
+                className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--admin-danger)]"
               />
             ) : null}
           </button>

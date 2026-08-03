@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
+import { AdminIcon, type AdminIconName } from './AdminIcons';
 
 /**
  * שדות הטופס של ממשק הניהול.
@@ -28,18 +29,22 @@ function Wrapper({
 }: BaseProps & { id: string; children: ReactNode }) {
   return (
     <div>
-      <label htmlFor={id} className="field-label">
+      <label htmlFor={id} className="admin-field-label">
         {label}
-        {required ? <span aria-hidden="true"> *</span> : null}
+        {required ? (
+          <span aria-hidden="true" className="ms-0.5 text-[var(--admin-danger)]">
+            *
+          </span>
+        ) : null}
       </label>
       {children}
       {hint && !error ? (
-        <span id={`${id}-hint`} className="field-hint">
+        <span id={`${id}-hint`} className="admin-field-hint">
           {hint}
         </span>
       ) : null}
       {error ? (
-        <span id={`${id}-error`} className="field-error">
+        <span id={`${id}-error`} className="admin-field-error">
           {error}
         </span>
       ) : null}
@@ -58,28 +63,39 @@ export function TextField({
   type = 'text',
   dir,
   placeholder,
+  icon,
   ...props
 }: BaseProps & {
   defaultValue?: string | number | null;
   type?: 'text' | 'number' | 'url' | 'date' | 'email';
   dir?: 'rtl' | 'ltr';
   placeholder?: string;
+  /** אייקון מוביל ברשות — לשדות שבהם הוא מוסיף זיהוי מהיר (חיפוש, קישור, תאריך) */
+  icon?: AdminIconName;
 }) {
   const id = useId();
   return (
     <Wrapper id={id} {...props}>
-      <input
-        id={id}
-        name={props.name}
-        type={type}
-        dir={dir}
-        placeholder={placeholder}
-        required={props.required}
-        defaultValue={defaultValue ?? ''}
-        aria-invalid={props.error ? true : undefined}
-        aria-describedby={describedBy(id, props.hint, props.error)}
-        className="field-input"
-      />
+      <div className="relative">
+        {icon ? (
+          <AdminIcon
+            name={icon}
+            className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted"
+          />
+        ) : null}
+        <input
+          id={id}
+          name={props.name}
+          type={type}
+          dir={dir}
+          placeholder={placeholder}
+          required={props.required}
+          defaultValue={defaultValue ?? ''}
+          aria-invalid={props.error ? true : undefined}
+          aria-describedby={describedBy(id, props.hint, props.error)}
+          className={`admin-field-input ${icon ? 'ps-9' : ''}`}
+        />
+      </div>
     </Wrapper>
   );
 }
@@ -100,7 +116,7 @@ export function TextAreaField({
         defaultValue={defaultValue ?? ''}
         aria-invalid={props.error ? true : undefined}
         aria-describedby={describedBy(id, props.hint, props.error)}
-        className="field-input"
+        className="admin-field-input"
       />
     </Wrapper>
   );
@@ -140,7 +156,7 @@ export function SelectField({
         required={props.required}
         aria-invalid={props.error ? true : undefined}
         aria-describedby={describedBy(id, props.hint, props.error)}
-        className="field-input"
+        className="admin-field-input"
       >
         {emptyLabel ? <option value="">{emptyLabel}</option> : null}
         {isStale ? <option value={current}>⚠ ערך לא מוכר ({current})</option> : null}
@@ -168,19 +184,22 @@ export function CheckboxField({
   const id = useId();
   return (
     <div>
-      <label htmlFor={id} className="flex items-start gap-3 text-small text-ink-soft">
+      <label
+        htmlFor={id}
+        className="flex cursor-pointer items-start gap-3 rounded-[var(--admin-radius-btn)] border border-transparent px-1 py-1 text-small text-ink-soft transition-colors hover:bg-cream-2"
+      >
         <input
           id={id}
           name={name}
           type="checkbox"
           defaultChecked={defaultChecked}
           aria-describedby={hint ? `${id}-hint` : undefined}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--admin-accent)]"
         />
         <span>{label}</span>
       </label>
       {hint ? (
-        <span id={`${id}-hint`} className="field-hint ms-7">
+        <span id={`${id}-hint`} className="admin-field-hint ms-8">
           {hint}
         </span>
       ) : null}
@@ -192,16 +211,26 @@ export function CheckboxField({
 export function FieldSet({
   legend,
   description,
+  icon,
   children,
 }: {
   legend: string;
   description?: string;
+  /** אייקון מוביל ברשות ליד הכותרת — למקטעים מרכזיים בטופס הספר */
+  icon?: AdminIconName;
   children: ReactNode;
 }) {
   return (
-    <fieldset className="border-t border-rule pt-6">
-      <legend className="eyebrow pe-3">{legend}</legend>
-      {description ? <p className="mb-5 mt-1 text-caption text-muted">{description}</p> : null}
+    <fieldset className="border-t border-rule pt-6 first:border-t-0 first:pt-0">
+      <legend className="flex items-center gap-2 pe-3 text-small font-bold text-ink">
+        {icon ? (
+          <span className="admin-icon-chip h-7 w-7">
+            <AdminIcon name={icon} className="h-3.5 w-3.5" />
+          </span>
+        ) : null}
+        {legend}
+      </legend>
+      {description ? <p className="mb-5 mt-2 text-caption text-muted">{description}</p> : null}
       <div className="mt-5 space-y-5">{children}</div>
     </fieldset>
   );

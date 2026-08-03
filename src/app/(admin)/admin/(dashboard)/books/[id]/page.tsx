@@ -2,9 +2,6 @@ import { loadEditBookFormData } from '@/lib/admin/book-form-data';
 import { getBookImages, getBookPreviewPages, getBookToc } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { BookForm } from '@/components/admin/BookForm';
-import { BookImagesEditor } from '@/components/admin/BookImagesEditor';
-import { BookPreviewGenerator } from '@/components/admin/books/BookPreviewGenerator';
-import { BookTocEditor } from '@/components/admin/BookTocEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,29 +22,10 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           data.book!.is_published ? `מפורסם · /books/${data.book!.slug}` : 'טיוטה'
         }`}
       />
-      <BookForm {...data} />
-
-      {/* מחוץ לטופס הראשי בכוונה: אלה טבלאות נפרדות משדות הספר, עם שמירה
-          משלהן (ראו saveBookImages/saveBookToc) — בתוך אותו <form> היה
-          הופך Enter בשדה טקסט כאן לשליחה בטעות של כל טופס הספר. */}
-      <div className="mt-10 border-t border-rule pt-8">
-        <h2 className="eyebrow mb-4">גלריית תמונות</h2>
-        <BookImagesEditor bookId={id} images={images} />
-      </div>
-
-      <div className="mt-10 border-t border-rule pt-8">
-        <h2 className="eyebrow mb-4">תוכן עניינים</h2>
-        <BookTocEditor bookId={id} entries={toc} />
-      </div>
-
-      <div className="mt-10 border-t border-rule pt-8">
-        <h2 className="eyebrow mb-4">דפי דוגמה לדפדוף</h2>
-        <BookPreviewGenerator
-          bookId={id}
-          pdfUrl={data.book!.sample_pdf_url}
-          existingPages={previewPages}
-        />
-      </div>
+      {/* הגלריה, תוכן העניינים ומחולל דפי הדוגמה יושבים היום בלשוניות
+          "תמונות" ו"תוכן עניינים" של הכרטיס עצמו, לא כמקטעים נפרדים
+          אחריו — ראו BookForm.tsx. */}
+      <BookForm {...data} images={images} toc={toc} previewPages={previewPages} />
     </>
   );
 }

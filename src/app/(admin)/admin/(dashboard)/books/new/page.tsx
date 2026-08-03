@@ -10,7 +10,9 @@ export default async function NewBookPage() {
   return (
     <>
       <AdminHeader title="ספר חדש" />
-      <BookForm {...data} />
+      {/* אין עדיין book_id — הגלריה, תוכן העניינים ודפי הדוגמה נפתחים
+          בלשוניות שלהם רק אחרי השמירה הראשונה (ראו BookForm.tsx). */}
+      <BookForm {...data} images={[]} toc={[]} previewPages={[]} />
     </>
   );
 }

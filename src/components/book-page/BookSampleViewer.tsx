@@ -26,8 +26,13 @@ const ZOOM_STEPS = [0.75, 1, 1.25, 1.5, 2];
  * לרוחב — ובו בלבד, כשיש מקום, נראה שני עמודים זה לצד זה כמו פתיחה של
  * ספר אמיתי.
  *
- * pdf.js נטען רק בלחיצה על "דוגמה" — לא בטעינת העמוד — כי ספר בלי
- * דוגמה, או מבקר שלא מתעניין, לא אמור לשלם את המחיר של ספרייה כבדה.
+ * הטעינה אוטומטית אך עצלה: pdf.js נטען כש-IntersectionObserver מדווח
+ * שהרכיב מתקרב לתצוגה (rootMargin נדיב, כך שההמרה כבר בעיצומה עד שהמבקר
+ * מגיע לגלול לכאן בפועל) — לא בלחיצה, ולא בטעינת העמוד כולו. ספר בלי
+ * דוגמה, או מבקר שלא הגיע לקטע הזה, עדיין לא משלמים את המחיר של ספרייה
+ * כבדה. ברגע שהעמוד הראשון מוכן הוא מוצג מיד — שאר העמודים ממשיכים
+ * להיטען ברקע (setPages מצטבר, לא ממתין לקובץ שלם), כדי ש"לפחות עמוד
+ * ראשון" לא יחכה לדפדוף שלם של קובץ ארוך.
  */
 export function BookSampleViewer({
   pdfUrl,
@@ -40,17 +45,25 @@ export function BookSampleViewer({
   locale: string;
 }) {
   const t = useTranslations('books');
-  const [pages, setPages] = useState<RenderedPage[] | null>(null);
+  const [pages, setPages] = useState<RenderedPage[]>([]);
+  /** מספר העמודים הכולל בקובץ — ידוע מיד אחרי פתיחת המסמך, לפני שעמוד ראשון בכלל עובר רינדור. */
+  const [totalPages, setTotalPages] = useState<number | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const loadedFor = useRef<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
+  // דפדפן בלי IntersectionObserver (נדיר) — נופלים לכפתור ידני, כמו קודם.
+  const [needsManualTrigger] = useState(
+    () => typeof window !== 'undefined' && typeof IntersectionObserver === 'undefined',
+  );
 
   async function load() {
     if (loadedFor.current === pdfUrl) return;
+    loadedFor.current = pdfUrl;
 
     setLoading(true);
     setError(null);
@@ -63,7 +76,7 @@ export function BookSampleViewer({
 
       const doc = await pdfjsLib.getDocument(pdfUrl).promise;
       const pageCount = Math.min(doc.numPages, MAX_PAGES);
-      const rendered: RenderedPage[] = [];
+      setTotalPages(pageCount);
 
       for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
         const pdfPage = await doc.getPage(pageNumber);
@@ -75,15 +88,15 @@ export function BookSampleViewer({
         if (!context) continue;
 
         await pdfPage.render({ canvasContext: context, viewport }).promise;
-        rendered.push({
+        const rendered: RenderedPage = {
           dataUrl: canvas.toDataURL('image/jpeg', 0.85),
           width: viewport.width,
           height: viewport.height,
-        });
+        };
+        // מצטבר מיידית ולא נאסף במערך מקומי שנחשף רק בסוף הלולאה — כך
+        // עמוד 1 מופיע ברגע שהוא מוכן, בזמן שהעמודים הבאים ממשיכים ברקע.
+        setPages((current) => [...current, rendered]);
       }
-
-      loadedFor.current = pdfUrl;
-      setPages(rendered);
     } catch (err) {
       console.error('[BookSampleViewer]', err);
       setError(t('flipbookError'));
@@ -92,52 +105,85 @@ export function BookSampleViewer({
     }
   }
 
-  function openDialog() {
-    setDialogOpen(true);
-    if (!pages) void load();
+  // טעינה אוטומטית כשהרכיב מתקרב לתצוגה — לא ממתינה ללחיצה.
+  useEffect(() => {
+    if (needsManualTrigger) return;
+    const node = containerRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void load();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '400px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load תלוי ב-pdfUrl/t שיציבים לאורך חיי המופע הזה
+  }, [needsManualTrigger]);
+
+  function retry() {
+    loadedFor.current = null;
+    void load();
   }
 
-  if (!pages && !loading && !error) {
+  // עדיין לא נטען כלום, ואין דפים להראות
+  if (pages.length === 0 && !loading && !error) {
     return (
-      <button
-        type="button"
-        onClick={() => void load()}
-        className="flex min-h-56 w-full flex-col items-center justify-center gap-3 rounded-[var(--radius-md)] border border-dashed border-rule-strong bg-cream-2/60 px-6 py-10 text-center transition-colors hover:border-gold-deep"
-      >
-        <span className="icon-chip h-11 w-11">
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 3.5h8l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z" />
-            <path d="M12 3.5v4h4" />
-          </svg>
-        </span>
-        <span className="text-small font-medium text-ink">{t('sample')}</span>
-      </button>
+      <div ref={containerRef}>
+        {needsManualTrigger ? (
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="flex min-h-56 w-full flex-col items-center justify-center gap-3 rounded-[var(--radius-md)] border border-dashed border-rule-strong bg-cream-2/60 px-6 py-10 text-center transition-colors hover:border-gold-deep"
+          >
+            <span className="icon-chip h-11 w-11">
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 3.5h8l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z" />
+                <path d="M12 3.5v4h4" />
+              </svg>
+            </span>
+            <span className="text-small font-medium text-ink">{t('sample')}</span>
+          </button>
+        ) : (
+          // ממתין לגלילה לכאן — שומר את הגובה כדי שהעמוד לא יקפוץ ברגע שהתוכן נטען
+          <div
+            aria-hidden="true"
+            className="min-h-56 rounded-[var(--radius-md)] bg-cream-2/40"
+          />
+        )}
+      </div>
     );
   }
 
-  if (loading && !pages) {
+  if (pages.length === 0 && loading) {
     return (
-      <p role="status" className="py-16 text-center text-small text-muted">
-        …
-      </p>
+      <div ref={containerRef}>
+        <p role="status" className="py-16 text-center text-small text-muted">
+          …
+        </p>
+      </div>
     );
   }
 
-  if (error && !pages) {
+  if (pages.length === 0 && error) {
     return (
-      <div className="py-10 text-center">
+      <div ref={containerRef} className="py-10 text-center">
         <p className="text-small text-burgundy">{error}</p>
-        <button type="button" onClick={() => void load()} className="btn btn-quiet mt-4">
+        <button type="button" onClick={retry} className="btn btn-quiet mt-4">
           {t('pdfRetry')}
         </button>
       </div>
     );
   }
 
-  if (!pages) return null;
+  const displayTotal = totalPages ?? pages.length;
 
   return (
-    <div>
+    <div ref={containerRef}>
       <div className="relative flex min-h-56 items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-cream-2/60">
         <AnimatePresence mode="wait" initial={false}>
           <motion.img
@@ -167,15 +213,17 @@ export function BookSampleViewer({
         </button>
 
         <span className="shrink-0 text-caption text-muted">
-          {t('pdfPage', { current: pageIndex + 1, total: pages.length })}
+          {t('pdfPage', { current: pageIndex + 1, total: displayTotal })}
         </span>
         <span className="h-1 flex-1 overflow-hidden rounded-full bg-cream-3">
           <span
             className="block h-full rounded-full bg-gold-deep transition-[width] duration-300"
-            style={{ width: `${((pageIndex + 1) / pages.length) * 100}%` }}
+            style={{ width: `${((pageIndex + 1) / displayTotal) * 100}%` }}
           />
         </span>
 
+        {/* מושבת גם אם עוד עמודים בדרך: העמוד הבא באמת לא מוכן עדיין.
+            הכפתור נפתח מעצמו ברגע שהוא מגיע (pages.length גדל). */}
         <button
           type="button"
           onClick={() => setPageIndex((i) => Math.min(pages.length - 1, i + 1))}
@@ -187,10 +235,21 @@ export function BookSampleViewer({
         </button>
       </div>
 
+      {loading ? (
+        <p role="status" className="mt-2 text-center text-caption text-muted">
+          {t('pdfLoadingMore')} ({pages.length}/{displayTotal})
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-center text-caption text-burgundy">
+          {error}
+        </p>
+      ) : null}
+
       <button
         ref={triggerRef}
         type="button"
-        onClick={openDialog}
+        onClick={() => setDialogOpen(true)}
         className="btn btn-quiet mt-4 w-full justify-center"
       >
         {t('pdfOpenFullscreen')}

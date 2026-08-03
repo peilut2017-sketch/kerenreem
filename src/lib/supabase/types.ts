@@ -347,6 +347,8 @@ export interface SiteContact {
 export interface SiteSettings {
   id: number;
   logo_url: string | null;
+  /** גרסה הפוכה/בהירה ללוגו, לרקעים כהים (תחתית, רצועות on-dark). null = נגזר מהלוגו הרגיל. */
+  logo_dark_url: string | null;
   contact: SiteContact;
   social_links: Record<string, string>;
   store_enabled: boolean;

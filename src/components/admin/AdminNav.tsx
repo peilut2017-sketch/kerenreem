@@ -2,126 +2,184 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AdminIcon, type AdminIconName } from './AdminIcons';
 import type { UserRole } from '@/lib/supabase/types';
 
-const ITEMS: { href: string; label: string; minRole: UserRole }[] = [
-  { href: '/admin', label: 'דשבורד', minRole: 'viewer' },
-  { href: '/admin/banners', label: 'באנרים', minRole: 'viewer' },
-  { href: '/admin/books', label: 'ספרים', minRole: 'viewer' },
-  { href: '/admin/authors', label: 'מחברים', minRole: 'viewer' },
-  { href: '/admin/categories', label: 'קטגוריות', minRole: 'viewer' },
-  { href: '/admin/series', label: 'סדרות', minRole: 'viewer' },
-  { href: '/admin/tags', label: 'תגיות', minRole: 'viewer' },
-  { href: '/admin/events', label: 'אירועים', minRole: 'viewer' },
-  { href: '/admin/activities', label: 'צירי פעילות', minRole: 'viewer' },
-  { href: '/admin/pages', label: 'עמודי תוכן', minRole: 'viewer' },
-  { href: '/admin/messages', label: 'פניות מהאתר', minRole: 'editor' },
-  { href: '/admin/settings', label: 'הגדרות', minRole: 'admin' },
-  { href: '/admin/diagnostics', label: 'אבחון', minRole: 'admin' },
+interface SubLink {
+  href: string;
+  label: string;
+  icon: AdminIconName;
+  minRole: UserRole;
+}
+
+interface LinkEntry {
+  type: 'link';
+  href: string;
+  label: string;
+  icon: AdminIconName;
+  minRole: UserRole;
+}
+
+interface GroupEntry {
+  type: 'group';
+  label: string;
+  icon: AdminIconName;
+  minRole: UserRole;
+  items: SubLink[];
+}
+
+type NavEntry = LinkEntry | GroupEntry;
+
+/**
+ * "ספרים" מרכז כאן את כל מה ששייך לקטלוג או לחנות — לא רק רשימת הספרים
+ * עצמה, אלא גם מחברים, קטגוריות, סדרות, תגיות, והגדרות הקטלוג/חנות
+ * שעברו לכאן מעמוד ההגדרות הכללי (ראו admin/books/settings). קודם לכן
+ * אלה היו שישה פריטים נפרדים בשורת הניווט העליונה; איחוד תחת קבוצה אחת
+ * גם מקצר את השורה וגם אומר במפורש "כל אלה שייכים לאותו נושא".
+ */
+const ITEMS: NavEntry[] = [
+  { type: 'link', href: '/admin', label: 'דשבורד', icon: 'dashboard', minRole: 'viewer' },
+  {
+    type: 'group',
+    label: 'ספרים',
+    icon: 'books',
+    minRole: 'viewer',
+    items: [
+      { href: '/admin/books', label: 'כל הספרים', icon: 'books', minRole: 'viewer' },
+      { href: '/admin/authors', label: 'מחברים', icon: 'authors', minRole: 'viewer' },
+      { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', minRole: 'viewer' },
+      { href: '/admin/series', label: 'סדרות', icon: 'series', minRole: 'viewer' },
+      { href: '/admin/tags', label: 'תגיות', icon: 'tags', minRole: 'viewer' },
+      { href: '/admin/books/settings', label: 'הגדרות קטלוג וחנות', icon: 'store', minRole: 'admin' },
+    ],
+  },
+  { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', minRole: 'viewer' },
+  { type: 'link', href: '/admin/events', label: 'אירועים', icon: 'events', minRole: 'viewer' },
+  { type: 'link', href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', minRole: 'viewer' },
+  { type: 'link', href: '/admin/pages', label: 'עמודי תוכן', icon: 'pages', minRole: 'viewer' },
+  { type: 'link', href: '/admin/analytics', label: 'אנליטיקס', icon: 'analytics', minRole: 'editor' },
+  { type: 'link', href: '/admin/messages', label: 'פניות מהאתר', icon: 'messages', minRole: 'editor' },
+  { type: 'link', href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'admin' },
+  { type: 'link', href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
 ];
 
 const RANK: Record<UserRole, number> = { viewer: 0, editor: 1, admin: 2 };
 
-/**
- * ניווט הניהול — שורה עליונה עם סמן נע, כמו באתר הציבורי.
- *
- * היה סרגל צד. בפועל הוא גזל רוחב קבוע מהטבלאות דווקא במסכים שבהם הרוחב
- * הכי נחוץ, ובמסך צר הוא התקפל לשורה ממילא — כלומר שתי פריסות לתחזק.
- *
- * הסמן נמדד מה-DOM ונכתב אליו ישירות, בלי state: מדידה ואז setState היא
- * רינדור נוסף בכל תזוזת עכבר. offsetLeft נמדד מקצה שמאל בשני כיווני
- * הכתיבה, ולכן העיגון חייב להיות left פיזי ולא start הלוגי — אחרת ב-RTL
- * כל פריט סוטה ביחס לרוחבו.
- */
+function matchesLink(pathname: string, href: string): boolean {
+  return href === '/admin' ? pathname === '/admin' : pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function AdminNav({ role }: { role: UserRole }) {
   const pathname = usePathname();
-  // ממוזכר כדי שהשרשרת visible → activeIndex → target → measure תישאר
-  // יציבה; בלעדיו כל רינדור יוצר מערך חדש ו-measure נבנה מחדש בכל פעם.
-  const visible = useMemo(() => ITEMS.filter((item) => RANK[role] >= RANK[item.minRole]), [role]);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  // ממוזכר כדי לזהות ניווט לעמוד חדש ולסגור תפריט פתוח — במהלך הרינדור
+  // ולא באפקט, באותו דפוס בדיוק כמו BookFormTabs.tsx: זו "התאמת state
+  // לפי props שהשתנו", לא סנכרון עם משהו חיצוני.
+  const [seenPathname, setSeenPathname] = useState(pathname);
+  const wrapRef = useRef<HTMLUListElement>(null);
 
-  const listRef = useRef<HTMLUListElement>(null);
-  const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
-  const markerRef = useRef<HTMLSpanElement>(null);
-  const [hovered, setHovered] = useState<number | null>(null);
-
-  const activeIndex = visible.findIndex((item) =>
-    item.href === '/admin' ? pathname === '/admin' : pathname.startsWith(item.href),
+  const visible = useMemo(
+    () =>
+      ITEMS.filter((item) => RANK[role] >= RANK[item.minRole])
+        .map((item) =>
+          item.type === 'group'
+            ? { ...item, items: item.items.filter((sub) => RANK[role] >= RANK[sub.minRole]) }
+            : item,
+        )
+        // קבוצה שהתרוקנה (כרגע לא קורה — לכל קבוצה יש לפחות פריט viewer) לא תוצג בכלל
+        .filter((item) => item.type !== 'group' || item.items.length > 0),
+    [role],
   );
 
-  const target = hovered ?? (activeIndex >= 0 ? activeIndex : null);
+  if (pathname !== seenPathname) {
+    setSeenPathname(pathname);
+    setOpenGroup(null);
+  }
 
-  const measure = useCallback(() => {
-    const marker = markerRef.current;
-    if (!marker) return;
-
-    const element = target === null ? null : itemRefs.current[target];
-    if (!element) {
-      marker.style.opacity = '0';
-      return;
-    }
-
-    marker.style.transform = `translateX(${element.offsetLeft}px)`;
-    marker.style.width = `${element.offsetWidth}px`;
-    marker.style.opacity = '1';
-  }, [target]);
-
-  useEffect(measure, [measure]);
-
-  // הרשימה נגללת אופקית במסך צר, וגלילה מזיזה את הפריטים תחת הסמן
   useEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
-
-    list.addEventListener('scroll', measure, { passive: true });
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    observer?.observe(list);
-
+    if (!openGroup) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpenGroup(null);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpenGroup(null);
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
     return () => {
-      list.removeEventListener('scroll', measure);
-      observer?.disconnect();
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
     };
-  }, [measure]);
+  }, [openGroup]);
 
   return (
     <nav aria-label="ניווט ניהול">
-      <ul
-        ref={listRef}
-        onMouseLeave={() => setHovered(null)}
-        className="relative flex items-center gap-1 overflow-x-auto pb-1"
-      >
-        {/* הסמן מוסתר מהנגישות: המצב מוסר דרך aria-current על הקישור */}
-        <span
-          ref={markerRef}
-          aria-hidden="true"
-          style={{ opacity: 0 }}
-          className="pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-pill)] bg-cream-2 transition-[transform,width,opacity] duration-400 ease-[var(--ease-spring)] motion-reduce:transition-none"
-        />
+      <ul ref={wrapRef} className="admin-nav-shell flex-wrap gap-1 overflow-x-auto">
+        {visible.map((item) => {
+          if (item.type === 'link') {
+            const active = matchesLink(pathname, item.href);
+            return (
+              <li key={item.href} className="shrink-0">
+                <Link
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`admin-nav-link ${active ? 'admin-nav-link-active' : ''}`}
+                >
+                  <AdminIcon name={item.icon} className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              </li>
+            );
+          }
 
-        {visible.map((item, index) => (
-          <li
-            key={item.href}
-            ref={(node) => {
-              itemRefs.current[index] = node;
-            }}
-            onMouseEnter={() => setHovered(index)}
-            className="shrink-0"
-          >
-            <Link
-              href={item.href}
-              aria-current={index === activeIndex ? 'page' : undefined}
-              onFocus={() => setHovered(index)}
-              onBlur={() => setHovered(null)}
-              className={`relative z-10 block whitespace-nowrap rounded-[var(--radius-pill)] px-3.5 py-1.5 text-small transition-colors duration-300 ${
-                index === activeIndex
-                  ? 'font-semibold text-burgundy'
-                  : 'text-ink-soft hover:text-burgundy'
-              }`}
-            >
-              {item.label}
-            </Link>
-          </li>
-        ))}
+          const active = item.items.some((sub) => matchesLink(pathname, sub.href));
+          const open = openGroup === item.label;
+
+          return (
+            <li key={item.label} className="relative shrink-0">
+              <button
+                type="button"
+                aria-haspopup="true"
+                aria-expanded={open}
+                onClick={() => setOpenGroup(open ? null : item.label)}
+                className={`admin-nav-link ${active ? 'admin-nav-link-active' : ''}`}
+              >
+                <AdminIcon name={item.icon} className="h-4 w-4" />
+                {item.label}
+                <AdminIcon
+                  name="chevron-down"
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {open ? (
+                <div className="admin-nav-dropdown" role="menu">
+                  {item.items.map((sub, index) => {
+                    const subActive = matchesLink(pathname, sub.href);
+                    // הגדרות קטלוג/חנות מופרדת בקו — היא הגדרה, לא רשומת תוכן כמו השאר
+                    const showDivider = sub.href === '/admin/books/settings' && index > 0;
+                    return (
+                      <div key={sub.href}>
+                        {showDivider ? <div className="admin-nav-dropdown-divider" /> : null}
+                        <Link
+                          href={sub.href}
+                          role="menuitem"
+                          aria-current={subActive ? 'page' : undefined}
+                          onClick={() => setOpenGroup(null)}
+                          className={`admin-nav-dropdown-item ${subActive ? 'admin-nav-dropdown-item-active' : ''}`}
+                        >
+                          <AdminIcon name={sub.icon} className="h-4 w-4" />
+                          {sub.label}
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

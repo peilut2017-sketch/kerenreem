@@ -1,0 +1,274 @@
+/* ============================================================================
+   מנשק הניהול — רענון עיצובי 2026
+   --------------------------------------------------------------------------
+   קובץ נפרד מ-globals.css, נטען רק מתוך ה-root layout של /admin ולעולם
+   לא מהאתר הציבורי — כך שהרענון כאן לא יכול לדלוף ולשנות את מראה האתר
+   החי. הממשק הזה הוא כלי עבודה פנימי ולא נכס מיתוגי, ולכן חופשי מהכללים
+   המצמצמים של זהות המכון (הזהב כקו בלבד וכו'); שני גווני הסטטוס החדשים
+   (הצלחה/אזהרה) הם משמעויות אוניברסליות של ממשקי ניהול ולא חלק ממיתוג
+   האתר, ולכן נוספים רק כאן.
+
+   בכוונה בלי @theme: הקובץ הזה אינו מתחיל הקשר Tailwind משלו (אין בו
+   ‎@import 'tailwindcss'), ולכן משתני עיצוב מוגדרים כאן כמשתני CSS רגילים
+   תחת :root ונצרכים ישירות במחלקות הבאות — לא כ-utility מיוצר.
+   ========================================================================== */
+
+:root {
+  --admin-accent: #4338ca;
+  --admin-accent-soft: #eef2ff;
+  --admin-success: #15803d;
+  --admin-success-soft: #ecfdf5;
+  --admin-warning: #b45309;
+  --admin-warning-soft: #fffbeb;
+  --admin-danger: #b91c1c;
+  --admin-danger-soft: #fef2f2;
+  --admin-border: color-mix(in srgb, var(--color-rule) 80%, transparent);
+  --admin-radius-card: 1.25rem;
+  --admin-radius-btn: 0.75rem;
+  --admin-shadow: 0 1px 2px rgb(20 18 15 / 0.04), 0 12px 28px -16px rgb(20 18 15 / 0.16);
+  --admin-shadow-hover: 0 2px 6px rgb(20 18 15 / 0.06), 0 22px 44px -18px rgb(20 18 15 / 0.22);
+}
+
+@layer components {
+  /* --- כרטיס --- */
+  .admin-card {
+    background: var(--color-cream);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-card);
+    box-shadow: var(--admin-shadow);
+  }
+
+  /* --- כפתורים: פיל, עם משבצת לאייקון, הגבהה עדינה במגע --- */
+  .admin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.7rem 1.2rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    white-space: nowrap;
+    transition:
+      background-color 200ms ease,
+      color 200ms ease,
+      border-color 200ms ease,
+      box-shadow 200ms ease,
+      transform 150ms ease;
+    cursor: pointer;
+  }
+  .admin-btn:active { transform: scale(0.97); }
+  .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .admin-btn-solid {
+    background: var(--color-ink);
+    color: #fff;
+    box-shadow: var(--admin-shadow);
+  }
+  .admin-btn-solid:hover { background: var(--admin-accent); box-shadow: var(--admin-shadow-hover); }
+
+  .admin-btn-quiet {
+    background: var(--color-cream-2);
+    color: var(--color-ink);
+    border-color: var(--admin-border);
+  }
+  .admin-btn-quiet:hover {
+    border-color: var(--admin-accent);
+    color: var(--admin-accent);
+    background: var(--admin-accent-soft);
+  }
+
+  .admin-btn-danger {
+    background: var(--admin-danger-soft);
+    color: var(--admin-danger);
+    border-color: color-mix(in srgb, var(--admin-danger) 22%, transparent);
+  }
+  .admin-btn-danger:hover { background: var(--admin-danger); color: #fff; }
+
+  .admin-btn-ghost {
+    background: transparent;
+    color: var(--color-muted);
+    padding-inline: 0.6rem;
+  }
+  .admin-btn-ghost:hover { color: var(--admin-accent); background: var(--admin-accent-soft); }
+
+  .admin-btn-icon { padding: 0.55rem; }
+
+  /* --- תגי סטטוס: פיל עם נקודה, לא רק צבע טקסט --- */
+  .admin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .admin-badge-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  .admin-badge-success { background: var(--admin-success-soft); color: var(--admin-success); }
+  .admin-badge-warning { background: var(--admin-warning-soft); color: var(--admin-warning); }
+  .admin-badge-neutral { background: var(--color-cream-3); color: var(--color-muted); }
+  .admin-badge-accent { background: var(--admin-accent-soft); color: var(--admin-accent); }
+  /* גרסה אינטראקטיבית של התג — משמשת PublishToggle. הבסיס (.admin-badge)
+     נשאר נקי מ-cursor/border כדי לא לרמוז על אינטראקטיביות בשימושים
+     שבהם התג הוא תצוגת מצב בלבד (כמו PublishBadge ברשימות). */
+  .admin-badge-button {
+    border: none;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 200ms ease, color 200ms ease, transform 150ms ease, filter 150ms ease;
+  }
+  .admin-badge-button:hover { filter: brightness(0.95); }
+  .admin-badge-button:active { transform: scale(0.96); }
+  .admin-badge-button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* --- שבבי אייקון --- */
+  .admin-icon-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+    flex-shrink: 0;
+  }
+
+  /* --- שדות טופס --- */
+  .admin-field-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    margin-block-end: 0.4rem;
+  }
+  .admin-field-input {
+    display: block;
+    width: 100%;
+    background: var(--color-cream-2);
+    border: 1.5px solid transparent;
+    border-radius: var(--admin-radius-btn);
+    padding: 0.7rem 0.9rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: var(--color-ink);
+    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  }
+  .admin-field-input:hover { background: #fff; border-color: var(--admin-border); }
+  .admin-field-input:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--admin-accent);
+    box-shadow: 0 0 0 4px var(--admin-accent-soft);
+  }
+  .admin-field-input[aria-invalid='true'] { border-color: var(--admin-danger); }
+  .admin-field-hint { display: block; font-size: 0.75rem; color: var(--color-muted); margin-block-start: 0.35rem; }
+  .admin-field-error {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--admin-danger);
+    margin-block-start: 0.35rem;
+  }
+
+  /* --- טבלה: מוקפת, שורות עם hover, כותרת עדינה --- */
+  .admin-table-wrap {
+    border: 1px solid var(--admin-border);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .admin-table thead { background: var(--color-cream-2); }
+  .admin-table th {
+    padding: 0.8rem 1.1rem;
+    text-align: start;
+    font-weight: 600;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .admin-table td { padding: 0.9rem 1.1rem; border-top: 1px solid var(--admin-border); vertical-align: middle; }
+  .admin-table tbody tr { transition: background-color 150ms ease; }
+  .admin-table tbody tr:hover { background: var(--color-cream-2); }
+
+  /* --- ניווט: קפסולה מפולחת --- */
+  .admin-nav-shell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.3rem;
+    background: var(--color-cream-2);
+    border-radius: var(--radius-pill);
+  }
+  .admin-nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-ink-soft);
+    white-space: nowrap;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+  .admin-nav-link:hover { color: var(--admin-accent); background: color-mix(in srgb, var(--admin-accent) 8%, transparent); }
+  .admin-nav-link-active {
+    color: var(--admin-accent);
+    font-weight: 700;
+    background: var(--admin-accent-soft);
+  }
+  .admin-nav-dropdown {
+    position: absolute;
+    inset-inline-start: 0;
+    top: calc(100% + 0.5rem);
+    min-width: 16rem;
+    padding: 0.4rem;
+    background: var(--color-cream);
+    border: 1px solid var(--admin-border);
+    border-radius: 1rem;
+    box-shadow: var(--admin-shadow-hover);
+    z-index: 30;
+  }
+  .admin-nav-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 0.65rem;
+    font-size: 0.8125rem;
+    color: var(--color-ink);
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .admin-nav-dropdown-item:hover { background: var(--admin-accent-soft); color: var(--admin-accent); }
+  .admin-nav-dropdown-item-active { background: var(--admin-accent-soft); color: var(--admin-accent); font-weight: 600; }
+  .admin-nav-dropdown-divider { margin: 0.35rem 0.5rem; border-top: 1px solid var(--admin-border); }
+  /* וריאנט שנפתח מהקצה הנגדי — לתפריטים שיושבים בקצה שמאל של הסרגל */
+  .admin-nav-dropdown-end { inset-inline-start: auto; inset-inline-end: 0; }
+
+  /* --- כרטיס סטטיסטיקה בדשבורד --- */
+  .admin-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 1.15rem 1.3rem;
+    background: var(--color-cream);
+    border: 1px solid var(--admin-border);
+    border-radius: 1.1rem;
+    transition: box-shadow 220ms ease, transform 220ms ease, border-color 220ms ease;
+  }
+  .admin-stat:hover {
+    box-shadow: var(--admin-shadow-hover);
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--admin-accent) 45%, transparent);
+  }
+}

@@ -9,7 +9,7 @@ export default async function NewBookModal() {
 
   return (
     <BookFormDrawer title="ספר חדש">
-      <BookForm {...data} />
+      <BookForm {...data} images={[]} toc={[]} previewPages={[]} />
     </BookFormDrawer>
   );
 }

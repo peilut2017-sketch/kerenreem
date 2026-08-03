@@ -642,6 +642,7 @@ export async function getPageBySlug(slug: string): Promise<ContentPage | null> {
 const EMPTY_SETTINGS: SiteSettings = {
   id: 1,
   logo_url: null,
+  logo_dark_url: null,
   contact: {},
   social_links: {},
   store_enabled: false,

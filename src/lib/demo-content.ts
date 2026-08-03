@@ -305,6 +305,7 @@ const pages: Record<string, ContentPage> = {
 const settings: SiteSettings = {
   id: 1,
   logo_url: null,
+  logo_dark_url: null,
   contact: {
     address_he: 'ירושלים, ישראל',
     email: 'info@kerenraam.org.il',

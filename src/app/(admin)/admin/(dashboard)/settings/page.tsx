@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { getSettings, listProfiles } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
@@ -12,7 +13,15 @@ export default async function AdminSettingsPage() {
 
   return (
     <>
-      <AdminHeader title="הגדרות" description="פרטי הארגון, רשתות, דגלי פיצ'ר וניהול צוות." />
+      <AdminHeader title="הגדרות" description="זהות הארגון, פרטי קשר ורשתות. ניהול צוות למטה." />
+
+      <p className="mb-8 text-caption text-muted">
+        מחפשים את הפעלת החנות? היא עברה תחת{' '}
+        <Link href="/admin/books/settings" className="link">
+          ספרים ← הגדרות קטלוג וחנות
+        </Link>
+        , כי היא שייכת לקטלוג ולא לזהות הארגון.
+      </p>
 
       {settings ? (
         <SettingsForm settings={settings} />

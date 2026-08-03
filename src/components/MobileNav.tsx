@@ -53,7 +53,7 @@ export function MobileNav({
         onClick={() => setOpenedFor(open ? null : pathname)}
         aria-expanded={open}
         aria-controls="mobile-nav-panel"
-        className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-pill)] text-ink transition-[background-color,color,transform] duration-300 hover:bg-white/70 active:scale-95"
+        className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink transition-[background-color,color,transform] duration-300 hover:bg-white/70 active:scale-95"
         aria-label={open ? closeLabel : openLabel}
       >
         {open ? (

@@ -44,11 +44,16 @@ export async function saveSettings(
 
   const { error } = await supabase
     .from('site_settings')
+    // store_enabled אינו כאן בכוונה: הוא עבר לעמוד "הגדרות קטלוג וחנות"
+    // תחת ספרים (ראו saveStoreSettings למטה), ונשמר בפעולה נפרדת משלו.
+    // טופס זה אינו שולח את השדה כלל, ואילו הרשומה כאן הייתה כוללת אותו
+    // עם false כברירת מחדל, כל שמירה של הפרטים הכלליים הייתה מכבה את
+    // החנות בלי שהמנהל התכוון לכך.
     .update({
       logo_url: text(formData, 'logo_url') || null,
+      logo_dark_url: text(formData, 'logo_dark_url') || null,
       contact,
       social_links,
-      store_enabled: formData.get('store_enabled') === 'on',
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
@@ -65,6 +70,53 @@ export async function saveSettings(
   // הגדרות נצרכות בכל עמוד (כותרת, כותרת תחתונה) ולכן מרעננים את כל האתר.
   revalidatePath('/', 'layout');
   revalidatePath('/admin/settings');
+
+  return { status: 'saved' };
+}
+
+/**
+ * הגדרות הקטלוג/חנות — טופס נפרד מהגדרות האתר הכלליות, ועם פעולת שמירה
+ * נפרדת משלו: עדכון עמודה יחידה (store_enabled) ותו לא. אילו הטופס הזה
+ * היה משתמש ב-saveSettings הרגילה, שמירתו הייתה שולחת FormData שחסרים
+ * בו כל שדות הקשר/רשתות/לוגו — ו-saveSettings הייתה קוראת אותם כריקים
+ * ומוחקת אותם בפועל. שתי הגדרות בשני טפסים נפרדים דורשות שתי פעולות
+ * נפרדות, לא אחת גנרית.
+ */
+export interface StoreSettingsState {
+  status: 'idle' | 'saved' | 'error';
+  message?: string;
+}
+
+export async function saveStoreSettings(
+  _prev: StoreSettingsState,
+  formData: FormData,
+): Promise<StoreSettingsState> {
+  const session = await assertRole('admin');
+  if ('error' in session) return { status: 'error', message: session.error };
+
+  const supabase = await createClient();
+  if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };
+
+  const { error } = await supabase
+    .from('site_settings')
+    .update({
+      store_enabled: formData.get('store_enabled') === 'on',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+
+  if (error) return { status: 'error', message: `השמירה נכשלה: ${error.message}` };
+
+  await supabase.from('audit_log').insert({
+    user_id: session.userId,
+    action: 'update',
+    table_name: 'site_settings',
+    record_id: null,
+  });
+
+  // דגל החנות קובע אם כפתורי רכישה ומחירים מוצגים בעמודי הספרים.
+  revalidatePath('/[locale]/books/[slug]', 'page');
+  revalidatePath('/admin/books/settings');
 
   return { status: 'saved' };
 }

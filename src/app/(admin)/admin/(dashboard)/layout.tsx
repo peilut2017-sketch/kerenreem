@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { AdminNav } from '@/components/admin/AdminNav';
+import { AdminIcon } from '@/components/admin/AdminIcons';
 import { SignOutButton } from '@/components/admin/SignOutButton';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 
@@ -24,25 +25,31 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await requireRole('viewer');
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col bg-cream-2/40">
       {/* הכותרת נדבקת לראש החלון, כמו באתר הציבורי: בטבלה ארוכה הניווט
           היה נעלם למעלה וכל מעבר בין מסכים חייב גלילה חזרה. */}
-      <header className="sticky top-0 z-30 border-b border-rule bg-cream-2/95 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-4 px-6 py-3">
-          <div className="flex items-baseline gap-3">
-            <Link href="/admin" className="font-serif text-[1.25rem] text-ink">
+      <header className="sticky top-0 z-30 border-b border-rule bg-cream/95 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-4 px-6 py-3.5">
+          <div className="flex items-center gap-3">
+            <Link href="/admin" className="flex items-center gap-2.5 font-serif text-[1.25rem] text-ink">
+              <span className="admin-icon-chip h-9 w-9">
+                <AdminIcon name="dashboard" className="h-4.5 w-4.5" />
+              </span>
               ניהול תוכן
             </Link>
-            <Link
+            <a
               href="/"
-              className="text-caption text-muted underline underline-offset-4 hover:text-burgundy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="admin-nav-link"
             >
+              <AdminIcon name="external" className="h-4 w-4" />
               צפייה באתר
-            </Link>
+            </a>
           </div>
 
-          <div className="flex items-center gap-4 text-caption text-muted">
-            <span>
+          <div className="flex items-center gap-4">
+            <span className="hidden text-caption text-muted sm:inline">
               {session.profile.full_name || session.email}
               {' · '}
               {ROLE_LABELS[session.profile.role]}
@@ -51,7 +58,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-[80rem] px-6 pb-2">
+        <div className="mx-auto w-full max-w-[80rem] px-6 pb-3">
           <AdminNav role={session.profile.role} />
         </div>
       </header>

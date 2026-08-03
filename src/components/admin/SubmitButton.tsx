@@ -15,7 +15,7 @@ import { useFormStatus } from 'react-dom';
 export function SubmitButton({
   children,
   pendingLabel = 'שומר…',
-  className = 'btn btn-solid',
+  className = 'admin-btn admin-btn-solid',
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
