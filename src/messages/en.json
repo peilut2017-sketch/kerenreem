@@ -3,7 +3,8 @@
     "name": "Keren Reem Institute",
     "shortName": "Keren Reem",
     "tagline": "Publishing, Torah support and chesed",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "backToTop": "Back to top"
   },
   "nav": {
     "home": "Home",
@@ -107,7 +108,6 @@
     "favouriteRemove": "Remove from favourites",
     "share": "Share",
     "shareCopied": "Link copied",
-    "backToTop": "Back to top",
     "readSample": "Flip through the book",
     "flipbookError": "Loading the preview failed. You can open the file directly.",
     "pdfPrev": "Previous page",

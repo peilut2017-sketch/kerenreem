@@ -7,7 +7,6 @@ import { FilterDrawer } from './FilterDrawer';
 import { Toolbar, type ViewMode } from './Toolbar';
 import { BookCard } from './BookCard';
 import { BookListRow } from './BookListRow';
-import { BackToTop } from './BackToTop';
 import { BooksHero } from './BooksHero';
 import { useLocalList } from '@/lib/client-hooks';
 import { localized } from '@/lib/localized';
@@ -318,8 +317,6 @@ export function Catalogue({
       ) : null}
 
       </div>
-
-      <BackToTop />
 
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
         {toast ? (
