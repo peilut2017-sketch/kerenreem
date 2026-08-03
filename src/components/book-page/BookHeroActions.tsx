@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
 import { ShelfPicker } from './ShelfPicker';
+import type { BookAvailability } from '@/lib/supabase/types';
 
 /**
  * שורת הפעולות ב-Hero: מחיר וקנייה (כשהחנות פעילה), שמירה למועדפים
@@ -17,13 +18,16 @@ export function BookHeroActions({
   bookId,
   title,
   price,
-  inStock,
+  availability,
+  preorderDate,
 }: {
   bookId: string;
   title: string;
   /** מחיר מעוצב מראש, או null כשאין מכירה — הרכיב אינו מעצב מטבע בעצמו */
   price: string | null;
-  inStock: boolean;
+  availability: BookAvailability;
+  /** תאריך יציאה מעוצב מראש, רק כשהזמינות preorder */
+  preorderDate?: string | null;
 }) {
   const t = useTranslations('books');
   const { has, toggle } = useLocalList('kr:favourites');
@@ -50,6 +54,13 @@ export function BookHeroActions({
     }
   }
 
+  const buyLabel =
+    availability === 'preorder'
+      ? t('addToCartPreorder')
+      : availability === 'out_of_stock'
+        ? t('outOfStock')
+        : t('addToCart');
+
   return (
     <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
       {price ? (
@@ -57,9 +68,15 @@ export function BookHeroActions({
       ) : null}
 
       {price ? (
-        <button type="button" disabled={!inStock} className="btn btn-solid">
-          {inStock ? t('addToCart') : t('outOfStock')}
+        <button type="button" disabled={availability === 'out_of_stock'} className="btn btn-solid">
+          {buyLabel}
         </button>
+      ) : null}
+
+      {availability === 'preorder' && preorderDate ? (
+        <span className="w-full text-caption text-muted lg:w-auto">
+          {t('preorderRelease', { date: preorderDate })}
+        </span>
       ) : null}
 
       <ShelfPicker bookId={bookId} />

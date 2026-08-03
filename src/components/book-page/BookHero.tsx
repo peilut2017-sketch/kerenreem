@@ -30,6 +30,7 @@ export function BookHero({
   authorName,
   categoryName,
   year,
+  badges = [],
   actions,
   t,
 }: {
@@ -40,6 +41,8 @@ export function BookHero({
   authorName: string | null;
   categoryName: string | null;
   year: string;
+  /** תגי סטטוס (בקרוב / בחירת המכון) — עד שניים, קודמים לתג המהדורה. */
+  badges?: string[];
   /** גוש המחיר והפעולות — מוזרק מהעמוד כדי ש-Hero לא יכיר את מצב החנות */
   actions?: React.ReactNode;
   t: (key: string, values?: Record<string, string | number | Date>) => string;
@@ -64,7 +67,21 @@ export function BookHero({
           <FloatingCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} />
 
           <div className="text-center lg:text-start">
-            {editionBadge ? (
+            {/* עד שני תגים ראשיים בלבד (סעיף 8 במפרט): תגי סטטוס (בקרוב /
+                בחירת המכון) קודמים, ותג המהדורה (קטגוריה + שנה) מוצג רק
+                כשאין תג סטטוס — כדי שלא נחרוג משניים. */}
+            {badges.length > 0 ? (
+              <Reveal className="mb-4 flex flex-wrap justify-center gap-2 lg:justify-start">
+                {badges.slice(0, 2).map((badge) => (
+                  <span
+                    key={badge}
+                    className="inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-gold-deep/40 bg-cream/80 px-3.5 py-1.5 text-caption text-gold-deep"
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </Reveal>
+            ) : editionBadge ? (
               <Reveal
                 as="span"
                 className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-rule bg-cream/80 px-3.5 py-1.5 text-caption text-muted"

@@ -82,6 +82,9 @@ function book(
     canonical_url: null, search_keywords: null,
     is_published: true, sort_order: 0,
     series_id: null, series_position: null, quotes: [], view_count: 0,
+    publisher_he: null, publisher_en: null, edition_he: null, edition_en: null,
+    accent_primary: null, accent_secondary: null,
+    is_featured: false, preorder_enabled: false, preorder_release_date: null,
     ...base,
     author: { id: author.id, slug: author.slug, name_he: author.name_he, name_en: author.name_en },
     category: { id: category.id, slug: category.slug, name_he: category.name_he, name_en: category.name_en },
@@ -325,6 +328,7 @@ export const demo = {
   connections: (book: BookWithRelations) => {
     const tagIds = new Set((book.tags ?? []).map((tag) => tag.id));
     return {
+      manual: [],
       sameAuthor: books.filter((b) => b.id !== book.id && b.author_id === book.author_id),
       sameSeries: books.filter((b) => b.id !== book.id && book.series_id && b.series_id === book.series_id),
       sameCategory: books.filter((b) => b.id !== book.id && b.category_id === book.category_id),

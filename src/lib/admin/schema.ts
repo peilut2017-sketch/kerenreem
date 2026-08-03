@@ -125,6 +125,16 @@ export const ENTITIES = {
       f('canonical_url'),
       f('search_keywords'),
       f('quotes', 'text[]'),
+      // שלב ד׳ — מרחב הגילוי (14_book_page_v3.sql)
+      f('publisher_he'),
+      f('publisher_en'),
+      f('edition_he'),
+      f('edition_en'),
+      f('accent_primary'),
+      f('accent_secondary'),
+      f('is_featured', 'boolean'),
+      f('preorder_enabled', 'boolean'),
+      f('preorder_release_date', 'date'),
     ],
     relations: [
       { field: 'tag_ids', table: 'book_tags', ownerColumn: 'book_id', targetColumn: 'tag_id' },

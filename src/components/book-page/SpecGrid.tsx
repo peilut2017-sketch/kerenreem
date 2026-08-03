@@ -13,6 +13,8 @@ const ICONS: Record<string, string> = {
   binding: 'M4.5 4.5h7a2 2 0 0 1 2 2v9a1.6 1.6 0 0 0-1.6-1.6H4.5zM13.5 6.5h2v9h-2',
   language: 'M10 3.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm0 0c-2 2-2 11 0 13m0-13c2 2 2 11 0 13M3.7 8h12.6M3.7 12h12.6',
   pages: 'M5 4h7l3 3v9H5zM12 4v3h3',
+  publisher: 'M4.5 16.5v-11l5.5-2 5.5 2v11M4.5 16.5h11M7.5 8h2M10.5 8h2M7.5 11h2M10.5 11h2',
+  edition: 'M4 6.5 10 4l6 2.5-6 2.5-6-2.5Zm0 3.5 6 2.5 6-2.5m-12 3.5 6 2.5 6-2.5',
 };
 
 export interface SpecItem {

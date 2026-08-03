@@ -5,10 +5,15 @@ import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
 
 /**
- * כפתור פעולה צף שמופיע אחרי גלילה מעבר ל-Hero: אהבתי, שיתוף, וקנייה
- * (רק כשהחנות פעילה והספר ניתן לרכישה) — לא תפריט, שלוש פעולות בלבד.
+ * סרגל רכישה דביק — מופיע רק כשיש בכלל מה לקנות.
  *
- * "קנייה" גולל אל גוש הרכישה הקיים (BookPurchase) במקום לשכפל את לוגיקת
+ * כשהחנות כבויה או שהספר אינו ניתן לרכישה, אין להציג סרגל קבוע רק בשביל
+ * מועדפים ושיתוף (סעיף 24 במפרט): שתי הפעולות האלה כבר זמינות תמיד
+ * ב-Hero (BookHeroActions), וסרגל צף שמופיע בלי סיבה נראה כמו תקלה.
+ * לכן הרכיב מחזיר null מוקדם כש-showBuy הוא false — לא רק מסתיר את
+ * כפתור הקנייה מתוכו.
+ *
+ * "קנייה" גולל אל גוש הרכישה הקיים ב-Hero במקום לשכפל את לוגיקת
  * המחיר/המלאי שלו; אין כאן עדיין עגלת קניות אמיתית לשכפל בכלל.
  *
  * useTranslations ולא t כ-prop: רכיב לקוח אמיתי, ו-t שנוצר בשרת אינו
@@ -17,10 +22,13 @@ import { useLocalList } from '@/lib/client-hooks';
 export function FloatingActions({
   bookId,
   title,
+  price,
   showBuy,
 }: {
   bookId: string;
   title: string;
+  /** מחיר מעוצב מראש — הרכיב אינו מעצב מטבע בעצמו. */
+  price: string | null;
   showBuy: boolean;
 }) {
   const t = useTranslations('books');
@@ -30,12 +38,28 @@ export function FloatingActions({
   const isFavourite = has(bookId);
 
   useEffect(() => {
+    if (!showBuy || typeof IntersectionObserver === 'undefined') return;
+
+    // מוסתר גם ב-Hero (איפה שהמחיר כבר מוצג) וגם באזור הסיום (איפה
+    // שהוא מוצג שוב) — לא רק בראש העמוד.
     const hero = document.getElementById('book-hero');
-    if (!hero || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(([entry]) => setVisible(!entry.isIntersecting));
-    observer.observe(hero);
+    const finalCta = document.getElementById('book-final-cta');
+    const targets = [hero, finalCta].filter((el): el is HTMLElement => el !== null);
+    if (targets.length === 0) return;
+
+    const intersecting = new Set<Element>();
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) intersecting.add(entry.target);
+        else intersecting.delete(entry.target);
+      });
+      setVisible(intersecting.size === 0);
+    });
+    targets.forEach((target) => observer.observe(target));
     return () => observer.disconnect();
-  }, []);
+  }, [showBuy]);
+
+  if (!showBuy) return null;
 
   async function share() {
     const url = window.location.href;
@@ -63,15 +87,19 @@ export function FloatingActions({
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
       }`}
     >
-      {showBuy ? (
-        <button
-          type="button"
-          onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' })}
-          className="rounded-[var(--radius-md)] bg-gold px-4 py-2.5 text-small text-navy transition-colors hover:bg-gold-bright"
-        >
-          {t('addToCart')}
-        </button>
+      {price ? (
+        <p className="truncate px-3 pt-1 text-caption text-cream-2/75">
+          <span className="block max-w-40 truncate">{title}</span>
+          <span className="font-serif text-small text-cream">{price}</span>
+        </p>
       ) : null}
+      <button
+        type="button"
+        onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' })}
+        className="rounded-[var(--radius-md)] bg-gold px-4 py-2.5 text-small text-navy transition-colors hover:bg-gold-bright"
+      >
+        {t('addToCart')}
+      </button>
       <button
         type="button"
         aria-pressed={isFavourite}
