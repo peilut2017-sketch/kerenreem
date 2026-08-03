@@ -268,6 +268,13 @@ export function BookForm({
                         hint="עדיף צילום כריכה איכותי על רקע נקי. הכריכות הן האלמנט הוויזואלי המרכזי באתר."
                       />
                       <ImageField
+                        name="spine_image_url"
+                        label="שדרה (רשות)"
+                        bucket="covers"
+                        defaultValue={book?.spine_image_url}
+                        hint="צילום צר וגבוה של שדרת הספר, למדף בעמוד הבית. אם לא תועלה, השדרה תיגזר אוטומטית מהכריכה."
+                      />
+                      <ImageField
                         name="sample_pdf_url"
                         label="דפדוף לדוגמה (PDF)"
                         bucket="samples"

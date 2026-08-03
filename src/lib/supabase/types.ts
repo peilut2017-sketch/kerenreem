@@ -55,6 +55,8 @@ export interface Book {
   publication_year_he: string | null;
   publication_year_ce: number | null;
   cover_image_url: string | null;
+  /** צילום שדרת הספר למדף בעמוד הבית. ריק = נגזרת מהכריכה (ראו BookSpine.tsx). */
+  spine_image_url: string | null;
   pages: number | null;
   format: string | null;
   binding: string | null;

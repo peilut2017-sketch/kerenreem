@@ -38,7 +38,9 @@
     "eventDetails": "לפרטים נוספים",
     "activityDetails": "קראו עוד",
     "newBooksLead": "חדש על המדף",
-    "newBooksTitle": "הכותרים האחרונים"
+    "newBooksTitle": "הכותרים האחרונים",
+    "shelfHint": "עברו עם העכבר או האצבע על המדף כדי לראות את הכריכה, ולחצו לעמוד הספר.",
+    "shelfLabel": "מדף הכותרים האחרונים"
   },
   "books": {
     "title": "ספרים",

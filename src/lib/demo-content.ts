@@ -73,6 +73,7 @@ function book(
     author_id: author.id, category_id: category.id,
     publication_year_he: yearHe, publication_year_ce: yearCe,
     cover_image_url: `/demo/cover-${cover}.svg`,
+    spine_image_url: null,
     pages: 412, format: 'פוליו', binding: 'כריכה קשה', isbn: null,
     volume_count: 1, sample_pdf_url: null,
     price: null, currency: 'ILS', sku: null, stock_quantity: 0,
