@@ -115,7 +115,12 @@ export function AdminNav({ role }: { role: UserRole }) {
 
   return (
     <nav aria-label="ניווט ניהול">
-      <ul ref={wrapRef} className="admin-nav-shell flex-wrap gap-1 overflow-x-auto">
+      {/* flex + w-full דורסים את inline-flex של admin-nav-shell: בלעדיהם
+          לרצועה אין רוחב עצמי לקבוע ביחס אליו overflow, וב-flex-wrap שהיה
+          כאן קודם היא לא גולשת בצד אלא נשברת לכמה שורות — בכותרת sticky
+          זה אומר גובה משתנה שבולע חלק ניכר ממסך הטלפון לצמיתות. שורה
+          אחת שנגללת אופקית, כמו כרטיסיית טאבים בנייד, פותרת את שתיהן. */}
+      <ul ref={wrapRef} className="admin-nav-shell flex w-full flex-nowrap gap-1 overflow-x-auto">
         {visible.map((item) => {
           if (item.type === 'link') {
             const active = matchesLink(pathname, item.href);

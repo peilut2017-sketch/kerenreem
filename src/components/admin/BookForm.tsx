@@ -69,7 +69,13 @@ export function BookForm({
   const completion = book ? computeCompletion(book, relations) : null;
 
   return (
-    <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
+    <EntityForm
+      entity="books"
+      id={book?.id ?? null}
+      canWrite={canWrite}
+      backHref="/admin/books"
+      stickyActions
+    >
       {(errors) => (
         <>
           {/* המטבע קבוע לשלב זה; השדה נשלח כדי שהערך לא יימחק בעדכון */}
