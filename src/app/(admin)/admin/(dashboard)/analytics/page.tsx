@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { getAnalyticsSummary } from '@/lib/admin/analytics-queries';
+import { ANALYTICS_RETENTION_MONTHS } from '@/lib/analytics/constants';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import { StatTile } from '@/components/admin/analytics/StatTile';
 import { DailyTrendChart } from '@/components/admin/analytics/DailyTrendChart';
 import { BarList } from '@/components/admin/analytics/BarList';
+import { PurgeAnalyticsButton } from '@/components/admin/analytics/PurgeAnalyticsButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +35,7 @@ export default async function AdminAnalyticsPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  await requireRole('editor');
+  const session = await requireRole('editor');
   const { days: daysParam } = await searchParams;
   const days = RANGE_OPTIONS.some((option) => String(option.days) === daysParam) ? Number(daysParam) : 30;
 
@@ -110,6 +112,20 @@ export default async function AdminAnalyticsPage({
               <strong className="text-ink">{item.views.toLocaleString('he-IL')}</strong>
             </span>
           ))}
+        </div>
+      ) : null}
+
+      {session.profile.role === 'admin' ? (
+        <div className="admin-card mt-6 p-6">
+          <h2 className="mb-2 flex items-center gap-2 text-small font-bold text-ink">
+            <AdminIcon name="trash" className="h-4 w-4 text-muted" />
+            תקופת שמירה
+          </h2>
+          <p className="mb-4 max-w-[60ch] text-small leading-relaxed text-ink-soft">
+            מדיניות הפרטיות מצהירה שנתוני מדידת השימוש נשמרים {ANALYTICS_RETENTION_MONTHS} חודשים.
+            הצהרה זו אינה נאכפת אוטומטית — יש להריץ מחיקה מדי פעם כדי שתישאר נכונה בפועל.
+          </p>
+          <PurgeAnalyticsButton retentionMonths={ANALYTICS_RETENTION_MONTHS} />
         </div>
       ) : null}
 

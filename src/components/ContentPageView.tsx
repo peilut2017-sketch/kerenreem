@@ -1,15 +1,20 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Container } from './Container';
 import { RichText } from './RichText';
-import { getPageBySlug } from '@/lib/data';
+import { getPageBySlug, getSiteSettings } from '@/lib/data';
 import { localized } from '@/lib/localized';
 import { formatDate, parseDateOnly } from '@/lib/hebrew-date';
+import { renderLegalTemplate } from '@/lib/legal-template';
 
 /**
  * עמוד תוכן הנערך ב-CMS (אודות, תקנון, פרטיות, נגישות).
  *
  * תאריך העדכון נלקח מ-updated_at ומוצג בעמודים המשפטיים — דרישה מהותית
  * במדיניות פרטיות ובהצהרת נגישות, ומתעדכן מאליו בכל עריכה.
+ *
+ * getSiteSettings נשלף כאן עבור כל עמוד תוכן ולא רק העמודים המשפטיים,
+ * כדי ש-renderLegalTemplate יוכל להציב {{token}} (מספר עמותה, טלפון,
+ * דוא"ל, כתובת) מהגדרות האתר בתוך הגוף — בעמודים בלי tokens זה no-op.
  */
 export async function ContentPageView({
   slug,
@@ -21,8 +26,9 @@ export async function ContentPageView({
   /** להפעיל בעמודים המשפטיים, שבהם תאריך הגרסה הוא חלק מהמסמך. */
   showUpdated?: boolean;
 }) {
-  const [page, locale, t] = await Promise.all([
+  const [page, settings, locale, t] = await Promise.all([
     getPageBySlug(slug),
+    getSiteSettings(),
     getLocale(),
     getTranslations('pages'),
   ]);
@@ -47,7 +53,7 @@ export async function ContentPageView({
         </p>
       ) : null}
       <div className="mt-10">
-        <RichText html={localized(page, 'body', locale)} />
+        <RichText html={renderLegalTemplate(localized(page, 'body', locale), settings, locale)} />
       </div>
     </Container>
   );
