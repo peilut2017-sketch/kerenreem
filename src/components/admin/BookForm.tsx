@@ -245,6 +245,13 @@ export function BookForm({
                           dir="ltr"
                           defaultValue={book?.subtitle_en}
                         />
+                        <TextField
+                          name="publisher_en"
+                          label="Publisher"
+                          dir="ltr"
+                          defaultValue={book?.publisher_en}
+                        />
+                        <TextField name="edition_en" label="Edition" dir="ltr" defaultValue={book?.edition_en} />
                       </div>
                       <RichTextEditor
                         name="description_en"
@@ -276,8 +283,32 @@ export function BookForm({
                       />
                     </FieldSet>
 
+                    <FieldSet
+                      legend="אווירה (רשות)"
+                      description="ברירת המחדל היא חילוץ צבע אוטומטי מהכריכה. למילוי רק אם הצבע שנחלץ אינו מתאים — פורמט #rrggbb."
+                    >
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <TextField
+                          name="accent_primary"
+                          label="גוון ראשי"
+                          dir="ltr"
+                          placeholder="#c8a868"
+                          defaultValue={book?.accent_primary}
+                        />
+                        <TextField
+                          name="accent_secondary"
+                          label="גוון משני"
+                          dir="ltr"
+                          placeholder="#0b1520"
+                          defaultValue={book?.accent_secondary}
+                        />
+                      </div>
+                    </FieldSet>
+
                     <FieldSet legend="מפרט המהדורה">
                       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <TextField name="publisher_he" label="הוצאה לאור" defaultValue={book?.publisher_he} />
+                        <TextField name="edition_he" label="מהדורה" defaultValue={book?.edition_he} />
                         <TextField
                           name="pages"
                           label="מספר עמודים"
@@ -509,6 +540,19 @@ export function BookForm({
                       label="ניתן לרכישה באתר"
                       defaultChecked={book?.is_purchasable ?? false}
                     />
+                    <CheckboxField
+                      name="preorder_enabled"
+                      label="הזמנה מראש (בקרוב)"
+                      defaultChecked={book?.preorder_enabled ?? false}
+                      hint="מציג תג 'בקרוב' ומאפשר הזמנה מראש גם ללא מלאי."
+                    />
+                    <TextField
+                      name="preorder_release_date"
+                      label="תאריך יציאה משוער"
+                      type="date"
+                      dir="ltr"
+                      defaultValue={book?.preorder_release_date ?? undefined}
+                    />
                   </FieldSet>
                 ),
               },
@@ -523,6 +567,12 @@ export function BookForm({
                       label="מפורסם באתר"
                       defaultChecked={book?.is_published ?? false}
                       hint="ספר שאינו מפורסם נראה בממשק הניהול בלבד."
+                    />
+                    <CheckboxField
+                      name="is_featured"
+                      label="בחירת המכון"
+                      defaultChecked={book?.is_featured ?? false}
+                      hint="מציג תג 'בחירת המכון' בעמוד הספר."
                     />
                   </FieldSet>
                 ),
