@@ -17,7 +17,7 @@ export default async function AdminSettingsPage() {
 
       <p className="mb-8 text-caption text-muted">
         מחפשים את הפעלת החנות? היא עברה תחת{' '}
-        <Link href="/admin/books/settings" className="link">
+        <Link href="/admin/books-settings" className="link">
           ספרים ← הגדרות קטלוג וחנות
         </Link>
         , כי היא שייכת לקטלוג ולא לזהות הארגון.

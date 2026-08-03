@@ -116,7 +116,7 @@ export async function saveStoreSettings(
 
   // דגל החנות קובע אם כפתורי רכישה ומחירים מוצגים בעמודי הספרים.
   revalidatePath('/[locale]/books/[slug]', 'page');
-  revalidatePath('/admin/books/settings');
+  revalidatePath('/admin/books-settings');
 
   return { status: 'saved' };
 }

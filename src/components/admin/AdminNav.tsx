@@ -35,9 +35,15 @@ type NavEntry = LinkEntry | GroupEntry;
 /**
  * "ספרים" מרכז כאן את כל מה ששייך לקטלוג או לחנות — לא רק רשימת הספרים
  * עצמה, אלא גם מחברים, קטגוריות, סדרות, תגיות, והגדרות הקטלוג/חנות
- * שעברו לכאן מעמוד ההגדרות הכללי (ראו admin/books/settings). קודם לכן
+ * שעברו לכאן מעמוד ההגדרות הכללי (ראו admin/books-settings). קודם לכן
  * אלה היו שישה פריטים נפרדים בשורת הניווט העליונה; איחוד תחת קבוצה אחת
  * גם מקצר את השורה וגם אומר במפורש "כל אלה שייכים לאותו נושא".
+ *
+ * href של הגדרות הקטלוג הוא /admin/books-settings ולא /admin/books/settings
+ * — למרות הקיבוץ הזה תחת "ספרים". ראו את ההסבר המלא בראש
+ * books-settings/page.tsx: קינון עמוד ליטרלי בתוך books/ מתנגש בניווט רך
+ * עם ה-@modal/(.)[id] שמיירט עריכת ספר, וה-children נשאר תקוע על העמוד
+ * הקודם.
  */
 const ITEMS: NavEntry[] = [
   { type: 'link', href: '/admin', label: 'דשבורד', icon: 'dashboard', minRole: 'viewer' },
@@ -52,7 +58,7 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', minRole: 'viewer' },
       { href: '/admin/series', label: 'סדרות', icon: 'series', minRole: 'viewer' },
       { href: '/admin/tags', label: 'תגיות', icon: 'tags', minRole: 'viewer' },
-      { href: '/admin/books/settings', label: 'הגדרות קטלוג וחנות', icon: 'store', minRole: 'admin' },
+      { href: '/admin/books-settings', label: 'הגדרות קטלוג וחנות', icon: 'store', minRole: 'admin' },
     ],
   },
   { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', minRole: 'viewer' },
@@ -201,7 +207,7 @@ export function AdminNav({ role }: { role: UserRole }) {
                       {item.items.map((sub, index) => {
                         const subActive = matchesLink(pathname, sub.href);
                         // הגדרות קטלוג/חנות מופרדת בקו — היא הגדרה, לא רשומת תוכן כמו השאר
-                        const showDivider = sub.href === '/admin/books/settings' && index > 0;
+                        const showDivider = sub.href === '/admin/books-settings' && index > 0;
                         return (
                           <div key={sub.href}>
                             {showDivider ? <div className="admin-nav-dropdown-divider" /> : null}
