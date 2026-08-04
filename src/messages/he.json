@@ -253,6 +253,8 @@
     "email": "דואר אלקטרוני",
     "phone": "טלפון",
     "subject": "נושא",
+    "topicLabel": "תחום הפנייה",
+    "topicEmpty": "בחרו תחום (רשות)",
     "message": "תוכן הפנייה",
     "attachments": "קבצים מצורפים",
     "attachmentsHint": "תמונה, PDF או Word — עד 30MB לקובץ, עד 5 קבצים.",

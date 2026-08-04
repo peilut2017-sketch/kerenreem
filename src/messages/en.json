@@ -253,6 +253,8 @@
     "email": "Email",
     "phone": "Phone",
     "subject": "Subject",
+    "topicLabel": "Inquiry topic",
+    "topicEmpty": "Select a topic (optional)",
     "message": "Message",
     "attachments": "Attachments",
     "attachmentsHint": "Image, PDF or Word — up to 30MB per file, up to 5 files.",

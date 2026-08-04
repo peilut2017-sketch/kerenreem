@@ -60,6 +60,7 @@ npm run dev                    # http://localhost:3000
 | 16 | `18_page_views.sql` | אנליטיקס עצמאי: צפיות בעמודים |
 | 17 | `19_book_author_freetext.sql` | מחבר ספר כטקסט חופשי, לצד שיוך למחבר קיים |
 | 18 | `20_contact_attachments.sql` | קבצים מצורפים לפניית יצירת קשר |
+| 19 | `21_contact_topics_fields.sql` | תחומי פנייה ושדות מותאמים בטופס יצירת קשר |
 
 `05_repair_profiles.sql` ו-`06_restore_grants.sql` אינם חלק מההתקנה —
 הם כלי תיקון. ראו "תקלות נפוצות" למטה.

@@ -168,6 +168,31 @@ export interface Tag {
   description_he: string | null;
 }
 
+/** תחום פנייה (support/ספרים/הזמנות...) — בורר רשות בטופס יצירת הקשר. */
+export interface ContactTopic {
+  id: string;
+  name_he: string;
+  name_en: string | null;
+  sort_order: number;
+  is_published: boolean;
+  created_at: string;
+}
+
+/** שדה מותאם אישית שהצוות מוסיף לטופס יצירת הקשר, בלי לגעת בקוד. */
+export interface ContactField {
+  id: string;
+  label_he: string;
+  label_en: string | null;
+  field_type: 'text' | 'textarea' | 'select' | 'checkbox';
+  /** אפשרויות ל-select בלבד — שורה אחת לכל אפשרות. */
+  options_he: string | null;
+  options_en: string | null;
+  is_required: boolean;
+  sort_order: number;
+  is_published: boolean;
+  created_at: string;
+}
+
 /** סדרת ספרים — כרכים של אותה מהדורה, לא שדה טקסט חופשי על הספר. */
 export interface Series {
   id: string;

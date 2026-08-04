@@ -59,7 +59,17 @@ const ITEMS: NavEntry[] = [
   { type: 'link', href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', minRole: 'viewer' },
   { type: 'link', href: '/admin/pages', label: 'עמודי תוכן', icon: 'pages', minRole: 'viewer' },
   { type: 'link', href: '/admin/analytics', label: 'אנליטיקס', icon: 'analytics', minRole: 'editor' },
-  { type: 'link', href: '/admin/messages', label: 'פניות מהאתר', icon: 'messages', minRole: 'editor' },
+  {
+    type: 'group',
+    label: 'פניות מהאתר',
+    icon: 'messages',
+    minRole: 'editor',
+    items: [
+      { href: '/admin/messages', label: 'פניות שהתקבלו', icon: 'messages', minRole: 'editor' },
+      { href: '/admin/contact-topics', label: 'תחומי פנייה', icon: 'tags', minRole: 'editor' },
+      { href: '/admin/contact-fields', label: 'שדות מותאמים', icon: 'columns', minRole: 'editor' },
+    ],
+  },
   { type: 'link', href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'admin' },
   { type: 'link', href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
 ];

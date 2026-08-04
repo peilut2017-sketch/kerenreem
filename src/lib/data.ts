@@ -13,6 +13,8 @@ import type {
   BookRelation,
   BookWithRelations,
   Category,
+  ContactField,
+  ContactTopic,
   ContentPage,
   EventBlock,
   EventRecord,
@@ -509,6 +511,36 @@ export async function getTags(): Promise<Tag[]> {
   const { data, error } = await supabase.from('tags').select('*').order('name_he');
   warn('getTags', error);
   return (data as Tag[] | null) ?? [];
+}
+
+/* -------------------------------------------------------------------------- */
+/* טופס יצירת קשר: תחומי פנייה ושדות מותאמים                                    */
+/* -------------------------------------------------------------------------- */
+
+export async function getContactTopics(): Promise<ContactTopic[]> {
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('contact_topics')
+    .select('*')
+    .eq('is_published', true)
+    .order('sort_order');
+  warn('getContactTopics', error);
+  return (data as ContactTopic[] | null) ?? [];
+}
+
+export async function getContactFields(): Promise<ContactField[]> {
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('contact_fields')
+    .select('*')
+    .eq('is_published', true)
+    .order('sort_order');
+  warn('getContactFields', error);
+  return (data as ContactField[] | null) ?? [];
 }
 
 export async function getAttributes(): Promise<AttributeWithValues[]> {

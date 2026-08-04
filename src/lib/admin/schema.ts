@@ -288,6 +288,34 @@ export const ENTITIES = {
     // בקוד, ראו 08_pim_stage_a.sql) ואינו אמור להיות שדה שעורך יכול לשנות.
     revalidate: ['/books', '/books/[slug]', ''],
   },
+
+  contact_topics: {
+    table: 'contact_topics',
+    writeRole: 'editor',
+    fields: [
+      f('name_he', 'text', true),
+      f('name_en'),
+      fd('sort_order', 'number'),
+      f('is_published', 'boolean'),
+    ],
+    revalidate: ['/contact'],
+  },
+
+  contact_fields: {
+    table: 'contact_fields',
+    writeRole: 'editor',
+    fields: [
+      f('label_he', 'text', true),
+      f('label_en'),
+      f('field_type', 'text', true),
+      f('options_he'),
+      f('options_en'),
+      f('is_required', 'boolean'),
+      fd('sort_order', 'number'),
+      f('is_published', 'boolean'),
+    ],
+    revalidate: ['/contact'],
+  },
 } satisfies Record<string, EntitySpec>;
 
 export type EntityKey = keyof typeof ENTITIES;
