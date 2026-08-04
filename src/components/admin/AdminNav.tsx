@@ -116,13 +116,17 @@ export function AdminNav({ role }: { role: UserRole }) {
   return (
     <nav aria-label="ניווט ניהול">
       {/*
-        overflow-x-auto לבד מותיר overflow-y מוסתר אוטומטית (כלל ה-CSS:
-        כשציר אחד אינו visible, הציר השני נכפה ל-auto) — וזה קטע את
-        התפריט הנפתח של קבוצת "ספרים", שממוקם absolute ויוצא מתחת לקצה
-        ה-ul. overflow-y-visible מבטל את זה במפורש ומשאיר את גלילה
-        האופקית (ליתר ביטחון במסכים צרים) בלי לקטוע תוכן שיוצא למטה.
+        בלי overflow-x-auto בכוונה — ולא רק overflow-y-visible לצדו: לפי
+        כלל ה-CSS, כשציר overflow אחד אינו visible, הדפדפן *מחשב* את
+        הציר השני ל-auto תמיד, גם אם visible נקבע לו במפורש. אין דרך
+        "לבטל" את זה עם עוד קלאס overflow-y — ניסיתי (ראו היסטוריית
+        git) וזה לא עבד: נבדק ישירות עם getComputedStyle, overflowY
+        נשאר 'auto' ולא 'visible', וזה מה שקטע את התפריט הנפתח של קבוצת
+        "ספרים" (שממוקם absolute ויוצא מתחת לקצה ה-ul). הפתרון היחיד
+        האמיתי הוא לא לקבוע overflow-x בכלל — flex-wrap כבר מטפל בעודף
+        פריטים במסך צר על ידי מעבר לשורה נוספת, בלי צורך בגלילה אופקית.
       */}
-      <ul ref={wrapRef} className="admin-nav-shell flex-wrap gap-1 overflow-x-auto overflow-y-visible">
+      <ul ref={wrapRef} className="admin-nav-shell flex-wrap gap-1">
         {visible.map((item) => {
           if (item.type === 'link') {
             const active = matchesLink(pathname, item.href);
