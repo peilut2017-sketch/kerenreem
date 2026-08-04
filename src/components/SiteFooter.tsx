@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { MAIN_NAV } from './SiteHeader';
 import { Wordmark } from './Wordmark';
+import { CookieSettingsButton } from './CookieConsentBanner';
 import type { SiteSettings } from '@/lib/supabase/types';
 
 const LEGAL_NAV = [
@@ -73,6 +74,9 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
                   </Link>
                 </li>
               ))}
+              <li>
+                <CookieSettingsButton label={t('footer.cookieSettings')} />
+              </li>
             </ul>
           </nav>
 
@@ -129,7 +133,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
           </p>
           <p className="text-caption text-cream-2/60">
             {contact.registration_number ? `${contact.registration_number} · ` : ''}
-            {t('footer.founded')}
+            {t('footer.credit')}
           </p>
         </div>
       </div>

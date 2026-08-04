@@ -39,8 +39,9 @@
     "activityDetails": "Read more",
     "newBooksLead": "New on the shelf",
     "newBooksTitle": "Latest titles",
-    "shelfHint": "Move your cursor or finger along the shelf to see each cover, and tap to open the book.",
-    "shelfLabel": "Shelf of latest titles"
+    "shelfLabel": "Shelf of latest titles",
+    "mostViewedTitle": "Most viewed",
+    "mostViewedHint": "The titles readers are most interested in"
   },
   "books": {
     "title": "Books",
@@ -289,8 +290,16 @@
     "legalHeading": "Legal",
     "contactHeading": "Contact",
     "rights": "All rights reserved to the Keren Reem Institute.",
-    "founded": "Established 1993 (5753)",
-    "blurb": "Publishing the writings of Torah scholars, supporting those who study them, and acts of chesed."
+    "credit": "Website by smartop",
+    "blurb": "Publishing the writings of Torah scholars, supporting those who study them, and acts of chesed.",
+    "cookieSettings": "Cookie settings"
+  },
+  "cookies": {
+    "bannerLabel": "Cookie consent",
+    "message": "This site uses cookies required for it to function, and optional analytics cookies that are enabled only with your consent, to understand how the site is used and improve it.",
+    "privacyLink": "Privacy policy",
+    "reject": "Necessary only",
+    "accept": "Accept"
   },
   "a11y": {
     "toolbarTitle": "Accessibility settings",

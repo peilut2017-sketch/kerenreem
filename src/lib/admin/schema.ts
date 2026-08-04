@@ -121,6 +121,8 @@ export const ENTITIES = {
       f('stock_quantity', 'number'),
       f('is_purchasable', 'boolean'),
       f('weight_grams', 'number'),
+      f('stock_location'),
+      f('physical_size'),
       f('is_published', 'boolean'),
       f('languages', 'text[]'),
       f('cover_alt'),

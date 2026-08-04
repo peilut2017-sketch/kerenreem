@@ -1,14 +1,16 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
-import { listBanners } from '@/lib/admin/queries';
+import { getSettings, listBanners } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
+import { BannersEnabledToggle } from '@/components/admin/BannersEnabledToggle';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminBannersPage() {
   await requireRole('viewer');
-  const banners = await listBanners();
+  const [banners, settings] = await Promise.all([listBanners(), getSettings()]);
+  const bannersEnabled = settings?.extra.banners_enabled !== false;
 
   return (
     <>
@@ -17,6 +19,10 @@ export default async function AdminBannersPage() {
         description="הקרוסלה בראש עמוד הבית. מוצגים לפי סדר, רק מה שמסומן כמוצג ובתוך חלון התאריכים."
         action={{ href: '/admin/banners/new', label: 'באנר חדש' }}
       />
+
+      <div className="mb-6">
+        <BannersEnabledToggle enabled={bannersEnabled} />
+      </div>
 
       <AdminTable
         columns={['כותרת', 'תמונה', 'יעד', 'סדר', 'מצב ופעולות']}

@@ -651,6 +651,20 @@ export function BookForm({
                         hint="משמש לחישוב משלוח."
                       />
                     </div>
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <TextField
+                        name="stock_location"
+                        label="מיקום"
+                        defaultValue={book?.stock_location}
+                        hint="מיקום המלאי הפיזי, למשל ״מדף A3״ — לצוות בלבד, לא מוצג באתר."
+                      />
+                      <TextField
+                        name="physical_size"
+                        label="גודל"
+                        defaultValue={book?.physical_size}
+                        hint="מידות הספר, למשל 17x24 ס״מ."
+                      />
+                    </div>
                     <CheckboxField
                       name="is_purchasable"
                       label="ניתן לרכישה באתר"

@@ -20,7 +20,7 @@ export async function AboutBand({
   const t = await getTranslations();
 
   return (
-    <section className="section-y">
+    <section className="py-16 lg:py-20">
       <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
         <div className={`card overflow-hidden ${imageUrl ? 'lg:grid lg:grid-cols-2 lg:items-stretch' : ''}`}>
         {imageUrl ? (

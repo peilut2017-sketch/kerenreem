@@ -404,6 +404,48 @@ export async function getRecentBooks(limit = 6): Promise<BookWithRelations[]> {
 }
 
 /**
+ * הספרים הנצפים ביותר — לפי view_count (ראו increment_book_view
+ * ב-10_book_page_stage_c.sql), לא לפי page_views: המונה כבר קיים על
+ * הספר עצמו, ומתעדכן בכל טעינת עמוד ספר אמיתית.
+ */
+export async function getMostViewedBooks(limit = 5): Promise<BookWithRelations[]> {
+  const supabase = createStaticClient();
+  if (!supabase) {
+    return isDemoContent ? [...demo.books()].sort((a, b) => b.view_count - a.view_count).slice(0, limit) : [];
+  }
+
+  return runBookQuery<BookWithRelations>(
+    (select) =>
+      supabase
+        .from('books')
+        .select(select)
+        .eq('is_published', true)
+        .order('view_count', { ascending: false })
+        .limit(limit),
+    'getMostViewedBooks',
+  );
+}
+
+/**
+ * ספרים לפי רשימת מזהים מסודרת — למדף האוצר בעמוד הבית (ראו
+ * site_settings.extra.shelf_book_ids, נבחר בהגדרות קטלוג וחנות).
+ * מחזיר לפי סדר המזהים שהתקבל, לא לפי סדר ההחזרה השרירותי של .in().
+ */
+export async function getBooksByIds(ids: string[]): Promise<BookWithRelations[]> {
+  if (ids.length === 0) return [];
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+
+  const books = await runBookQuery<BookWithRelations>(
+    (select) => supabase.from('books').select(select).in('id', ids).eq('is_published', true),
+    'getBooksByIds',
+  );
+
+  const byId = new Map(books.map((book) => [book.id, book]));
+  return ids.map((id) => byId.get(id)).filter((book): book is BookWithRelations => Boolean(book));
+}
+
+/**
  * מונה צפיות גס — ראו increment_book_view ב-10_book_page_stage_c.sql.
  *
  * נקרא מ-Server Action בצד הלקוח (recordBookView) ולא מתוך רינדור

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { assertRole } from './auth';
+import type { ActionResult } from './actions';
 import type { UserRole } from '@/lib/supabase/types';
 
 export interface SettingsState {
@@ -119,6 +120,82 @@ export async function saveStoreSettings(
   revalidatePath('/admin/books/settings');
 
   return { status: 'saved' };
+}
+
+/**
+ * דגלים קטנים שחיים בתוך site_settings.extra (jsonb) ולא בעמודה ייעודית
+ * — כדי לא לדרוש מיגרציה לכל הגדרה נקודתית חדשה. שתי הפעולות למטה
+ * (הפעלת באנרים, ספרי המדף) קוראות את extra הקיים וממזגות לתוכו רק את
+ * המפתח שלהן, כי שתיהן חולקות את אותה עמודה ונשמרות משני עמודי ניהול
+ * נפרדים — כתיבה גורפת הייתה מוחקת בשקט את המפתח שהעמוד השני שמר.
+ */
+async function mergeExtra(
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+  patch: Record<string, unknown>,
+): Promise<{ error: string } | null> {
+  const { data: current } = await supabase.from('site_settings').select('extra').eq('id', 1).maybeSingle();
+  const extra = { ...((current?.extra as Record<string, unknown> | null) ?? {}), ...patch };
+
+  const { error } = await supabase
+    .from('site_settings')
+    .update({ extra, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+
+  return error ? { error: `השמירה נכשלה: ${error.message}` } : null;
+}
+
+/**
+ * הפעלה/כיבוי מלא של קרוסלת הבאנרים בעמוד הבית — נפרד ממצב הפרסום של
+ * כל באנר בודד. כשכבויה, העמוד נופל לגיבוי הרגיל (קרוסלה שנבנית מתוכן
+ * שפורסם, או הצהרה טיפוגרפית) גם אם יש באנרים מפורסמים.
+ */
+export async function saveBannersEnabled(enabled: boolean): Promise<ActionResult> {
+  const session = await assertRole('admin');
+  if ('error' in session) return session;
+
+  const supabase = await createClient();
+  if (!supabase) return { error: 'אין חיבור למסד' };
+
+  const mergeError = await mergeExtra(supabase, { banners_enabled: enabled });
+  if (mergeError) return mergeError;
+
+  await supabase.from('audit_log').insert({
+    user_id: session.userId,
+    action: 'update',
+    table_name: 'site_settings',
+    record_id: null,
+  });
+
+  revalidatePath('/', 'layout');
+  revalidatePath('/admin/banners');
+  return {};
+}
+
+/**
+ * רשימת הספרים המוצגים במדף בעמוד הבית, בסדר התצוגה שנבחר בגרירה
+ * (ראו ShelfBooksPicker.tsx). רשימה ריקה = נפילה חזרה לברירת המחדל
+ * (הכותרים האחרונים, ראו getBooksByIds/getRecentBooks ב-data.ts).
+ */
+export async function saveShelfBooks(bookIds: string[]): Promise<ActionResult> {
+  const session = await assertRole('editor');
+  if ('error' in session) return session;
+
+  const supabase = await createClient();
+  if (!supabase) return { error: 'אין חיבור למסד' };
+
+  const mergeError = await mergeExtra(supabase, { shelf_book_ids: bookIds });
+  if (mergeError) return mergeError;
+
+  await supabase.from('audit_log').insert({
+    user_id: session.userId,
+    action: 'update',
+    table_name: 'site_settings',
+    record_id: null,
+  });
+
+  revalidatePath('/', 'layout');
+  revalidatePath('/admin/books/settings');
+  return {};
 }
 
 /** שינוי תפקיד של איש צוות. Admin בלבד. */

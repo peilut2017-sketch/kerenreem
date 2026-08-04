@@ -1,19 +1,23 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { Img as Image } from '@/components/Img';
 import { HeroCarousel } from '@/components/hero/HeroCarousel';
 import { BannerStrip } from '@/components/hero/BannerStrip';
 import { BookShelf, type ShelfBook } from '@/components/home/BookShelf';
+import { MostViewedRow } from '@/components/home/MostViewedRow';
+import { HomeBackgroundDecor } from '@/components/home/HomeBackgroundDecor';
 import type { HeroSlide } from '@/components/hero/types';
 import { AboutBand } from '@/components/home/AboutBand';
 import { EventsRow } from '@/components/home/EventsRow';
-import { ContactBand } from '@/components/home/ContactBand';
 import { Ornament } from '@/components/Ornament';
 import { Icon, hasIcon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
 import {
   getActivities,
   getBanners,
+  getBooksByIds,
   getEvents,
+  getMostViewedBooks,
   getPageBySlug,
   getRecentBooks,
   getSiteSettings,
@@ -41,7 +45,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   setRequestLocale(locale);
 
   const t = await getTranslations();
-  const [banners, books, activities, events, about, home, settings] = await Promise.all([
+  const [banners, books, activities, events, about, home, settings, mostViewedBooks] = await Promise.all([
     getBanners(),
     getRecentBooks(10),
     getActivities(),
@@ -49,7 +53,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     getPageBySlug('about'),
     getPageBySlug('home'),
     getSiteSettings(),
+    getMostViewedBooks(4),
   ]);
+
+  // false מפורש בלבד מכבה — היעדר המפתח (אתר שטרם נגע בהגדרה) ממשיך
+  // להציג באנרים כברירת המחדל הקיימת, לא שובר התקנות ישנות.
+  const bannersEnabled = settings.extra.banners_enabled !== false;
+
+  // בחירה קבועה למדף מהגדרות קטלוג וחנות (גרירה, ראו ShelfBooksPicker),
+  // עם נפילה חזרה לכותרים האחרונים כשלא נבחרה רשימה.
+  const shelfBookIds = Array.isArray(settings.extra.shelf_book_ids)
+    ? (settings.extra.shelf_book_ids as unknown[]).filter((id): id is string => typeof id === 'string')
+    : [];
+  const curatedShelfBooks = shelfBookIds.length > 0 ? await getBooksByIds(shelfBookIds) : [];
+  const shelfSourceBooks = curatedShelfBooks.length > 0 ? curatedShelfBooks : books.slice(0, 10);
 
   /* ------------------------------------------------------------------------
      גיבוי לראש העמוד כשאין באנרים: קרוסלה שנבנית מספר, אירוע וציר
@@ -119,7 +136,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
      לרוחב מסך טלפון בלי גלישה, ראו BookShelf.tsx.
      ------------------------------------------------------------------------ */
   const shelfBooks: ShelfBook[] = await Promise.all(
-    books.slice(0, 10).map(async (book) => {
+    shelfSourceBooks.slice(0, 10).map(async (book) => {
       const title = localized(book, 'title', locale);
       const { base, edge } = book.spine_image_url
         ? { base: '', edge: '' } // שדרה שצולמה — הצבעים אינם בשימוש
@@ -138,14 +155,60 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     }),
   );
 
+  // רקע המקטע הוא צילום מן הפעילות או מאירוע — לא כריכת ספר. כריכה היא
+  // טקסט, ומתוחה לרוחב המסך היא הופכת לרעש מאחורי המדף.
+  const shelfBackdropUrl =
+    activities.find((activity) => activity.cover_image_url)?.cover_image_url ??
+    events.find((event) => event.cover_image_url)?.cover_image_url ??
+    null;
+
   return (
     <>
-      {banners.length > 0 ? (
+      {shelfBooks.length > 0 ? (
+        /* רצועה כהה בגווני הלוגו (כחול עמוק + זהב), כמו יתר הרצועות
+           הכהות בעמוד — כך שהמדף קורא כפינה משלו ולא כרשימה שיושבת על
+           רקע העמוד הרגיל. לפני הבאנרים בכוונה: זה מה שהמבקר פוגש קודם. */
+        <section className="on-dark relative isolate overflow-hidden py-16 lg:py-20">
+          {shelfBackdropUrl ? (
+            <div className="media-backdrop absolute inset-0 -z-20">
+              <Image src={shelfBackdropUrl} alt="" fill sizes="100vw" className="object-cover" />
+              <div className="absolute inset-0 bg-navy/88" />
+            </div>
+          ) : null}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-[radial-gradient(64rem_28rem_at_50%_-12%,color-mix(in_srgb,var(--color-gold)_22%,transparent),transparent_65%)]"
+          />
+
+          <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
+            <header className="mb-10 text-center">
+              <p className="eyebrow">{t('home.newBooksLead')}</p>
+              <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-white">
+                {t('home.newBooksTitle')}
+              </h2>
+            </header>
+          </div>
+
+          <BookShelf books={shelfBooks} label={t('home.shelfLabel')} />
+
+          <div className="mx-auto mt-12 w-full max-w-[82rem] px-5 sm:px-8">
+            <MostViewedRow books={mostViewedBooks} locale={locale} storeEnabled={settings.store_enabled} />
+
+            <p className="mt-10 text-center">
+              <Link href="/books" className="link-more">
+                {t('home.catalogueAll')}
+              </Link>
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      {bannersEnabled && banners.length > 0 ? (
         /* יש באנרים — הם התמונה עצמה, בלי כיתוב מונח מעליה */
         <BannerStrip banners={banners} locale={locale} label={t('hero.label')} />
       ) : slides.length > 0 ? (
-        /* אין באנרים — הקרוסלה נבנית מתוכן שפורסם, ושם הכיתוב הכרחי:
-           כריכת ספר בלי שם אינה אומרת דבר. */
+        /* אין באנרים (או שכובו בהגדרות) — הקרוסלה נבנית מתוכן שפורסם,
+           ושם הכיתוב הכרחי: כריכת ספר בלי שם אינה אומרת דבר. */
         <HeroCarousel slides={slides} />
       ) : (
         /* בלי תוכן מפורסם אין מה לסובב. במקום קרוסלה ריקה — הצהרה
@@ -159,107 +222,69 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </section>
       )}
 
-      {shelfBooks.length > 0 ? (
-        /* רצועה כהה בגווני הלוגו (כחול עמוק + זהב), כמו יתר הרצועות
-           הכהות בעמוד — כך שהמדף קורא כפינה משלו ולא כרשימה שיושבת על
-           רקע העמוד הרגיל. הזהב יורד מלמעלה כהילה רכה, בדיוק בגוון
-           שממנו נגזרת שדרת הספר חסרת הצילום (ראו cover-colors.ts). */
-        <section className="on-dark relative isolate overflow-hidden py-20 lg:py-24">
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 -z-10 bg-[radial-gradient(64rem_28rem_at_50%_-12%,color-mix(in_srgb,var(--color-gold)_22%,transparent),transparent_65%)]"
-          />
+      {/* מרחב הרקע הבהיר של שלושת המקטעים הבאים משותף לשכבת הקישוט
+          (HomeBackgroundDecor) — כדי שהעיגולים והספרים העדינים יזרמו
+          ברצף מאחורי כולם, לא יתחילו מחדש בכל מקטע. */}
+      <div className="relative isolate">
+        <HomeBackgroundDecor />
 
-          <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
-            <header className="mb-10 text-center">
-              <p className="eyebrow">{t('home.newBooksLead')}</p>
-              <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-white">
-                {t('home.newBooksTitle')}
-              </h2>
-              <p className="mx-auto mt-3 max-w-[46ch] text-small text-cream-2/75">
-                {t('home.shelfHint')}
-              </p>
-            </header>
-          </div>
+        {aboutExcerpt ? (
+          <AboutBand excerpt={aboutExcerpt} imageUrl={leadActivity?.cover_image_url ?? null} />
+        ) : null}
 
-          <BookShelf books={shelfBooks} label={t('home.shelfLabel')} />
+        {/* צירי הפעילות — רשימה ממוספרת. ארבעה צירים אינם ארבעה מוצרים,
+            ולכן אין כאן כרטיסים עם אייקונים. */}
+        {activities.length > 0 ? (
+          <section className="py-16 lg:py-20">
+            <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
+              <header className="text-center">
+                <p className="eyebrow">{t('home.activitiesLead')}</p>
+                <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
+                  {t('home.activitiesTitle')}
+                </h2>
+                <Ornament />
+              </header>
 
-          <div className="mx-auto mt-10 w-full max-w-[82rem] px-5 text-center sm:px-8">
-            <Link href="/books" className="link-more">
-              {t('home.catalogueAll')}
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      {aboutExcerpt ? (
-        <AboutBand excerpt={aboutExcerpt} imageUrl={leadActivity?.cover_image_url ?? null} />
-      ) : null}
-
-      {/* צירי הפעילות — רשימה ממוספרת. ארבעה צירים אינם ארבעה מוצרים,
-          ולכן אין כאן כרטיסים עם אייקונים. */}
-      {activities.length > 0 ? (
-        <section className="section-y">
-          <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
-            <header className="text-center">
-              <p className="eyebrow">{t('home.activitiesLead')}</p>
-              <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
-                {t('home.activitiesTitle')}
-              </h2>
-              <Ornament />
-            </header>
-
-            {/* האייקון כאן נושא מידע: הוא מבדיל בין ארבעת הצירים במבט אחד.
-                כשלציר אין אייקון מוגדר, המספר הסידורי תופס את מקומו — כך
-                שהעמודה השמאלית נשארת יציבה ולא נוצר חור בפריסה. */}
-            <ol className="mt-14 grid gap-6 sm:grid-cols-2">
-              {activities.map((activity, index) => (
-                <Reveal as="li" key={activity.id} delay={index * 80}>
-                  <Link
-                    href={`/activities/${activity.slug}`}
-                    className="card card-interactive group h-full flex-row gap-5 p-6 focus-visible:outline-offset-4"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="icon-chip h-14 w-14 shrink-0"
+              {/* האייקון כאן נושא מידע: הוא מבדיל בין ארבעת הצירים במבט אחד.
+                  כשלציר אין אייקון מוגדר, המספר הסידורי תופס את מקומו — כך
+                  שהעמודה השמאלית נשארת יציבה ולא נוצר חור בפריסה. */}
+              <ol className="mt-14 grid gap-6 sm:grid-cols-2">
+                {activities.map((activity, index) => (
+                  <Reveal as="li" key={activity.id} delay={index * 80}>
+                    <Link
+                      href={`/activities/${activity.slug}`}
+                      className="card card-interactive group h-full flex-row gap-5 p-6 focus-visible:outline-offset-4"
                     >
-                      {hasIcon(activity.icon) ? (
-                        <Icon name={activity.icon} className="h-6 w-6" />
-                      ) : (
-                        <span className="font-serif text-[1.125rem] tabular-nums">
-                          {String(index + 1).padStart(2, '0')}
+                      <span
+                        aria-hidden="true"
+                        className="icon-chip h-14 w-14 shrink-0"
+                      >
+                        {hasIcon(activity.icon) ? (
+                          <Icon name={activity.icon} className="h-6 w-6" />
+                        ) : (
+                          <span className="font-serif text-[1.125rem] tabular-nums">
+                            {String(index + 1).padStart(2, '0')}
+                          </span>
+                        )}
+                      </span>
+                      <span className="block">
+                        <span className="block font-serif text-h3 leading-snug text-ink transition-colors group-hover:text-burgundy">
+                          {localized(activity, 'title', locale)}
                         </span>
-                      )}
-                    </span>
-                    <span className="block">
-                      <span className="block font-serif text-h3 leading-snug text-ink transition-colors group-hover:text-burgundy">
-                        {localized(activity, 'title', locale)}
+                        <span className="mt-2.5 block max-w-[46ch] text-small leading-relaxed text-ink-soft">
+                          {localized(activity, 'summary', locale)}
+                        </span>
                       </span>
-                      <span className="mt-2.5 block max-w-[46ch] text-small leading-relaxed text-ink-soft">
-                        {localized(activity, 'summary', locale)}
-                      </span>
-                    </span>
-                  </Link>
-                </Reveal>
-              ))}
-            </ol>
-          </div>
-        </section>
-      ) : null}
+                    </Link>
+                  </Reveal>
+                ))}
+              </ol>
+            </div>
+          </section>
+        ) : null}
 
-      <EventsRow events={events} locale={locale} />
-
-      {/* רקע הרצועה הוא צילום מן הפעילות או מאירוע — לא כריכת ספר.
-          כריכה היא טקסט, ומתוחה לרוחב המסך היא הופכת לרעש מאחורי הטופס. */}
-      <ContactBand
-        contact={settings.contact ?? {}}
-        backdropUrl={
-          activities.find((activity) => activity.cover_image_url)?.cover_image_url ??
-          events.find((event) => event.cover_image_url)?.cover_image_url ??
-          null
-        }
-        locale={locale}
-      />
+        <EventsRow events={events} locale={locale} />
+      </div>
     </>
   );
 }
