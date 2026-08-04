@@ -31,6 +31,16 @@ const GA_CONNECT_SRC = gaEnabled
 const GA_IMG_SRC = gaEnabled ? ' https://www.google-analytics.com https://*.google-analytics.com' : '';
 
 /**
+ * reCAPTCHA v2 בטופס יצירת הקשר — מוגדר-תצורה באותו דפוס כמו GA4 למעלה:
+ * מורחב רק כש-NEXT_PUBLIC_RECAPTCHA_SITE_KEY קיים בזמן הבנייה (ראו
+ * src/components/Captcha.tsx). אתר שלא הגדיר קאפצ'ה ממשיך לקבל את
+ * ה-CSP המחמיר המקורי בלי אף מתחם חיצוני נוסף.
+ */
+const captchaEnabled = Boolean(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY);
+const CAPTCHA_SCRIPT_SRC = captchaEnabled ? ' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/' : '';
+const CAPTCHA_FRAME_SRC = captchaEnabled ? ' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/' : '';
+
+/**
  * כותרות אבטחה.
  *
  * ה-CSP מתיר `unsafe-inline` לסקריפטים משום ש-Next מזריק סקריפטים מוטבעים
@@ -49,12 +59,12 @@ const CSP = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  `script-src 'self' 'unsafe-inline'${GA_SCRIPT_SRC}`,
+  `script-src 'self' 'unsafe-inline'${GA_SCRIPT_SRC}${CAPTCHA_SCRIPT_SRC}`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   `img-src 'self' data: blob:${supabaseHost ? ` https://${supabaseHost}` : ''} https://i.ytimg.com${GA_IMG_SRC}`,
   `connect-src 'self'${supabaseHost ? ` https://${supabaseHost} wss://${supabaseHost}` : ''}${GA_CONNECT_SRC}`,
-  "frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com",
+  `frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com${CAPTCHA_FRAME_SRC}`,
   'upgrade-insecure-requests',
 ].join('; ');
 

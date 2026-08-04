@@ -13,6 +13,7 @@ import type {
   BookRelations,
   BookTocEntry,
   Category,
+  ContactAttachment,
   Tag,
   ContentPage,
   EventBlock,
@@ -339,6 +340,7 @@ export interface ContactMessage {
   phone: string | null;
   subject: string | null;
   message: string;
+  attachments: ContactAttachment[];
   is_handled: boolean;
   created_at: string;
 }
@@ -351,6 +353,30 @@ export async function listContactMessages(): Promise<ContactMessage[]> {
     .order('created_at', { ascending: false })
     .limit(200);
   return (data as ContactMessage[] | null) ?? [];
+}
+
+/**
+ * קישורים חתומים לקבצים המצורפים לפניות — ה-bucket פרטי (ראו
+ * 20_contact_attachments.sql), ולכן אין להם כתובת ציבורית קבועה.
+ * נוצרים לפי דרישה עם תוקף קצר, לא נשמרים. הקריאה משתמשת ב-session
+ * של הצוות (client() למעלה, לא service role) כך שמדיניות ה-RLS
+ * (רק can_edit()) נאכפת גם כאן.
+ */
+export async function getContactAttachmentUrls(paths: string[]): Promise<Record<string, string>> {
+  if (paths.length === 0) return {};
+
+  const supabase = await client();
+  const { data, error } = await supabase.storage.from('contact-attachments').createSignedUrls(paths, 600);
+  if (error || !data) {
+    console.error('[admin:contactAttachments]', error?.message);
+    return {};
+  }
+
+  const urls: Record<string, string> = {};
+  for (const item of data) {
+    if (item.path && item.signedUrl && !item.error) urls[item.path] = item.signedUrl;
+  }
+  return urls;
 }
 
 /** ספירות לדשבורד. */

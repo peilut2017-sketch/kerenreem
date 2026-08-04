@@ -96,22 +96,30 @@ export function EntityForm({
    *
    * הניווט הוא client-side (router.replace) ולא redirect() בשרת, כדי
    * לא לפגוש שוב את התקלה שבגללה סגירה ידנית פתחה כרטיס ריק — ראו
-   * ההערה ב-saveEntity (lib/admin/actions.ts).
+   * ההערה ב-saveEntity (lib/admin/actions.ts). router.refresh() אחרי
+   * כל ניווט הוא רשת ביטחון נוספת: מכריח את Next.js להעריך מחדש את כל
+   * המשבצות המקבילות (כולל @modal) לפי הכתובת החדשה, ולא לסמוך רק על
+   * כך שהניווט הרך יעדכן אותן מעצמו.
    */
   useEffect(() => {
     if (state.status !== 'saved') return;
 
     if (state.intent === 'save-new') {
-      if (id) router.replace(`/admin/${entity}/new`);
+      if (id) {
+        router.replace(`/admin/${entity}/new`);
+        router.refresh();
+      }
       return;
     }
 
     if (!id && state.id && STAYS_OPEN_ON_FIRST_SAVE.has(entity)) {
       router.replace(`/admin/${entity}/${state.id}`);
+      router.refresh();
       return;
     }
 
     router.replace(`/admin/${entity}`);
+    router.refresh();
   }, [state, entity, id, router]);
 
   return (

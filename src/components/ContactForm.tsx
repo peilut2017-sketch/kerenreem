@@ -2,8 +2,11 @@
 
 import { useActionState, useEffect, useId, useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { submitContact, type ContactFormState } from '@/app/(public)/[locale]/contact/actions';
 import { restoreFormValues } from '@/lib/restore-form';
+import { ContactAttachmentsField } from './ContactAttachmentsField';
+import { Captcha } from './Captcha';
 
 const INITIAL: ContactFormState = { status: 'idle' };
 
@@ -110,6 +113,8 @@ export function ContactForm() {
         {errorFor('message')}
       </div>
 
+      <ContactAttachmentsField name="attachments" />
+
       <div>
         <label htmlFor={`${id}-consent`} className="flex items-start gap-3 text-small text-ink-soft on-dark:text-cream-2">
           <input
@@ -121,10 +126,15 @@ export function ContactForm() {
             aria-describedby={state.fieldErrors?.consent ? `${id}-consent-error` : undefined}
             className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
           />
-          <span>{t('consent')}</span>
+          <span>
+            {t('consentPrefix')} <Link href="/terms" className="link">{t('termsLinkLabel')}</Link>{' '}
+            {t('consentSuffix')}
+          </span>
         </label>
         {errorFor('consent')}
       </div>
+
+      <Captcha resetSignal={state} />
 
       {state.status === 'error' && state.message ? (
         <p role="alert" className="field-error">

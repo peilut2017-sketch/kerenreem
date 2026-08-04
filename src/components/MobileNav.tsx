@@ -67,62 +67,77 @@ export function MobileNav({
         )}
       </button>
 
-      {open ? (
-        <div
-          id="mobile-nav-panel"
-          ref={panelRef}
-          // fixed ולא absolute: הכפתור יושב היום בתוך משטח שגם רץ בין
-          // מצב פתוח לצף וגם overflow-hidden (לגזירת שכבת הזכוכית) —
-          // absolute עם top:100% נגד ancestor כזה חישב מיקום שגוי. fixed
-          // עם --site-header-h (אותו משתנה שמזין את שאר האתר) עצמאי
-          // מהמבנה של ה-header ונכון בשני מצביו.
-          className="glass fixed inset-x-0 top-[calc(var(--site-header-h,4.75rem)+0.5rem)] z-40 rounded-[var(--radius-xl)]"
-        >
-          <div className="mx-auto w-full max-w-[82rem] px-5 py-6 sm:px-6">
-            <form
-              role="search"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const q = query.trim();
-                router.push(q ? `/books?q=${encodeURIComponent(q)}` : '/books');
-                setOpenedFor(null);
-              }}
-              className="mb-5"
-            >
-              <label htmlFor="mobile-search" className="sr-only">
-                {searchLabel}
-              </label>
-              <input
-                id="mobile-search"
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={searchLabel}
-                className="field-input"
-              />
-            </form>
+      {/*
+        תמיד ב-DOM, לא mount/unmount על open — כדי שתהיה אנימציית סגירה
+        בכלל (אלמנט שמוסר מיד אינו יכול "לדעוך", רק להיעלם בבת אחת).
+        המעבר עצמו הוא opacity+transform, כמו שאר אתר הבית — לא ספרייה
+        חיצונית, רק כדי שיישאר קליל לתפריט שנפתח ונסגר הרבה.
+        inert כשסגור: גם מוציא מסדר הטאב וגם מסתיר מקורא מסך, בלי שכפול
+        לוגיקה מול opacity/pointer-events (נתמך באופן טבעי מ-React 19).
+      */}
+      <div
+        id="mobile-nav-panel"
+        ref={panelRef}
+        inert={!open}
+        // fixed ולא absolute: הכפתור יושב היום בתוך משטח שגם רץ בין
+        // מצב פתוח לצף וגם overflow-hidden (לגזירת שכבת הזכוכית) —
+        // absolute עם top:100% נגד ancestor כזה חישב מיקום שגוי. fixed
+        // עם --site-header-h (אותו משתנה שמזין את שאר האתר) עצמאי
+        // מהמבנה של ה-header ונכון בשני מצביו.
+        className={`glass fixed inset-x-0 top-[calc(var(--site-header-h,4.75rem)+0.5rem)] z-40 origin-top rounded-[var(--radius-xl)] transition-[opacity,transform] duration-300 ease-[var(--ease-spring)] motion-reduce:transition-none ${
+          open ? 'translate-y-0 scale-100 opacity-100' : '-translate-y-2 scale-[0.97] opacity-0'
+        }`}
+      >
+        <div className="mx-auto w-full max-w-[82rem] px-5 py-6 sm:px-6">
+          <form
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const q = query.trim();
+              router.push(q ? `/books?q=${encodeURIComponent(q)}` : '/books');
+              setOpenedFor(null);
+            }}
+            className="mb-5"
+          >
+            <label htmlFor="mobile-search" className="sr-only">
+              {searchLabel}
+            </label>
+            <input
+              id="mobile-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchLabel}
+              className="field-input"
+            />
+          </form>
 
-            <nav aria-label={openLabel}>
-              <ul className="space-y-1">
-                {items.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className="block rounded-[var(--radius-sm)] px-3 py-3 font-serif text-[1.125rem] text-ink transition-[background-color,color] duration-300 hover:bg-white/70 hover:text-burgundy"
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+          <nav aria-label={openLabel}>
+            <ul className="space-y-1">
+              {items.map((item, index) => (
+                <li
+                  key={item.href}
+                  className={`transition-[opacity,transform] duration-300 ease-[var(--ease-spring)] motion-reduce:transition-none motion-reduce:transform-none ${
+                    open ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'
+                  }`}
+                  style={{ transitionDelay: open ? `${40 + index * 30}ms` : '0ms' }}
+                >
+                  <Link
+                    href={item.href}
+                    className="block rounded-[var(--radius-sm)] px-3 py-3 font-serif text-[1.125rem] text-ink transition-[background-color,color] duration-300 hover:bg-white/70 hover:text-burgundy"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
 
-            <div className="mt-6">
-              <LocaleSwitch />
-            </div>
+          <div className="mt-6">
+            <LocaleSwitch />
           </div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

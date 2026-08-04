@@ -147,15 +147,3 @@ export async function updateProfileRole(userId: string, role: UserRole): Promise
 
   revalidatePath('/admin/settings');
 }
-
-/** סימון פנייה כטופלה. */
-export async function setMessageHandled(id: string, handled: boolean): Promise<void> {
-  const session = await assertRole('editor');
-  if ('error' in session) return;
-
-  const supabase = await createClient();
-  if (!supabase) return;
-
-  await supabase.from('contact_messages').update({ is_handled: handled }).eq('id', id);
-  revalidatePath('/admin/messages');
-}

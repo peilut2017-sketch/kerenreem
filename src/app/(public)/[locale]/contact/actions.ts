@@ -45,6 +45,63 @@ export interface ContactFormState {
 
 const MAX = { name: 120, email: 160, phone: 40, subject: 160, message: 4000 };
 
+/** מראה בטופס (ContactAttachmentsField) — נבדק כאן שוב כי אימות בדפדפן אפשר לעקוף. */
+const MAX_ATTACHMENTS = 5;
+const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024;
+
+interface ParsedAttachment {
+  path: string;
+  name: string;
+  size: number;
+  type: string;
+}
+
+/** קורא ומאמת את שדה attachments (JSON שכתב ContactAttachmentsField). לעולם לא זורק — קלט לא תקין הופך לרשימה ריקה. */
+function parseAttachments(raw: FormDataEntryValue | null): ParsedAttachment[] {
+  if (typeof raw !== 'string' || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item): item is ParsedAttachment =>
+          item &&
+          typeof item.path === 'string' &&
+          typeof item.name === 'string' &&
+          typeof item.size === 'number' &&
+          typeof item.type === 'string' &&
+          item.size > 0 &&
+          item.size <= MAX_ATTACHMENT_BYTES,
+      )
+      .slice(0, MAX_ATTACHMENTS);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * אימות מול Google, פעיל רק כששני המפתחות מוגדרים (site key בצד הלקוח,
+ * secret כאן) — אותו דפדוף כמו GA4: בלי הגדרה, הקאפצ'ה פשוט לא נאכפת,
+ * במקום להפיל את הטופס על שדה שלא קיים אצל מי שלא הגדיר ספק.
+ */
+const RECAPTCHA_SECRET_KEY = process.env.RECAPTCHA_SECRET_KEY;
+const captchaEnabled = Boolean(RECAPTCHA_SECRET_KEY && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY);
+
+async function verifyCaptcha(token: string, ip: string): Promise<boolean> {
+  try {
+    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ secret: RECAPTCHA_SECRET_KEY!, response: token, remoteip: ip }),
+    });
+    const result = (await response.json()) as { success?: boolean };
+    return result.success === true;
+  } catch (error) {
+    console.error('[contact] captcha verify failed', error);
+    return false;
+  }
+}
+
 export async function submitContact(
   _prev: ContactFormState,
   formData: FormData,
@@ -75,6 +132,7 @@ export async function submitContact(
   const subject = String(formData.get('subject') ?? '').trim();
   const message = String(formData.get('message') ?? '').trim();
   const consent = formData.get('consent') === 'on';
+  const attachments = parseAttachments(formData.get('attachments'));
 
   const fieldErrors: Record<string, string> = {};
   if (!name) fieldErrors.name = t('required');
@@ -92,6 +150,13 @@ export async function submitContact(
     return { status: 'error', fieldErrors };
   }
 
+  if (captchaEnabled) {
+    const token = String(formData.get('g-recaptcha-response') ?? '');
+    if (!token || !(await verifyCaptcha(token, ip))) {
+      return { status: 'error', message: t('captchaRequired') };
+    }
+  }
+
   const supabase = await createClient();
   if (!supabase) {
     return { status: 'error', message: t('error') };
@@ -103,6 +168,7 @@ export async function submitContact(
     phone: phone || null,
     subject: subject || null,
     message,
+    attachments,
   });
 
   if (error) {
