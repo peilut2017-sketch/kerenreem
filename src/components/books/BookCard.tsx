@@ -4,6 +4,8 @@ import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
 import { localized } from '@/lib/localized';
+import { resolveBookAuthor } from '@/lib/books/author-display';
+import { resolveBookBadge } from '@/lib/books/badge';
 import type { BookWithRelations } from '@/lib/supabase/types';
 
 /**
@@ -29,9 +31,11 @@ export function BookCard({
   onToggleFavourite: (book: BookWithRelations) => void;
   storeEnabled: boolean;
 }) {
+  const t = useTranslations('books');
   const title = localized(book, 'title', locale);
-  const authorName = book.author ? localized(book.author, 'name', locale) : null;
+  const author = resolveBookAuthor(book, locale);
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
+  const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
 
   return (
     <article className="card card-interactive group relative flex h-full flex-col focus-within:ring-2 focus-within:ring-gold/50">
@@ -45,6 +49,18 @@ export function BookCard({
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
           />
         </div>
+
+        {/* פינת הפתיחה שומרת לתגית (מבצע/רב מכר/בחירת המכון) — הפוכה
+            לפינת הסיום שבה יושב הלב, כדי ששתיהן לא יתנגשו. */}
+        {badge ? (
+          <span
+            className={`glass absolute start-3 top-3 z-10 rounded-[var(--radius-pill)] px-2.5 py-1 text-caption font-semibold ${
+              badge.tone === 'accent' ? 'text-gold-deep' : 'text-ink-soft'
+            }`}
+          >
+            {badge.label}
+          </span>
+        ) : null}
 
         <FavouriteButton
           title={title}
@@ -63,7 +79,7 @@ export function BookCard({
           </Link>
         </h3>
 
-        {authorName ? <p className="mt-1.5 text-small text-muted">{authorName}</p> : null}
+        {author ? <p className="mt-1.5 text-small text-muted">{author.name}</p> : null}
 
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
           {categoryName ? (

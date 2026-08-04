@@ -63,6 +63,8 @@ export function searchCorpus(book: BookWithRelations): string {
       book.subtitle_en,
       book.author?.name_he,
       book.author?.name_en,
+      book.author_name_he,
+      book.author_name_en,
       book.category?.name_he,
       book.category?.name_en,
       // התיאור הוא HTML מהעורך; בלי הסרת התגיות חיפוש "עמוד" היה מוצא

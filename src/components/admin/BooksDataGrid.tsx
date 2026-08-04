@@ -83,6 +83,7 @@ export function BooksDataGrid({
       const haystack = [
         book.title_he,
         book.subtitle_he,
+        book.author_name_he,
         book.author?.name_he,
         book.sku,
         String(book.catalogue_number),
@@ -106,7 +107,10 @@ export function BooksDataGrid({
         case 'author':
           return (
             factor *
-            (a.book.author?.name_he ?? '').localeCompare(b.book.author?.name_he ?? '', 'he')
+            (a.book.author_name_he ?? a.book.author?.name_he ?? '').localeCompare(
+              b.book.author_name_he ?? b.book.author?.name_he ?? '',
+              'he',
+            )
           );
         case 'year':
           // ספרים בלי שנה לועזית מקובצים יחד ולא נזרקים לקצה המיון בטעות
@@ -273,7 +277,9 @@ export function BooksDataGrid({
                     <span className="mt-0.5 block text-caption text-muted">{book.subtitle_he}</span>
                   ) : null}
                 </td>
-                {shown('author') ? <td className="text-muted">{book.author?.name_he ?? '—'}</td> : null}
+                {shown('author') ? (
+                  <td className="text-muted">{book.author_name_he ?? book.author?.name_he ?? '—'}</td>
+                ) : null}
                 {shown('year') ? (
                   <td className="text-muted">
                     {book.publication_year_he || book.publication_year_ce || '—'}
