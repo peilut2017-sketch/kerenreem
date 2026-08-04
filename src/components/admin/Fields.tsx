@@ -103,8 +103,9 @@ export function TextField({
 export function TextAreaField({
   defaultValue,
   rows = 4,
+  dir,
   ...props
-}: BaseProps & { defaultValue?: string | null; rows?: number }) {
+}: BaseProps & { defaultValue?: string | null; rows?: number; dir?: 'rtl' | 'ltr' }) {
   const id = useId();
   return (
     <Wrapper id={id} {...props}>
@@ -112,6 +113,7 @@ export function TextAreaField({
         id={id}
         name={props.name}
         rows={rows}
+        dir={dir}
         required={props.required}
         defaultValue={defaultValue ?? ''}
         aria-invalid={props.error ? true : undefined}

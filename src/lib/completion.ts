@@ -33,7 +33,7 @@ export function computeCompletion(book: Book, relations: BookRelations): Complet
       // בלי כריכה אין מה לתאר — זה לא ליקוי במקרה הזה, ולכן נחשב מולא
       done: !book.cover_image_url || Boolean(book.cover_alt),
     },
-    { key: 'author', label: 'מחבר', done: Boolean(book.author_id) },
+    { key: 'author', label: 'מחבר', done: Boolean(book.author_id) || Boolean(book.author_name_he) },
     { key: 'category', label: 'קטגוריה', done: Boolean(book.category_id) },
     { key: 'description', label: 'תיאור', done: Boolean(book.description_he) },
     {

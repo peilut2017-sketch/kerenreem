@@ -23,6 +23,7 @@ import { ViewTracker } from '@/components/book-page/ViewTracker';
 import { getAuthorBySlug, getBookBySlug, getBookConnections, getBookSlugs, getSiteSettings } from '@/lib/data';
 import { getCoverPalette } from '@/lib/cover-colors';
 import { getBookAvailability } from '@/lib/books/availability';
+import { resolveBookAuthor } from '@/lib/books/author-display';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
@@ -108,10 +109,15 @@ export default async function BookPage({
   const t = await getTranslations('books');
   const tValues = (key: string, values?: Record<string, string | number | Date>) => t(key, values);
 
+  // מחבר כטקסט חופשי (author_name_he/en) גובר על השיוך לרשומה, ולכן גם
+  // מדכא את שליפת המחבר המלא: אחרת אזור המחבר בהמשך העמוד (עם דיוקן
+  // וביוגרפיה) היה מציג אדם אחר לגמרי ממי שמופיע ב-Hero.
+  const authorDisplay = resolveBookAuthor(book, locale);
+
   const [connections, settings, author, extractedPalette] = await Promise.all([
     getBookConnections(book),
     getSiteSettings(),
-    book.author ? getAuthorBySlug(book.author.slug) : Promise.resolve(null),
+    book.author && authorDisplay?.href ? getAuthorBySlug(book.author.slug) : Promise.resolve(null),
     // אין טעם לחלץ צבע מהכריכה כשכבר הוגדרו גוונים ידנית בניהול —
     // חיסכון בעבודת sharp/k-means שהתוצאה שלה ממילא לא תוצג.
     book.accent_primary ? Promise.resolve(null) : getCoverPalette(book.cover_image_url),
@@ -131,7 +137,6 @@ export default async function BookPage({
 
   const title = localized(book, 'title', locale);
   const subtitle = localizedOrNull(book, 'subtitle', locale);
-  const authorName = book.author ? localized(book.author, 'name', locale) : null;
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
   const description = localizedOrNull(book, 'description', locale);
   const descriptionBrief = localizedOrNull(book, 'description_brief', locale);
@@ -278,7 +283,7 @@ export default async function BookPage({
         '@id': `${canonicalUrl}#book`,
         name: title,
         url: canonicalUrl,
-        ...(authorName ? { author: { '@type': 'Person', name: authorName } } : {}),
+        ...(authorDisplay ? { author: { '@type': 'Person', name: authorDisplay.name } } : {}),
         ...(book.isbn ? { isbn: book.isbn } : {}),
         ...(book.sku ? { sku: book.sku } : {}),
         ...(book.pages ? { numberOfPages: book.pages } : {}),
@@ -316,7 +321,7 @@ export default async function BookPage({
         palette={palette}
         title={title}
         subtitle={subtitle}
-        authorName={authorName}
+        author={authorDisplay}
         categoryName={categoryName}
         year={year}
         badges={badges}
@@ -414,7 +419,7 @@ export default async function BookPage({
             {author ? (
               <AuthorSection
                 author={author}
-                authorName={authorName ?? author.name_he}
+                authorName={authorDisplay?.name ?? author.name_he}
                 otherBooks={connections.sameAuthor}
                 locale={locale}
                 t={tValues}
@@ -434,7 +439,7 @@ export default async function BookPage({
         ) : null}
 
         {hasConnections ? (
-          <ConnectionsSection connections={connections} authorName={authorName} locale={locale} />
+          <ConnectionsSection connections={connections} authorName={authorDisplay?.name ?? null} locale={locale} />
         ) : null}
 
         <KnowledgeMap nodes={knowledgeNodes} title={title} />

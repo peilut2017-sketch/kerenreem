@@ -16,15 +16,27 @@ export function SubmitButton({
   children,
   pendingLabel = 'שומר…',
   className = 'admin-btn admin-btn-solid',
+  name,
+  value,
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
   className?: string;
+  /** name/value מזהים איזה משני כפתורי השמירה הופעל — ראו EntityForm.tsx. */
+  name?: string;
+  value?: string;
 }) {
   const { pending } = useFormStatus();
 
   return (
-    <button type="submit" disabled={pending} aria-disabled={pending} className={className}>
+    <button
+      type="submit"
+      name={name}
+      value={value}
+      disabled={pending}
+      aria-disabled={pending}
+      className={className}
+    >
       {pending ? (
         <span className="inline-flex items-center gap-2">
           <Spinner />

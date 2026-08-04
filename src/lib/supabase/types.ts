@@ -51,6 +51,9 @@ export interface Book {
   description_brief_he: string | null;
   description_brief_en: string | null;
   author_id: string | null;
+  /** מחבר כטקסט חופשי — כשמלא, גובר על שם המחבר המשויך בכל תצוגה, בלי קישור לעמוד מחבר. */
+  author_name_he: string | null;
+  author_name_en: string | null;
   category_id: string | null;
   publication_year_he: string | null;
   publication_year_ce: number | null;

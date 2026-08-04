@@ -21,6 +21,7 @@ import {
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { getSpineLook } from '@/lib/cover-colors';
+import { resolveBookAuthor } from '@/lib/books/author-display';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -127,7 +128,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       return {
         slug: book.slug,
         title,
-        author: book.author ? localized(book.author, 'name', locale) : null,
+        author: resolveBookAuthor(book, locale)?.name ?? null,
         coverUrl: book.cover_image_url,
         coverAlt: t('books.coverAlt', { title }),
         spineUrl: book.spine_image_url,

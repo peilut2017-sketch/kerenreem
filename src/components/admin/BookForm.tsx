@@ -116,33 +116,33 @@ export function BookForm({
                         defaultValue={book?.title_he}
                         error={errors.title_he}
                       />
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <TextField
-                          name="slug"
-                          label="מזהה כתובת"
-                          dir="ltr"
-                          defaultValue={book?.slug}
-                          error={errors.slug}
-                          hint="אפשר להשאיר ריק — ייווצר אוטומטית. /books/מזהה, אותיות לטיניות קטנות בלבד."
-                        />
-                        <TextField
-                          name="subtitle_he"
-                          label="כותרת משנה (עברית)"
-                          defaultValue={book?.subtitle_he}
-                        />
-                      </div>
+                      <TextField
+                        name="slug"
+                        label="מזהה כתובת"
+                        dir="ltr"
+                        defaultValue={book?.slug}
+                        error={errors.slug}
+                        hint="אפשר להשאיר ריק — ייווצר אוטומטית ותיוחד לספר (מבוסס מק״ט כשיש). /books/מזהה, אותיות לטיניות קטנות בלבד."
+                      />
+                      <TextAreaField
+                        name="subtitle_he"
+                        label="כותרת משנה (עברית)"
+                        rows={2}
+                        defaultValue={book?.subtitle_he}
+                      />
                     </FieldSet>
 
                     <FieldSet legend="שיוך" icon="categories">
                       <div className="grid gap-5 sm:grid-cols-2">
                         <QuickAddSelect
                           name="author_id"
-                          label="מחבר"
+                          label="מחבר מהרשימה"
                           emptyLabel="— ללא —"
                           defaultValue={book?.author_id}
                           options={authors.map((author) => ({ value: author.id, label: author.name_he }))}
                           addLabel="+ מחבר חדש"
                           fieldLabel="שם המחבר"
+                          hint="מחבר קיים בעל עמוד באתר. מתעלמים ממנו אם מולא שם מחבר כטקסט מימין."
                           onCreate={async (name) => {
                             const result = await createAuthorQuick(name);
                             return result.author
@@ -150,26 +150,33 @@ export function BookForm({
                               : null;
                           }}
                         />
-                        <QuickAddSelect
-                          name="category_id"
-                          hint="המדף שעליו הספר יושב. זו הקטגוריה שמופיעה בכרטיס ובכתובת."
-                          label="קטגוריה"
-                          emptyLabel="— ללא —"
-                          defaultValue={book?.category_id}
-                          options={categories.map((category) => ({
-                            value: category.id,
-                            label: category.name_he,
-                          }))}
-                          addLabel="+ קטגוריה חדשה"
-                          fieldLabel="שם הקטגוריה"
-                          onCreate={async (name) => {
-                            const result = await createCategoryQuick(name);
-                            return result.category
-                              ? { value: result.category.id, label: result.category.name_he }
-                              : null;
-                          }}
+                        <TextField
+                          name="author_name_he"
+                          label="שם מחבר כטקסט (עברית)"
+                          defaultValue={book?.author_name_he}
+                          hint="ללא שיוך לרשימת המחברים וללא קישור לעמוד מחבר. למילוי רק כשאין טעם ברשומת מחבר מלאה — עורך אורח, מחבר לא ידוע וכדו׳. אם מלא, מוצג במקום הבחירה משמאל."
                         />
                       </div>
+
+                      <QuickAddSelect
+                        name="category_id"
+                        hint="המדף שעליו הספר יושב. זו הקטגוריה שמופיעה בכרטיס ובכתובת."
+                        label="קטגוריה"
+                        emptyLabel="— ללא —"
+                        defaultValue={book?.category_id}
+                        options={categories.map((category) => ({
+                          value: category.id,
+                          label: category.name_he,
+                        }))}
+                        addLabel="+ קטגוריה חדשה"
+                        fieldLabel="שם הקטגוריה"
+                        onCreate={async (name) => {
+                          const result = await createCategoryQuick(name);
+                          return result.category
+                            ? { value: result.category.id, label: result.category.name_he }
+                            : null;
+                        }}
+                      />
                     </FieldSet>
 
                     <FieldSet
@@ -314,13 +321,21 @@ export function BookForm({
                     icon="globe"
                     description="אפשר להשאיר ריק. השדות קיימים כדי שהמילוי יהיה הדרגתי — מבקר אנגלי יראה את הנוסח העברי עד שימולאו."
                   >
+                    <TextAreaField
+                      name="subtitle_en"
+                      label="Subtitle"
+                      dir="ltr"
+                      rows={2}
+                      defaultValue={book?.subtitle_en}
+                    />
                     <div className="grid gap-5 sm:grid-cols-2">
                       <TextField name="title_en" label="Title" dir="ltr" defaultValue={book?.title_en} />
                       <TextField
-                        name="subtitle_en"
-                        label="Subtitle"
+                        name="author_name_en"
+                        label="Author (free text)"
                         dir="ltr"
-                        defaultValue={book?.subtitle_en}
+                        defaultValue={book?.author_name_en}
+                        hint="English version of the free-text author name above. Optional."
                       />
                       <TextField
                         name="publisher_en"

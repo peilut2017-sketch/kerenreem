@@ -29,6 +29,8 @@ export interface SaveState {
   status: 'idle' | 'saved' | 'error';
   message?: string;
   fieldErrors?: Record<string, string>;
+  /** מזהה הרשומה שנשמרה — הלקוח משתמש בו כדי להחליט לאן לנווט אחרי שמירה. */
+  id?: string;
 }
 
 /** המרת ערך מהטופס לטיפוס העמודה. מחרוזת ריקה נשמרת כ-null ולא כ-"". */
@@ -65,6 +67,19 @@ function coerce(spec: FieldSpec, raw: FormDataEntryValue | null, all: FormDataEn
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/** תמלול לאותיות לטיניות בלבד, בלי נפילה לערך חלופי — מחרוזת ריקה אם אין תווים חוקיים. */
+function latinize(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/** אסימון אקראי קצר, לצירוף לסוף slug — למניעת ניחוש ולמניעת התנגשות בין שתי יצירות. */
+function randomToken(length = 5): string {
+  return Math.random().toString(36).slice(2, 2 + length);
+}
+
 /**
  * מזהה כתובת מתוך שם, עם נפילה לערך אקראי.
  *
@@ -74,11 +89,18 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * מונעת התנגשות בין שתי יצירות באותה מילישנייה.
  */
 function slugify(name: string, fallbackPrefix: string): string {
-  const latin = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return latin || `${fallbackPrefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  return latinize(name) || `${fallbackPrefix}-${Date.now().toString(36)}${randomToken()}`;
+}
+
+/**
+ * מזהה כתובת ברירת מחדל לספר חדש: מבוסס מק״ט כשיש (קריא ומזהה), עם סיומת
+ * אקראית קבועה בכל מקרה — גם כדי למנוע התנגשות בין שני ספרים מאותה סדרה
+ * (מק"ט דומה), וגם כי כותרת עברית (החלופה הקודמת) כמעט אף פעם לא מתמללת
+ * לכתובת קריאה ובפועל תמיד נפלה לערך אקראי גרידא.
+ */
+function randomBookSlug(sku: unknown): string {
+  const base = typeof sku === 'string' ? latinize(sku) : '';
+  return `${base || 'book'}-${randomToken()}`;
 }
 
 /** רענון העמודים הציבוריים שנוגעים לישות. כשל כאן לא אמור להפיל שמירה. */
@@ -210,8 +232,6 @@ export async function saveEntity(
   _prev: SaveState,
   formData: FormData,
 ): Promise<SaveState> {
-  let redirectTo: string | null = null;
-
   try {
     if (!isEntityKey(entityKey)) return { status: 'error', message: 'ישות לא מוכרת' };
 
@@ -246,11 +266,10 @@ export async function saveEntity(
     }
 
     // ספר הוא הישות היחידה שבה מזהה הכתובת אינו חובה (ראו schema.ts): הוספת
-    // ספר מהירה לא אמורה להיעצר על "יש להזין מזהה כתובת". נגזר מהכותרת
-    // כשאפשר; כותרת עברית — הרוב המכריע כאן — נופלת לערך אקראי, בדיוק
-    // כמו יצירת תגית/מחבר/קטגוריה מהירה.
+    // ספר מהירה לא אמורה להיעצר על "יש להזין מזהה כתובת". ברירת המחדל היא
+    // כתובת מותאמת אקראית, מבוססת מק"ט כשיש כזה — ראו randomBookSlug.
     if (entityKey === 'books' && !payload.slug) {
-      payload.slug = slugify(typeof payload.title_he === 'string' ? payload.title_he : '', 'book');
+      payload.slug = randomBookSlug(payload.sku);
     }
 
     if (typeof payload.slug === 'string' && !SLUG_PATTERN.test(payload.slug)) {
@@ -291,7 +310,12 @@ export async function saveEntity(
     await writeAudit(supabase, session.userId, id ? 'update' : 'insert', entity.table, savedId);
     revalidateEntity(entityKey as EntityKey);
 
-    if (!id && result.data?.id) redirectTo = `/admin/${entityKey}/${result.data.id}?created=1`;
+    // הניווט אחרי שמירה מוכרע בלקוח (ראו EntityForm.tsx), לא כאן בשרת:
+    // redirect() בתוך Server Action שקוראת לה טופס בתוך מסלול מיורט
+    // (ראו books/@modal) משאיר לפעמים רישום תקוע בהיסטוריית הדפדפן, כך
+    // שסגירה ידנית אחר כך פותחת מחדש כרטיס ריק במקום לחזור לרשימה. ניווט
+    // client-side (router.replace) אחרי שהפעולה חוזרת נמנע מהתקלה הזו.
+    return { status: 'saved', id: savedId ?? undefined };
   } catch (error) {
     console.error('[admin:save] חריגה לא צפויה', error);
     return {
@@ -299,12 +323,6 @@ export async function saveEntity(
       message: `השמירה נכשלה: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
-
-  // redirect זורק NEXT_REDIRECT ולכן חייב להיות מחוץ ל-try — אחרת ה-catch
-  // יבלע אותו וההפניה לא תתרחש.
-  if (redirectTo) redirect(redirectTo);
-
-  return { status: 'saved' };
 }
 
 /**

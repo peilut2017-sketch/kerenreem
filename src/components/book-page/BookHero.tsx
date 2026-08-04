@@ -4,6 +4,7 @@ import { BookCoverStage } from './BookCoverStage';
 import { HeroBackground } from './HeroBackground';
 import { HeroSpecStrip } from './HeroSpecStrip';
 import { SmartTag } from './SmartTag';
+import type { AuthorDisplay } from '@/lib/books/author-display';
 import type { BookWithRelations } from '@/lib/supabase/types';
 import type { CoverPalette } from '@/lib/cover-colors';
 
@@ -27,7 +28,7 @@ export function BookHero({
   palette,
   title,
   subtitle,
-  authorName,
+  author,
   categoryName,
   year,
   badges = [],
@@ -38,7 +39,8 @@ export function BookHero({
   palette: CoverPalette;
   title: string;
   subtitle: string | null;
-  authorName: string | null;
+  /** שם המחבר להצגה וקישור לעמודו — null לטקסט חופשי, ראו lib/books/author-display.ts */
+  author: AuthorDisplay | null;
   categoryName: string | null;
   year: string;
   /** תגי סטטוס (בקרוב / בחירת המכון) — עד שניים, קודמים לתג המהדורה. */
@@ -48,7 +50,7 @@ export function BookHero({
   t: (key: string, values?: Record<string, string | number | Date>) => string;
 }) {
   const specs = [
-    authorName ? { label: t('author'), value: authorName } : null,
+    author ? { label: t('author'), value: author.name } : null,
     categoryName ? { label: t('category'), value: categoryName } : null,
     year ? { label: t('publicationYear'), value: year } : null,
     book.pages ? { label: t('pages'), value: String(book.pages) } : null,
@@ -114,11 +116,15 @@ export function BookHero({
                 {title}
               </Reveal>
 
-              {authorName ? (
+              {author ? (
                 <Reveal delay={90} as="p" className="mt-2 font-serif text-[clamp(1.2rem,1.9vw,1.55rem)] text-ink-soft">
-                  <Link href={`/authors/${book.author!.slug}`} className="link">
-                    {authorName}
-                  </Link>
+                  {author.href ? (
+                    <Link href={author.href} className="link">
+                      {author.name}
+                    </Link>
+                  ) : (
+                    author.name
+                  )}
                 </Reveal>
               ) : null}
 

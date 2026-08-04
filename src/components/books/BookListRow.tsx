@@ -5,6 +5,8 @@ import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
 import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
+import { resolveBookAuthor } from '@/lib/books/author-display';
+import { resolveBookBadge } from '@/lib/books/badge';
 import type { BookWithRelations } from '@/lib/supabase/types';
 
 /**
@@ -29,9 +31,10 @@ export function BookListRow({
 }) {
   const t = useTranslations('books');
   const title = localized(book, 'title', locale);
-  const authorName = book.author ? localized(book.author, 'name', locale) : null;
+  const author = resolveBookAuthor(book, locale);
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
   const summary = htmlToPlainText(localized(book, 'description', locale), 190);
+  const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
 
   return (
     <article className="card card-interactive group relative flex gap-5 p-4 sm:gap-6 sm:p-5">
@@ -40,13 +43,24 @@ export function BookListRow({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <h3 className="font-serif text-[1.0625rem] leading-snug text-ink">
-          <Link href={`/books/${book.slug}`} className="after:absolute after:inset-0 hover:text-burgundy">
-            {title}
-          </Link>
-        </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-serif text-[1.0625rem] leading-snug text-ink">
+            <Link href={`/books/${book.slug}`} className="after:absolute after:inset-0 hover:text-burgundy">
+              {title}
+            </Link>
+          </h3>
+          {badge ? (
+            <span
+              className={`rounded-[var(--radius-pill)] px-2.5 py-0.5 text-caption font-semibold ${
+                badge.tone === 'accent' ? 'bg-gold/15 text-gold-deep' : 'bg-cream-2 text-ink-soft'
+              }`}
+            >
+              {badge.label}
+            </span>
+          ) : null}
+        </div>
 
-        {authorName ? <p className="mt-1 text-small text-muted">{authorName}</p> : null}
+        {author ? <p className="mt-1 text-small text-muted">{author.name}</p> : null}
         {summary ? (
           <p className="mt-2 line-clamp-2 text-small leading-relaxed text-ink-soft">{summary}</p>
         ) : null}

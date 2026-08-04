@@ -98,6 +98,10 @@ export const ENTITIES = {
       f('description_brief_he'),
       f('description_brief_en'),
       f('author_id', 'uuid'),
+      // מחבר כטקסט חופשי (19_book_author_freetext.sql) — גובר על author_id
+      // בתצוגה, בלי ליצור או לגעת ברשומת מחבר. ראו lib/books/author-display.ts.
+      f('author_name_he'),
+      f('author_name_en'),
       f('category_id', 'uuid'),
       f('series_id', 'uuid'),
       f('series_position', 'number'),

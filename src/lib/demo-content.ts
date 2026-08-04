@@ -83,7 +83,7 @@ function book(
     description_en: null,
     description_brief_he: null,
     description_brief_en: null,
-    author_id: author.id, category_id: category.id,
+    author_id: author.id, author_name_he: null, author_name_en: null, category_id: category.id,
     publication_year_he: yearHe, publication_year_ce: yearCe,
     cover_image_url: `/demo/cover-${cover}.svg`,
     spine_image_url: null,
