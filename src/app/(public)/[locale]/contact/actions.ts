@@ -131,8 +131,14 @@ export async function submitContact(
   const phone = String(formData.get('phone') ?? '').trim();
   const subject = String(formData.get('subject') ?? '').trim();
   const message = String(formData.get('message') ?? '').trim();
+  const topicId = String(formData.get('topic_id') ?? '').trim();
   const consent = formData.get('consent') === 'on';
   const attachments = parseAttachments(formData.get('attachments'));
+
+  const supabase = await createClient();
+  if (!supabase) {
+    return { status: 'error', message: t('error') };
+  }
 
   const fieldErrors: Record<string, string> = {};
   if (!name) fieldErrors.name = t('required');
@@ -146,6 +152,29 @@ export async function submitContact(
     if (value.length > limit) fieldErrors[key] = t('error');
   }
 
+  // שדות מותאמים (ניהול → פניות מהאתר → שדות מותאמים): נשלפים כאן מחדש
+  // ולא מסופקים על ידי הלקוח, כדי שרשימת המפתחות שנכתבים ל-jsonb תיקבע
+  // תמיד לפי מה שמוגדר במסד כרגע — לא לפי מה שהטופס בדפדפן "חשב" שקיים.
+  const { data: activeFields } = await supabase
+    .from('contact_fields')
+    .select('id, field_type, is_required')
+    .eq('is_published', true);
+
+  const customFieldValues: Record<string, string | boolean> = {};
+  for (const customField of activeFields ?? []) {
+    const key = `custom_${customField.id}`;
+    if (customField.field_type === 'checkbox') {
+      const checked = formData.get(key) === 'on';
+      customFieldValues[customField.id] = checked;
+      if (customField.is_required && !checked) fieldErrors[key] = t('required');
+      continue;
+    }
+
+    const value = String(formData.get(key) ?? '').trim();
+    if (customField.is_required && !value) fieldErrors[key] = t('required');
+    else if (value) customFieldValues[customField.id] = value;
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
     return { status: 'error', fieldErrors };
   }
@@ -157,11 +186,6 @@ export async function submitContact(
     }
   }
 
-  const supabase = await createClient();
-  if (!supabase) {
-    return { status: 'error', message: t('error') };
-  }
-
   const { error } = await supabase.from('contact_messages').insert({
     name,
     email,
@@ -169,6 +193,8 @@ export async function submitContact(
     subject: subject || null,
     message,
     attachments,
+    topic_id: topicId || null,
+    custom_field_values: customFieldValues,
   });
 
   if (error) {

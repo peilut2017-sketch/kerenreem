@@ -14,6 +14,8 @@ import type {
   BookTocEntry,
   Category,
   ContactAttachment,
+  ContactField,
+  ContactTopic,
   Tag,
   ContentPage,
   EventBlock,
@@ -341,6 +343,10 @@ export interface ContactMessage {
   subject: string | null;
   message: string;
   attachments: ContactAttachment[];
+  topic_id: string | null;
+  topic: { name_he: string; name_en: string | null } | null;
+  /** מפתח = contact_fields.id, ערך = תשובת הפונה. */
+  custom_field_values: Record<string, string | boolean>;
   is_handled: boolean;
   created_at: string;
 }
@@ -349,10 +355,34 @@ export async function listContactMessages(): Promise<ContactMessage[]> {
   const supabase = await client();
   const { data } = await supabase
     .from('contact_messages')
-    .select('*')
+    .select('*, topic:contact_topics ( name_he, name_en )')
     .order('created_at', { ascending: false })
     .limit(200);
   return (data as ContactMessage[] | null) ?? [];
+}
+
+export async function listContactTopics(): Promise<ContactTopic[]> {
+  const supabase = await client();
+  const { data } = await supabase.from('contact_topics').select('*').order('sort_order');
+  return (data as ContactTopic[] | null) ?? [];
+}
+
+export async function getContactTopic(id: string): Promise<ContactTopic | null> {
+  const supabase = await client();
+  const { data } = await supabase.from('contact_topics').select('*').eq('id', id).maybeSingle();
+  return (data as ContactTopic | null) ?? null;
+}
+
+export async function listContactFields(): Promise<ContactField[]> {
+  const supabase = await client();
+  const { data } = await supabase.from('contact_fields').select('*').order('sort_order');
+  return (data as ContactField[] | null) ?? [];
+}
+
+export async function getContactField(id: string): Promise<ContactField | null> {
+  const supabase = await client();
+  const { data } = await supabase.from('contact_fields').select('*').eq('id', id).maybeSingle();
+  return (data as ContactField | null) ?? null;
 }
 
 /**

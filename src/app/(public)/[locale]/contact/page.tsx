@@ -4,7 +4,7 @@ import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
 import { PageHeader } from '@/components/PageHeader';
 import { ContactForm } from '@/components/ContactForm';
-import { getSiteSettings } from '@/lib/data';
+import { getContactFields, getContactTopics, getSiteSettings } from '@/lib/data';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -33,10 +33,12 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const [t, tPages, settings] = await Promise.all([
+  const [t, tPages, settings, topics, fields] = await Promise.all([
     getTranslations('contact'),
     getTranslations('pages'),
     getSiteSettings(),
+    getContactTopics(),
+    getContactFields(),
   ]);
 
   const contact = settings.contact ?? {};
@@ -48,7 +50,7 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
       <div className="mt-12" />
 
       <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-20">
-        <ContactForm />
+        <ContactForm topics={topics} fields={fields} />
 
         <aside className="lg:border-s lg:border-rule lg:ps-10">
           <h2 className="eyebrow mb-4">{t('details')}</h2>

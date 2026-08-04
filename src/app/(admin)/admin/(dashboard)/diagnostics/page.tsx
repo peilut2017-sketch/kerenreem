@@ -153,9 +153,10 @@ export default async function DiagnosticsPage() {
    * עוברת שם בהצלחה. כאן קוראים לעמודות ספציפיות בשמן — אם הן לא קיימות,
    * 42703 חוזר במפורש, בדיוק כמו ששמירת ספר/פנייה הייתה נכשלת בפועל.
    */
-  const [authorFreetextProbe, attachmentsProbe] = await Promise.all([
+  const [authorFreetextProbe, attachmentsProbe, topicsFieldsProbe] = await Promise.all([
     supabase.from('books').select('author_name_he, author_name_en').limit(1),
     supabase.from('contact_messages').select('attachments').limit(1),
+    supabase.from('contact_messages').select('topic_id, custom_field_values').limit(1),
   ]);
   const migrationChecks: Check[] = [
     {
@@ -171,6 +172,13 @@ export default async function DiagnosticsPage() {
       detail: attachmentsProbe.error
         ? `${attachmentsProbe.error.code ?? '—'}: ${attachmentsProbe.error.message} — הריצו supabase/20_contact_attachments.sql. עד אז כל שליחה מטופס יצירת הקשר תיכשל, גם בלי קבצים מצורפים.`
         : 'העמודה קיימת',
+    },
+    {
+      label: 'contact_messages.topic_id / custom_field_values (21_contact_topics_fields.sql)',
+      ok: !topicsFieldsProbe.error,
+      detail: topicsFieldsProbe.error
+        ? `${topicsFieldsProbe.error.code ?? '—'}: ${topicsFieldsProbe.error.message} — הריצו supabase/21_contact_topics_fields.sql. עד אז כל שליחה מטופס יצירת הקשר תיכשל, גם בלי תחום פנייה או שדות מותאמים.`
+        : 'העמודות קיימות',
     },
   ];
 
@@ -339,7 +347,7 @@ export default async function DiagnosticsPage() {
           : 'נמצאו כשלים. הפרטים למטה כוללים את קוד השגיאה של Postgres.'}
       </p>
 
-      <Section title="מיגרציות אחרונות (19–20)" checks={migrationChecks} />
+      <Section title="מיגרציות אחרונות (19–21)" checks={migrationChecks} />
 
       <Section title="מדוע תוכן אינו מופיע באתר" checks={publicChecks} />
 

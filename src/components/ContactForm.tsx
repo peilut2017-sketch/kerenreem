@@ -1,12 +1,14 @@
 'use client';
 
 import { useActionState, useEffect, useId, useRef } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { submitContact, type ContactFormState } from '@/app/(public)/[locale]/contact/actions';
 import { restoreFormValues } from '@/lib/restore-form';
+import { localized } from '@/lib/localized';
 import { ContactAttachmentsField } from './ContactAttachmentsField';
 import { Captcha } from './Captcha';
+import type { ContactField, ContactTopic } from '@/lib/supabase/types';
 
 const INITIAL: ContactFormState = { status: 'idle' };
 
@@ -16,9 +18,20 @@ const INITIAL: ContactFormState = { status: 'idle' };
  * נגישות: לכל שדה <label> קשור, שגיאות מקושרות ב-aria-describedby ומסומנות
  * ב-aria-invalid, וההודעה המסכמת מוכרזת ב-role="status". זו הדרישה המהותית
  * של תקן 5568 — סרגל הנגישות אינו מכסה עליה.
+ *
+ * topics/fields מגיעים מהעמוד (Server Component) ומנוהלים בניהול —
+ * בורר תחום הפנייה ושדות מותאמים מוצגים רק כשיש לפחות רשומה מפורסמת
+ * אחת מכל סוג, כדי שאתר טרי בלי הגדרה לא יציג בורר או שאלה ריקים.
  */
-export function ContactForm() {
+export function ContactForm({
+  topics = [],
+  fields = [],
+}: {
+  topics?: ContactTopic[];
+  fields?: ContactField[];
+}) {
   const t = useTranslations('contact');
+  const locale = useLocale();
   const formRef = useRef<HTMLFormElement>(null);
   const submitted = useRef<FormData | null>(null);
 
@@ -103,6 +116,23 @@ export function ContactForm() {
           <input type="text" {...field('subject')} />
           {errorFor('subject')}
         </div>
+
+        {topics.length > 0 ? (
+          <div>
+            <label htmlFor={`${id}-topic_id`} className="field-label">
+              {t('topicLabel')}
+            </label>
+            <select {...field('topic_id')}>
+              <option value="">{t('topicEmpty')}</option>
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {localized(topic, 'name', locale)}
+                </option>
+              ))}
+            </select>
+            {errorFor('topic_id')}
+          </div>
+        ) : null}
       </div>
 
       <div>
@@ -112,6 +142,10 @@ export function ContactForm() {
         <textarea rows={7} required {...field('message')} />
         {errorFor('message')}
       </div>
+
+      {fields.map((customField) => (
+        <CustomFieldInput key={customField.id} field={customField} locale={locale} fieldProps={field} errorFor={errorFor} idPrefix={id} />
+      ))}
 
       <ContactAttachmentsField name="attachments" />
 
@@ -146,5 +180,103 @@ export function ContactForm() {
         {pending ? t('sending') : t('send')}
       </button>
     </form>
+  );
+}
+
+type FieldProps = (name: string) => {
+  id: string;
+  name: string;
+  'aria-invalid': true | undefined;
+  'aria-describedby': string | undefined;
+  className: string;
+};
+
+/**
+ * שדה מותאם אישית (ניהול → פניות מהאתר → שדות מותאמים), מוצג לפי סוגו.
+ * name הוא custom_{id} — כך ש-submitContact יודע להבחין בין תשובות
+ * לשדות המותאמים לבין השדות הקבועים בלי להתנגש בשם.
+ */
+function CustomFieldInput({
+  field: customField,
+  locale,
+  fieldProps,
+  errorFor,
+  idPrefix,
+}: {
+  field: ContactField;
+  locale: string;
+  fieldProps: FieldProps;
+  errorFor: (name: string) => React.ReactNode;
+  idPrefix: string;
+}) {
+  const name = `custom_${customField.id}`;
+  const label = localized(customField, 'label', locale);
+  const inputId = `${idPrefix}-${name}`;
+  const requiredMark = customField.is_required ? <span aria-hidden="true">*</span> : null;
+
+  if (customField.field_type === 'checkbox') {
+    return (
+      <div>
+        <label htmlFor={inputId} className="flex items-start gap-3 text-small text-ink-soft on-dark:text-cream-2">
+          <input
+            type="checkbox"
+            id={inputId}
+            name={name}
+            required={customField.is_required}
+            className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
+          />
+          <span>
+            {label} {requiredMark}
+          </span>
+        </label>
+        {errorFor(name)}
+      </div>
+    );
+  }
+
+  if (customField.field_type === 'textarea') {
+    return (
+      <div>
+        <label htmlFor={inputId} className="field-label">
+          {label} {requiredMark}
+        </label>
+        <textarea rows={4} required={customField.is_required} {...fieldProps(name)} />
+        {errorFor(name)}
+      </div>
+    );
+  }
+
+  if (customField.field_type === 'select') {
+    const options = localized(customField, 'options', locale)
+      .split('\n')
+      .map((option) => option.trim())
+      .filter(Boolean);
+
+    return (
+      <div>
+        <label htmlFor={inputId} className="field-label">
+          {label} {requiredMark}
+        </label>
+        <select required={customField.is_required} {...fieldProps(name)}>
+          <option value="">—</option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        {errorFor(name)}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label htmlFor={inputId} className="field-label">
+        {label} {requiredMark}
+      </label>
+      <input type="text" required={customField.is_required} {...fieldProps(name)} />
+      {errorFor(name)}
+    </div>
   );
 }

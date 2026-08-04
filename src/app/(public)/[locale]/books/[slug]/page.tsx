@@ -10,7 +10,6 @@ import { BookHeroActions } from '@/components/book-page/BookHeroActions';
 import { ConnectionsSection } from '@/components/book-page/ConnectionsSection';
 import { FloatingActions } from '@/components/book-page/FloatingActions';
 import { Gallery } from '@/components/book-page/Gallery';
-import { KnowledgeMap, type KnowledgeMapNode } from '@/components/book-page/KnowledgeMap';
 import { BookFlipViewer } from '@/components/book-page/BookFlipViewer';
 import { BookSampleViewer } from '@/components/book-page/BookSampleViewer';
 import { QuoteCards } from '@/components/book-page/QuoteCards';
@@ -197,13 +196,6 @@ export default async function BookPage({
     connections.sameAuthor.length > 0 ||
     connections.sameCategory.length > 0 ||
     connections.sameTags.length > 0;
-
-  const knowledgeNodes: KnowledgeMapNode[] = [
-    { id: 'book-connections', label: t('knowledgeMapAuthor'), count: connections.sameAuthor.length },
-    { id: 'book-connections', label: t('knowledgeMapCategory'), count: connections.sameCategory.length },
-    ...(book.series ? [{ id: 'book-series', label: t('knowledgeMapSeries'), count: connections.sameSeries.length }] : []),
-    { id: 'book-connections', label: t('knowledgeMapTags'), count: connections.sameTags.length },
-  ];
 
   const sections = [
     { id: 'book-hero', label: t('navOverview') },
@@ -441,8 +433,6 @@ export default async function BookPage({
         {hasConnections ? (
           <ConnectionsSection connections={connections} authorName={authorDisplay?.name ?? null} locale={locale} />
         ) : null}
-
-        <KnowledgeMap nodes={knowledgeNodes} title={title} />
 
         <BookFinalCta
           bookId={book.id}

@@ -7,6 +7,7 @@ import { MessageToggle } from './MessageToggle';
 import { Spinner } from './SubmitButton';
 import { deleteContactMessage } from '@/lib/admin/messages-actions';
 import type { ContactMessage } from '@/lib/admin/queries';
+import type { ContactField } from '@/lib/supabase/types';
 
 type StatusFilter = 'all' | 'open' | 'handled';
 
@@ -43,10 +44,12 @@ function formatSize(bytes: number): string {
 export function MessagesInbox({
   messages,
   attachmentUrls,
+  fields,
   canDelete,
 }: {
   messages: ContactMessage[];
   attachmentUrls: Record<string, string>;
+  fields: ContactField[];
   canDelete: boolean;
 }) {
   const titleId = useId();
@@ -133,6 +136,9 @@ export function MessagesInbox({
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-2">
                     <span className="font-semibold text-ink">{message.name}</span>
+                    {message.topic ? (
+                      <span className="admin-badge admin-badge-neutral">{message.topic.name_he}</span>
+                    ) : null}
                     {message.subject ? (
                       <span className="truncate text-small text-muted">{message.subject}</span>
                     ) : null}
@@ -167,7 +173,13 @@ export function MessagesInbox({
         variant="center"
       >
         {selected ? (
-          <MessageDetail message={selected} attachmentUrls={attachmentUrls} canDelete={canDelete} onDeleted={() => setSelectedId(null)} />
+          <MessageDetail
+            message={selected}
+            attachmentUrls={attachmentUrls}
+            fields={fields}
+            canDelete={canDelete}
+            onDeleted={() => setSelectedId(null)}
+          />
         ) : null}
       </Drawer>
     </div>
@@ -177,11 +189,13 @@ export function MessagesInbox({
 function MessageDetail({
   message,
   attachmentUrls,
+  fields,
   canDelete,
   onDeleted,
 }: {
   message: ContactMessage;
   attachmentUrls: Record<string, string>;
+  fields: ContactField[];
   canDelete: boolean;
   onDeleted: () => void;
 }) {
@@ -199,6 +213,14 @@ function MessageDetail({
       </div>
 
       <dl className="grid gap-3 text-small sm:grid-cols-2">
+        {message.topic ? (
+          <div className="sm:col-span-2">
+            <dt className="text-caption text-muted">תחום פנייה</dt>
+            <dd className="mt-0.5">
+              <span className="admin-badge admin-badge-neutral">{message.topic.name_he}</span>
+            </dd>
+          </div>
+        ) : null}
         {message.subject ? (
           <div className="sm:col-span-2">
             <dt className="text-caption text-muted">נושא</dt>
@@ -228,6 +250,25 @@ function MessageDetail({
       <div className="border-t border-rule pt-5">
         <p className="whitespace-pre-wrap text-small leading-relaxed text-ink-soft">{message.message}</p>
       </div>
+
+      {Object.keys(message.custom_field_values).length > 0 ? (
+        <div className="border-t border-rule pt-5">
+          <h3 className="admin-field-label mb-2">שדות מותאמים</h3>
+          <dl className="space-y-3 text-small">
+            {Object.entries(message.custom_field_values).map(([fieldId, value]) => {
+              const definition = fields.find((candidate) => candidate.id === fieldId);
+              return (
+                <div key={fieldId}>
+                  <dt className="text-caption text-muted">{definition?.label_he ?? 'שדה שנמחק'}</dt>
+                  <dd className="mt-0.5 text-ink-soft">
+                    {typeof value === 'boolean' ? (value ? 'כן' : 'לא') : value}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      ) : null}
 
       {message.attachments.length > 0 ? (
         <div className="border-t border-rule pt-5">
