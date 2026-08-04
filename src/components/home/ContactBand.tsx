@@ -1,14 +1,13 @@
 import { Img as Image } from '@/components/Img';
 import { getTranslations } from 'next-intl/server';
-import { ContactForm } from '../ContactForm';
+import { Link } from '@/i18n/navigation';
 import { Ornament } from '../Ornament';
 import type { SiteContact } from '@/lib/supabase/types';
 
 /**
- * רצועת יצירת הקשר בעמוד הבית.
- *
- * רקע כהה עם צילום עדין מתחת, אם קיים. הטופס עצמו הוא אותו רכיב שמשמש
- * את עמוד "צור קשר" — אותה ולידציה, אותו טיפול בשגיאות, אותה נגישות.
+ * רצועת יצירת הקשר בעמוד הבית: פרטי התקשרות בלבד, עם קישור לטופס
+ * המלא בעמוד "צור קשר". הטופס עצמו קיים במקום אחד בלבד — כפילות שני
+ * טפסים לאותה פעולה מבלבלת יותר משהיא נוחה.
  */
 export async function ContactBand({
   contact,
@@ -31,44 +30,42 @@ export async function ContactBand({
         </div>
       ) : null}
 
-      <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
-        <div className="text-center">
-          <p className="eyebrow">{t('contact.lead')}</p>
-          <h2 className="mt-3 font-serif text-[clamp(1.625rem,3.4vw,2.25rem)] text-white">
-            {t('contact.title')}
-          </h2>
-          <Ornament />
+      <div className="mx-auto w-full max-w-[42rem] px-5 text-center sm:px-8">
+        <p className="eyebrow">{t('contact.lead')}</p>
+        <h2 className="mt-3 font-serif text-[clamp(1.625rem,3.4vw,2.25rem)] text-white">
+          {t('contact.title')}
+        </h2>
+        <Ornament />
+
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+          {contact.phone ? (
+            <ContactLine label={t('contact.phoneLabel')} icon={<PhoneIcon />}>
+              <a href={`tel:${contact.phone.replace(/[^+\d]/g, '')}`} className="link" dir="ltr">
+                {contact.phone}
+              </a>
+            </ContactLine>
+          ) : null}
+
+          {contact.email ? (
+            <ContactLine label={t('contact.emailLabel')} icon={<MailIcon />}>
+              <a href={`mailto:${contact.email}`} className="link" dir="ltr">
+                {contact.email}
+              </a>
+            </ContactLine>
+          ) : null}
+
+          {address ? (
+            <ContactLine label={t('contact.address')} icon={<PinIcon />}>
+              {address}
+            </ContactLine>
+          ) : null}
         </div>
 
-        <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-20">
-          <address className="space-y-6 not-italic">
-            {contact.phone ? (
-              <ContactLine label={t('contact.phoneLabel')} icon={<PhoneIcon />}>
-                <a href={`tel:${contact.phone.replace(/[^+\d]/g, '')}`} className="link" dir="ltr">
-                  {contact.phone}
-                </a>
-              </ContactLine>
-            ) : null}
-
-            {contact.email ? (
-              <ContactLine label={t('contact.emailLabel')} icon={<MailIcon />}>
-                <a href={`mailto:${contact.email}`} className="link" dir="ltr">
-                  {contact.email}
-                </a>
-              </ContactLine>
-            ) : null}
-
-            {address ? (
-              <ContactLine label={t('contact.address')} icon={<PinIcon />}>
-                {address}
-              </ContactLine>
-            ) : null}
-          </address>
-
-          <div>
-            <ContactForm />
-          </div>
-        </div>
+        <p className="mt-10">
+          <Link href="/contact" className="btn btn-solid">
+            {t('contact.goToForm')}
+          </Link>
+        </p>
       </div>
     </section>
   );
@@ -76,7 +73,8 @@ export async function ContactBand({
 
 /**
  * האייקון כאן נושא מידע — הוא מבחין בין טלפון, דואר וכתובת במבט אחד.
- * התווית הטקסטואלית נשארת לצדו לקוראי מסך ולמי שהסמל אינו ברור לו.
+ * התווית הטקסטואלית מוסתרת חזותית (sr-only) כי בשורה ממורכזת היא
+ * כפילות של האייקון; קוראי מסך עדיין מקבלים אותה.
  */
 function ContactLine({
   label,
@@ -88,15 +86,13 @@ function ContactLine({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3.5">
-      <span aria-hidden="true" className="mt-0.5 shrink-0 text-gold">
+    <span className="inline-flex items-center gap-2.5 text-small text-cream-2">
+      <span aria-hidden="true" className="text-gold">
         {icon}
       </span>
-      <span>
-        <span className="block text-caption text-cream-2/60">{label}</span>
-        <span className="mt-0.5 block text-small text-cream-2">{children}</span>
-      </span>
-    </div>
+      <span className="sr-only">{label}: </span>
+      {children}
+    </span>
   );
 }
 
