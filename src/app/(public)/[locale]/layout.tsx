@@ -11,6 +11,7 @@ import { AccessibilityWidget } from '@/components/AccessibilityWidget';
 import { BackToTop } from '@/components/BackToTop';
 import { AnalyticsBeacon } from '@/components/AnalyticsBeacon';
 import { GoogleAnalytics } from '@/components/GoogleAnalytics';
+import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { A11Y_INIT_SCRIPT } from '@/lib/a11y-preferences';
 import '../../globals.css';
 
@@ -86,6 +87,7 @@ export default async function PublicLayout({
           <AccessibilityWidget />
           <BackToTop />
           <AnalyticsBeacon />
+          <CookieConsentBanner />
         </NextIntlClientProvider>
         <GoogleAnalytics />
       </body>

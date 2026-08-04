@@ -235,3 +235,81 @@ export function useLocalMap(key: string): {
     },
   };
 }
+
+/* -------------------------------------------------------------------------- */
+
+const valueCaches = new Map<string, string | null>();
+const valueListeners = new Map<string, Set<() => void>>();
+
+function notifyValue(key: string) {
+  valueListeners.get(key)?.forEach((listener) => listener());
+}
+
+/**
+ * ערך מחרוזת בודד שנשמר מקומית — למשל בחירת עוגיות (kr:cookie-consent).
+ * null עד שהמבקר בוחר במפורש, ולא ערך ברירת מחדל: הסכמה משתמעת אינה
+ * הסכמה. אותו עיקרון כמו useLocalList/useLocalMap, אבל לא מערך ולא מפה.
+ */
+export function useLocalValue(key: string): {
+  value: string | null;
+  set: (value: string) => void;
+  clear: () => void;
+} {
+  const subscribe = useCallback(
+    (callback: () => void) => {
+      if (!valueListeners.has(key)) valueListeners.set(key, new Set());
+      valueListeners.get(key)!.add(callback);
+
+      const onStorage = (event: StorageEvent) => {
+        if (event.key !== key) return;
+        valueCaches.delete(key);
+        notifyValue(key);
+      };
+
+      window.addEventListener('storage', onStorage);
+      return () => {
+        valueListeners.get(key)?.delete(callback);
+        window.removeEventListener('storage', onStorage);
+      };
+    },
+    [key],
+  );
+
+  const getSnapshot = useCallback(() => {
+    if (!valueCaches.has(key)) {
+      try {
+        valueCaches.set(key, window.localStorage.getItem(key));
+      } catch {
+        valueCaches.set(key, null);
+      }
+    }
+    return valueCaches.get(key) ?? null;
+  }, [key]);
+
+  const value = useSyncExternalStore(subscribe, getSnapshot, () => null);
+
+  const set = useCallback(
+    (next: string) => {
+      try {
+        window.localStorage.setItem(key, next);
+      } catch {
+        /* אין אחסון — לפחות המצב בזיכרון יתעדכן לאורך הביקור */
+      }
+      valueCaches.set(key, next);
+      notifyValue(key);
+    },
+    [key],
+  );
+
+  const clear = useCallback(() => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      /* אין אחסון — לפחות המצב בזיכרון יתעדכן לאורך הביקור */
+    }
+    valueCaches.set(key, null);
+    notifyValue(key);
+  }, [key]);
+
+  return { value, set, clear };
+}

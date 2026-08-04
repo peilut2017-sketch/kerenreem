@@ -12,7 +12,7 @@ export async function EventsRow({ events, locale }: { events: EventRecord[]; loc
   if (events.length === 0) return null;
 
   return (
-    <section className="section-y">
+    <section className="py-16 lg:py-20">
       <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>

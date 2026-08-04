@@ -1,4 +1,8 @@
+'use client';
+
 import Script from 'next/script';
+import { useLocalValue } from '@/lib/client-hooks';
+import { COOKIE_CONSENT_KEY } from './CookieConsentBanner';
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
@@ -9,16 +13,22 @@ const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
  * אף מתחם נוסף (ראו next.config.ts, ששם את ההרחבה ל-CSP מאחורי אותו
  * תנאי בדיוק).
  *
+ * גם כשהמפתח מוגדר, הסקריפט לא נטען לפני שהמבקר הסכים לעוגיות (ראו
+ * CookieConsentBanner.tsx) — 'use client' ו-useLocalValue כדי לקרוא
+ * את ההסכמה מהאחסון המקומי ולהגיב אליה מיידית בלי רענון עמוד.
+ *
  * זה משלים ולא מחליף את האנליטיקס העצמאי (page_views, ראו
- * lib/analytics/actions.ts): הראשון נשאר עובד תמיד, בלי הגדרה נדרשת
- * ובלי לשלוח נתונים לגוגל; GA4 הוא הרחבה אופציונלית לכלים ולדוחות
- * העשירים יותר של גוגל, למי שרוצה גם אותם.
+ * lib/analytics/actions.ts): הראשון נשאר עובד תמיד, בלי הגדרה נדרשת,
+ * בלי עוגיות ובלי לשלוח נתונים לגוגל; GA4 הוא הרחבה אופציונלית לכלים
+ * ולדוחות העשירים יותר של גוגל, למי שרוצה גם אותם ושהסכים לכך.
  *
  * הקמה: Google Analytics → Admin → Data Streams → Web → Measurement ID
  * (מתחיל ב-G-), להגדיר כמשתנה סביבה NEXT_PUBLIC_GA_MEASUREMENT_ID.
  */
 export function GoogleAnalytics() {
-  if (!GA_MEASUREMENT_ID) return null;
+  const { value: consent } = useLocalValue(COOKIE_CONSENT_KEY);
+
+  if (!GA_MEASUREMENT_ID || consent !== 'granted') return null;
 
   return (
     <>
