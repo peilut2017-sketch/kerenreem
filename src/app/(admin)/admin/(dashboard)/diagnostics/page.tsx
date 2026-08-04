@@ -22,7 +22,7 @@ const TABLES = [
   'pages', 'banners', 'site_settings', 'contact_messages', 'audit_log', 'profiles',
 ] as const;
 
-const BUCKETS = ['covers', 'events', 'portraits', 'samples', 'site'] as const;
+const BUCKETS = ['covers', 'events', 'portraits', 'samples', 'site', 'contact-attachments'] as const;
 
 type Check = { label: string; ok: boolean; detail: string };
 
@@ -144,6 +144,35 @@ export default async function DiagnosticsPage() {
       ? `${audit.error.code ?? '—'}: ${audit.error.message} — הריצו 02_site_additions.sql`
       : 'הצליח',
   });
+
+  /*
+   * --- 2א. מיגרציות אחרונות (19, 20) ---
+   *
+   * select('*') בבדיקת ה"קריאה מהטבלאות" למעלה אינו יכול לתפוס עמודה
+   * חסרה: * מסתגל לעמודות שקיימות בפועל, ולכן טבלה בלי attachments עדיין
+   * עוברת שם בהצלחה. כאן קוראים לעמודות ספציפיות בשמן — אם הן לא קיימות,
+   * 42703 חוזר במפורש, בדיוק כמו ששמירת ספר/פנייה הייתה נכשלת בפועל.
+   */
+  const [authorFreetextProbe, attachmentsProbe] = await Promise.all([
+    supabase.from('books').select('author_name_he, author_name_en').limit(1),
+    supabase.from('contact_messages').select('attachments').limit(1),
+  ]);
+  const migrationChecks: Check[] = [
+    {
+      label: 'books.author_name_he / author_name_en (19_book_author_freetext.sql)',
+      ok: !authorFreetextProbe.error,
+      detail: authorFreetextProbe.error
+        ? `${authorFreetextProbe.error.code ?? '—'}: ${authorFreetextProbe.error.message} — הריצו supabase/19_book_author_freetext.sql. עד אז שמירת ספר תיכשל תמיד (השדות נשלחים בכל שמירה), והכרטיס יישאר פתוח עם הודעת שגיאה.`
+        : 'העמודות קיימות',
+    },
+    {
+      label: 'contact_messages.attachments (20_contact_attachments.sql)',
+      ok: !attachmentsProbe.error,
+      detail: attachmentsProbe.error
+        ? `${attachmentsProbe.error.code ?? '—'}: ${attachmentsProbe.error.message} — הריצו supabase/20_contact_attachments.sql. עד אז כל שליחה מטופס יצירת הקשר תיכשל, גם בלי קבצים מצורפים.`
+        : 'העמודה קיימת',
+    },
+  ];
 
   /* --- 3. מדוע תוכן אינו מופיע באתר --- */
   //
@@ -287,6 +316,7 @@ export default async function DiagnosticsPage() {
   const allOk =
     reads.every((c) => c.ok) &&
     writeChecks.every((c) => c.ok) &&
+    migrationChecks.every((c) => c.ok) &&
     publicChecks.every((c) => c.ok) &&
     storage.every((c) => c.ok);
 
@@ -308,6 +338,8 @@ export default async function DiagnosticsPage() {
           ? 'כל הבדיקות עברו. אם שמירה עדיין נכשלת — שלחו את הודעת השגיאה המופיעה בטופס עצמו.'
           : 'נמצאו כשלים. הפרטים למטה כוללים את קוד השגיאה של Postgres.'}
       </p>
+
+      <Section title="מיגרציות אחרונות (19–20)" checks={migrationChecks} />
 
       <Section title="מדוע תוכן אינו מופיע באתר" checks={publicChecks} />
 

@@ -115,7 +115,14 @@ export function AdminNav({ role }: { role: UserRole }) {
 
   return (
     <nav aria-label="ניווט ניהול">
-      <ul ref={wrapRef} className="admin-nav-shell flex-wrap gap-1 overflow-x-auto">
+      {/*
+        overflow-x-auto לבד מותיר overflow-y מוסתר אוטומטית (כלל ה-CSS:
+        כשציר אחד אינו visible, הציר השני נכפה ל-auto) — וזה קטע את
+        התפריט הנפתח של קבוצת "ספרים", שממוקם absolute ויוצא מתחת לקצה
+        ה-ul. overflow-y-visible מבטל את זה במפורש ומשאיר את גלילה
+        האופקית (ליתר ביטחון במסכים צרים) בלי לקטוע תוכן שיוצא למטה.
+      */}
+      <ul ref={wrapRef} className="admin-nav-shell flex-wrap gap-1 overflow-x-auto overflow-y-visible">
         {visible.map((item) => {
           if (item.type === 'link') {
             const active = matchesLink(pathname, item.href);
