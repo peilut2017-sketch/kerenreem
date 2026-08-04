@@ -73,6 +73,10 @@ export interface Book {
   stock_quantity: number | null;
   is_purchasable: boolean;
   weight_grams: number | null;
+  /** מיקום המלאי הפיזי (למשל "מדף A3") — לצוות בלבד, לא מוצג באתר. */
+  stock_location: string | null;
+  /** גודל פיזי (למשל "17x24 ס״מ"). */
+  physical_size: string | null;
   /* ------------------------------------------------------- */
   is_published: boolean;
   sort_order: number;

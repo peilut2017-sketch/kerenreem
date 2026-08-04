@@ -90,7 +90,7 @@ function book(
     pages: 412, format: 'פוליו', binding: 'כריכה קשה', isbn: null,
     volume_count: 1, sample_pdf_url: null,
     price: null, currency: 'ILS', sku: null, stock_quantity: 0,
-    is_purchasable: false, weight_grams: null,
+    is_purchasable: false, weight_grams: null, stock_location: null, physical_size: null,
     languages: ['he'], cover_alt: null,
     meta_title: null, meta_description: null, og_image_url: null,
     canonical_url: null, search_keywords: null,
