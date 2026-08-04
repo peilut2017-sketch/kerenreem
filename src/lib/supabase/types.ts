@@ -271,6 +271,14 @@ export interface GalleryImage {
   caption_en?: string;
 }
 
+/** קובץ שצורף לפניית יצירת קשר — נשמר כ-path (לא URL) כי ה-bucket פרטי. */
+export interface ContactAttachment {
+  path: string;
+  name: string;
+  size: number;
+  type: string;
+}
+
 export interface EventRecord {
   id: string;
   slug: string;
