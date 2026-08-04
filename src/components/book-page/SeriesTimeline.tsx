@@ -29,7 +29,15 @@ export function SeriesTimeline({
   return (
     <section aria-labelledby="book-series">
       <SectionHeading level={2} eyebrow={t('seriesIntro')} title={seriesName} id="book-series" />
-      <ol className="flex items-start gap-1 overflow-x-auto pb-1">
+      {/*
+        בלי overflow-x-auto בכוונה: כשהציר משותף בעמודה ברוחב חצי (לצד
+        AuthorSection, ראו books/[slug]/page.tsx), סדרה של יותר מ-3-4
+        כרכים לא נכנסת ברוחב הנתון ודורשת גרירה אופקית כדי לראות את
+        השאר — בדיוק התלונה שהובילה לתיקון הזה. flex-wrap מעביר כרכים
+        עודפים לשורה נוספת במקום להסתיר אותם מאחורי גלילה; אין צורך
+        בגלילה אנכית או אופקית כדי לראות את הסדרה כולה.
+      */}
+      <ol className="flex flex-wrap items-start gap-x-1 gap-y-7">
         {all.map((volume) => {
           const isCurrent = volume.id === currentBook.id;
           const title = localized(volume, 'title', locale);
