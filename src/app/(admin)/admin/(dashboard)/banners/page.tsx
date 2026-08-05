@@ -10,7 +10,10 @@ export const dynamic = 'force-dynamic';
 export default async function AdminBannersPage() {
   await requireRole('viewer');
   const [banners, settings] = await Promise.all([listBanners(), getSettings()]);
-  const bannersEnabled = settings?.extra.banners_enabled !== false;
+  // extra יכול להיות null בפועל גם שהעמודה במסד not null default '{}':
+  // שורה ישנה יכולה עדיין להחזיק ערך null. גישה ישירה ל-extra.X בלי
+  // הבדיקה הזו (ראו books/settings/page.tsx) קרסה את כל העמוד.
+  const bannersEnabled = (settings?.extra ?? {}).banners_enabled !== false;
 
   return (
     <>

@@ -56,14 +56,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     getMostViewedBooks(4),
   ]);
 
+  // extra.extra יכול להיות null בפועל גם שהעמודה במסד not null default
+  // '{}': שורה קיימת מלפני שהמפתחות האלה נכתבו לראשונה יכולה עדיין
+  // להחזיק ערך null ישן. נפילה חזרה ל-{} כאן, פעם אחת, ולא ?. חוזר על
+  // כל שימוש — גישה ישירה ל-extra.X בלי הבדיקה קורסת את כל העמוד.
+  const extra = settings.extra ?? {};
+
   // false מפורש בלבד מכבה — היעדר המפתח (אתר שטרם נגע בהגדרה) ממשיך
   // להציג באנרים כברירת המחדל הקיימת, לא שובר התקנות ישנות.
-  const bannersEnabled = settings.extra.banners_enabled !== false;
+  const bannersEnabled = extra.banners_enabled !== false;
 
   // בחירה קבועה למדף מהגדרות קטלוג וחנות (גרירה, ראו ShelfBooksPicker),
   // עם נפילה חזרה לכותרים האחרונים כשלא נבחרה רשימה.
-  const shelfBookIds = Array.isArray(settings.extra.shelf_book_ids)
-    ? (settings.extra.shelf_book_ids as unknown[]).filter((id): id is string => typeof id === 'string')
+  const shelfBookIds = Array.isArray(extra.shelf_book_ids)
+    ? (extra.shelf_book_ids as unknown[]).filter((id): id is string => typeof id === 'string')
     : [];
   const curatedShelfBooks = shelfBookIds.length > 0 ? await getBooksByIds(shelfBookIds) : [];
   const shelfSourceBooks = curatedShelfBooks.length > 0 ? curatedShelfBooks : books.slice(0, 10);
