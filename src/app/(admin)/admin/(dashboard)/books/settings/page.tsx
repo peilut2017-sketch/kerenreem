@@ -14,8 +14,12 @@ export const dynamic = 'force-dynamic';
 export default async function BooksSettingsPage() {
   await requireRole('admin');
   const [settings, books] = await Promise.all([getSettings(), listBooks()]);
-  const shelfBookIds = Array.isArray(settings?.extra.shelf_book_ids)
-    ? (settings.extra.shelf_book_ids as unknown[]).filter((id): id is string => typeof id === 'string')
+  // extra יכול להיות null בפועל גם שהעמודה במסד not null default '{}':
+  // שורה ישנה יכולה עדיין להחזיק ערך null. נפילה חזרה ל-{} כאן ולא ?.
+  // חוזר על כל שימוש — גישה ישירה ל-extra.X בלי הבדיקה קרסה את כל העמוד.
+  const extra = settings?.extra ?? {};
+  const shelfBookIds = Array.isArray(extra.shelf_book_ids)
+    ? (extra.shelf_book_ids as unknown[]).filter((id): id is string => typeof id === 'string')
     : [];
 
   return (

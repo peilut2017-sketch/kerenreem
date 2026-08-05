@@ -56,14 +56,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     getMostViewedBooks(4),
   ]);
 
+  // extra.extra יכול להיות null בפועל גם שהעמודה במסד not null default
+  // '{}': שורה קיימת מלפני שהמפתחות האלה נכתבו לראשונה יכולה עדיין
+  // להחזיק ערך null ישן. נפילה חזרה ל-{} כאן, פעם אחת, ולא ?. חוזר על
+  // כל שימוש — גישה ישירה ל-extra.X בלי הבדיקה קורסת את כל העמוד.
+  const extra = settings.extra ?? {};
+
   // false מפורש בלבד מכבה — היעדר המפתח (אתר שטרם נגע בהגדרה) ממשיך
   // להציג באנרים כברירת המחדל הקיימת, לא שובר התקנות ישנות.
-  const bannersEnabled = settings.extra.banners_enabled !== false;
+  const bannersEnabled = extra.banners_enabled !== false;
 
   // בחירה קבועה למדף מהגדרות קטלוג וחנות (גרירה, ראו ShelfBooksPicker),
   // עם נפילה חזרה לכותרים האחרונים כשלא נבחרה רשימה.
-  const shelfBookIds = Array.isArray(settings.extra.shelf_book_ids)
-    ? (settings.extra.shelf_book_ids as unknown[]).filter((id): id is string => typeof id === 'string')
+  const shelfBookIds = Array.isArray(extra.shelf_book_ids)
+    ? (extra.shelf_book_ids as unknown[]).filter((id): id is string => typeof id === 'string')
     : [];
   const curatedShelfBooks = shelfBookIds.length > 0 ? await getBooksByIds(shelfBookIds) : [];
   const shelfSourceBooks = curatedShelfBooks.length > 0 ? curatedShelfBooks : books.slice(0, 10);
@@ -206,9 +212,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       {bannersEnabled && banners.length > 0 ? (
         /* יש באנרים — הם התמונה עצמה, בלי כיתוב מונח מעליה */
         <BannerStrip banners={banners} locale={locale} label={t('hero.label')} />
-      ) : slides.length > 0 ? (
-        /* אין באנרים (או שכובו בהגדרות) — הקרוסלה נבנית מתוכן שפורסם,
-           ושם הכיתוב הכרחי: כריכת ספר בלי שם אינה אומרת דבר. */
+      ) : bannersEnabled && slides.length > 0 ? (
+        /* אין באנרים — הקרוסלה נבנית מתוכן שפורסם, ושם הכיתוב הכרחי:
+           כריכת ספר בלי שם אינה אומרת דבר. כשהבאנרים כבויים בהגדרות
+           במפורש, לא נופלים גם לקרוסלה הזו — כיבוי אומר "בלי קרוסלה
+           בכלל", לא רק "בלי הבאנרים שהועלו". */
         <HeroCarousel slides={slides} />
       ) : (
         /* בלי תוכן מפורסם אין מה לסובב. במקום קרוסלה ריקה — הצהרה

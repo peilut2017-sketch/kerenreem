@@ -15,6 +15,12 @@ export const COOKIE_CONSENT_KEY = 'kr:cookie-consent';
  * הבאנר נעלם ברגע שיש החלטה (value !== null) ולא חוזר בביקור הבא —
  * ראו CookieSettingsButton בפוטר לדרך לשנות החלטה מאוחר יותר, כנדרש
  * (בחירה שאי אפשר לשנות אינה הסכמה חופשית).
+ *
+ * left-4 מוחלט ולא start-4/end-4: המיקום המבוקש הוא "צד שמאל של המסך"
+ * פיזית, בשני הלוקיילים — end-4 היה הופך לימין בגרסה האנגלית (LTR).
+ * כרטיס קטן ולא רצועה על פני כל הרוחב, כדי להסתיר כמה שפחות מהתוכן
+ * מתחתיו; זה עדיין כולל את כל מה שנדרש (הסבר, קישור למדיניות הפרטיות,
+ * אישור ודחייה) — הצמצום הוא בגודל ובמיקום, לא בתוכן המשפטי הנדרש.
  */
 export function CookieConsentBanner() {
   const t = useTranslations('cookies');
@@ -26,24 +32,22 @@ export function CookieConsentBanner() {
     <div
       role="region"
       aria-label={t('bannerLabel')}
-      className="glass fixed inset-x-4 bottom-4 z-50 mx-auto max-w-[46rem] rounded-[var(--radius-lg)] p-5 shadow-[var(--shadow-float)] sm:inset-x-6 sm:bottom-6 sm:p-6"
+      className="glass fixed bottom-4 left-4 z-50 w-[calc(100vw-2rem)] max-w-[19rem] rounded-[var(--radius-lg)] p-4 shadow-[var(--shadow-float)]"
     >
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="max-w-[60ch] text-small leading-relaxed text-ink-soft">
-          {t('message')}{' '}
-          <Link href="/privacy" className="link">
-            {t('privacyLink')}
-          </Link>
-        </p>
+      <p className="text-caption leading-relaxed text-ink-soft">
+        {t('message')}{' '}
+        <Link href="/privacy" className="link">
+          {t('privacyLink')}
+        </Link>
+      </p>
 
-        <div className="flex shrink-0 flex-wrap gap-3">
-          <button type="button" onClick={() => set('denied')} className="btn btn-quiet">
-            {t('reject')}
-          </button>
-          <button type="button" onClick={() => set('granted')} className="btn btn-solid">
-            {t('accept')}
-          </button>
-        </div>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => set('denied')} className="btn btn-quiet flex-1 px-3 py-1.5 text-caption">
+          {t('reject')}
+        </button>
+        <button type="button" onClick={() => set('granted')} className="btn btn-solid flex-1 px-3 py-1.5 text-caption">
+          {t('accept')}
+        </button>
       </div>
     </div>
   );

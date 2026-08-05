@@ -29,6 +29,11 @@ export interface ShelfBook {
  * (elementFromPoint על כל touchmove), כך שאפשר "לדפדף" במדף בתנועה
  * אחת — ולא רק להקיש ספר-ספר.
  *
+ * הספר הפתוח אינו נסגר לבד: לא כשהעכבר עוזב את המדף, לא כשהאצבע
+ * מורמת, ולא כשהמיקוד עובר משם. הוא נשאר פתוח עד שספר אחר נפתח
+ * במקומו (הצבעה/מיקוד/החלקה על ספר אחר) — כך שהמדף לא "נסגר" מתחת
+ * לעין ברגע שהעכבר יוצא ממנו, מה שהיה גורם לו להיראות ריק ברוב הזמן.
+ *
  * ספר בלי שדרה שצולמה מקבל שדרה שנבנית מצבעי הכריכה שלו (ראו
  * getSpineLook ב-cover-colors.ts) עם שמו מוטבע לאורכה. כך המדף מלא
  * מהיום הראשון, ולא מחכה שיצולמו שדרות לכל הקטלוג.
@@ -100,12 +105,7 @@ export function BookShelf({ books, label }: { books: ShelfBook[]; label: string 
           בלי ההזמנה הזו לוח המדף היה מתרחב ומתכווץ בכל מעבר עכבר, וכל
           מה שמתחתיו היה קופץ איתו. */}
       <div className="mx-auto w-[min(100%,calc(var(--shelf-n)*var(--bw)+(var(--shelf-n)-1)*var(--gp)+var(--ow)-var(--bw)))]">
-        <ul
-          ref={shelfRef}
-          onMouseLeave={() => setActive(null)}
-          onTouchEnd={() => setActive(null)}
-          className="flex items-end justify-center gap-[var(--gp)]"
-        >
+        <ul ref={shelfRef} className="flex items-end justify-center gap-[var(--gp)]">
           {books.map((book, index) => (
             <BookOnShelf
               key={book.slug}
@@ -114,7 +114,6 @@ export function BookShelf({ books, label }: { books: ShelfBook[]; label: string 
               open={active === index}
               onEnter={() => focusBook(index)}
               onFocus={() => focusBook(index)}
-              onBlur={() => focusBook(null)}
             />
           ))}
         </ul>
@@ -137,14 +136,12 @@ function BookOnShelf({
   open,
   onEnter,
   onFocus,
-  onBlur,
 }: {
   book: ShelfBook;
   index: number;
   open: boolean;
   onEnter: () => void;
   onFocus: () => void;
-  onBlur: () => void;
 }) {
   // גובה משתנה קלות לפי המיקום — ספרים אמיתיים על מדף אינם באותו גובה
   // בדיוק. נגזר מהאינדקס ולא מ-random, כדי שהשרת והלקוח יסכימו.
@@ -171,7 +168,6 @@ function BookOnShelf({
       <Link
         href={`/books/${book.slug}`}
         onFocus={onFocus}
-        onBlur={onBlur}
         aria-label={book.author ? `${book.title} — ${book.author}` : book.title}
         className={`relative block h-full w-full overflow-hidden rounded-[3px] shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-500 ease-[var(--ease-spring)] focus-visible:outline-offset-4 motion-reduce:transition-none ${
           open ? 'shadow-[var(--shadow-lift)] -translate-y-3' : ''
