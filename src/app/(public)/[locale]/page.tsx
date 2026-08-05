@@ -212,9 +212,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       {bannersEnabled && banners.length > 0 ? (
         /* יש באנרים — הם התמונה עצמה, בלי כיתוב מונח מעליה */
         <BannerStrip banners={banners} locale={locale} label={t('hero.label')} />
-      ) : slides.length > 0 ? (
-        /* אין באנרים (או שכובו בהגדרות) — הקרוסלה נבנית מתוכן שפורסם,
-           ושם הכיתוב הכרחי: כריכת ספר בלי שם אינה אומרת דבר. */
+      ) : bannersEnabled && slides.length > 0 ? (
+        /* אין באנרים — הקרוסלה נבנית מתוכן שפורסם, ושם הכיתוב הכרחי:
+           כריכת ספר בלי שם אינה אומרת דבר. כשהבאנרים כבויים בהגדרות
+           במפורש, לא נופלים גם לקרוסלה הזו — כיבוי אומר "בלי קרוסלה
+           בכלל", לא רק "בלי הבאנרים שהועלו". */
         <HeroCarousel slides={slides} />
       ) : (
         /* בלי תוכן מפורסם אין מה לסובב. במקום קרוסלה ריקה — הצהרה

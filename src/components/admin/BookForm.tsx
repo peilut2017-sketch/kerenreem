@@ -26,6 +26,14 @@ import type {
   Tag,
 } from '@/lib/supabase/types';
 
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat('he-IL', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'Asia/Jerusalem',
+  }).format(new Date(value));
+}
+
 /** רשימה סגורה: שפות אינן נערכות מהממשק ואין להן נתונים נלווים. */
 const LANGUAGES = [
   { code: 'he', label: 'עברית' },
@@ -708,6 +716,19 @@ export function BookForm({
                       defaultChecked={book?.is_featured ?? false}
                       hint="מציג תג 'בחירת המכון' בעמוד הספר."
                     />
+
+                    {book ? (
+                      <dl className="grid gap-3 border-t border-rule pt-5 text-caption text-muted sm:grid-cols-2">
+                        <div>
+                          <dt className="text-ink-soft">נוצר</dt>
+                          <dd className="tabular-nums">{formatDateTime(book.created_at)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-ink-soft">עודכן לאחרונה</dt>
+                          <dd className="tabular-nums">{formatDateTime(book.updated_at)}</dd>
+                        </div>
+                      </dl>
+                    ) : null}
                   </FieldSet>
                 ),
               },

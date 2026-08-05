@@ -296,7 +296,7 @@
   },
   "cookies": {
     "bannerLabel": "Cookie consent",
-    "message": "This site uses cookies required for it to function, and optional analytics cookies that are enabled only with your consent, to understand how the site is used and improve it.",
+    "message": "This site uses necessary cookies, and analytics cookies only with your consent.",
     "privacyLink": "Privacy policy",
     "reject": "Necessary only",
     "accept": "Accept"

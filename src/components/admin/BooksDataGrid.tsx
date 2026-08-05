@@ -12,14 +12,21 @@ import { RowActions } from './RowActions';
 import { Spinner } from './SubmitButton';
 import type { BookRelations } from '@/lib/supabase/types';
 
-type ColumnId = 'catalogue_number' | 'author' | 'year' | 'completion';
+type ColumnId = 'catalogue_number' | 'author' | 'year' | 'completion' | 'updated';
 
 const TOGGLEABLE: { id: ColumnId; label: string }[] = [
   { id: 'catalogue_number', label: '#' },
   { id: 'author', label: 'מחבר' },
   { id: 'year', label: 'שנה' },
   { id: 'completion', label: 'השלמה' },
+  { id: 'updated', label: 'עודכן' },
 ];
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeZone: 'Asia/Jerusalem' }).format(
+    new Date(value),
+  );
+}
 
 type SortKey = ColumnId | 'title';
 type SortState = { key: SortKey; direction: 'asc' | 'desc' } | null;
@@ -117,6 +124,8 @@ export function BooksDataGrid({
           return factor * ((a.book.publication_year_ce ?? 0) - (b.book.publication_year_ce ?? 0));
         case 'completion':
           return factor * (a.completionPercent - b.completionPercent);
+        case 'updated':
+          return factor * a.book.updated_at.localeCompare(b.book.updated_at);
         default:
           return 0;
       }
@@ -251,6 +260,9 @@ export function BooksDataGrid({
               {shown('completion') ? (
                 <SortableHeader label="השלמה" active={sortIndicator('completion')} onClick={() => toggleSort('completion')} />
               ) : null}
+              {shown('updated') ? (
+                <SortableHeader label="עודכן" active={sortIndicator('updated')} onClick={() => toggleSort('updated')} />
+              ) : null}
               <th scope="col">מצב ופעולות</th>
             </tr>
           </thead>
@@ -288,6 +300,11 @@ export function BooksDataGrid({
                 {shown('completion') ? (
                   <td>
                     <CompletionBadge book={book} relations={relations} />
+                  </td>
+                ) : null}
+                {shown('updated') ? (
+                  <td className="text-caption text-muted tabular-nums" title={formatDate(book.created_at)}>
+                    {formatDate(book.updated_at)}
                   </td>
                 ) : null}
                 <td>
