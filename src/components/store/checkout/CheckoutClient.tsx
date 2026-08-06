@@ -18,6 +18,7 @@ import { useCart } from '../CartProvider';
 import { ContactBlock, type ContactValues } from './ContactBlock';
 import { FulfillmentBlock, type FulfillmentValues } from './FulfillmentBlock';
 import { ReviewBlock, type ExtrasValues } from './ReviewBlock';
+import { ExpressStrip } from './ExpressStrip';
 
 /**
  * גוף ה-Checkout (תרשים 4): שלושה בלוקים בעמוד אחד — זיהוי → אספקה →
@@ -41,6 +42,7 @@ export function CheckoutClient() {
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
+  const [wallet, setWallet] = useState<'bit' | 'apple_pay' | 'google_pay' | null>(null);
   const started = useRef(false);
 
   const items = cart?.items ?? [];
@@ -185,6 +187,17 @@ export function CheckoutClient() {
             ← {t('backToCart')}
           </Link>
         </p>
+
+        {bootstrap.expressEnabled ? (
+          <ExpressStrip
+            selected={wallet}
+            onSelect={(chosen) => {
+              // הבחירה נרשמת על ה-session; דף מורנינג ייפתח עם האמצעי הזה
+              setWallet(chosen);
+              void startCheckout(items, locale, { wallet: chosen });
+            }}
+          />
+        ) : null}
 
         <ContactBlock
           open={openBlock === 'contact'}

@@ -177,11 +177,13 @@ export async function sendOrderEmail(
   template: EmailTemplate,
   order: Order,
   extra: Parameters<typeof renderEmail>[2] = {},
+  /** סיומת מפתח לשליחה חוזרת מפורשת — עוקפת את חסימת הכפילות ביודעין */
+  keySuffix?: string,
 ): Promise<void> {
   const recipient = order.contact_email;
   if (!recipient) return;
 
-  const idempotencyKey = `order:${order.id}:${template}:email`;
+  const idempotencyKey = `order:${order.id}:${template}:email${keySuffix ? `:${keySuffix}` : ''}`;
   const { data: logRow, error: logError } = await service
     .from('notification_log')
     .insert({
