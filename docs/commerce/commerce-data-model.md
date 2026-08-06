@@ -1,9 +1,11 @@
 # מודל הנתונים — מערכת המסחר של מכון קרן רא״ם
 
+**גרסה 1.1** · שינויי הסבב: ‏`book_costs` פרטית (עלות יוצאת מ־`books`), ‏`order_items.cost_price_snapshot`, ‏HMAC לסוד־שרת ב־`contact_hash`, ‏`coupons.combinable_with_coupons`, עמודות צמצום ו־retention ל־`webhook_events`, מצב `cancel_pending_refund` בציר ההזמנה, ריבוי מחסנים בתכולה, תכנון migration ‎36. פירוט ב[יומן השינויים](./commerce-changelog.md).
+
 > מסמך זה הוא חלק מחבילת אפיון המסחר. מסמכים נלווים:
-> [מסמך האב](./commerce-master-spec.md) · [ניתוח פערים](./commerce-gap-analysis.md) · [תרשימי תהליכים](./commerce-flows.md) · [תוכנית יישום](./commerce-implementation-plan.md) · [החלטות](./commerce-decisions.md)
+> [מסמך האב](./commerce-master-spec.md) · [ניתוח פערים](./commerce-gap-analysis.md) · [תרשימי תהליכים](./commerce-flows.md) · [תוכנית יישום](./commerce-implementation-plan.md) · [החלטות](./commerce-decisions.md) · [מפרט מסכים](./commerce-ui-spec.md)
 >
-> **סטטוס: אפיון בלבד. אין להריץ אף migration מהמסמך הזה לפני אישור תוכנית היישום.**
+> **סטטוס: אפיון בלבד. migrations ‎23–35 כבר הורצו בסבבי הבנייה; שינויי 1.1 מרוכזים ב־migration ‎36 המתוכנן — אין להריץ אותו לפני אישור.**
 > נבדק מול הקוד בענף `claude/keren-raam-ecommerce-spec-6d5t3q` (מכיל את `claude/keren-raam-site-spec-swnrqq` כ־ancestor מלא, בתוספת מיזוגי PR‏ 13–14). תאריך בדיקה: אוגוסט 2026.
 
 ---
@@ -129,7 +131,7 @@ RLS: קריאה ציבורית (`using (true)` — אין כאן סוד, והצ�
 | `sale_starts_at`, `sale_ends_at` | timestamptz null | חלון מבצע |
 | `sale_name_he`, `sale_name_en` | text null | שם המבצע |
 | `compare_at_price` | numeric(10,2) null | מחיר השוואה (מומלץ־עתידי) |
-| `cost_price` | numeric(10,2) null | עלות פנימית — חשיפה לפי הרשאה בלבד, לעולם לא נשלח לצד לקוח |
+| ~~`cost_price`~~ | — | **[1.1] הוסר מ־`books` במכוון** (וכך גם נבנה migration ‎26 בפועל): ‏RLS ב־Supabase אינו ברמת עמודה, ו־`books` נקראת ציבורית — עלות בעמודה כאן הייתה דולפת. העלות יושבת בטבלה פרטית `book_costs` (סעיף 3.18) |
 | `tax_group` | text default 'standard' | 'standard'/'exempt' — הסדרת שדה המע״מ |
 | `is_stock_managed` | boolean not null default true | false = מלאי בלתי מוגבל (למשל קובץ) |
 | `low_stock_threshold` | int null | דריסה פר־ספר של הסף בהגדרות |
@@ -281,6 +283,7 @@ create type document_state    as enum ('not_created','pending','created','failed
 | `tax_rate_snapshot` | numeric(5,2) null | שיעור המס בעת הרכישה |
 | `line_total` | numeric(10,2) | ‏`unit_price*quantity - discount` — נשמר מפורשות (לא מחושב) לצורך התאמה חשבונאית |
 | `is_preorder` | boolean default false | הוזמן כהזמנה מוקדמת |
+| `cost_price_snapshot` | numeric(10,2) null | **[1.1, migration ‎36]** צילום עלות הפריט מ־`book_costs` בעת יצירת ההזמנה — בסיס דוחות הרווחיות (פרק 17.14 במסמך האב). ‏null = "ללא עלות מתועדת" (נספר בנפרד בדוח, לא כרווח מלא). לעולם אינו נשלח לצד לקוח — נחשף רק בשאילתות צוות בהרשאת עלויות |
 
 אילוץ נוסף: `check (unit_price >= 0)`.
 
@@ -322,6 +325,18 @@ RLS: **אין גישת לקוח בכלל**; צוות select; כתיבה service 
 - ‏Payload גולמי נשמר תמיד — גם כשהחתימה נכשלה (לצורך חקירה), עם `signature_valid=false` ו־`processing_status='invalid_signature'`.
 - RLS: אפס גישה ל־anon/authenticated (revoke מלא); admin select דרך שכבת השרת בלבד. הנתיב הכותב הוא Route Handler ‏`/api/webhooks/morning` עם service role — **מחוץ ל־matcher של ה־proxy** (`proxy.ts:84` מחריג `api`), ולכן חייב אימות עצמאי מלא (חתימה/סוד בכתובת + אימות סכום מול המסד).
 
+**[1.1, migration ‎36] מדיניות שמירת Payload (סעיף 8 בסבב התיקונים — פרק 8.6 במסמך האב):** עמודות חדשות ושינויי התנהגות:
+
+| תוספת | פירוט |
+|---|---|
+| תקרת גודל | גוף מעל **256KB** אינו נשמר גולמי — נשמרים hash, אורך ו־headers בלבד + התראה (`payload_truncated=true`) |
+| `payload_normalized` jsonb | השדות העסקיים המנורמלים שחולצו (מזהה עסקה, סכום, מטבע, סטטוס, מזהה מסמך, אמצעי) — שורדים גם אחרי טיהור הגולמי |
+| צמצום (redaction) | לפני השמירה מוסרים מה־payload שדות רגישים שאינם נחוצים לעיבוד (פרטי לקוח מלאים, כתובות, כל שדה אמצעי־תשלום מעבר ל"מסתיים ב־") — ‏`dedupe_hash` מחושב **לפני** הצמצום כדי שה־idempotency לא יישבר |
+| `raw_purged_at` timestamptz | ‏job התחזוקה מרוקן את `payload` הגולמי (משאיר `payload_normalized`) לאירועים מעובדים בני **90 יום** ומעלה; אירועי `failed`/חקירה פתוחה מוחרגים עד סגירתם |
+| חתימה שגויה | אירועי `invalid_signature` **אינם** שומרים payload גולמי מלא (ערוץ הצפה זול): נשמרים hash, אורך, מקור (IP/headers) וזמן בלבד |
+
+האחסון פרטי ממילא (RLS אפס־גישה + הצפנה at-rest של Supabase); אין שום נתיב שמציג payload גולמי ל־UI.
+
 ### 3.11 🆕 `documents` (migration ‎29)
 
 `id, order_id → orders (restrict), payment_id uuid null, provider text default 'morning', morning_doc_id text null unique, doc_type text check in ('invoice_receipt','receipt','donation_receipt','credit_note'), doc_number text null, issued_at timestamptz null, amount numeric(10,2), currency text, status text check in ('pending','created','failed','cancelled') default 'pending', download_url text null, url_expires_at timestamptz null, storage_path text null, error text null, attempts int default 0, last_attempt_at timestamptz null, idempotency_key text unique, created_at/updated_at`.
@@ -333,6 +348,8 @@ RLS: **אין גישת לקוח בכלל**; צוות select; כתיבה service 
 ### 3.12 🆕 מלאי: `stock_locations`, `inventory_levels`, `inventory_moves` (migration ‎30)
 
 **`stock_locations`:** `id, slug unique, name text, kind text check in ('warehouse','office','pickup_point','distributor','temp'), is_default boolean default false (partial unique where is_default), active boolean default true, sort_order int`. זריעה: מיקום יחיד `main` (‏is_default). הערה: `books.stock_location` הקיים (טקסט חופשי "מדף A3") הוא **מיקום מדף בתוך המחסן** ואינו מוחלף — נשאר כשדה תפעולי לליקוט.
+
+**[1.1] ריבוי מחסנים — בתכולה, לא עתידי.** הכרעת בעל האתר (החלטה 9): "יש לנו כמה מחסנים". המודל תומך בכך מיסודו (level פר `(book_id, location_id)`, ‏`transfer_in`/`transfer_out`); מה שעולה מהחלטה זו לסבב בנייה 1.1: מסך ניהול מיקומים (הוספה/עריכה, לא רק `main`), בחירת מיקום בפעולות קליטה/ספירה/העברה ב־UI המלאי, ושיוך שמירות (reserve) למיקום ברירת המחדל עם אפשרות העברה בליקוט. שורת ההזמנה מציינת מאיזה מיקום לוקטה (‏`inventory_moves.location_id` כבר קיים).
 
 **`inventory_levels`:** `book_id → books (cascade), location_id → stock_locations (restrict), on_hand int not null default 0 check (>=0), reserved int not null default 0 check (>=0), check (reserved <= on_hand), pk (book_id, location_id)`. ‏`available` אינו נשמר — נגזר (`on_hand - reserved`) ב־view ‏`inventory_available`.
 
@@ -373,9 +390,13 @@ RLS: קריאה ציבורית (שיטות פעילות בלבד דרך policy �
 
 ### 3.14 🆕 קופונים: `coupons`, `coupon_redemptions` (migration ‎33)
 
-**`coupons`:** `id, code text unique (נשמר uppercase; אימות case-insensitive), kind text check in ('percent','fixed','free_shipping'), value numeric(10,2) check (kind='free_shipping' or value > 0; percent<=100), min_total numeric null, starts_at/ends_at, max_uses int null, max_uses_per_customer int default 1, first_order_only boolean default false, applies_to jsonb default '{}' ({book_ids[], category_ids[], author_ids[], exclude_book_ids[]}), combinable_with_sale boolean default false, active boolean default true, created_by uuid, created_at/updated_at`.
+**`coupons`:** `id, code text unique (נשמר uppercase; אימות case-insensitive), kind text check in ('percent','fixed','free_shipping'), value numeric(10,2) check (kind='free_shipping' or value > 0; percent<=100), min_total numeric null, starts_at/ends_at, max_uses int null, max_uses_per_customer int default 1, first_order_only boolean default false, applies_to jsonb default '{}' ({book_ids[], category_ids[], author_ids[], exclude_book_ids[]}), combinable_with_sale boolean default false, **[1.1, migration ‎36]** combinable_with_coupons boolean not null default false, active boolean default true, created_by uuid, created_at/updated_at`.
 
-**`coupon_redemptions`:** `id, coupon_id → coupons (restrict), order_id → orders unique, customer_id null, contact_hash text (‏sha256 של טלפון מנורמל — אכיפת "שימוש ללקוח" גם לאורחים), amount_discounted numeric(10,2), created_at`. ‏unique(coupon_id, order_id).
+**[1.1] צבירת קופונים (דרישת בעל האתר):** שדה `combinable_with_coupons` — ברירת מחדל **לא** ניתן לצבירה. הזנת קופון שני על הזמנה שיש בה קופון: אם אחד מהשניים אינו צביר — נחסם עם הודעה ("לא ניתן לשלב עם קופון קיים — הקופון הקודם יוסר אם תאשר"); אם שניהם צבירים — שניהם חלים, שורת הנחה לכל אחד, סדר חישוב: אחוז לפני סכום קבוע. הקופון חל **כבר בעגלה** (פרק 12 במסמך האב + מסך העגלה במפרט המסכים) — לא רק ב־Checkout.
+
+**`coupon_redemptions`:** `id, coupon_id → coupons (restrict), order_id → orders unique, customer_id null, contact_hash text, amount_discounted numeric(10,2), created_at`. ‏unique(coupon_id, order_id).
+
+**[1.1] ‏`contact_hash` = ‏HMAC-SHA256 עם סוד שרת** (‏env ‏`COMMERCE_HMAC_SECRET`) על הטלפון המנורמל — **מחליף את ה־sha256 הרגיל** שבקוד סבב הבנייה הראשון (`coupons.ts`). נימוק (סעיף 6 בסבב התיקונים): מרחב מספרי הטלפון הישראליים קטן מספיק להיפוך hash רגיל בכוח גס; HMAC עם סוד מסכל זאת. אין לשמור בשום טבלה hash רגיל של טלפון. המעבר: חישוב חדש בכתיבה + השוואה כפולה (HMAC ואז legacy) בקריאה לתקופת מעבר קצרה, ואז עדכון הרשומות הישנות (מספרן צפוי אפסי — הקופונים טרם הופעלו בייצור).
 ספירת שימושים נאכפת בזמן ההמרה בשרת בטרנזקציה (count על redemptions + נעילת שורת הקופון), לא במונה על הקופון — אין מונה שיכול להתפזר.
 RLS: קופונים — קריאה ציבורית **אין** (מניעת קצירת קודים): אימות קוד נעשה ב־Server Action; צוות מלא. redemptions — service role + צוות.
 
@@ -393,6 +414,25 @@ RLS: service role + צוות select. `recipient` הוא PII — נכלל במד�
 ### 3.17 טבלאות עתידיות (מוגדרות, לא ב־MVP)
 
 `promotions` (מבצעים אוטומטיים; סדר חישוב וצבירה — פרק 13.4 במסמך האב), `customer_lists`/`customer_list_items` (רשימות בשם חופשי + שיתוף בטוקן), `shipments` (משלוח חלקי — רק אם יוחלט בהחלטה 13; עד אז `fulfillment_state='partially_fulfilled'` חסום ב־UI), `return_requests` (שלב 8 — אפשר גם כ־`order_events` + סטטוס; טבלה ייעודית עדיפה כשנפתח שירות עצמי: `id, order_id, items jsonb, reason, condition, status ('requested','approved','rejected','received','closed'), refund_payment_id`).
+
+### 3.18 🆕 **[1.1, migration ‎36]** ‏`book_costs` — עלויות פנימיות (טבלה פרטית)
+
+הפתרון לסעיף 3 בסבב התיקונים: העלות **אינה** עמודה ב־`books` הציבורית (RLS אינו ברמת עמודה — ראו 3.2), אלא טבלה נפרדת עם RLS צוות־בלבד:
+
+| שדה | טיפוס | הערות |
+|---|---|---|
+| `book_id` | uuid pk → books (cascade) | שורה אחת פר ספר — העלות הנוכחית |
+| `cost_price` | numeric(10,2) not null check (>= 0) | עלות ליחידה (הדפסה/רכש), ללא מע״מ — מוגדר בהערת השדה |
+| `currency` | text not null default 'ILS' | |
+| `note` | text null | למשל "מהדורה שלישית, דפוס X" |
+| `updated_by` | uuid null → profiles | |
+| `created_at` / `updated_at` | timestamptz | |
+
+- **RLS:** ‏enable + ‏revoke all מ־anon/authenticated; ‏select/insert/update ל**מנהל־על ומנהל בלבד** (פונקציית `can_view_costs()` חדשה); service role הכל. אף policy ציבורית — דליפת עלות בלתי אפשרית ברמת המסד.
+- **היסטוריה:** שינוי עלות נרשם ב־`audit_log` (‏diff ‏old/new — התבנית של 3.16); אין צורך בטבלת היסטוריה נפרדת כי הדוחות נשענים על `order_items.cost_price_snapshot`, לא על העלות הנוכחית.
+- **צריכה:** בעת יצירת הזמנה (הצילום, תרשים 6) השרת קורא את `book_costs.cost_price` וכותב אותו ל־`order_items.cost_price_snapshot`. ספר בלי שורת עלות ⇒ ‏snapshot null.
+- **קליטת הדפסה חדשה** (פרק התפעול בתוכנית המימוש): מסך קליטת המלאי מציע לעדכן עלות ליחידה יחד עם קליטת הכמות.
+- **UI:** שדה העלות בטופס הספר (לשונית מסחר) נטען ונשמר בקריאה נפרדת בהרשאת `can_view_costs()` — עורך תוכן ומוכרן אינם רואים אותו כלל.
 
 ---
 
@@ -459,7 +499,7 @@ erDiagram
 
 - **לקוח** = `auth.uid()` עם שורת `customers`, בלי שורת `profiles`. רואה: את עצמו, כתובותיו, שמוריו, עגלתו, הזמנותיו (`orders_own_read` הקיימת כבר נכונה), מסמכי הזמנותיו (view מסונן).
 - **אורח** = anon. אפס גישת RLS לנתוני מסחר; כל פעולותיו דרך Server Actions (service role) עם טוקנים חד־כיווניים (hash במסד).
-- **צוות** = שורת `profiles`; בשלב א׳ הרשאות לפי `can_edit()`/`is_admin()` הקיימות, עם מפת תפקידים עדינה יותר (פרק 20 במסמך האב) כשלב מתקדם — מימושה יעבור ל־permission checks בשכבת ה־Domain, לא בהכרח ב־RLS.
+- **צוות** = שורת `profiles`; בשלב א׳ הרשאות לפי `can_edit()`/`is_admin()` הקיימות. **[1.1]** ההכרעה: **חמישה תפקידים** (פרק 19 במסמך האב) — מנהל־על (admin), מנהל (manager), עורך תוכן (content_editor), מוכרן (seller), מלקט (picker). ‏migration ‎36 מרחיב את ה־check על `profiles.role` בערכים `manager`/`seller`/`picker` ומוסיף פונקציות מסד: ‏`can_manage_store()` (admin/manager/seller), ‏`can_view_costs()` (admin/manager), ‏`can_edit_content()` (admin/manager/content_editor), ‏`is_picker_or_above()`. ‏RLS של טבלאות המסחר עובר מ־`can_edit()` ל־`can_manage_store()` — כך עורך תוכן מאבד גישת חנות (דרישת בעל האתר: "בלי לצפות ולערוך את מערכת החנות"), ומלקט מקבל policies צרות (הזמנות ששולמו: קריאה + עדכון ציר אספקה בלבד, בלי עמודות כספיות דרך view ייעודי).
 - **טבלאות אפס־לקוח** (revoke מלא + אין policies ל־authenticated): `payments`, `webhook_events`, `checkout_sessions`, `inventory_moves`, `notification_log`, `consent_events`, `coupon_redemptions`, `store_settings` (כתיבה), `coupons` (קריאה).
 
 ### 6.2 מטריצת גישה (ס=select, כ=insert/update דרך policy; ריק=אין)
@@ -485,6 +525,7 @@ erDiagram
 | notification_log | | | ס | הכל |
 | back_in_stock_subscriptions | | ס (שלו) | ס | הכל |
 | store_settings | ס | ס | הכל (admin) | הכל |
+| **[1.1]** book_costs | | | ס+כ (admin/manager בלבד — `can_view_costs()`) | הכל |
 
 ### 6.3 תבנית migration מחייבת (בגלל ממצא ה־default privileges)
 
@@ -505,7 +546,7 @@ grant select on payments to authenticated;          -- ואז מעניקים ר�
 ## 7. Audit, שמירת נתונים ופרטיות במודל
 
 - **מה מתועד ואיפה:** פעולות צוות רגישות → `audit_log` (מורחב); אירועי הזמנה → `order_events`; תנועות מלאי → `inventory_moves`; הודעות → `notification_log`; הסכמות → `consent_events`. אין תיעוד כפול — לכל אירוע בית אחד, ו־`order_events` מפנה (data.audit_id) כשנדרש.
-- **Retention:** רשומות עסקה ומסמכים — 7 שנים (מחויבות קיימת במדיניות הפרטיות §5, `04_seed_legal.sql:126`); `checkout_sessions` נטושים — `abandoned_retention_days`; ‏`notification_log` — 24 חודשים מוצע; `webhook_events` מעובדים — 24 חודשים מוצע; `page_views` — פער קיים, מחוץ לתכולה כאן.
+- **Retention:** רשומות עסקה ומסמכים — 7 שנים (מחויבות קיימת במדיניות הפרטיות §5, `04_seed_legal.sql:126`); `checkout_sessions` נטושים — `abandoned_retention_days`; ‏`notification_log` — 24 חודשים מוצע; ‏`webhook_events` — **[1.1]** ‏payload גולמי מטוהר אחרי **90 יום** לאירועים מעובדים (נשארים השדות המנורמלים והמזהים — סעיף 3.10), הרשומה עצמה 24 חודשים; `page_views` — פער קיים, מחוץ לתכולה כאן.
 - **מחיקת חשבון (סעיף 5.9):** מחיקת `customers` + כתובות + שמורים; **הזמנות ומסמכים לא נמחקים** — `orders.user_id` הוא `on delete set null` (קיים כבר!), הצילומים בשורות ההזמנה שומרים את הנתונים החשבונאיים, ופרטי הקשר על ההזמנה עוברים צמצום (עיוות טלפון/מייל) בתום חובת השמירה בלבד.
 - **PII מחוץ לאנליטיקה:** אף שדה קשר אינו נכתב ל־`page_views` או לאירועי מסחר עתידיים; מזהי הזמנה באנליטיקה — `order_id` בלבד, לעולם לא טלפון/כתובת (פרק 25 במסמך האב).
 
@@ -530,7 +571,8 @@ grant select on payments to authenticated;          -- ואז מעניקים ר�
 | 33 | `33_coupons.sql` | coupons, redemptions | 10 | drop |
 | 34 | `34_notifications.sql` | notification_log, back_in_stock_subscriptions | 4 | drop |
 | 35 | `35_audit_extension.sql` | עמודות diff ל־audit_log | 1 | drop columns |
-| 36+ | ניקיון (עתידי, באישור נפרד) | drop ‏`orders.status` הישן + ‏`order_status`; drop טריגר הסנכרון | אחרי ייצוב | בלתי הפיך — ולכן נפרד ומאושר בנפרד |
+| **36** | `36_v11_corrections.sql` — **[1.1] מתוכנן, טרם נכתב. אין להריץ לפני אישור** | ‏(א) `book_costs` + ‏`can_view_costs()` (סעיף 3.18); ‏(ב) `order_items.cost_price_snapshot`; ‏(ג) `coupons.combinable_with_coupons`; ‏(ד) עמודות `webhook_events`: ‏`payload_normalized`, `payload_truncated`, `raw_purged_at`; ‏(ה) הרחבת check על `profiles.role` ל־manager/seller/picker + פונקציות `can_manage_store()`/`can_edit_content()`/`is_picker_or_above()` + עדכון policies בהתאם (סעיף 6.1); ‏(ו) ערך `cancel_pending_refund` ב־enum ‏`order_state` + עדכון טריגר המעברים (תרשים 13 המתוקן) | סבב בנייה 1.1 | drop columns/table/functions; הסרת ערך enum — בלתי הפיכה, ולכן נבדקת ב־staging תחילה |
+| 37+ | ניקיון (עתידי, באישור נפרד) | drop ‏`orders.status` הישן + ‏`order_status`; drop טריגר הסנכרון | אחרי ייצוב | בלתי הפיך — ולכן נפרד ומאושר בנפרד |
 
 **בדיקות חובה אחרי כל migration:** ‏`npm run check:schema` (הסקריפט הקיים `scripts/check-schema-sync.mjs` — יורחב לטבלאות החדשות), התחברות אדמין, שמירת ספר, עמוד ספר ציבורי, ושאילתת RLS שלילית (anon מנסה לקרוא `payments` ומקבל 0 שורות).
 
@@ -543,4 +585,6 @@ grant select on payments to authenticated;          -- ואז מעניקים ר�
 1. **מבנה `documents`** מניח שמורנינג מחזירה מזהה מסמך + קישור להורדה, ושאפשר לשמור עותק. תלוי באימות 9.3.8 — אם הקישורים זמניים ואין עותק, יתווסף מנגנון refresh יזום.
 2. **`payments.method` נקבע מראש** במסלול אקספרס — תלוי באימות 9.3.1; אם אי אפשר לקבוע אמצעי מראש, השדה יתמלא רק מה־Webhook והאקספרס יהפוך ל"מעבר מהיר".
 3. **`webhook_events.external_event_id`** מניח שמורנינג שולחת מזהה אירוע; אם לא — `dedupe_hash` הוא המנגנון היחיד (מספיק, פחות נוח).
-4. **OTP בטלפון** מניח שימוש ב־Supabase Auth phone provider עם ספק SMS ישראלי. לקהל ללא SMS — קישור מייל הוא הגיבוי; אימות טלפוני קולי אינו נתמך ב־Supabase ויידרש ספק חיצוני אם יוחלט (החלטה 2).
+4. **OTP בטלפון** מניח שימוש ב־Supabase Auth phone provider עם ספק SMS ישראלי. לקהל ללא SMS — קישור מייל הוא הגיבוי; אימות טלפוני קולי אינו נתמך ב־Supabase ויידרש ספק חיצוני אם יוחלט (החלטה 2). **[1.1]** לצד ה־OTP קיים מסלול מייל+סיסמה לבחירת הלקוח (פרק 4.4 במסמך האב).
+5. **[1.1] סודות חדשים בסביבה:** ‏`COMMERCE_HMAC_SECRET` (ל־`contact_hash` — סעיף 3.14). ערך אקראי ≥32 בייט; סיבובו מחייב חישוב מחדש של ההאשים או תקופת השוואה כפולה.
+6. **[1.1] תרומות ירדו מהתכולה** (החלטה 20): הערך `donation_receipt` ב־`documents.doc_type` נשאר ב־check כערך רדום (הסרת ערך היא שינוי שובר) אך אין שום נתיב שיוצר אותו; ‏A13/A14 (Authorize/Capture באריזה, מסמך באריזה) נוספו לטבלת ההנחות במסמך האב וישפיעו על `payments.status` ו־`document_state` אם יאוששו.
