@@ -70,13 +70,25 @@ export function ResultClient({ outcome }: { outcome: string }) {
         title={paid ? t('resultSuccessTitle') : t('resultNoPaymentTitle')}
         body={paid ? t('resultSuccessBody', { number }) : t('resultNoPaymentBody', { number })}
         extra={
-          paid && state.documentState !== 'created' ? (
-            <p className="text-small text-muted">{t('resultDocPending')}</p>
-          ) : state.promisedDateLabel ? (
-            <p className="text-small text-muted">
-              {t('deliveryEstimate', { date: state.promisedDateLabel })}
-            </p>
-          ) : null
+          <>
+            {paid && state.documentState !== 'created' ? (
+              <p className="text-small text-muted">{t('resultDocPending')}</p>
+            ) : state.promisedDateLabel ? (
+              <p className="text-small text-muted">
+                {t('deliveryEstimate', { date: state.promisedDateLabel })}
+              </p>
+            ) : null}
+            {/* ההצעה הממוקדת האחת של עמוד התודה (פרק 16.5): החשבון הפסיבי */}
+            {state.accountsEnabled ? (
+              <div className="mt-4 rounded-[var(--radius-lg)] border border-gold/40 bg-gold/10 px-6 py-5 text-center">
+                <p className="font-serif text-h3 text-ink">{t('accountOfferTitle')}</p>
+                <p className="mt-1.5 text-small text-muted">{t('accountOfferBody')}</p>
+                <Link href="/account/login" className="btn btn-solid mt-4 inline-block">
+                  {t('accountOfferCta')}
+                </Link>
+              </div>
+            ) : null}
+          </>
         }
         t={t}
       />

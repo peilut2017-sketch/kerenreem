@@ -5,7 +5,9 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
 import { formatPrice } from '@/lib/commerce/pricing';
 import {
+  applyCoupon,
   placeOrder,
+  removeCoupon,
   saveContact,
   saveExtras,
   saveFulfillment,
@@ -43,6 +45,11 @@ export function CheckoutClient() {
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [wallet, setWallet] = useState<'bit' | 'apple_pay' | 'google_pay' | null>(null);
+  const [coupon, setCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    freeShipping: boolean;
+  } | null>(null);
   const started = useRef(false);
 
   const items = cart?.items ?? [];
@@ -64,6 +71,26 @@ export function CheckoutClient() {
           setFulfillmentDone(true);
         }
         setOpenBlock(!hasContact ? 'contact' : !savedMethod ? 'fulfillment' : 'review');
+      }
+      // [1.1] קופון שנקלט כבר בעגלה (kr:coupon) או ששרד ב-session —
+      // מוחל אוטומטית; האימות המחייב ממילא רץ שוב ב-placeOrder
+      const sessionCoupon = result.session?.coupon_code ?? null;
+      let storedCoupon: string | null = null;
+      try {
+        storedCoupon = window.localStorage.getItem('kr:coupon');
+      } catch {
+        storedCoupon = null;
+      }
+      const codeToApply = sessionCoupon ?? storedCoupon;
+      if (result.ok && codeToApply) {
+        const applied = await applyCoupon(codeToApply);
+        if (applied.ok && applied.code) {
+          setCoupon({
+            code: applied.code,
+            discountAmount: applied.discountAmount ?? 0,
+            freeShipping: applied.freeShipping ?? false,
+          });
+        }
       }
       void recordCommerceEvent('checkout_started', {
         sessionKey: cart.sessionKey,
@@ -105,8 +132,32 @@ export function CheckoutClient() {
     [cart?.sessionKey, locale],
   );
 
-  const displayedTotal =
-    (bootstrap?.cart?.subtotal ?? 0) + (method && !method.isPickup ? method.price : 0);
+  const shippingShown =
+    method && !method.isPickup ? (coupon?.freeShipping ? 0 : method.price) : 0;
+  const displayedTotal = Math.max(
+    (bootstrap?.cart?.subtotal ?? 0) + shippingShown - (coupon?.discountAmount ?? 0),
+    0,
+  );
+
+  const handleApplyCoupon = useCallback(async (code: string) => {
+    const result = await applyCoupon(code);
+    if (result.ok && result.code) {
+      setCoupon({
+        code: result.code,
+        discountAmount: result.discountAmount ?? 0,
+        freeShipping: result.freeShipping ?? false,
+      });
+      setServerTotal(null);
+      void recordCommerceEvent('coupon_applied', { sessionKey: cart?.sessionKey ?? '', locale });
+    }
+    return result;
+  }, [cart?.sessionKey, locale]);
+
+  const handleRemoveCoupon = useCallback(async () => {
+    await removeCoupon();
+    setCoupon(null);
+    setServerTotal(null);
+  }, []);
 
   const submitOrder = useCallback(
     async (extras: ExtrasValues) => {
@@ -228,6 +279,10 @@ export function CheckoutClient() {
           open={openBlock === 'review'}
           reachable={contactDone && fulfillmentDone}
           paymentsEnabled={bootstrap.paymentsEnabled}
+          couponsEnabled={bootstrap.couponsEnabled}
+          coupon={coupon}
+          onApplyCoupon={handleApplyCoupon}
+          onRemoveCoupon={handleRemoveCoupon}
           installments={bootstrap.installments}
           supportPhone={bootstrap.supportPhone}
           initial={{
@@ -267,9 +322,17 @@ export function CheckoutClient() {
           <div className="flex justify-between text-ink-soft">
             <dt>{t('shipping')}</dt>
             <dd className="tabular-nums">
-              {method ? (method.price === 0 ? t('free') : formatPrice(method.price, locale)) : '—'}
+              {method ? (shippingShown === 0 ? t('free') : formatPrice(shippingShown, locale)) : '—'}
             </dd>
           </div>
+          {coupon && coupon.discountAmount > 0 ? (
+            <div className="flex justify-between text-ink-soft">
+              <dt>
+                {t('discount')} · <span dir="ltr">{coupon.code}</span>
+              </dt>
+              <dd className="tabular-nums">− {formatPrice(coupon.discountAmount, locale)}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between border-t border-rule pt-2 text-ink">
             <dt className="font-semibold">{t('total')}</dt>
             <dd className="font-serif text-h3 tabular-nums">

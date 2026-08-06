@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { FavouriteIcon } from '@/components/FavouriteIcon';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
 import { localized } from '@/lib/localized';
@@ -127,16 +128,7 @@ function FavouriteButton({
           : 'text-ink-soft opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
       }`}
     >
-      <svg viewBox="0 0 20 20" className="h-4.5 w-4.5" aria-hidden="true">
-        <path
-          d="M10 16.5S3 12.4 3 7.9A3.4 3.4 0 0 1 10 6a3.4 3.4 0 0 1 7 1.9c0 4.5-7 8.6-7 8.6Z"
-          fill={isFavourite ? 'currentColor' : 'none'}
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-          className={isFavourite ? 'origin-center animate-[fav_320ms_var(--ease-spring)]' : ''}
-        />
-      </svg>
+      <FavouriteIcon active={isFavourite} animate />
     </button>
   );
 }

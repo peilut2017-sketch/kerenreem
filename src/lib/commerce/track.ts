@@ -29,6 +29,7 @@ export interface TrackedOrder {
     | 'is_gift'
     | 'created_at'
     | 'locale'
+    | 'user_id'
   >;
   items: Pick<OrderItem, 'title_snapshot' | 'quantity' | 'unit_price' | 'line_total'>[];
   statusKey: string;

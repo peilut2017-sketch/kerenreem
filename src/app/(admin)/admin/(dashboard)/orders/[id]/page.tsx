@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { hasRole, requireRole } from '@/lib/admin/auth';
+import { requirePermission } from '@/lib/admin/auth';
+import { hasPermission } from '@/lib/admin/permissions';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { getOrderDetail } from '@/lib/admin/commerce-queries';
 import { formatPrice } from '@/lib/commerce/pricing';
@@ -55,14 +56,14 @@ function formatDateTime(value: string): string {
  * לקוח, תשלום, מסמכים, הודעות — וציר זמן מלא עם מבצע כל פעולה.
  */
 export default async function AdminOrderPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await requireRole('viewer');
+  const session = await requirePermission('store_view');
   const { id } = await params;
   const detail = await getOrderDetail(id);
   if (!detail) notFound();
 
   const { order, items, events, payments, documents, notifications } = detail;
-  const isAdmin = hasRole(session.profile.role, 'admin');
-  const canEdit = hasRole(session.profile.role, 'editor');
+  const isAdmin = hasPermission(session.profile.role, 'finance');
+  const canEdit = hasPermission(session.profile.role, 'store');
   const succeededCharge = payments.find((p) => p.kind === 'charge' && p.status === 'succeeded');
   const refundedTotal = payments
     .filter((p) => p.kind === 'refund' && p.status === 'succeeded')
@@ -278,6 +279,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               fulfillmentState: order.fulfillment_state,
               total: order.total,
               refundable: succeededCharge ? Number(succeededCharge.amount) - refundedTotal : 0,
+              actualShippingCost: order.actual_shipping_cost,
             }}
             isAdmin={isAdmin}
           />

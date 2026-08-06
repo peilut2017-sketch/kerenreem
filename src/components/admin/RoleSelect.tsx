@@ -2,13 +2,10 @@
 
 import { useId, useTransition } from 'react';
 import { updateProfileRole } from '@/lib/admin/settings-actions';
+import { ROLE_LABELS, ASSIGNABLE_ROLES } from '@/lib/admin/permissions';
 import type { UserRole } from '@/lib/supabase/types';
 
-const OPTIONS: { value: UserRole; label: string }[] = [
-  { value: 'viewer', label: 'צופה' },
-  { value: 'editor', label: 'עורך' },
-  { value: 'admin', label: 'מנהל' },
-];
+const OPTIONS: UserRole[] = [...ASSIGNABLE_ROLES, 'viewer'];
 
 export function RoleSelect({
   userId,
@@ -40,9 +37,9 @@ export function RoleSelect({
         }}
         className="field-input max-w-36 py-1.5"
       >
-        {OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
+        {OPTIONS.map((value) => (
+          <option key={value} value={value}>
+            {ROLE_LABELS[value]}
           </option>
         ))}
       </select>

@@ -34,9 +34,10 @@ export function computeTotals(
   shippingPrice: number,
   settings: Pick<StoreSettings, 'vat_mode' | 'vat_rate'>,
   donation: number = 0,
+  couponDiscount: number = 0,
 ): Totals {
   const subtotal = cart.subtotal;
-  const discountTotal = 0; // קופונים — שלב 10; השדה קיים כדי שהצילום שלם
+  const discountTotal = round2(Math.min(Math.max(couponDiscount, 0), subtotal));
   const shippingTotal = round2(shippingPrice);
   const donationAmount = round2(Math.max(donation, 0));
   const total = round2(subtotal - discountTotal + shippingTotal + donationAmount);
@@ -114,6 +115,7 @@ export interface CreateOrderInput {
   promisedDeliveryDate: string | null;
   address: ShippingAddress | null;
   taxRate: number;
+  coupon?: { id: string; code: string } | null;
   actor?: Actor;
 }
 
@@ -171,6 +173,8 @@ export async function createOrderFromSession(input: CreateOrderInput): Promise<C
     tax_total: totals.taxTotal,
     total: totals.total,
     currency: 'ILS',
+    coupon_id: input.coupon?.id ?? null,
+    coupon_code_snapshot: input.coupon?.code ?? null,
     fulfillment_type: input.shippingMethod?.isPickup ? 'pickup' : 'shipping',
     shipping_method_id: input.shippingMethod?.id ?? null,
     shipping_method_name_snapshot: input.shippingMethod?.name ?? null,
@@ -211,6 +215,14 @@ export async function createOrderFromSession(input: CreateOrderInput): Promise<C
   }
   if (!order) return { ok: false, error: 'db_error' };
 
+  // [1.1] צילום עלות ליחידה מ-book_costs (טבלה פרטית) — בסיס דוחות
+  // הרווחיות 17.14. ספר בלי שורת עלות ⇒ null ("ללא עלות מתועדת").
+  const { data: costRows } = await service
+    .from('book_costs')
+    .select('book_id, cost_price')
+    .in('book_id', activeLines.map((line) => line.bookId));
+  const costByBook = new Map((costRows ?? []).map((row) => [row.book_id, Number(row.cost_price)]));
+
   const itemsPayload = activeLines.map((line) => ({
     order_id: order.id,
     book_id: line.bookId,
@@ -223,6 +235,7 @@ export async function createOrderFromSession(input: CreateOrderInput): Promise<C
     tax_rate_snapshot: input.taxRate,
     line_total: line.lineTotal,
     is_preorder: line.isPreorder,
+    cost_price_snapshot: costByBook.get(line.bookId) ?? null,
   }));
 
   const { error: itemsError } = await service.from('order_items').insert(itemsPayload);

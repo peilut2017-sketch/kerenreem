@@ -70,6 +70,8 @@ export async function adjustStock(
     orderId?: string;
     actorId?: string;
     note?: string;
+    /** [1.1] מיקום מפורש (ריבוי מחסנים); null = המיקום הראשי */
+    locationId?: string | null;
   },
 ): Promise<StockOpResult & { onHand?: number }> {
   const { data, error } = await service.rpc('commerce_adjust_stock', {
@@ -80,6 +82,7 @@ export async function adjustStock(
     p_order_id: input.orderId ?? null,
     p_actor_id: input.actorId ?? null,
     p_note: input.note ?? null,
+    p_location_id: input.locationId ?? null,
   });
   if (error) {
     console.error('[commerce:inventory] adjust', error.message);
@@ -91,4 +94,32 @@ export async function adjustStock(
     reason: String(row?.reason ?? 'unknown'),
     onHand: typeof row?.on_hand === 'number' ? row.on_hand : undefined,
   };
+}
+
+/** [1.1] העברה אטומית בין מיקומים — transfer_out במקור + transfer_in ביעד. */
+export async function transferStock(
+  service: SupabaseClient,
+  input: {
+    bookId: string;
+    fromLocationId: string;
+    toLocationId: string;
+    qty: number;
+    actorId?: string;
+    note?: string;
+  },
+): Promise<StockOpResult> {
+  const { data, error } = await service.rpc('commerce_transfer_stock', {
+    p_book_id: input.bookId,
+    p_from_location: input.fromLocationId,
+    p_to_location: input.toLocationId,
+    p_qty: input.qty,
+    p_actor_id: input.actorId ?? null,
+    p_note: input.note ?? null,
+  });
+  if (error) {
+    console.error('[commerce:inventory] transfer', error.message);
+    return { ok: false, reason: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: Boolean(row?.ok), reason: String(row?.reason ?? 'unknown') };
 }

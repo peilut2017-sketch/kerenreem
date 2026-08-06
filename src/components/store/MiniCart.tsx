@@ -38,9 +38,25 @@ export function MiniCart() {
         cart.count > 0 ? (
           <div className="flex w-full flex-col gap-3">
             {view ? (
-              <div className="flex items-baseline justify-between text-small text-ink">
-                <span>{t('subtotal')}</span>
-                <strong className="font-serif text-h3">{formatPrice(view.cart.subtotal, locale)}</strong>
+              <div className="space-y-1.5">
+                {/* [1.1] הנחת קופון שהוזן בעגלה — מוצגת גם כאן (פרק 6.3) */}
+                {view.coupon?.ok && view.coupon.discountAmount > 0 ? (
+                  <div className="flex items-baseline justify-between text-caption text-gold-deep">
+                    <span>
+                      {t('discount')} · {view.coupon.code}
+                    </span>
+                    <span className="tabular-nums">−{formatPrice(view.coupon.discountAmount, locale)}</span>
+                  </div>
+                ) : null}
+                <div className="flex items-baseline justify-between text-small text-ink">
+                  <span>{t('subtotal')}</span>
+                  <strong className="font-serif text-h3">
+                    {formatPrice(
+                      Math.max(view.cart.subtotal - (view.coupon?.ok ? view.coupon.discountAmount : 0), 0),
+                      locale,
+                    )}
+                  </strong>
+                </div>
               </div>
             ) : null}
             <div className="flex gap-3">

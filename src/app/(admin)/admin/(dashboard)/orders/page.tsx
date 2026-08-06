@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requirePermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { listOrders, SAVED_VIEWS, type OrdersFilter } from '@/lib/admin/commerce-queries';
 import { formatPrice } from '@/lib/commerce/pricing';
@@ -21,7 +21,7 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<OrdersFilter>;
 }) {
-  await requireRole('viewer');
+  await requirePermission('store_view');
   const filter = await searchParams;
   const activeView = Object.entries(SAVED_VIEWS).find(([key, view]) => {
     const merged = { ...view.filter };

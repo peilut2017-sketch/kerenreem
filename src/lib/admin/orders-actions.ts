@@ -1,16 +1,17 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertRole } from './auth';
+import { assertPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
+  cancellationPath,
   isTransitionAllowed,
   recordOrderEvent,
   transitionOrder,
   type StateAxis,
 } from '@/lib/commerce/orders';
-import { adjustStock } from '@/lib/commerce/inventory';
+import { adjustStock, releaseStock, transferStock } from '@/lib/commerce/inventory';
 import { sendOrderEmail, type EmailTemplate } from '@/lib/commerce/notifications';
 import { refundTransaction } from '@/lib/commerce/morning';
 import type { Order } from '@/lib/supabase/types';
@@ -40,7 +41,8 @@ export async function staffTransitionOrder(
   axis: StateAxis,
   to: string,
 ): Promise<OrderActionResult> {
-  const session = await assertRole('editor');
+  // ציר האספקה פתוח גם למלקט; ציר ההזמנה — למנהלי חנות בלבד
+  const session = await assertPermission(axis === 'fulfillment_state' ? 'store_view' : 'store');
   if ('error' in session) return { ok: false, error: session.error };
 
   const service = createServiceClient();
@@ -50,6 +52,11 @@ export async function staffTransitionOrder(
   // ייעודיות עם הרשאות והגנות משלהן.
   if (axis === 'payment_state') {
     return { ok: false, error: 'שינוי מצב תשלום נעשה דרך הפעולות הייעודיות בלבד' };
+  }
+  // [1.1] ביטול אינו מעבר מצב רגיל — יש לו זרימה משלו (cancelOrder):
+  // הזמנה ששולמה חייבת זיכוי מלא לפני cancelled (תרשים 13).
+  if (axis === 'state' && (to === 'cancelled' || to === 'cancel_pending_refund')) {
+    return { ok: false, error: 'ביטול הזמנה נעשה דרך פעולת הביטול הייעודית' };
   }
 
   const result = await transitionOrder(service, orderId, axis, to, {
@@ -65,10 +72,72 @@ export async function staffTransitionOrder(
       to === 'shipped' ? 'shipped' : to === 'ready_for_pickup' ? 'ready_for_pickup' : null;
     if (template) await sendOrderEmail(service, template, result.order);
   }
-  if (axis === 'state' && to === 'cancelled' && result.order) {
-    await sendOrderEmail(service, 'cancelled', result.order);
+
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.1] ביטול הזמנה — תרשים 13 המתוקן:
+ * לא שולמה ⇒ cancelled מיידי + שחרור שמירות; שולמה ⇒ cancel_pending_refund,
+ * וה-cancelled נרשם רק כשהזיכוי המלא מצליח (refundOrder משלים אותו).
+ * פריטים שלא נשלחו חוזרים למלאי מיידית; פריטים שנשלחו — רק אחרי חזרה
+ * פיזית (תנועת return_restock נפרדת ממסך המלאי).
+ */
+export async function cancelOrder(orderId: string, reason: string): Promise<OrderActionResult> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+
+  const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
+  const path = cancellationPath(order.payment_state);
+
+  if (path === 'refund_first') {
+    // שולמה: נכנסים למצב ביניים; הזיכוי המלא (refundOrder) ישלים ל-cancelled
+    const result = await transitionOrder(service, orderId, 'state', 'cancel_pending_refund', actor, {
+      reason,
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+    await recordOrderEvent(service, orderId, 'cancel_approved', actor, { reason, awaiting: 'refund' });
+    revalidateOrders(orderId);
+    return { ok: true };
   }
 
+  // לא שולמה (או שכבר זוכתה במלואה): ביטול מיידי + טיפול מלאי לפי המצב
+  const result = await transitionOrder(service, orderId, 'state', 'cancelled', actor, { reason });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  const wasCommitted = path === 'already_refunded'; // המלאי הופחת בתשלום שקדם לזיכוי
+  const notShipped = !['shipped', 'delivered', 'fulfilled', 'returned'].includes(
+    order.fulfillment_state,
+  );
+  const { data: items } = await service
+    .from('order_items')
+    .select('book_id, quantity')
+    .eq('order_id', orderId);
+  for (const item of items ?? []) {
+    if (!item.book_id) continue;
+    if (wasCommitted) {
+      if (notShipped) {
+        await adjustStock(service, {
+          bookId: item.book_id,
+          delta: item.quantity,
+          moveType: 'cancel_restock',
+          reason: 'ביטול הזמנה שזוכתה — הפריטים לא נשלחו',
+          orderId,
+          actorId: session.userId,
+        });
+      }
+    } else {
+      await releaseStock(service, item.book_id, item.quantity, orderId);
+    }
+  }
+
+  if (result.order) await sendOrderEmail(service, 'cancelled', result.order);
   revalidateOrders(orderId);
   return { ok: true };
 }
@@ -78,7 +147,7 @@ export async function addTracking(
   orderId: string,
   input: { company: string; trackingNumber: string; trackingUrl?: string },
 ): Promise<OrderActionResult> {
-  const session = await assertRole('editor');
+  const session = await assertPermission('store_view');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -109,7 +178,7 @@ export async function addTracking(
 
 /** הערה פנימית — נשמרת בציר הזמן (order_events), לא על ההזמנה. */
 export async function addOrderNote(orderId: string, note: string): Promise<OrderActionResult> {
-  const session = await assertRole('editor');
+  const session = await assertPermission('store_view');
   if ('error' in session) return { ok: false, error: session.error };
   if (!note.trim()) return { ok: false, error: 'הערה ריקה' };
 
@@ -131,7 +200,7 @@ export async function addOrderNote(orderId: string, note: string): Promise<Order
  * audit + ציר זמן. יוצר רשומת payment מסוג manual_external.
  */
 export async function markManualPayment(orderId: string): Promise<OrderActionResult> {
-  const session = await assertRole('admin');
+  const session = await assertPermission('finance');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -190,7 +259,7 @@ export async function refundOrder(
   amount: number,
   reason: string,
 ): Promise<OrderActionResult> {
-  const session = await assertRole('admin');
+  const session = await assertPermission('finance');
   if ('error' in session) return { ok: false, error: session.error };
   if (!(amount > 0)) return { ok: false, error: 'סכום זיכוי לא תקין' };
 
@@ -255,19 +324,58 @@ export async function refundOrder(
 
   const { data: orderRow } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
   if (orderRow) {
+    const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
     await transitionOrder(
       service,
       orderId,
       'payment_state',
       fullyRefunded ? 'refunded' : 'partially_refunded',
-      { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
+      actor,
       { amount, reason },
     );
-    await recordOrderEvent(service, orderId, 'refund_issued', {
-      type: 'staff',
-      id: session.userId,
-    }, { amount, reason });
+    await recordOrderEvent(service, orderId, 'refund_issued', actor, { amount, reason });
     await sendOrderEmail(service, 'refunded', orderRow as Order, { refundAmount: amount });
+
+    // [1.1] השלמת ביטול שהמתין לזיכוי (תרשים 13): רק זיכוי *מלא* מעביר
+    // ל-cancelled. פריטים שלא נשלחו משוחררים מהשמירה מיידית; פריטים
+    // שנשלחו יחזרו למלאי רק בקבלה פיזית (return_restock ממסך המלאי).
+    if (fullyRefunded && orderRow.state === 'cancel_pending_refund') {
+      const done = await transitionOrder(service, orderId, 'state', 'cancelled', actor, {
+        refund_completed: true,
+      });
+      if (done.ok) {
+        // המלאי כבר הופחת בתשלום (commit) — לכן ההחזרה היא תנועת
+        // cancel_restock, ורק לפריטים שלא יצאו מהמחסן. מה שנשלח יחזור
+        // בתנועת return_restock בקבלה פיזית.
+        const notShipped = !['shipped', 'delivered', 'fulfilled', 'returned'].includes(
+          orderRow.fulfillment_state,
+        );
+        if (notShipped) {
+          const { data: items } = await service
+            .from('order_items')
+            .select('book_id, quantity')
+            .eq('order_id', orderId);
+          for (const item of items ?? []) {
+            if (!item.book_id) continue;
+            await adjustStock(service, {
+              bookId: item.book_id,
+              delta: item.quantity,
+              moveType: 'cancel_restock',
+              reason: 'ביטול לאחר זיכוי מלא — הפריטים לא נשלחו',
+              orderId,
+              actorId: session.userId,
+            });
+          }
+        }
+        if (done.order) await sendOrderEmail(service, 'cancelled', done.order);
+      }
+    } else if (!fullyRefunded && orderRow.state === 'cancel_pending_refund') {
+      // זיכוי חלקי אינו מבטל — ההזמנה נשארת בהמתנה, עם תיעוד מפורש
+      await recordOrderEvent(service, orderId, 'cancel_still_pending', actor, {
+        refunded_so_far: refunded,
+        charge_amount: Number(charge.amount),
+      });
+    }
   }
 
   const supabase = await createClient();
@@ -291,7 +399,7 @@ export async function resendOrderEmail(
   orderId: string,
   template: EmailTemplate,
 ): Promise<OrderActionResult> {
-  const session = await assertRole('editor');
+  const session = await assertPermission('store');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -316,8 +424,10 @@ export async function staffAdjustStock(input: {
   delta: number;
   moveType: 'receive' | 'return_restock' | 'damage' | 'manual_adjust' | 'count';
   reason: string;
+  /** [1.1] מיקום מפורש (ריבוי מחסנים); ריק = המיקום הראשי */
+  locationId?: string | null;
 }): Promise<OrderActionResult & { onHand?: number }> {
-  const session = await assertRole('editor');
+  const session = await assertPermission('store');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -328,6 +438,7 @@ export async function staffAdjustStock(input: {
     moveType: input.moveType,
     reason: input.reason,
     actorId: session.userId,
+    locationId: input.locationId ?? null,
   });
   if (!result.ok) {
     const messages: Record<string, string> = {
@@ -351,4 +462,103 @@ export async function staffAdjustStock(input: {
   }
   revalidatePath('/admin/inventory');
   return { ok: true, onHand: result.onHand };
+}
+
+/** [1.1] העברת מלאי בין מחסנים — תנועה כפולה אטומית (transfer_out/in). */
+export async function staffTransferStock(input: {
+  bookId: string;
+  fromLocationId: string;
+  toLocationId: string;
+  qty: number;
+  note?: string;
+}): Promise<OrderActionResult> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const result = await transferStock(service, {
+    bookId: input.bookId,
+    fromLocationId: input.fromLocationId,
+    toLocationId: input.toLocationId,
+    qty: input.qty,
+    actorId: session.userId,
+    note: input.note,
+  });
+  if (!result.ok) {
+    const messages: Record<string, string> = {
+      invalid_qty: 'כמות לא תקינה',
+      same_location: 'מיקום המקור והיעד זהים',
+      insufficient_at_source: 'אין מספיק מלאי פנוי במיקום המקור',
+    };
+    return { ok: false, error: messages[result.reason] ?? result.reason };
+  }
+
+  const supabase = await createClient();
+  if (supabase) {
+    await supabase.from('audit_log').insert({
+      user_id: session.userId,
+      action: 'stock_transfer',
+      table_name: 'books',
+      record_id: input.bookId,
+      new_values: { from: input.fromLocationId, to: input.toLocationId, qty: input.qty },
+    });
+  }
+  revalidatePath('/admin/inventory');
+  return { ok: true };
+}
+
+/** [1.1] הוספת מיקום מלאי (מחסן/נקודת איסוף) — מנהלי חנות. */
+export async function createStockLocation(input: {
+  name: string;
+  kind: 'warehouse' | 'office' | 'pickup_point' | 'distributor' | 'temp';
+}): Promise<OrderActionResult> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  const name = input.name.trim().slice(0, 80);
+  if (!name) return { ok: false, error: 'שם ריק' };
+
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const slug = `loc-${Date.now().toString(36)}`;
+  const { error } = await service.from('stock_locations').insert({
+    slug,
+    name,
+    kind: input.kind,
+    active: true,
+    sort_order: 100,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin/inventory');
+  return { ok: true };
+}
+
+/** [1.1] עלות משלוח בפועל להזמנה — מזינה את דוח פער המשלוח (17.14). */
+export async function setActualShippingCost(
+  orderId: string,
+  cost: number | null,
+): Promise<OrderActionResult> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (cost != null && !(cost >= 0)) return { ok: false, error: 'עלות לא תקינה' };
+
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { error } = await service
+    .from('orders')
+    .update({ actual_shipping_cost: cost })
+    .eq('id', orderId);
+  if (error) return { ok: false, error: error.message };
+
+  await recordOrderEvent(
+    service,
+    orderId,
+    'actual_shipping_cost_set',
+    { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
+    { cost },
+  );
+  revalidateOrders(orderId);
+  return { ok: true };
 }

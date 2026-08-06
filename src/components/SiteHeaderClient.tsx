@@ -8,6 +8,7 @@ import { LocaleSwitch } from './LocaleSwitch';
 import { SearchLauncher } from './SearchLauncher';
 import { MobileNav } from './MobileNav';
 import { CartIndicator } from './store/CartIndicator';
+import { AccountIndicator, FavouritesIndicator } from './store/HeaderQuickLinks';
 
 interface NavItem {
   href: string;
@@ -38,6 +39,7 @@ export function SiteHeaderClient({
   openLabel,
   closeLabel,
   searchLabel,
+  accountsEnabled = false,
 }: {
   logoUrl: string | null;
   siteName: string;
@@ -47,6 +49,7 @@ export function SiteHeaderClient({
   openLabel: string;
   closeLabel: string;
   searchLabel: string;
+  accountsEnabled?: boolean;
 }) {
   const { isFloating } = useHeaderState();
 
@@ -105,9 +108,11 @@ export function SiteHeaderClient({
 
           <NavLinks label={navLabel} items={navItems} compact={isFloating} />
 
-          <div className="ms-auto flex items-center gap-3 lg:ms-0">
-            {/* מונה הסל מוצג בכל שברי המסך; מרונדר רק כשהעגלה פעילה
-                (הרכיב מחזיר null בלי CartProvider או כשהדגל כבוי) */}
+          <div className="ms-auto flex items-center gap-1.5 sm:gap-2 lg:ms-0">
+            {/* הכניסות המהירות (1.1): ספר → "הספרים שאהבתי"; חשבון —
+                רק כשהחשבונות פעילים; מונה הסל — רק כשהעגלה פעילה */}
+            <FavouritesIndicator />
+            {accountsEnabled ? <AccountIndicator /> : null}
             <CartIndicator />
 
             {/* חיפוש אחרון בסדר ה-DOM ולא ראשון: ב-RTL זה מה שממקם אותו

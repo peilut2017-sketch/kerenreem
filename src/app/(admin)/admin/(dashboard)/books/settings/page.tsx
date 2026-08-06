@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/admin/auth';
+import { requirePermission } from '@/lib/admin/auth';
 import { getSettings, listBooks } from '@/lib/admin/queries';
 import { getStoreSettings } from '@/lib/commerce/settings';
 import { AdminHeader } from '@/components/admin/AdminList';
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * העיצוב). הגדרות הארגון (יצירת קשר, רשתות, לוגו) נשארות ב-/admin/settings.
  */
 export default async function BooksSettingsPage() {
-  await requireRole('admin');
+  await requirePermission('finance');
   const [settings, storeSettings, books] = await Promise.all([
     getSettings(),
     getStoreSettings(),

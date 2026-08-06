@@ -6,7 +6,9 @@ import { getTrackedOrder } from '@/lib/commerce/track';
 import { allowRequest, ipBucket } from '@/lib/commerce/rate-limit';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
-import { getStoreSettings } from '@/lib/commerce/settings';
+import { getCommerceFlags, getStoreSettings } from '@/lib/commerce/settings';
+import { TrackCancelRequest } from '@/components/store/TrackCancelRequest';
+import { Link } from '@/i18n/navigation';
 
 /**
  * עמוד המעקב הממותג לאורח (פרק 16.1): זיהוי בטוקן חד-פעמי מהמייל,
@@ -69,7 +71,11 @@ export default async function TrackOrderPage({
   }
 
   const { order, items, statusKey, documentUrl } = tracked;
-  const settings = await getStoreSettings();
+  const [settings, flags] = await Promise.all([getStoreSettings(), getCommerceFlags()]);
+  const cancelEligible =
+    flags.returnsEnabled &&
+    ['pending', 'confirmed'].includes(order.state) &&
+    ['unfulfilled', 'preparing'].includes(order.fulfillment_state);
   const isPickup = order.fulfillment_type === 'pickup';
   const cancelled = statusKey === 'statusCancelled' || statusKey === 'statusRefunded';
   const steps = stepsFor(statusKey, isPickup);
@@ -162,6 +168,20 @@ export default async function TrackOrderPage({
           </p>
         ) : null}
       </section>
+
+      {cancelEligible ? <TrackCancelRequest token={token} /> : null}
+
+      {/* [1.1] עוגן ה-Claim הבטוח: הטוקן שבידי הלקוח מוכיח את הזמנת
+          המקור — ההצעה לחשבון עוברת אותו הלאה (תרשים 18) */}
+      {flags.accountsEnabled && !order.user_id && !cancelled ? (
+        <div className="mt-8 rounded-[var(--radius-lg)] border border-gold/40 bg-gold/10 px-6 py-5 text-center">
+          <p className="font-serif text-h3 text-ink">{t('accountOfferTitle')}</p>
+          <p className="mt-1.5 text-small text-muted">{t('accountOfferBody')}</p>
+          <Link href={`/account/login?claim=${token}`} className="btn btn-solid mt-4 inline-block">
+            {t('accountOfferCta')}
+          </Link>
+        </div>
+      ) : null}
 
       {settings.support_phone ? (
         <p className="mt-6 text-center text-caption text-muted">

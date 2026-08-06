@@ -22,6 +22,14 @@ export type AdminIconName =
   | 'banners'
   | 'analytics'
   | 'store'
+  | 'orders'
+  | 'inventory'
+  | 'shipping'
+  | 'coupon'
+  | 'team'
+  | 'finance'
+  | 'warehouse'
+  | 'transfer'
   | 'edit'
   | 'view'
   | 'external'
@@ -144,6 +152,73 @@ const PATHS: Record<AdminIconName, React.ReactNode> = {
       <path d="M4 9.5a2.5 2.5 0 0 0 5 .3 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5-.3" />
       <path d="M5.5 9.5V20h13V9.5" />
       <path d="M10 20v-5.5h4V20" />
+    </>
+  ),
+  // הזמנות — תעודת משלוח עם וי
+  orders: (
+    <>
+      <path d="M6 3.5h9l3.5 3.5v12A1.5 1.5 0 0 1 17 20.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5Z" />
+      <path d="M14.5 3.5V7.5h4" />
+      <path d="m8 13 2.2 2.2L15 10.5" />
+    </>
+  ),
+  // מלאי — ערימת ארגזים
+  inventory: (
+    <>
+      <rect x="3.5" y="12.5" width="8" height="8" rx="1" />
+      <rect x="12.5" y="12.5" width="8" height="8" rx="1" />
+      <rect x="8" y="3.5" width="8" height="8" rx="1" />
+      <path d="M12 3.5v3M7.5 12.5v3M16.5 12.5v3" />
+    </>
+  ),
+  // משלוחים — משאית
+  shipping: (
+    <>
+      <path d="M2.5 6.5h11v10h-11Z" />
+      <path d="M13.5 9.5h4l3 3.5v3.5h-7" />
+      <circle cx="6.5" cy="18.5" r="1.8" />
+      <circle cx="16.5" cy="18.5" r="1.8" />
+    </>
+  ),
+  // קופון — כרטיס עם ניקוב
+  coupon: (
+    <>
+      <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1.5a2.5 2.5 0 0 0 0 5V16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5a2.5 2.5 0 0 0 0-5Z" />
+      <path d="M13.5 6v2M13.5 11v2M13.5 16v2" strokeDasharray="0.1 3" />
+    </>
+  ),
+  // צוות — שני אנשים
+  team: (
+    <>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" />
+      <circle cx="16.8" cy="9.5" r="2.4" />
+      <path d="M16 14.2c2.9.2 5 2.3 5 5.3" />
+    </>
+  ),
+  // כספים — מטבעות
+  finance: (
+    <>
+      <ellipse cx="9" cy="6.5" rx="6" ry="2.8" />
+      <path d="M3 6.5v5c0 1.5 2.7 2.8 6 2.8s6-1.3 6-2.8v-5" />
+      <path d="M3 11.5v5c0 1.5 2.7 2.8 6 2.8 1.2 0 2.3-.2 3.2-.5" />
+      <circle cx="17" cy="16" r="4.2" />
+      <path d="M17 14v4M15.5 15.2h3" />
+    </>
+  ),
+  // מחסן — מבנה עם מדפים
+  warehouse: (
+    <>
+      <path d="M3 20V9l9-5 9 5v11" />
+      <path d="M7 20v-7h10v7" />
+      <path d="M7 16.5h10M12 13v7" />
+    </>
+  ),
+  // העברה בין מיקומים — חצים דו-כיווניים
+  transfer: (
+    <>
+      <path d="M8 7h12M17 4l3 3-3 3" />
+      <path d="M16 17H4M7 14l-3 3 3 3" />
     </>
   ),
   edit: (

@@ -4,9 +4,11 @@ import { useState, useTransition } from 'react';
 import {
   addOrderNote,
   addTracking,
+  cancelOrder,
   markManualPayment,
   refundOrder,
   resendOrderEmail,
+  setActualShippingCost,
   staffTransitionOrder,
 } from '@/lib/admin/orders-actions';
 import {
@@ -32,6 +34,7 @@ export function OrderActionsPanel({
     fulfillmentState: FulfillmentState;
     total: number;
     refundable: number;
+    actualShippingCost?: number | null;
   };
   isAdmin: boolean;
 }) {
@@ -41,6 +44,9 @@ export function OrderActionsPanel({
   const [tracking, setTracking] = useState({ company: '', trackingNumber: '', trackingUrl: '' });
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
+  const [actualShipping, setActualShipping] = useState(
+    order.actualShippingCost != null ? String(order.actualShippingCost) : '',
+  );
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>, confirmText?: string) {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -50,9 +56,12 @@ export function OrderActionsPanel({
     });
   }
 
+  // ביטול אינו מוצע כמעבר רגיל — יש לו זרימה משלו (תרשים 13 המתוקן)
   const stateTargets = (ORDER_STATE_TRANSITIONS[order.state] ?? []).filter(
-    (target) => target !== 'cancelled',
+    (target) => target !== 'cancelled' && target !== 'cancel_pending_refund',
   );
+  const paidNeedsRefund = ['paid', 'partially_refunded'].includes(order.paymentState);
+  const awaitingRefund = order.state === 'cancel_pending_refund';
   const fulfillmentTargets = (FULFILLMENT_STATE_TRANSITIONS[order.fulfillmentState] ?? []).filter(
     (target) => target !== 'partially_fulfilled' && target !== 'shipped',
   );
@@ -85,17 +94,27 @@ export function OrderActionsPanel({
             <button
               type="button"
               disabled={pending}
-              onClick={() =>
-                run(
-                  () => staffTransitionOrder(order.id, 'state', 'cancelled'),
-                  'לבטל את ההזמנה? אם שולמה — יש לבצע זיכוי בנפרד.',
-                )
-              }
+              onClick={() => {
+                const reason = window.prompt(
+                  paidNeedsRefund
+                    ? 'סיבת הביטול? ההזמנה שולמה — היא תמתין במצב "ממתינה לזיכוי" ותבוטל סופית רק אחרי זיכוי מלא (תרשים 13).'
+                    : 'סיבת הביטול?',
+                );
+                if (reason === null) return;
+                run(() => cancelOrder(order.id, reason.trim() || 'ללא סיבה'));
+              }}
               className="admin-btn admin-btn-danger"
             >
               ביטול הזמנה
             </button>
           </div>
+        ) : null}
+
+        {awaitingRefund ? (
+          <p role="status" className="mb-4 rounded-[var(--radius-sm)] bg-[var(--admin-warning-soft)] px-3 py-2.5 text-caption text-[var(--admin-warning)]">
+            אושר ביטול — ההזמנה תעבור ל"בוטלה" אוטומטית כשהזיכוי המלא יצליח.
+            זיכוי חלקי אינו מבטל.
+          </p>
         ) : null}
 
         {/* מעברי ציר האספקה */}
@@ -216,6 +235,40 @@ export function OrderActionsPanel({
             >
               ביצוע זיכוי
             </button>
+          </div>
+        ) : null}
+
+        {/* [1.1] עלות המשלוח בפועל — מזינה את דוח פער המשלוח (17.14) */}
+        {isAdmin ? (
+          <div className="mb-2 space-y-2 border-t border-rule pt-3">
+            <p className="text-caption font-semibold text-ink">עלות משלוח בפועל (לדוח הרווחיות)</p>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                dir="ltr"
+                min={0}
+                step={0.01}
+                placeholder='מה שולם לחברת המשלוחים בש"ח'
+                value={actualShipping}
+                onChange={(e) => setActualShipping(e.target.value)}
+                className="admin-field-input"
+              />
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  run(() =>
+                    setActualShippingCost(
+                      order.id,
+                      actualShipping.trim() === '' ? null : Number(actualShipping),
+                    ),
+                  )
+                }
+                className="admin-btn admin-btn-quiet shrink-0"
+              >
+                שמירה
+              </button>
+            </div>
           </div>
         ) : null}
       </section>

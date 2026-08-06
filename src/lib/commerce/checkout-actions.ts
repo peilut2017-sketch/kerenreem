@@ -19,6 +19,7 @@ import { allowRequest, ipBucket } from './rate-limit';
 import { startPayment } from './payments';
 import { sendOrderEmail } from './notifications';
 import { recordOrderEvent } from './orders';
+import { recordRedemption, validateCoupon, type CouponError } from './coupons';
 
 /**
  * פעולות ה-Checkout (תרשימים 4–7). העיקרון: הדפדפן שולח כוונות; כל
@@ -62,6 +63,7 @@ export interface CheckoutBootstrap {
   enabled: boolean;
   paymentsEnabled: boolean;
   expressEnabled: boolean;
+  couponsEnabled: boolean;
   sessionId: string | null;
   session: Pick<
     CheckoutSessionRecord,
@@ -75,6 +77,7 @@ export interface CheckoutBootstrap {
     | 'gift_hide_prices'
     | 'notify_channel'
     | 'status'
+    | 'coupon_code'
   > | null;
   cart: ValidatedCart | null;
   methods: MethodOption[];
@@ -130,6 +133,7 @@ export async function startCheckout(
     enabled: false,
     paymentsEnabled: false,
     expressEnabled: false,
+    couponsEnabled: false,
     sessionId: null,
     session: null,
     cart: null,
@@ -182,6 +186,7 @@ export async function startCheckout(
     enabled: true,
     paymentsEnabled: flags.paymentsEnabled,
     expressEnabled: flags.expressEnabled,
+    couponsEnabled: flags.couponsEnabled,
     sessionId: session.id,
     session: {
       contact_name: session.contact_name,
@@ -194,6 +199,7 @@ export async function startCheckout(
       gift_hide_prices: session.gift_hide_prices,
       notify_channel: session.notify_channel,
       status: session.status,
+      coupon_code: session.coupon_code,
     },
     cart,
     methods: await buildMethodOptions(cart, locale),
@@ -294,6 +300,68 @@ export async function saveExtras(input: {
   return { ok: Boolean(updated) };
 }
 
+export interface CouponActionResult {
+  ok: boolean;
+  error?: CouponError;
+  minTotal?: number;
+  code?: string;
+  discountAmount?: number;
+  freeShipping?: boolean;
+}
+
+/** החלת קופון על ה-session — אימות מלא בשרת; הקוד נשמר ומאומת שוב ב-placeOrder. */
+export async function applyCoupon(code: string): Promise<CouponActionResult> {
+  const flags = await getCommerceFlags();
+  if (!flags.couponsEnabled) return { ok: false, error: 'invalid' };
+
+  const sessionId = await readSessionId();
+  if (!sessionId) return { ok: false, error: 'invalid' };
+  const session = await loadSession(sessionId);
+  if (!session) return { ok: false, error: 'invalid' };
+
+  const headerList = await headers();
+  if (!(await allowRequest(ipBucket('coupon-apply', headerList), 10, 60))) {
+    return { ok: false, error: 'invalid' };
+  }
+
+  const cart = await validateCart(
+    session.items.map((item) => ({ bookId: item.book_id, quantity: item.quantity })),
+    session.locale,
+  );
+  const result = await validateCoupon(code, cart, session.contact_phone);
+  if (!result.ok || !result.coupon) {
+    return { ok: false, error: result.error ?? 'invalid', minTotal: result.minTotal };
+  }
+
+  // [1.1] צבירת קופונים (הכרעה 13): קופון שני על session שכבר מחזיק קופון
+  // אחר נחסם אלא אם *שניהם* מסומנים "ניתן לצירוף". ברירת המחדל: לא.
+  // (צבירה בפועל של שני קופונים צבירים תגיע עם מנוע ה-promotions; עד אז
+  // צבירים מחליפים זה את זה במפורש, לא-צבירים נחסמים עם הסבר.)
+  const existingCode = session.coupon_code?.toUpperCase() ?? null;
+  if (existingCode && existingCode !== result.coupon.code) {
+    const existing = await validateCoupon(existingCode, cart, session.contact_phone);
+    const bothCombinable =
+      Boolean(existing.coupon?.combinable_with_coupons) &&
+      Boolean(result.coupon.combinable_with_coupons);
+    if (existing.ok && !bothCombinable) {
+      return { ok: false, error: 'not_combinable' };
+    }
+  }
+
+  await updateSession(sessionId, { coupon_code: result.coupon.code });
+  return {
+    ok: true,
+    code: result.coupon.code,
+    discountAmount: result.discountAmount,
+    freeShipping: result.freeShipping,
+  };
+}
+
+export async function removeCoupon(): Promise<void> {
+  const sessionId = await readSessionId();
+  if (sessionId) await updateSession(sessionId, { coupon_code: null });
+}
+
 export interface PlaceOrderResult {
   ok: boolean;
   mode?: 'redirect_to_payment' | 'created_no_payment';
@@ -351,7 +419,25 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   const method = methods.find((m) => m.id === fulfillment.method_id);
   if (!method) return { ok: false, error: 'fulfillment' };
 
-  const totals = computeTotals(cart, method.price, settings, session.donation_amount ?? 0);
+  // קופון שנשמר ב-session מאומת שוב ברגע האמת — תוקף/מלאי/מגבלות יכלו להשתנות
+  let couponDiscount = 0;
+  let couponFreeShipping = false;
+  let coupon: { id: string; code: string } | null = null;
+  if (session.coupon_code) {
+    const couponResult = await validateCoupon(session.coupon_code, cart, session.contact_phone);
+    if (couponResult.ok && couponResult.coupon) {
+      couponDiscount = couponResult.discountAmount;
+      couponFreeShipping = couponResult.freeShipping;
+      coupon = { id: couponResult.coupon.id, code: couponResult.coupon.code };
+    } else {
+      // הקופון פג בין הסקירה לתשלום — עצירה מפורשת, לא חיוב שקט בלעדיו
+      await updateSession(sessionId, { coupon_code: null });
+      return { ok: false, error: 'total_changed', serverTotal: undefined };
+    }
+  }
+
+  const shippingPrice = couponFreeShipping && !method.isPickup ? 0 : method.price;
+  const totals = computeTotals(cart, shippingPrice, settings, session.donation_amount ?? 0, couponDiscount);
 
   // הסכום שהוצג ללקוח מול המחושב עכשיו — פער עוצר, לא מחייב בשקט
   if (Math.abs(totals.total - input.displayedTotal) >= 0.01) {
@@ -380,6 +466,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
     promisedDeliveryDate: method.promisedDate,
     address,
     taxRate: settings.vat_mode === 'included' ? settings.vat_rate : 0,
+    coupon,
   });
 
   if (!created.ok || !created.order) {
@@ -394,6 +481,16 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   const trackUrl = created.guestToken
     ? `${siteUrl}/orders/track/${created.guestToken}`
     : undefined;
+
+  if (service && coupon && session.contact_phone) {
+    await recordRedemption(service, {
+      couponId: coupon.id,
+      orderId: created.order.id,
+      customerId: session.customer_id,
+      contactPhone: session.contact_phone,
+      amountDiscounted: couponDiscount,
+    });
+  }
 
   if (service) {
     await sendOrderEmail(service, 'order_confirmation', created.order, {
@@ -475,6 +572,7 @@ export interface ResultState {
   fulfillmentType?: string;
   promisedDateLabel?: string | null;
   supportPhone?: string | null;
+  accountsEnabled?: boolean;
 }
 
 /**
@@ -497,6 +595,7 @@ export async function getResultState(): Promise<ResultState> {
   if (!order) return { found: false };
 
   const settings = await getStoreSettings();
+  const flags = await getCommerceFlags();
   return {
     found: true,
     orderNumber: order.order_number,
@@ -507,6 +606,7 @@ export async function getResultState(): Promise<ResultState> {
       ? formatPromisedDate(new Date(order.promised_delivery_date), order.locale)
       : null,
     supportPhone: settings.support_phone,
+    accountsEnabled: flags.accountsEnabled,
   };
 }
 

@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslations } from 'next-intl';
-import { useLocalMap } from '@/lib/client-hooks';
+import { useLocalMap, useLocalValue } from '@/lib/client-hooks';
 import { getCartView, type CartViewModel } from '@/lib/commerce/cart-actions';
 import { recordCommerceEvent } from '@/lib/commerce/events-actions';
 
@@ -24,6 +24,7 @@ import { recordCommerceEvent } from '@/lib/commerce/events-actions';
 
 const CART_KEY = 'kr:cart';
 const SESSION_KEY = 'kr:session';
+const COUPON_KEY = 'kr:coupon';
 
 export interface CartContextValue {
   enabled: boolean;
@@ -39,6 +40,10 @@ export interface CartContextValue {
   openMiniCart: () => void;
   closeMiniCart: () => void;
   sessionKey: string;
+  /** [1.1] קוד הקופון שהוזן בעגלה — נשמר במכשיר ונודד ל-Checkout */
+  couponCode: string | null;
+  setCouponCode: (code: string) => void;
+  clearCoupon: () => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -72,6 +77,7 @@ export function CartProvider({
 }) {
   const t = useTranslations('store');
   const { map, set, clear: clearEntry } = useLocalMap(CART_KEY);
+  const { value: couponCode, set: setCouponValue, clear: clearCouponValue } = useLocalValue(COUPON_KEY);
   const [view, setView] = useState<CartViewModel | null>(null);
   const [loading, setLoading] = useState(false);
   const [miniCartOpen, setMiniCartOpen] = useState(false);
@@ -103,7 +109,7 @@ export function CartProvider({
         const previousPrices = Object.fromEntries(
           (view?.cart.lines ?? []).map((line) => [line.bookId, line.unitPrice]),
         );
-        const next = await getCartView(items, locale, previousPrices);
+        const next = await getCartView(items, locale, previousPrices, couponCode);
         if (requestId.current === id) setView(next);
       } catch {
         /* כשל רשת — הסכום הישן נשאר מוצג; הניסיון הבא יעדכן */
@@ -114,7 +120,7 @@ export function CartProvider({
     return () => clearTimeout(timer);
     // view מכוון להיעדר: הוא משמש רק כמקור "המחיר שהוצג" להשוואה
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, items, locale]);
+  }, [enabled, items, locale, couponCode]);
 
   const effectiveView = items.length === 0 ? null : view;
 
@@ -174,6 +180,15 @@ export function CartProvider({
     },
     closeMiniCart: () => setMiniCartOpen(false),
     sessionKey,
+    couponCode,
+    setCouponCode: (code: string) => {
+      const normalized = code.trim().toUpperCase().slice(0, 40);
+      if (normalized) {
+        setCouponValue(normalized);
+        void recordCommerceEvent('coupon_applied', { sessionKey, locale });
+      }
+    },
+    clearCoupon: clearCouponValue,
   };
 
   return (

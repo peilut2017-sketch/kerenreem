@@ -169,6 +169,22 @@ async function sendViaProvider(
 }
 
 /**
+ * [1.1] מייל חופשי (לא תלוי-הזמנה) — הזמנת איש צוות, התראות תפעול.
+ * אותו ספק ואותה עטיפת RTL; בלי notification_log (אין הזמנה לתלות בה).
+ */
+export async function sendPlainEmail(
+  to: string,
+  subject: string,
+  html: string,
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  const result = await sendViaProvider(to, { subject, html });
+  if (!result.ok && !result.skipped) {
+    console.error('[commerce:notifications] plain email', result.error);
+  }
+  return { ok: result.ok, skipped: result.skipped, error: result.error };
+}
+
+/**
  * שליחת מייל הזמנה עם תיעוד ו-idempotency. מחזירה בשקט כשכבר נשלח.
  * ההזמנה מתנה — ההודעות תמיד למזמין; דבר אינו נשלח לנמען המתנה.
  */
