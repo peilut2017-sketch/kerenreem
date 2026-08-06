@@ -6,6 +6,7 @@ import { BookCover } from '../BookCover';
 import { localized } from '@/lib/localized';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { resolveBookBadge } from '@/lib/books/badge';
+import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
 import type { BookWithRelations } from '@/lib/supabase/types';
 
 /**
@@ -36,6 +37,7 @@ export function BookCard({
   const author = resolveBookAuthor(book, locale);
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
   const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
+  const price = storeEnabled ? getEffectivePrice(book, locale) : null;
 
   return (
     <article className="card card-interactive group relative flex h-full flex-col focus-within:ring-2 focus-within:ring-gold/50">
@@ -88,13 +90,12 @@ export function BookCard({
             </span>
           ) : null}
 
-          {storeEnabled && book.price !== null && book.price !== undefined ? (
-            <span className="ms-auto font-serif text-[1.05rem] text-ink tabular-nums">
-              {new Intl.NumberFormat(locale === 'he' ? 'he-IL' : 'en-GB', {
-                style: 'currency',
-                currency: book.currency ?? 'ILS',
-                maximumFractionDigits: 0,
-              }).format(Number(book.price))}
+          {price ? (
+            <span className="ms-auto inline-flex items-baseline gap-1.5 font-serif text-[1.05rem] text-ink tabular-nums">
+              {price.onSale && price.originalAmount != null ? (
+                <s className="text-caption text-muted">{formatPrice(price.originalAmount, locale)}</s>
+              ) : null}
+              {formatPrice(price.amount, locale)}
             </span>
           ) : null}
         </div>

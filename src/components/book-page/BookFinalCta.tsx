@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { BookCover } from '@/components/BookCover';
 import { useLocalList } from '@/lib/client-hooks';
+import { AddToCartButton } from '../store/AddToCartButton';
 import type { BookAvailability } from '@/lib/supabase/types';
 
 /**
@@ -28,12 +29,6 @@ export function BookFinalCta({
   const t = useTranslations('books');
   const { has, toggle } = useLocalList('kr:favourites');
   const isFavourite = has(bookId);
-  const buyLabel =
-    availability === 'preorder'
-      ? t('addToCartPreorder')
-      : availability === 'out_of_stock'
-        ? t('outOfStock')
-        : t('addToCart');
 
   return (
     <section
@@ -53,9 +48,7 @@ export function BookFinalCta({
 
       <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
         {showBuy ? (
-          <button type="button" disabled={availability === 'out_of_stock'} className="btn btn-solid">
-            {buyLabel}
-          </button>
+          <AddToCartButton bookId={bookId} title={title} availability={availability} />
         ) : null}
         <button
           type="button"

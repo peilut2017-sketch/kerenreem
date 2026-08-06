@@ -54,6 +54,16 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/books/settings', label: 'הגדרות קטלוג וחנות', icon: 'store', minRole: 'admin' },
     ],
   },
+  {
+    type: 'group',
+    label: 'חנות',
+    icon: 'store',
+    minRole: 'viewer',
+    items: [
+      { href: '/admin/orders', label: 'הזמנות', icon: 'store', minRole: 'viewer' },
+      { href: '/admin/inventory', label: 'מלאי', icon: 'columns', minRole: 'editor' },
+    ],
+  },
   { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', minRole: 'viewer' },
   { type: 'link', href: '/admin/events', label: 'אירועים', icon: 'events', minRole: 'viewer' },
   { type: 'link', href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', minRole: 'viewer' },

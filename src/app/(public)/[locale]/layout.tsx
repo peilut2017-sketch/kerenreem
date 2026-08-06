@@ -5,6 +5,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { FONT_VARIABLES } from '@/lib/fonts';
 import { routing, localeDirection, type Locale } from '@/i18n/routing';
 import { getSiteSettings } from '@/lib/data';
+import { getCommerceFlags } from '@/lib/commerce/settings';
+import { CartProvider } from '@/components/store/CartProvider';
+import { MiniCart } from '@/components/store/MiniCart';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { AccessibilityWidget } from '@/components/AccessibilityWidget';
@@ -65,7 +68,11 @@ export default async function PublicLayout({
 
   setRequestLocale(locale);
 
-  const [settings, t] = await Promise.all([getSiteSettings(), getTranslations('site')]);
+  const [settings, flags, t] = await Promise.all([
+    getSiteSettings(),
+    getCommerceFlags(),
+    getTranslations('site'),
+  ]);
   const dir = localeDirection[locale as Locale];
 
   return (
@@ -76,18 +83,21 @@ export default async function PublicLayout({
       </head>
       <body>
         <NextIntlClientProvider>
-          <a href="#main" className="skip-link">
-            {t('skipToContent')}
-          </a>
-          <SiteHeader settings={settings} />
-          <main id="main" className="flex-1">
-            {children}
-          </main>
-          <SiteFooter settings={settings} locale={locale} />
-          <AccessibilityWidget />
-          <BackToTop />
-          <AnalyticsBeacon />
-          <CookieConsentBanner />
+          <CartProvider enabled={flags.cartEnabled} locale={locale}>
+            <a href="#main" className="skip-link">
+              {t('skipToContent')}
+            </a>
+            <SiteHeader settings={settings} />
+            <main id="main" className="flex-1">
+              {children}
+            </main>
+            <SiteFooter settings={settings} locale={locale} />
+            <AccessibilityWidget />
+            <BackToTop />
+            <AnalyticsBeacon />
+            <CookieConsentBanner />
+            <MiniCart />
+          </CartProvider>
         </NextIntlClientProvider>
         <GoogleAnalytics />
       </body>
