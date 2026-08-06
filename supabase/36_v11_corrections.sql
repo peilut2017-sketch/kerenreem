@@ -324,7 +324,7 @@ begin
     return query select false, 'zero_delta', 0; return;
   end if;
 
-  select coalesce(p_location_id, (select id from stock_locations where is_default))
+  select coalesce(p_location_id, (select sl.id from stock_locations sl where sl.is_default))
     into v_location;
   if v_location is null then
     return query select false, 'no_location', 0; return;
@@ -334,8 +334,8 @@ begin
   values (p_book_id, v_location)
   on conflict (book_id, location_id) do nothing;
 
-  select * into v_level from inventory_levels
-  where book_id = p_book_id and location_id = v_location
+  select * into v_level from inventory_levels il
+  where il.book_id = p_book_id and il.location_id = v_location
   for update;
 
   if v_level.on_hand + p_delta < 0 then
@@ -354,12 +354,13 @@ begin
      v_level.on_hand, v_level.on_hand + p_delta, v_level.reserved, v_level.reserved,
      p_reason, p_order_id, case when p_actor_id is null then 'system' else 'staff' end, p_actor_id, p_note);
 
-  update inventory_levels set on_hand = on_hand + p_delta
-  where book_id = p_book_id and location_id = v_location;
+  -- הסמכה מפורשת (il.on_hand): בלעדיה הביטוי מתנגש בפרמטר הפלט בשם
+  -- on_hand ו-Postgres נכשל ב-42702 "column reference is ambiguous"
+  update inventory_levels il
+  set on_hand = il.on_hand + p_delta
+  where il.book_id = p_book_id and il.location_id = v_location;
 
-  return query select true, 'ok',
-    (select il.on_hand from inventory_levels il
-     where il.book_id = p_book_id and il.location_id = v_location);
+  return query select true, 'ok', v_level.on_hand + p_delta;
 end $$;
 
 revoke all on function public.commerce_adjust_stock(uuid, int, text, text, uuid, uuid, text, uuid)

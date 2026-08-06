@@ -112,7 +112,7 @@ export function OrderActionsPanel({
 
         {awaitingRefund ? (
           <p role="status" className="mb-4 rounded-[var(--radius-sm)] bg-[var(--admin-warning-soft)] px-3 py-2.5 text-caption text-[var(--admin-warning)]">
-            אושר ביטול — ההזמנה תעבור ל"בוטלה" אוטומטית כשהזיכוי המלא יצליח.
+            אושר ביטול — ההזמנה תעבור אוטומטית למצב ״בוטלה״ כשהזיכוי המלא יצליח.
             זיכוי חלקי אינו מבטל.
           </p>
         ) : null}
