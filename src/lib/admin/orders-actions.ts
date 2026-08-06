@@ -446,6 +446,7 @@ export async function staffAdjustStock(input: {
       below_reserved: 'התנועה הייתה מורידה את המלאי מתחת לכמות השמורה',
       invalid_move_type: 'סוג תנועה לא מוכר',
       zero_delta: 'כמות אפס',
+      no_location: 'לא הוגדר מיקום מלאי ראשי — יש להגדיר מחסן בהגדרות המלאי',
     };
     return { ok: false, error: messages[result.reason] ?? result.reason };
   }
