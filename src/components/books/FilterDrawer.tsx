@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Drawer } from '../Drawer';
 import { localized } from '@/lib/localized';
+import { formatPrice } from '@/lib/commerce/pricing';
 import { countActiveFilters, type Filters } from '@/lib/book-search';
 import type { Author, AttributeWithValues, Tag } from '@/lib/supabase/types';
 
@@ -277,7 +278,9 @@ export function FilterDrawer({
                   onChange={(event) => set('priceMax', Number(event.target.value))}
                   className="flex-1 accent-[var(--color-burgundy)]"
                 />
-                <span className="w-16 text-end tabular-nums">{filters.priceMax ?? maxPrice} ₪</span>
+                <span className="w-16 text-end tabular-nums">
+                  {formatPrice(filters.priceMax ?? maxPrice, locale)}
+                </span>
               </label>
             </Group>
           ) : null}

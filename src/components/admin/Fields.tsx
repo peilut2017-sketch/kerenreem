@@ -64,6 +64,9 @@ export function TextField({
   dir,
   placeholder,
   icon,
+  min,
+  max,
+  step,
   ...props
 }: BaseProps & {
   defaultValue?: string | number | null;
@@ -72,6 +75,10 @@ export function TextField({
   placeholder?: string;
   /** אייקון מוביל ברשות — לשדות שבהם הוא מוסיף זיהוי מהיר (חיפוש, קישור, תאריך) */
   icon?: AdminIconName;
+  /** גבולות לשדות מספריים — מחיר ומלאי אינם שליליים, מלאי הוא שלם */
+  min?: number;
+  max?: number;
+  step?: number | 'any';
 }) {
   const id = useId();
   return (
@@ -90,6 +97,9 @@ export function TextField({
           dir={dir}
           placeholder={placeholder}
           required={props.required}
+          min={min}
+          max={max}
+          step={step}
           defaultValue={defaultValue ?? ''}
           aria-invalid={props.error ? true : undefined}
           aria-describedby={describedBy(id, props.hint, props.error)}

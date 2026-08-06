@@ -22,6 +22,7 @@ import { ViewTracker } from '@/components/book-page/ViewTracker';
 import { getAuthorBySlug, getBookBySlug, getBookConnections, getBookSlugs, getSiteSettings } from '@/lib/data';
 import { getCoverPalette } from '@/lib/cover-colors';
 import { getBookAvailability } from '@/lib/books/availability';
+import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
@@ -210,13 +211,8 @@ export default async function BookPage({
 
   const availability = getBookAvailability(book, settings.store_enabled);
   const showBuy = availability !== 'catalog_only';
-  const formattedPrice = showBuy
-    ? new Intl.NumberFormat(locale === 'en' ? 'en-IL' : 'he-IL', {
-        style: 'currency',
-        currency: book.currency ?? 'ILS',
-        maximumFractionDigits: 2,
-      }).format(book.price!)
-    : null;
+  const effectivePrice = showBuy ? getEffectivePrice(book, locale) : null;
+  const formattedPrice = effectivePrice ? formatPrice(effectivePrice.amount, locale) : null;
   const formattedPreorderDate =
     availability === 'preorder' && book.preorder_release_date
       ? new Intl.DateTimeFormat(locale === 'en' ? 'en' : 'he', { dateStyle: 'long' }).format(
@@ -255,7 +251,8 @@ export default async function BookPage({
           '@type': 'Offer',
           url: canonicalUrl,
           priceCurrency: book.currency ?? 'ILS',
-          price: book.price,
+          // המחיר בתוקף — מבצע פעיל גובר על הרגיל, מאותה פונקציה שמזינה את התצוגה
+          price: effectivePrice?.amount ?? book.price,
           availability:
             availability === 'preorder'
               ? 'https://schema.org/PreOrder'

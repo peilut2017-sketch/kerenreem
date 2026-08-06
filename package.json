@@ -19,6 +19,7 @@
     "check:revalidate": "node --experimental-strip-types scripts/check-revalidate.mjs",
     "check:books": "node --experimental-strip-types scripts/check-book-search.mjs",
     "check:catalogue": "node scripts/check-catalogue.mjs",
+    "check:commerce": "node --experimental-strip-types scripts/check-commerce.mjs",
     "check:completion": "node --experimental-strip-types scripts/check-completion.mjs",
     "check:colors": "node --experimental-strip-types scripts/check-cover-colors.mjs"
   },

@@ -45,6 +45,19 @@ export function computeCompletion(book: Book, relations: BookRelations): Complet
     { key: 'sample', label: 'דפדוף לדוגמה (PDF)', done: Boolean(book.sample_pdf_url) },
   ];
 
+  // פריטי מסחר נבדקים רק לספר שסומן לרכישה — ספר קטלוג אינו "חסר" מחיר.
+  if (book.is_purchasable) {
+    items.push(
+      { key: 'price', label: 'מחיר', done: book.price != null },
+      { key: 'weight', label: 'משקל למשלוח', done: book.weight_grams != null },
+      {
+        key: 'stock',
+        label: 'מלאי',
+        done: !book.is_stock_managed || book.preorder_enabled || (book.stock_quantity ?? 0) > 0,
+      },
+    );
+  }
+
   const missing = items.filter((item) => !item.done);
   const percent = Math.round(((items.length - missing.length) / items.length) * 100);
 

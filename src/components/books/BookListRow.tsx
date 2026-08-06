@@ -7,6 +7,7 @@ import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { resolveBookBadge } from '@/lib/books/badge';
+import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
 import type { BookWithRelations } from '@/lib/supabase/types';
 
 /**
@@ -35,6 +36,7 @@ export function BookListRow({
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
   const summary = htmlToPlainText(localized(book, 'description', locale), 190);
   const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
+  const price = storeEnabled ? getEffectivePrice(book, locale) : null;
 
   return (
     <article className="card card-interactive group relative flex gap-5 p-4 sm:gap-6 sm:p-5">
@@ -71,13 +73,12 @@ export function BookListRow({
           {(book.volume_count ?? 1) > 1 ? <span>{book.volume_count} כרכים</span> : null}
           {book.pages ? <span>{book.pages} עמודים</span> : null}
 
-          {storeEnabled && book.price !== null && book.price !== undefined ? (
-            <span className="ms-auto font-serif text-[1rem] text-ink tabular-nums">
-              {new Intl.NumberFormat(locale === 'he' ? 'he-IL' : 'en-GB', {
-                style: 'currency',
-                currency: book.currency ?? 'ILS',
-                maximumFractionDigits: 0,
-              }).format(Number(book.price))}
+          {price ? (
+            <span className="ms-auto inline-flex items-baseline gap-1.5 font-serif text-[1rem] text-ink tabular-nums">
+              {price.onSale && price.originalAmount != null ? (
+                <s className="text-caption text-muted">{formatPrice(price.originalAmount, locale)}</s>
+              ) : null}
+              {formatPrice(price.amount, locale)}
             </span>
           ) : null}
         </div>

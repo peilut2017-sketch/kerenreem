@@ -276,6 +276,31 @@ export async function saveEntity(
       fieldErrors.slug = 'מזהה כתובת: אותיות לטיניות קטנות, ספרות ומקפים בלבד';
     }
 
+    // ולידציית שדות המסחר — לפני המסד, כדי שהשגיאה תשב על השדה הנכון
+    // ולא תגיע כ-23514 כללי. ה-checks במסד נשארים קו ההגנה האחרון.
+    if (entityKey === 'books') {
+      for (const name of ['price', 'sale_price', 'stock_quantity', 'weight_grams'] as const) {
+        const value = payload[name];
+        if (typeof value === 'number' && value < 0) fieldErrors[name] = 'ערך שלילי אינו חוקי';
+      }
+      for (const name of ['stock_quantity', 'weight_grams', 'low_stock_threshold'] as const) {
+        const value = payload[name];
+        if (typeof value === 'number' && !Number.isInteger(value)) {
+          fieldErrors[name] = 'נדרש מספר שלם';
+        }
+      }
+      if (payload.is_purchasable === true && payload.price == null) {
+        fieldErrors.price = 'ספר שמסומן לרכישה חייב מחיר';
+      }
+      if (
+        typeof payload.sale_price === 'number' &&
+        typeof payload.price === 'number' &&
+        payload.sale_price >= payload.price
+      ) {
+        fieldErrors.sale_price = 'מחיר המבצע חייב להיות נמוך מהמחיר הרגיל';
+      }
+    }
+
     if (Object.keys(fieldErrors).length > 0) {
       return { status: 'error', message: 'יש שדות שדורשים תיקון', fieldErrors };
     }
@@ -342,6 +367,11 @@ function describeDbError(
 
   switch (error.code) {
     case '23505':
+      // הודעת Postgres נוקבת בשם האילוץ — כפילות מק״ט אינה כפילות slug,
+      // והצגתה על השדה הלא נכון מסתירה את הבעיה האמיתית מהעורך.
+      if (/books_sku_key|\(sku\)/.test(error.message)) {
+        return { message: 'המק״ט כבר קיים בספר אחר', fieldErrors: { sku: 'כבר קיים' } };
+      }
       return hasSlug
         ? { message: 'מזהה הכתובת (slug) כבר קיים', fieldErrors: { slug: 'כבר קיים' } }
         : { message: `ערך כפול: ${error.message}` };

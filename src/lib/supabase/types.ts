@@ -77,6 +77,23 @@ export interface Book {
   stock_location: string | null;
   /** גודל פיזי (למשל "17x24 ס״מ"). */
   physical_size: string | null;
+  /* --- הרחבות מסחר (26_books_commerce_extension.sql) --- */
+  sale_price: number | null;
+  sale_starts_at: string | null;
+  sale_ends_at: string | null;
+  sale_name_he: string | null;
+  sale_name_en: string | null;
+  compare_at_price: number | null;
+  tax_group: 'standard' | 'exempt';
+  /** false = מלאי בלתי מוגבל — אין שמירה ואין הפחתה. */
+  is_stock_managed: boolean;
+  low_stock_threshold: number | null;
+  allow_backorder: boolean;
+  barcode: string | null;
+  /** דריסת זמן ההכנה (ימי עסקים) לספר הזה — מזין את חישוב תאריך האספקה. */
+  prep_days_override: number | null;
+  free_shipping_eligible: boolean;
+  coupons_excluded: boolean;
   /* ------------------------------------------------------- */
   is_published: boolean;
   sort_order: number;
@@ -424,4 +441,425 @@ export interface Banner {
   ends_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/* ============================================================================
+ * טיפוסי המסחר — משקפים את supabase/23–35_*.sql
+ * ========================================================================= */
+
+/** ציר חיי ההזמנה. הישן (OrderStatus) נשאר לתאימות עד migration הניקיון. */
+export type OrderState =
+  | 'draft'
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'completed'
+  | 'cancelled'
+  | 'closed';
+
+export type PaymentState =
+  | 'not_required'
+  | 'pending'
+  | 'authorized'
+  | 'paid'
+  | 'failed'
+  | 'partially_refunded'
+  | 'refunded'
+  | 'cancelled';
+
+export type FulfillmentState =
+  | 'unfulfilled'
+  | 'preparing'
+  | 'ready_for_pickup'
+  | 'partially_fulfilled'
+  | 'fulfilled'
+  | 'shipped'
+  | 'delivered'
+  | 'returned';
+
+export type DocumentState =
+  | 'not_created'
+  | 'pending'
+  | 'created'
+  | 'failed'
+  | 'cancelled'
+  | 'credited';
+
+export type OrderChannel = 'web' | 'phone' | 'manual';
+export type FulfillmentType = 'shipping' | 'pickup';
+export type PaymentMethod = 'credit' | 'bit' | 'apple_pay' | 'google_pay' | 'manual_external';
+export type ActorType = 'customer' | 'staff' | 'system' | 'morning' | 'shipping_provider';
+export type ShelfKey = 'wantToRead' | 'wantToBuy' | 'owned' | 'wantAsGift';
+
+/** מבנה כתובת המשלוח כפי שנשמר ב-orders.shipping_address (צילום). */
+export interface ShippingAddress {
+  recipient_name: string;
+  phone: string;
+  city: string;
+  street: string;
+  house_number: string;
+  entrance?: string;
+  floor?: string;
+  apartment?: string;
+  zip?: string;
+}
+
+export interface Order {
+  id: string;
+  order_number: number;
+  user_id: string | null;
+  /** השדה הישן — מוזן אוטומטית מהצירים בטריגר; אין לכתוב אליו ישירות. */
+  status: OrderStatus;
+  state: OrderState;
+  payment_state: PaymentState;
+  fulfillment_state: FulfillmentState;
+  document_state: DocumentState;
+  channel: OrderChannel;
+  locale: string;
+  subtotal: number;
+  discount_total: number;
+  shipping_total: number;
+  donation_amount: number;
+  tax_total: number;
+  total: number;
+  currency: string;
+  coupon_id: string | null;
+  coupon_code_snapshot: string | null;
+  fulfillment_type: FulfillmentType;
+  shipping_method_id: string | null;
+  shipping_method_name_snapshot: string | null;
+  promised_delivery_date: string | null;
+  shipping_address: ShippingAddress | null;
+  courier_notes: string | null;
+  is_gift: boolean;
+  gift_recipient_name: string | null;
+  gift_message: string | null;
+  gift_hide_prices: boolean;
+  guest_token_hash: string | null;
+  guest_token_expires_at: string | null;
+  guest_token_revoked: boolean;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  notes: string | null;
+  payment_ref: string | null;
+  placed_at: string | null;
+  paid_at: string | null;
+  cancelled_at: string | null;
+  completed_at: string | null;
+  tags: string[];
+  idempotency_key: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  book_id: string | null;
+  title_snapshot: string | null;
+  sku_snapshot: string | null;
+  quantity: number;
+  unit_price: number;
+  unit_price_original: number | null;
+  discount_amount: number;
+  tax_rate_snapshot: number | null;
+  line_total: number | null;
+  is_preorder: boolean;
+}
+
+export interface OrderEvent {
+  id: string;
+  order_id: string;
+  event_type: string;
+  data: Record<string, unknown>;
+  actor_type: ActorType;
+  actor_id: string | null;
+  actor_label: string | null;
+  created_at: string;
+}
+
+export interface Payment {
+  id: string;
+  order_id: string;
+  kind: 'charge' | 'refund';
+  parent_payment_id: string | null;
+  provider: string;
+  method: PaymentMethod | null;
+  amount: number;
+  currency: string;
+  installments: number;
+  status: 'initiated' | 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'expired';
+  morning_transaction_id: string | null;
+  morning_payment_page_url: string | null;
+  morning_payload: Record<string, unknown> | null;
+  idempotency_key: string;
+  error: Record<string, unknown> | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DocumentType = 'invoice_receipt' | 'receipt' | 'donation_receipt' | 'credit_note';
+
+export interface CommerceDocument {
+  id: string;
+  order_id: string;
+  payment_id: string | null;
+  provider: string;
+  morning_doc_id: string | null;
+  doc_type: DocumentType;
+  doc_number: string | null;
+  issued_at: string | null;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'created' | 'failed' | 'cancelled';
+  download_url: string | null;
+  url_expires_at: string | null;
+  storage_path: string | null;
+  error: string | null;
+  attempts: number;
+  last_attempt_at: string | null;
+  idempotency_key: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhookEvent {
+  id: string;
+  provider: string;
+  event_type: string | null;
+  external_event_id: string | null;
+  dedupe_hash: string;
+  signature_valid: boolean;
+  payload: Record<string, unknown>;
+  received_at: string;
+  processing_status: 'received' | 'processed' | 'duplicate' | 'invalid_signature' | 'failed';
+  processed_at: string | null;
+  attempts: number;
+  error: string | null;
+  order_id: string | null;
+  payment_id: string | null;
+}
+
+export interface Customer {
+  id: string;
+  phone: string;
+  email: string | null;
+  full_name: string | null;
+  default_address_id: string | null;
+  marketing_email_opt_in: boolean;
+  channel_sms_opt_in: boolean;
+  channel_whatsapp_opt_in: boolean;
+  locale: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerAddress {
+  id: string;
+  customer_id: string;
+  label: string | null;
+  recipient_name: string;
+  phone: string | null;
+  city: string;
+  street: string;
+  house_number: string;
+  entrance: string | null;
+  floor: string | null;
+  apartment: string | null;
+  zip: string | null;
+  courier_notes: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedBook {
+  customer_id: string;
+  book_id: string;
+  is_favourite: boolean;
+  shelf: ShelfKey | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Cart {
+  id: string;
+  customer_id: string;
+  status: 'active' | 'merged' | 'converted' | 'expired';
+  currency: string;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CartItem {
+  id: string;
+  cart_id: string;
+  book_id: string;
+  quantity: number;
+  added_at: string;
+}
+
+export interface CheckoutSessionRecord {
+  id: string;
+  customer_id: string | null;
+  status: 'open' | 'contact_entered' | 'abandoned' | 'converted' | 'expired';
+  items: { book_id: string; quantity: number }[];
+  contact_phone: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  fulfillment: {
+    type?: FulfillmentType;
+    method_id?: string;
+    address?: Partial<ShippingAddress>;
+    courier_notes?: string;
+  };
+  is_gift: boolean;
+  gift_recipient_name: string | null;
+  gift_message: string | null;
+  gift_hide_prices: boolean;
+  coupon_code: string | null;
+  donation_amount: number | null;
+  is_express: boolean;
+  express_wallet: 'bit' | 'apple_pay' | 'google_pay' | null;
+  notify_channel: 'sms' | 'whatsapp' | null;
+  terms_accepted_at: string | null;
+  idempotency_key: string;
+  order_id: string | null;
+  locale: string;
+  abandoned_email_sent_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ShippingMethodKind = 'pickup' | 'flat' | 'by_weight' | 'by_total' | 'free_over';
+
+export interface ShippingMethod {
+  id: string;
+  slug: string;
+  name_he: string;
+  name_en: string | null;
+  description_he: string | null;
+  description_en: string | null;
+  kind: ShippingMethodKind;
+  price: number;
+  free_over: number | null;
+  min_weight_grams: number | null;
+  max_weight_grams: number | null;
+  min_total: number | null;
+  max_total: number | null;
+  zone_id: string | null;
+  eta_business_days: number;
+  price_includes_vat: boolean;
+  valid_from: string | null;
+  valid_until: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StockLocation {
+  id: string;
+  slug: string;
+  name: string;
+  kind: 'warehouse' | 'office' | 'pickup_point' | 'distributor' | 'temp';
+  is_default: boolean;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface InventoryLevel {
+  book_id: string;
+  location_id: string;
+  on_hand: number;
+  reserved: number;
+  updated_at: string;
+}
+
+export type InventoryMoveType =
+  | 'receive'
+  | 'sale'
+  | 'cancel_restock'
+  | 'return_restock'
+  | 'damage'
+  | 'manual_adjust'
+  | 'transfer_in'
+  | 'transfer_out'
+  | 'count'
+  | 'reserve'
+  | 'release';
+
+export interface InventoryMove {
+  id: string;
+  book_id: string;
+  location_id: string;
+  move_type: InventoryMoveType;
+  quantity_delta: number;
+  on_hand_before: number;
+  on_hand_after: number;
+  reserved_before: number;
+  reserved_after: number;
+  reason: string | null;
+  order_id: string | null;
+  order_item_id: string | null;
+  actor_type: ActorType;
+  actor_id: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface StoreSettings {
+  id: number;
+  show_prices: boolean;
+  cart_enabled: boolean;
+  checkout_enabled: boolean;
+  payments_enabled: boolean;
+  express_checkout_enabled: boolean;
+  coupons_enabled: boolean;
+  accounts_enabled: boolean;
+  returns_enabled: boolean;
+  recommendations_enabled: boolean;
+  donations_enabled: boolean;
+  free_shipping_threshold: number | null;
+  installments_min_total: number;
+  installments_max: number;
+  vat_mode: 'exempt' | 'included';
+  vat_rate: number;
+  document_type: DocumentType;
+  order_prep_days: number;
+  delivery_buffer_days: number;
+  non_working_dates: string[];
+  pickup_enabled: boolean;
+  pickup_address: Record<string, string>;
+  pickup_hours: string | null;
+  pickup_prep_hours: number;
+  support_phone: string | null;
+  low_stock_threshold: number;
+  guest_link_ttl_days: number;
+  abandoned_after_minutes: number;
+  abandoned_retention_days: number;
+  add_to_order_window_hours: number;
+  updated_at: string;
+}
+
+export interface NotificationLogEntry {
+  id: string;
+  order_id: string | null;
+  customer_id: string | null;
+  template: string;
+  channel: 'email' | 'sms' | 'whatsapp';
+  recipient: string;
+  provider: string | null;
+  provider_message_id: string | null;
+  status: 'queued' | 'sent' | 'failed' | 'skipped';
+  attempts: number;
+  error: string | null;
+  idempotency_key: string;
+  created_at: string;
+  sent_at: string | null;
 }
