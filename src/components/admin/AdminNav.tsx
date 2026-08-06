@@ -62,6 +62,9 @@ const ITEMS: NavEntry[] = [
     items: [
       { href: '/admin/orders', label: 'הזמנות', icon: 'store', minRole: 'viewer' },
       { href: '/admin/inventory', label: 'מלאי', icon: 'columns', minRole: 'editor' },
+      { href: '/admin/shipping', label: 'שיטות אספקה', icon: 'store', minRole: 'admin' },
+      { href: '/admin/coupons', label: 'קופונים', icon: 'tags', minRole: 'admin' },
+      { href: '/admin/reports', label: 'דוחות מסחר', icon: 'analytics', minRole: 'editor' },
     ],
   },
   { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', minRole: 'viewer' },

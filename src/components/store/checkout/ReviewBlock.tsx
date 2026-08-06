@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { formatPrice } from '@/lib/commerce/pricing';
 import { BlockShell } from './BlockShell';
 import { Field } from './ContactBlock';
+import type { CouponActionResult } from '@/lib/commerce/checkout-actions';
 
 /**
  * בלוק 3 — מתנה, ערוץ נייד, תקנון ותשלום (פרק 7.1). חבילת האמון כולה
@@ -25,6 +27,10 @@ export function ReviewBlock({
   open,
   reachable,
   paymentsEnabled,
+  couponsEnabled,
+  coupon,
+  onApplyCoupon,
+  onRemoveCoupon,
   installments,
   supportPhone,
   initial,
@@ -36,6 +42,10 @@ export function ReviewBlock({
   open: boolean;
   reachable: boolean;
   paymentsEnabled: boolean;
+  couponsEnabled: boolean;
+  coupon: { code: string; discountAmount: number; freeShipping: boolean } | null;
+  onApplyCoupon: (code: string) => Promise<CouponActionResult>;
+  onRemoveCoupon: () => Promise<void>;
   installments: { minTotal: number; max: number } | null;
   supportPhone: string | null;
   initial: {
@@ -51,6 +61,10 @@ export function ReviewBlock({
   onSubmit: (extras: ExtrasValues) => Promise<void>;
 }) {
   const t = useTranslations('store');
+  const locale = useLocale();
+  const [couponInput, setCouponInput] = useState('');
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
   const [isGift, setIsGift] = useState(initial.isGift);
   const [giftRecipientName, setGiftRecipientName] = useState(initial.giftRecipientName);
   const [giftMessage, setGiftMessage] = useState(initial.giftMessage);
@@ -91,6 +105,83 @@ export function ReviewBlock({
       onOpen={onOpen}
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        {/* קופון — progressive disclosure, אימות שרת בלבד */}
+        {couponsEnabled ? (
+          <div>
+            {coupon ? (
+              <p className="flex flex-wrap items-center gap-2 text-small text-ink">
+                <span className="rounded-[var(--radius-pill)] bg-gold/15 px-3 py-1">
+                  {t('couponApplied', {
+                    code: coupon.code,
+                    amount: coupon.freeShipping && coupon.discountAmount === 0
+                      ? t('free')
+                      : formatPrice(coupon.discountAmount, locale),
+                  })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void onRemoveCoupon()}
+                  className="text-caption text-muted underline-offset-2 hover:text-burgundy hover:underline"
+                >
+                  {t('couponRemove')}
+                </button>
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex-1 min-w-40">
+                  <label htmlFor="coupon-code" className="mb-1.5 block text-small font-semibold text-ink">
+                    {t('coupon')}
+                  </label>
+                  <input
+                    id="coupon-code"
+                    type="text"
+                    dir="ltr"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    aria-invalid={couponError ? true : undefined}
+                    aria-describedby={couponError ? 'coupon-error' : undefined}
+                    className={inputCls}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={couponBusy || !couponInput.trim()}
+                  onClick={async () => {
+                    setCouponBusy(true);
+                    setCouponError(null);
+                    try {
+                      const result = await onApplyCoupon(couponInput.trim());
+                      if (!result.ok) {
+                        setCouponError(
+                          result.error === 'min_total' && result.minTotal != null
+                            ? t('couponErrMinTotal', { amount: formatPrice(result.minTotal, locale) })
+                            : result.error === 'used_up'
+                              ? t('couponErrUsedUp')
+                              : result.error === 'not_applicable'
+                                ? t('couponErrNotApplicable')
+                                : t('couponErrInvalid'),
+                        );
+                      } else {
+                        setCouponInput('');
+                      }
+                    } finally {
+                      setCouponBusy(false);
+                    }
+                  }}
+                  className="btn btn-quiet"
+                >
+                  {t('couponApply')}
+                </button>
+                {couponError ? (
+                  <p id="coupon-error" role="alert" className="w-full text-caption text-burgundy">
+                    {couponError}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {/* מתנה — progressive disclosure */}
         <div>
           <label className="flex cursor-pointer items-center gap-2.5 text-small text-ink">

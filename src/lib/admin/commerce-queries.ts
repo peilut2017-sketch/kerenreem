@@ -32,6 +32,7 @@ export const SAVED_VIEWS: Record<string, { label: string; filter: Partial<Orders
   ready_pickup: { label: 'ממתינות לאיסוף', filter: { fulfillment: 'ready_for_pickup' } },
   shipped: { label: 'נשלחו', filter: { fulfillment: 'shipped' } },
   doc_missing: { label: 'תשלום ללא מסמך', filter: { view: 'doc_missing' } },
+  cancel_requests: { label: 'בקשות ביטול', filter: { view: 'cancel_requests' } },
   attention: { label: 'דורשות טיפול', filter: { view: 'attention' } },
 };
 
@@ -46,6 +47,9 @@ export async function listOrders(filter: OrdersFilter): Promise<Order[]> {
   if (filter.fulfillment) query = query.eq('fulfillment_state', filter.fulfillment);
   if (filter.view === 'doc_missing') {
     query = query.eq('payment_state', 'paid').in('document_state', ['not_created', 'pending', 'failed']);
+  }
+  if (filter.view === 'cancel_requests') {
+    query = query.overlaps('tags', ['cancel-requested']);
   }
   if (filter.view === 'attention') {
     query = query.overlaps('tags', ['amount-mismatch', 'attention']);

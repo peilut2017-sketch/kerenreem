@@ -6,7 +6,8 @@ import { getTrackedOrder } from '@/lib/commerce/track';
 import { allowRequest, ipBucket } from '@/lib/commerce/rate-limit';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
-import { getStoreSettings } from '@/lib/commerce/settings';
+import { getCommerceFlags, getStoreSettings } from '@/lib/commerce/settings';
+import { TrackCancelRequest } from '@/components/store/TrackCancelRequest';
 
 /**
  * עמוד המעקב הממותג לאורח (פרק 16.1): זיהוי בטוקן חד-פעמי מהמייל,
@@ -69,7 +70,11 @@ export default async function TrackOrderPage({
   }
 
   const { order, items, statusKey, documentUrl } = tracked;
-  const settings = await getStoreSettings();
+  const [settings, flags] = await Promise.all([getStoreSettings(), getCommerceFlags()]);
+  const cancelEligible =
+    flags.returnsEnabled &&
+    ['pending', 'confirmed'].includes(order.state) &&
+    ['unfulfilled', 'preparing'].includes(order.fulfillment_state);
   const isPickup = order.fulfillment_type === 'pickup';
   const cancelled = statusKey === 'statusCancelled' || statusKey === 'statusRefunded';
   const steps = stepsFor(statusKey, isPickup);
@@ -162,6 +167,8 @@ export default async function TrackOrderPage({
           </p>
         ) : null}
       </section>
+
+      {cancelEligible ? <TrackCancelRequest token={token} /> : null}
 
       {settings.support_phone ? (
         <p className="mt-6 text-center text-caption text-muted">
