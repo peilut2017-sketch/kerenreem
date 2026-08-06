@@ -381,6 +381,7 @@
     "emailHint": "לכאן נשלח אישור ההזמנה והחשבונית",
     "noEmailLine": "אין לכם דואר אלקטרוני? נשמח לקבל את ההזמנה בטלפון: {phone}",
     "continueButton": "המשך",
+    "edit": "עריכה",
     "fulfillmentTitle": "אספקה",
     "shippingOption": "משלוח עד הבית",
     "pickupOption": "איסוף עצמי",

@@ -1,0 +1,208 @@
+'use client';
+
+import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
+import { BlockShell } from './BlockShell';
+import { Field } from './ContactBlock';
+
+/**
+ * בלוק 3 — מתנה, ערוץ נייד, תקנון ותשלום (פרק 7.1). חבילת האמון כולה
+ * כאן: תמצית הביטול ליד הכפתור, שורת מורנינג, והטלפון האנושי. תיבת
+ * הערוץ הנייד ריקה כברירת מחדל (החלטה 23) — בחירה יזומה בלבד.
+ */
+
+export interface ExtrasValues {
+  isGift: boolean;
+  giftRecipientName?: string;
+  giftMessage?: string;
+  giftHidePrices?: boolean;
+  notifyChannel?: 'sms' | 'whatsapp' | null;
+  termsAccepted: boolean;
+}
+
+export function ReviewBlock({
+  open,
+  reachable,
+  paymentsEnabled,
+  installments,
+  supportPhone,
+  initial,
+  placing,
+  placeError,
+  onOpen,
+  onSubmit,
+}: {
+  open: boolean;
+  reachable: boolean;
+  paymentsEnabled: boolean;
+  installments: { minTotal: number; max: number } | null;
+  supportPhone: string | null;
+  initial: {
+    isGift: boolean;
+    giftRecipientName: string;
+    giftMessage: string;
+    giftHidePrices: boolean;
+    notifyChannel: 'sms' | 'whatsapp' | null;
+  };
+  placing: boolean;
+  placeError: string | null;
+  onOpen: () => void;
+  onSubmit: (extras: ExtrasValues) => Promise<void>;
+}) {
+  const t = useTranslations('store');
+  const [isGift, setIsGift] = useState(initial.isGift);
+  const [giftRecipientName, setGiftRecipientName] = useState(initial.giftRecipientName);
+  const [giftMessage, setGiftMessage] = useState(initial.giftMessage);
+  const [giftHidePrices, setGiftHidePrices] = useState(initial.giftHidePrices);
+  const [notifyChannel, setNotifyChannel] = useState<'sms' | 'whatsapp' | null>(
+    initial.notifyChannel,
+  );
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+
+  const inputCls =
+    'w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60';
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!termsAccepted) {
+      setTermsError(true);
+      return;
+    }
+    setTermsError(false);
+    await onSubmit({
+      isGift,
+      giftRecipientName: isGift ? giftRecipientName : undefined,
+      giftMessage: isGift ? giftMessage : undefined,
+      giftHidePrices,
+      notifyChannel,
+      termsAccepted,
+    });
+  }
+
+  return (
+    <BlockShell
+      index={3}
+      title={t('reviewTitle')}
+      open={open}
+      done={false}
+      reachable={reachable}
+      onOpen={onOpen}
+    >
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        {/* מתנה — progressive disclosure */}
+        <div>
+          <label className="flex cursor-pointer items-center gap-2.5 text-small text-ink">
+            <input
+              type="checkbox"
+              checked={isGift}
+              onChange={(e) => setIsGift(e.target.checked)}
+              className="h-4 w-4 accent-[var(--color-burgundy)]"
+            />
+            {t('giftToggle')}
+          </label>
+          {isGift ? (
+            <div className="mt-3 space-y-4 rounded-[var(--radius-md)] bg-cream-2/60 px-4 py-4">
+              <Field
+                id="gift-recipient"
+                label={t('giftRecipientName')}
+                input={
+                  <input id="gift-recipient" type="text" value={giftRecipientName} onChange={(e) => setGiftRecipientName(e.target.value)} className={inputCls} />
+                }
+              />
+              <Field
+                id="gift-message"
+                label={t('giftMessage')}
+                input={
+                  <textarea id="gift-message" rows={3} maxLength={300} value={giftMessage} onChange={(e) => setGiftMessage(e.target.value)} className={inputCls} />
+                }
+              />
+              <label className="flex cursor-pointer items-center gap-2.5 text-small text-ink">
+                <input
+                  type="checkbox"
+                  checked={giftHidePrices}
+                  onChange={(e) => setGiftHidePrices(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--color-burgundy)]"
+                />
+                {t('giftHidePrices')}
+              </label>
+              <p className="text-caption text-muted">{t('giftDocNote')}</p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* ערוץ נייד — ריק כברירת מחדל, בחירה יזומה */}
+        <fieldset>
+          <legend className="text-small font-semibold text-ink">{t('notifyPrompt')}</legend>
+          <div className="mt-2 flex gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-small text-ink-soft">
+              <input
+                type="checkbox"
+                checked={notifyChannel === 'sms'}
+                onChange={(e) => setNotifyChannel(e.target.checked ? 'sms' : null)}
+                className="h-4 w-4 accent-[var(--color-burgundy)]"
+              />
+              {t('notifySms')}
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-small text-ink-soft">
+              <input
+                type="checkbox"
+                checked={notifyChannel === 'whatsapp'}
+                onChange={(e) => setNotifyChannel(e.target.checked ? 'whatsapp' : null)}
+                className="h-4 w-4 accent-[var(--color-burgundy)]"
+              />
+              {t('notifyWhatsapp')}
+            </label>
+          </div>
+        </fieldset>
+
+        {installments ? (
+          <p className="text-caption text-muted">{t('installmentsNote', { n: installments.max })}</p>
+        ) : null}
+
+        {/* תקנון + תמצית ביטול — ליד הכפתור, כדרישת פרק 3.5 */}
+        <div>
+          <label className="flex cursor-pointer items-start gap-2.5 text-small text-ink">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              aria-invalid={termsError ? true : undefined}
+              aria-describedby={termsError ? 'terms-error' : undefined}
+              className="mt-0.5 h-4 w-4 accent-[var(--color-burgundy)]"
+            />
+            <span>
+              {t('termsPrefix')}
+              <Link href="/terms" target="_blank" className="underline underline-offset-2 hover:text-burgundy">
+                {t('termsLink')}
+              </Link>
+            </span>
+          </label>
+          {termsError ? (
+            <p id="terms-error" role="alert" className="mt-1 text-caption text-burgundy">
+              {t('errTerms')}
+            </p>
+          ) : null}
+          <p className="mt-2 text-caption text-muted">{t('cancelPolicyBrief')}</p>
+        </div>
+
+        {placeError ? (
+          <p role="alert" className="rounded-[var(--radius-md)] border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-small text-burgundy">
+            {placeError}
+          </p>
+        ) : null}
+
+        <button type="submit" disabled={placing} className="btn btn-solid w-full sm:w-auto">
+          {placing ? t('processingOrder') : paymentsEnabled ? t('payButton') : t('submitNoPayment')}
+        </button>
+
+        {/* חבילת האמון */}
+        <div className="space-y-1.5 border-t border-rule pt-4 text-caption text-muted">
+          {paymentsEnabled ? <p>{t('trustLine')}</p> : <p>{t('noPaymentNote')}</p>}
+          {supportPhone ? <p>{t('phoneHelp', { phone: supportPhone })}</p> : null}
+        </div>
+      </form>
+    </BlockShell>
+  );
+}

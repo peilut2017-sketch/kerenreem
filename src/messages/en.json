@@ -381,6 +381,7 @@
     "emailHint": "Your order confirmation and invoice will be sent here",
     "noEmailLine": "No email? We would be happy to take your order by phone: {phone}",
     "continueButton": "Continue",
+    "edit": "Edit",
     "fulfillmentTitle": "Delivery",
     "shippingOption": "Home delivery",
     "pickupOption": "Pickup",
