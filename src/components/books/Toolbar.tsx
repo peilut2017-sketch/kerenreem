@@ -66,6 +66,7 @@ export function Toolbar({
   view,
   onViewChange,
   filterSlot,
+  storeEnabled = false,
 }: {
   count: number;
   countLabel: string;
@@ -74,6 +75,8 @@ export function Toolbar({
   view: ViewMode;
   onViewChange: (next: ViewMode) => void;
   filterSlot: React.ReactNode;
+  /** מיון לפי מחיר מוצג רק כשהחנות (ומחיריה) גלויים */
+  storeEnabled?: boolean;
 }) {
   const t = useTranslations('books');
   const sortId = useId();
@@ -104,6 +107,12 @@ export function Toolbar({
               <option value="newest">{t('sortNewest')}</option>
               <option value="oldest">{t('sortOldest')}</option>
               <option value="title">{t('sortTitle')}</option>
+              {storeEnabled ? (
+                <>
+                  <option value="priceAsc">{t('sortPriceAsc')}</option>
+                  <option value="priceDesc">{t('sortPriceDesc')}</option>
+                </>
+              ) : null}
             </select>
           </div>
 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
 import { ShelfPicker } from './ShelfPicker';
+import { AddToCartButton } from '../store/AddToCartButton';
 import type { BookAvailability } from '@/lib/supabase/types';
 
 /**
@@ -54,13 +55,6 @@ export function BookHeroActions({
     }
   }
 
-  const buyLabel =
-    availability === 'preorder'
-      ? t('addToCartPreorder')
-      : availability === 'out_of_stock'
-        ? t('outOfStock')
-        : t('addToCart');
-
   return (
     <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
       {price ? (
@@ -68,9 +62,7 @@ export function BookHeroActions({
       ) : null}
 
       {price ? (
-        <button type="button" disabled={availability === 'out_of_stock'} className="btn btn-solid">
-          {buyLabel}
-        </button>
+        <AddToCartButton bookId={bookId} title={title} availability={availability} />
       ) : null}
 
       {availability === 'preorder' && preorderDate ? (

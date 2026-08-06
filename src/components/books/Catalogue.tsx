@@ -244,6 +244,7 @@ export function Catalogue({
         onSortChange={changeSort}
         view={view}
         onViewChange={setView}
+        storeEnabled={storeEnabled}
         filterSlot={
           <FilterDrawer
             filters={filters}
@@ -311,7 +312,7 @@ export function Catalogue({
           {/* לחצן ולא גלילה אינסופית אוטומטית: טעינה שמתרחשת מעצמה מרחיקה
               את הכותרת התחתונה בכל גלילה, ומשתמש מקלדת נתקע בלולאה. */}
           <button type="button" onClick={() => setVisible((n) => n + BATCH)} className="btn btn-quiet">
-            הצגת {Math.min(BATCH, results.length - visible)} ספרים נוספים
+            {t('showMore', { count: Math.min(BATCH, results.length - visible) })}
           </button>
         </div>
       ) : null}

@@ -7,6 +7,7 @@ import { NavLinks } from './NavLinks';
 import { LocaleSwitch } from './LocaleSwitch';
 import { SearchLauncher } from './SearchLauncher';
 import { MobileNav } from './MobileNav';
+import { CartIndicator } from './store/CartIndicator';
 
 interface NavItem {
   href: string;
@@ -105,6 +106,10 @@ export function SiteHeaderClient({
           <NavLinks label={navLabel} items={navItems} compact={isFloating} />
 
           <div className="ms-auto flex items-center gap-3 lg:ms-0">
+            {/* מונה הסל מוצג בכל שברי המסך; מרונדר רק כשהעגלה פעילה
+                (הרכיב מחזיר null בלי CartProvider או כשהדגל כבוי) */}
+            <CartIndicator />
+
             {/* חיפוש אחרון בסדר ה-DOM ולא ראשון: ב-RTL זה מה שממקם אותו
                 בקצה השמאלי הקיצוני של הקבוצה, כפי שהתבקש — לא רק לצד
                 מתג השפה. */}

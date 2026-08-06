@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
+import { useCart } from '../store/CartProvider';
 
 /**
  * סרגל רכישה דביק — מופיע רק כשיש בכלל מה לקנות.
@@ -32,6 +33,7 @@ export function FloatingActions({
   showBuy: boolean;
 }) {
   const t = useTranslations('books');
+  const cart = useCart();
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const { has, toggle } = useLocalList('kr:favourites');
@@ -95,7 +97,11 @@ export function FloatingActions({
       ) : null}
       <button
         type="button"
-        onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' })}
+        onClick={() => {
+          // כשהעגלה פעילה — הוספה ישירה; אחרת גלילה לגוש הרכישה שב-Hero
+          if (cart?.enabled) cart.add(bookId, title);
+          else document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' });
+        }}
         className="rounded-[var(--radius-md)] bg-gold px-4 py-2.5 text-small text-navy transition-colors hover:bg-gold-bright"
       >
         {t('addToCart')}
