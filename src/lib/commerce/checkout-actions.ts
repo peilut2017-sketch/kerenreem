@@ -77,6 +77,7 @@ export interface CheckoutBootstrap {
     | 'gift_hide_prices'
     | 'notify_channel'
     | 'status'
+    | 'coupon_code'
   > | null;
   cart: ValidatedCart | null;
   methods: MethodOption[];
@@ -198,6 +199,7 @@ export async function startCheckout(
       gift_hide_prices: session.gift_hide_prices,
       notify_channel: session.notify_channel,
       status: session.status,
+      coupon_code: session.coupon_code,
     },
     cart,
     methods: await buildMethodOptions(cart, locale),
@@ -329,6 +331,21 @@ export async function applyCoupon(code: string): Promise<CouponActionResult> {
   const result = await validateCoupon(code, cart, session.contact_phone);
   if (!result.ok || !result.coupon) {
     return { ok: false, error: result.error ?? 'invalid', minTotal: result.minTotal };
+  }
+
+  // [1.1] צבירת קופונים (הכרעה 13): קופון שני על session שכבר מחזיק קופון
+  // אחר נחסם אלא אם *שניהם* מסומנים "ניתן לצירוף". ברירת המחדל: לא.
+  // (צבירה בפועל של שני קופונים צבירים תגיע עם מנוע ה-promotions; עד אז
+  // צבירים מחליפים זה את זה במפורש, לא-צבירים נחסמים עם הסבר.)
+  const existingCode = session.coupon_code?.toUpperCase() ?? null;
+  if (existingCode && existingCode !== result.coupon.code) {
+    const existing = await validateCoupon(existingCode, cart, session.contact_phone);
+    const bothCombinable =
+      Boolean(existing.coupon?.combinable_with_coupons) &&
+      Boolean(result.coupon.combinable_with_coupons);
+    if (existing.ok && !bothCombinable) {
+      return { ok: false, error: 'not_combinable' };
+    }
   }
 
   await updateSession(sessionId, { coupon_code: result.coupon.code });

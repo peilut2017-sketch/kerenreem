@@ -4,42 +4,48 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdminIcon, type AdminIconName } from './AdminIcons';
+import { hasPermission, type AdminPermission } from '@/lib/admin/permissions';
 import type { UserRole } from '@/lib/supabase/types';
 
-interface SubLink {
+/**
+ * גישה לפריט ניווט — שני צירים (מודל 1.1, פרק 19): צד התוכן נשען על
+ * הדירוג הליניארי (minRole), וצד החנות על הרשאה דו-ממדית (perm) — כך
+ * עורך תוכן אינו רואה את קבוצת החנות כלל, ומוכרן אינו רואה תוכן.
+ */
+interface NavAccess {
+  minRole?: UserRole;
+  perm?: AdminPermission;
+}
+
+interface SubLink extends NavAccess {
   href: string;
   label: string;
   icon: AdminIconName;
-  minRole: UserRole;
 }
 
-interface LinkEntry {
+interface LinkEntry extends NavAccess {
   type: 'link';
   href: string;
   label: string;
   icon: AdminIconName;
-  minRole: UserRole;
 }
 
-interface GroupEntry {
+interface GroupEntry extends NavAccess {
   type: 'group';
   label: string;
   icon: AdminIconName;
-  minRole: UserRole;
   items: SubLink[];
 }
 
 type NavEntry = LinkEntry | GroupEntry;
 
 /**
- * "ספרים" מרכז כאן את כל מה ששייך לקטלוג או לחנות — לא רק רשימת הספרים
- * עצמה, אלא גם מחברים, קטגוריות, סדרות, תגיות, והגדרות הקטלוג/חנות
- * שעברו לכאן מעמוד ההגדרות הכללי (ראו admin/books/settings). קודם לכן
- * אלה היו שישה פריטים נפרדים בשורת הניווט העליונה; איחוד תחת קבוצה אחת
- * גם מקצר את השורה וגם אומר במפורש "כל אלה שייכים לאותו נושא".
+ * "ספרים" = הקטלוג; "חנות" = כל מערכת המסחר, כולל הגדרות החנות (עברו
+ * לכאן מקבוצת הספרים — דרישת בעל האתר בסבב 1.1: "הגדרות חנות תחת טאב
+ * חנות"). "צוות והרשאות" — מסך 15, מנהל-על בלבד.
  */
 const ITEMS: NavEntry[] = [
-  { type: 'link', href: '/admin', label: 'דשבורד', icon: 'dashboard', minRole: 'viewer' },
+  { type: 'link', href: '/admin', label: 'דשבורד', icon: 'dashboard', minRole: 'viewer', perm: 'store_view' },
   {
     type: 'group',
     label: 'ספרים',
@@ -51,26 +57,26 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', minRole: 'viewer' },
       { href: '/admin/series', label: 'סדרות', icon: 'series', minRole: 'viewer' },
       { href: '/admin/tags', label: 'תגיות', icon: 'tags', minRole: 'viewer' },
-      { href: '/admin/books/settings', label: 'הגדרות קטלוג וחנות', icon: 'store', minRole: 'admin' },
     ],
   },
   {
     type: 'group',
     label: 'חנות',
     icon: 'store',
-    minRole: 'viewer',
+    perm: 'store_view',
     items: [
-      { href: '/admin/orders', label: 'הזמנות', icon: 'store', minRole: 'viewer' },
-      { href: '/admin/inventory', label: 'מלאי', icon: 'columns', minRole: 'editor' },
-      { href: '/admin/shipping', label: 'שיטות אספקה', icon: 'store', minRole: 'admin' },
-      { href: '/admin/coupons', label: 'קופונים', icon: 'tags', minRole: 'admin' },
-      { href: '/admin/reports', label: 'דוחות מסחר', icon: 'analytics', minRole: 'editor' },
+      { href: '/admin/orders', label: 'הזמנות', icon: 'orders', perm: 'store_view' },
+      { href: '/admin/inventory', label: 'מלאי ומחסנים', icon: 'inventory', perm: 'store_view' },
+      { href: '/admin/shipping', label: 'שיטות אספקה', icon: 'shipping', perm: 'finance' },
+      { href: '/admin/coupons', label: 'קופונים', icon: 'coupon', perm: 'finance' },
+      { href: '/admin/reports', label: 'דוחות ורווחיות', icon: 'finance', perm: 'finance' },
+      { href: '/admin/books/settings', label: 'הגדרות חנות', icon: 'settings', perm: 'finance' },
     ],
   },
-  { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', minRole: 'viewer' },
-  { type: 'link', href: '/admin/events', label: 'אירועים', icon: 'events', minRole: 'viewer' },
-  { type: 'link', href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', minRole: 'viewer' },
-  { type: 'link', href: '/admin/pages', label: 'עמודי תוכן', icon: 'pages', minRole: 'viewer' },
+  { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', minRole: 'viewer', perm: 'content' },
+  { type: 'link', href: '/admin/events', label: 'אירועים', icon: 'events', minRole: 'viewer', perm: 'content' },
+  { type: 'link', href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', minRole: 'viewer', perm: 'content' },
+  { type: 'link', href: '/admin/pages', label: 'עמודי תוכן', icon: 'pages', minRole: 'viewer', perm: 'content' },
   { type: 'link', href: '/admin/analytics', label: 'אנליטיקס', icon: 'analytics', minRole: 'editor' },
   {
     type: 'group',
@@ -83,11 +89,34 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/contact-fields', label: 'שדות מותאמים', icon: 'columns', minRole: 'editor' },
     ],
   },
+  { type: 'link', href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
   { type: 'link', href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'admin' },
   { type: 'link', href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
 ];
 
-const RANK: Record<UserRole, number> = { viewer: 0, editor: 1, admin: 2 };
+const RANK: Record<UserRole, number> = {
+  viewer: 0,
+  picker: 1,
+  seller: 2,
+  editor: 3,
+  manager: 4,
+  admin: 5,
+};
+
+/**
+ * perm בלבד ⇒ ההרשאה מכריעה. minRole בלבד ⇒ הדירוג מכריע, אך תפקידי
+ * החנות (מוכרן/מלקט) מוחרגים — דירוגם קיים רק לחסימת עמודי תוכן בשרת,
+ * לא כזכות תוכן. שניהם ⇒ תפקידי חנות דרך ההרשאה, השאר דרך הדירוג.
+ */
+function canSee(role: UserRole, access: NavAccess): boolean {
+  const storeRole = role === 'seller' || role === 'picker';
+  if (access.perm && !access.minRole) return hasPermission(role, access.perm);
+  if (access.perm && access.minRole) {
+    return storeRole ? hasPermission(role, access.perm) : RANK[role] >= RANK[access.minRole];
+  }
+  if (access.minRole) return !storeRole && RANK[role] >= RANK[access.minRole];
+  return false;
+}
 
 function matchesLink(pathname: string, href: string): boolean {
   return href === '/admin' ? pathname === '/admin' : pathname === href || pathname.startsWith(`${href}/`);
@@ -104,13 +133,13 @@ export function AdminNav({ role }: { role: UserRole }) {
 
   const visible = useMemo(
     () =>
-      ITEMS.filter((item) => RANK[role] >= RANK[item.minRole])
+      ITEMS.filter((item) => canSee(role, item))
         .map((item) =>
           item.type === 'group'
-            ? { ...item, items: item.items.filter((sub) => RANK[role] >= RANK[sub.minRole]) }
+            ? { ...item, items: item.items.filter((sub) => canSee(role, sub)) }
             : item,
         )
-        // קבוצה שהתרוקנה (כרגע לא קורה — לכל קבוצה יש לפחות פריט viewer) לא תוצג בכלל
+        // קבוצה שהתרוקנה לא תוצג בכלל
         .filter((item) => item.type !== 'group' || item.items.length > 0),
     [role],
   );

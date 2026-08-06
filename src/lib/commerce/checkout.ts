@@ -215,6 +215,14 @@ export async function createOrderFromSession(input: CreateOrderInput): Promise<C
   }
   if (!order) return { ok: false, error: 'db_error' };
 
+  // [1.1] צילום עלות ליחידה מ-book_costs (טבלה פרטית) — בסיס דוחות
+  // הרווחיות 17.14. ספר בלי שורת עלות ⇒ null ("ללא עלות מתועדת").
+  const { data: costRows } = await service
+    .from('book_costs')
+    .select('book_id, cost_price')
+    .in('book_id', activeLines.map((line) => line.bookId));
+  const costByBook = new Map((costRows ?? []).map((row) => [row.book_id, Number(row.cost_price)]));
+
   const itemsPayload = activeLines.map((line) => ({
     order_id: order.id,
     book_id: line.bookId,
@@ -227,6 +235,7 @@ export async function createOrderFromSession(input: CreateOrderInput): Promise<C
     tax_rate_snapshot: input.taxRate,
     line_total: line.lineTotal,
     is_preorder: line.isPreorder,
+    cost_price_snapshot: costByBook.get(line.bookId) ?? null,
   }));
 
   const { error: itemsError } = await service.from('order_items').insert(itemsPayload);

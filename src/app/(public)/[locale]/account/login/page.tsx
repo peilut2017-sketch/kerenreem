@@ -23,10 +23,10 @@ export default async function AccountLoginPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ issue?: string }>;
+  searchParams: Promise<{ issue?: string; claim?: string }>;
 }) {
   const { locale } = await params;
-  const { issue } = await searchParams;
+  const { issue, claim } = await searchParams;
   setRequestLocale(locale);
 
   const flags = await getCommerceFlags();
@@ -48,7 +48,7 @@ export default async function AccountLoginPage({
         {t('accountLoginTitle')}
       </h1>
       <p className="mt-3 text-center text-lead text-muted">{t('accountLoginIntro')}</p>
-      <LoginClient linkIssue={issue === 'link'} />
+      <LoginClient linkIssue={issue === 'link'} claimToken={claim ?? null} />
       <p className="mt-6 text-center text-caption text-muted">{t('accountLoginSmsNote')}</p>
     </Container>
   );

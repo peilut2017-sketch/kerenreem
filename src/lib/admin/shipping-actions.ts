@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertRole } from './auth';
+import { assertPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -26,7 +26,7 @@ export async function saveShippingMethod(
   _prev: ShippingFormState,
   formData: FormData,
 ): Promise<ShippingFormState> {
-  const session = await assertRole('admin');
+  const session = await assertPermission('finance');
   if ('error' in session) return { status: 'error', message: session.error };
   const supabase = await createClient();
   if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };

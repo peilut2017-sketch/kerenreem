@@ -23,6 +23,7 @@ async function test(name, fn) {
 const {
   isTransitionAllowed,
   customerStatusKey,
+  cancellationPath,
 } = await import('../src/lib/commerce/state-machines.ts');
 
 await test('ציר הזמנה: pending→confirmed מותר', () =>
@@ -37,6 +38,33 @@ await test('ציר תשלום: paid→refunded מותר, refunded→paid אסו�
 });
 await test('ציר אספקה: unfulfilled→shipped אסור בלי preparing', () =>
   assert.equal(isTransitionAllowed('fulfillment_state', 'unfulfilled', 'shipped'), false));
+
+/* [1.1] תרשים 13 המתוקן: ביטול על הזמנה ששולמה עובר דרך המתנה-לזיכוי */
+await test('ביטול 1.1: confirmed→cancel_pending_refund מותר; ומשם ל-cancelled', () => {
+  assert.equal(isTransitionAllowed('state', 'confirmed', 'cancel_pending_refund'), true);
+  assert.equal(isTransitionAllowed('state', 'cancel_pending_refund', 'cancelled'), true);
+  assert.equal(isTransitionAllowed('state', 'cancel_pending_refund', 'confirmed'), true);
+});
+await test('ביטול 1.1: cancel_pending_refund אינו קופץ ל-completed/closed', () => {
+  assert.equal(isTransitionAllowed('state', 'cancel_pending_refund', 'completed'), false);
+  assert.equal(isTransitionAllowed('state', 'cancel_pending_refund', 'closed'), false);
+});
+await test('שומר הביטול: שולם ⇒ refund_first; לא שולם ⇒ direct; זוכה ⇒ already_refunded', () => {
+  assert.equal(cancellationPath('paid'), 'refund_first');
+  assert.equal(cancellationPath('partially_refunded'), 'refund_first');
+  assert.equal(cancellationPath('pending'), 'direct');
+  assert.equal(cancellationPath('failed'), 'direct');
+  assert.equal(cancellationPath('refunded'), 'already_refunded');
+});
+await test('סטטוס לקוח 1.1: cancel_pending_refund ⇒ statusCancelling', () =>
+  assert.equal(
+    customerStatusKey({
+      state: 'cancel_pending_refund',
+      payment_state: 'paid',
+      fulfillment_state: 'unfulfilled',
+    }),
+    'statusCancelling',
+  ));
 await test('ציר מסמך: failed→pending (Retry) מותר', () =>
   assert.equal(isTransitionAllowed('document_state', 'failed', 'pending'), true));
 await test('סטטוס בשפת לקוח: שולם ובהכנה = statusPreparing', () =>

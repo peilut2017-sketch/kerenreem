@@ -10,15 +10,37 @@ import type {
  * (check-commerce.mjs) יוכל לאמת אותן. orders.ts מייצא אותן הלאה.
  */
 
+/**
+ * [1.1] תרשים 13 המתוקן: הזמנה ששולמה אינה עוברת ישירות ל-cancelled —
+ * המסלול היחיד הוא דרך cancel_pending_refund, והמעבר הסופי נרשם רק אחרי
+ * שהזיכוי המלא הצליח. confirmed/processing→cancelled נשארים חוקיים ברמת
+ * המכונה עבור הזמנות *שלא שולמו* (תשלום נכשל/בוטל) — האכיפה לפי
+ * payment_state נעשית בפעולת הביטול (assertCancellable).
+ */
 export const ORDER_STATE_TRANSITIONS: Record<OrderState, OrderState[]> = {
   draft: ['pending', 'cancelled'],
   pending: ['confirmed', 'cancelled'],
-  confirmed: ['processing', 'cancelled'],
-  processing: ['completed', 'cancelled'],
+  confirmed: ['processing', 'cancel_pending_refund', 'cancelled'],
+  processing: ['completed', 'cancel_pending_refund', 'cancelled'],
+  cancel_pending_refund: ['cancelled', 'confirmed'],
   completed: ['closed'],
   cancelled: ['closed'],
   closed: [],
 };
+
+/**
+ * [1.1] שומר הביטול: מותר לבטל ישירות רק הזמנה שלא שולמה; הזמנה ששולמה
+ * (כולל זיכוי חלקי) חייבת לעבור דרך cancel_pending_refund ולהשלים זיכוי
+ * מלא. טהור — נבדק ב-check-commerce.
+ */
+export function cancellationPath(paymentState: PaymentState):
+  | 'direct'
+  | 'refund_first'
+  | 'already_refunded' {
+  if (paymentState === 'paid' || paymentState === 'partially_refunded') return 'refund_first';
+  if (paymentState === 'refunded') return 'already_refunded';
+  return 'direct';
+}
 
 export const PAYMENT_STATE_TRANSITIONS: Record<PaymentState, PaymentState[]> = {
   not_required: [],
@@ -73,6 +95,8 @@ export function customerStatusKey(order: {
   fulfillment_state: FulfillmentState;
 }): string {
   if (order.state === 'cancelled') return 'statusCancelled';
+  // ללקוח מוצג "בביטול" — הזיכוי בדרך; לא "בוטל" ולא מצב רגיל
+  if (order.state === 'cancel_pending_refund') return 'statusCancelling';
   if (order.payment_state === 'refunded' || order.payment_state === 'partially_refunded')
     return 'statusRefunded';
   if (order.fulfillment_state === 'delivered' || order.fulfillment_state === 'fulfilled')

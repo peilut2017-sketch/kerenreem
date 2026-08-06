@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { SiteHeaderClient } from './SiteHeaderClient';
+import { getCommerceFlags } from '@/lib/commerce/settings';
 import type { SiteSettings } from '@/lib/supabase/types';
 
 export const MAIN_NAV = [
@@ -16,7 +17,7 @@ export const MAIN_NAV = [
  * ניווט פשוטה (מחרוזות בלבד), כי המצב הצף/פתוח נקבע בצד הלקוח בלבד.
  */
 export async function SiteHeader({ settings }: { settings: SiteSettings }) {
-  const t = await getTranslations();
+  const [t, flags] = await Promise.all([getTranslations(), getCommerceFlags()]);
   const navItems = MAIN_NAV.map((item) => ({ href: item.href, label: t(`nav.${item.key}`) }));
 
   return (
@@ -29,6 +30,7 @@ export async function SiteHeader({ settings }: { settings: SiteSettings }) {
       openLabel={t('nav.openMenu')}
       closeLabel={t('nav.closeMenu')}
       searchLabel={t('books.search')}
+      accountsEnabled={flags.accountsEnabled}
     />
   );
 }

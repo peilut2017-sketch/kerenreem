@@ -1,6 +1,7 @@
 'use server';
 
 import { validateCart, type CartInputItem, type ValidatedCart } from './cart';
+import { validateCoupon, type CouponError } from './coupons';
 import { getCommerceFlags, getStoreSettings } from './settings';
 import { amountToFreeShipping, getAvailableMethods } from './shipping';
 import { getPromisedDate, formatPromisedDate } from './delivery-date';
@@ -12,18 +13,30 @@ import { getPromisedDate, formatPromisedDate } from './delivery-date';
  * פס משלוח חינם ותאריך אספקה — מחושבים מול המסד ברגע האמת.
  */
 
+export interface CartCouponView {
+  code: string;
+  ok: boolean;
+  error?: CouponError;
+  minTotal?: number;
+  discountAmount: number;
+  freeShipping: boolean;
+}
+
 export interface CartViewModel {
   cart: ValidatedCart;
   flags: {
     cartEnabled: boolean;
     checkoutEnabled: boolean;
     expressEnabled: boolean;
+    couponsEnabled: boolean;
   };
   freeShipping: {
     threshold: number | null;
     remaining: number | null;
     achieved: boolean;
   };
+  /** [1.1] קופון שהוזן בעגלה (הכרעה 13) — מאומת מחדש בשרת בכל טעינה */
+  coupon: CartCouponView | null;
   estimatedShipping: number | null;
   estimatedDeliveryDate: string | null;
   estimatedDeliveryLabel: string | null;
@@ -34,12 +47,29 @@ export async function getCartView(
   items: CartInputItem[],
   locale: string,
   previousPrices?: Record<string, number>,
+  couponCode?: string | null,
 ): Promise<CartViewModel> {
   const [flags, settings, cart] = await Promise.all([
     getCommerceFlags(),
     getStoreSettings(),
     validateCart(items, locale, previousPrices),
   ]);
+
+  // [1.1] הקופון חל כבר בעגלה: אימות שרתי מלא, אותו מנוע כמו ב-Checkout.
+  // ההנחה הסופית המחייבת מחושבת שוב ב-placeOrder — כאן תצוגה בלבד.
+  let coupon: CartCouponView | null = null;
+  const code = couponCode?.trim().toUpperCase() ?? '';
+  if (code && flags.couponsEnabled && cart.totalQuantity > 0) {
+    const result = await validateCoupon(code, cart, null);
+    coupon = {
+      code,
+      ok: result.ok,
+      error: result.error,
+      minTotal: result.minTotal,
+      discountAmount: result.discountAmount,
+      freeShipping: result.freeShipping,
+    };
+  }
 
   const shape = {
     subtotal: cart.subtotal,
@@ -74,6 +104,7 @@ export async function getCartView(
       cartEnabled: flags.cartEnabled,
       checkoutEnabled: flags.checkoutEnabled,
       expressEnabled: flags.expressEnabled,
+      couponsEnabled: flags.couponsEnabled,
     },
     freeShipping: {
       threshold: settings.free_shipping_threshold,
@@ -83,6 +114,7 @@ export async function getCartView(
         cart.freeShippingEligible &&
         cart.subtotal >= settings.free_shipping_threshold,
     },
+    coupon,
     estimatedShipping,
     estimatedDeliveryDate,
     estimatedDeliveryLabel,

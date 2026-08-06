@@ -159,7 +159,9 @@ export function ReviewBlock({
                               ? t('couponErrUsedUp')
                               : result.error === 'not_applicable'
                                 ? t('couponErrNotApplicable')
-                                : t('couponErrInvalid'),
+                                : result.error === 'not_combinable'
+                                  ? t('couponErrNotCombinable')
+                                  : t('couponErrInvalid'),
                         );
                       } else {
                         setCouponInput('');

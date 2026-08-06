@@ -25,6 +25,31 @@ export interface WebhookOutcome {
   httpStatus: number;
 }
 
+/** [1.1] תקרת גודל לשמירת payload גולמי (סעיף 8 בסבב התיקונים). */
+const MAX_RAW_PAYLOAD_BYTES = 256 * 1024;
+
+/** שדות רגישים שמוסרים מה-payload לפני השמירה — אינם נחוצים לעיבוד. */
+const REDACTED_KEYS = new Set([
+  'client', 'customer', 'payer', 'card', 'creditCard', 'cardNumber', 'pan',
+  'cvv', 'expiry', 'address', 'billingAddress', 'shippingAddress', 'emails',
+  'phone', 'email', 'taxId', 'idNumber',
+]);
+
+/**
+ * צמצום רקורסיבי: שדה רגיש מוחלף ב-"[redacted]"; "מסתיים ב-1234"
+ * (last4/lastDigits) נשאר — זה כל מה שמותר לשמור מאמצעי התשלום.
+ * ה-dedupe_hash מחושב על הגוף *לפני* הצמצום — ה-idempotency לא נשבר.
+ */
+function redactPayload(value: unknown, depth = 0): unknown {
+  if (depth > 6 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => redactPayload(item, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    out[key] = REDACTED_KEYS.has(key) ? '[redacted]' : redactPayload(val, depth + 1);
+  }
+  return out;
+}
+
 export async function processMorningWebhook(
   rawBody: string,
   headers: Headers,
@@ -37,8 +62,25 @@ export async function processMorningWebhook(
   const dedupeHash = createHash('sha256').update(rawBody).digest('hex');
   const externalEventId =
     typeof payload?.eventId === 'string' ? payload.eventId : null;
+  const rawBytes = Buffer.byteLength(rawBody, 'utf8');
+  const oversized = rawBytes > MAX_RAW_PAYLOAD_BYTES;
 
-  // שלב 1: הגולמי נשמר תמיד — גם כשהחתימה נכשלה — לחקירה ולהתאמות
+  // [1.1] מה נשמר (מדיניות פרק 8.6):
+  //   חתימה תקינה → payload מצומצם + שדות מנורמלים (הגולמי המלא אינו נשמר
+  //   לעולם — צמצום שדות רגישים לפני הכתיבה, hash-הכפילות חושב קודם);
+  //   חתימה שגויה → אין payload בכלל: hash, אורך ומקור בלבד (ערוץ הצפה זול);
+  //   גוף חורג מהתקרה → כנ"ל, עם payload_truncated.
+  const normalized = signatureValid && payload ? normalizeStatusPayload(payload) : null;
+  const storedPayload =
+    !signatureValid || oversized
+      ? {
+          hash: dedupeHash,
+          bytes: rawBytes,
+          source_ip: headers.get('x-forwarded-for') ?? null,
+          user_agent: headers.get('user-agent')?.slice(0, 200) ?? null,
+        }
+      : ((redactPayload(payload) as Record<string, unknown>) ?? { raw: rawBody.slice(0, 10_000) });
+
   const { data: eventRow, error: insertError } = await service
     .from('webhook_events')
     .insert({
@@ -47,7 +89,20 @@ export async function processMorningWebhook(
       external_event_id: externalEventId,
       dedupe_hash: dedupeHash,
       signature_valid: signatureValid,
-      payload: payload ?? { raw: rawBody.slice(0, 10_000) },
+      payload: storedPayload,
+      payload_normalized: normalized
+        ? {
+            status: normalized.status,
+            amount: normalized.amount,
+            method: normalized.method,
+            transaction_id:
+              (typeof payload?.transactionId === 'string' && payload.transactionId) ||
+              (typeof payload?.id === 'string' && payload.id) ||
+              null,
+            document_id: (payload?.documentId as string) ?? null,
+          }
+        : null,
+      payload_truncated: oversized,
       processing_status: signatureValid ? 'received' : 'invalid_signature',
     })
     .select('id')
@@ -65,6 +120,29 @@ export async function processMorningWebhook(
 
   const outcome = await applyTransactionUpdate(service, payload ?? {}, eventRow?.id ?? null);
   return outcome;
+}
+
+/**
+ * [1.1] טיהור payload גולמי מאירועים מעובדים בני 90 יום ומעלה — נשארים
+ * השדות המנורמלים והמזהים. אירועי failed מוחרגים עד סגירת החקירה.
+ */
+export async function purgeOldWebhookPayloads(retentionDays = 90): Promise<number> {
+  const service = createServiceClient();
+  if (!service) return 0;
+
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60_000).toISOString();
+  const { data, error } = await service
+    .from('webhook_events')
+    .update({ payload: {}, raw_purged_at: new Date().toISOString() })
+    .in('processing_status', ['processed', 'duplicate', 'invalid_signature'])
+    .is('raw_purged_at', null)
+    .lt('received_at', cutoff)
+    .select('id');
+  if (error) {
+    console.error('[commerce:webhook] purge', error.message);
+    return 0;
+  }
+  return data?.length ?? 0;
 }
 
 async function applyTransactionUpdate(

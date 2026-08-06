@@ -135,6 +135,11 @@ export function CouponsManager({ coupons }: { coupons: AdminCoupon[] }) {
           <input type="checkbox" name="combinable_with_sale" className="h-4 w-4" />
           חל גם על ספרים במבצע
         </label>
+        <label className="flex items-center gap-2 text-small text-ink-soft">
+          <input type="checkbox" name="combinable_with_coupons" className="h-4 w-4" />
+          ניתן לצירוף עם קופונים נוספים
+          <span className="text-caption text-muted">(ברירת מחדל: לא — קופון אחד להזמנה)</span>
+        </label>
         <div className="flex items-center gap-3">
           <SubmitButton pendingLabel="יוצר…">יצירת הקופון</SubmitButton>
           {state.status === 'saved' ? (

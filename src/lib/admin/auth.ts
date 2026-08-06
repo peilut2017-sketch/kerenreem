@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { hasPermission, type AdminPermission } from './permissions';
 import type { Profile, UserRole } from '@/lib/supabase/types';
 
 export interface AdminSession {
@@ -32,7 +33,19 @@ export type AdminSessionResult =
   | { status: 'profile-error'; userId: string; email: string | null; message: string }
   | { status: 'not-configured' };
 
-const RANK: Record<UserRole, number> = { viewer: 0, editor: 1, admin: 2 };
+/**
+ * דירוג ליניארי — משרת את שערי *התוכן* הקיימים (requireRole): מוכרן
+ * ומלקט מדורגים מתחת ל-editor ולכן חסומים מעמודי תוכן. שערי *החנות*
+ * אינם משתמשים בדירוג — הם דו-ממדיים ועוברים דרך requirePermission.
+ */
+const RANK: Record<UserRole, number> = {
+  viewer: 0,
+  picker: 1,
+  seller: 2,
+  editor: 3,
+  manager: 4,
+  admin: 5,
+};
 
 export function hasRole(role: UserRole, minimum: UserRole): boolean {
   return RANK[role] >= RANK[minimum];
@@ -139,4 +152,26 @@ export async function assertRole(minimum: UserRole): Promise<AdminSession | { er
   if (!hasRole(result.session.profile.role, minimum)) return { error: 'אין הרשאה לפעולה זו' };
 
   return result.session;
+}
+
+/**
+ * שער הרשאה דו-ממדי (מודל 1.1): עמודי החנות עוברים כאן ולא דרך הדירוג
+ * הליניארי — עורך תוכן חסום מהחנות גם כשהוא "מעל" מוכרן בדירוג.
+ */
+export async function requirePermission(permission: AdminPermission): Promise<AdminSession> {
+  const session = await requireRole('viewer');
+  if (!hasPermission(session.profile.role, permission)) redirect('/admin?denied=1');
+  return session;
+}
+
+/** מקבילת assertRole לפעולות שרת — שגיאה במקום redirect. */
+export async function assertPermission(
+  permission: AdminPermission,
+): Promise<AdminSession | { error: string }> {
+  const result = await assertRole('viewer');
+  if ('error' in result) return result;
+  if (!hasPermission(result.profile.role, permission)) {
+    return { error: 'אין הרשאה לפעולה זו' };
+  }
+  return result;
 }

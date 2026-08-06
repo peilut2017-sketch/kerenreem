@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FavouriteIcon } from '@/components/FavouriteIcon';
 import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
 import { ShelfPicker } from './ShelfPicker';
@@ -81,16 +82,7 @@ export function BookHeroActions({
           isFavourite ? 'text-burgundy' : ''
         }`}
       >
-        <svg
-          viewBox="0 0 20 20"
-          aria-hidden="true"
-          className="h-4 w-4"
-          fill={isFavourite ? 'currentColor' : 'none'}
-          stroke="currentColor"
-          strokeWidth="1.6"
-        >
-          <path d="M10 16.5S3.5 12.7 3.5 8.2A3.7 3.7 0 0 1 10 5.9a3.7 3.7 0 0 1 6.5 2.3c0 4.5-6.5 8.3-6.5 8.3Z" />
-        </svg>
+        <FavouriteIcon active={isFavourite} className="h-4 w-4" />
         {isFavourite ? t('favouriteRemove') : t('favouriteAdd')}
       </button>
 

@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/admin/auth';
+import { requirePermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { CouponsManager, type AdminCoupon } from '@/components/admin/orders/CouponsManager';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  * אין מונה שיכול להתפזר. ההפעלה בפועל בצד הלקוח כפופה לדגל coupons_enabled.
  */
 export default async function AdminCouponsPage() {
-  await requireRole('admin');
+  await requirePermission('finance');
   const supabase = await createClient();
 
   let coupons: AdminCoupon[] = [];

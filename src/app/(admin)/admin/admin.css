@@ -22,17 +22,21 @@
   --admin-warning-soft: #fffbeb;
   --admin-danger: #b91c1c;
   --admin-danger-soft: #fef2f2;
-  --admin-border: color-mix(in srgb, var(--color-rule) 80%, transparent);
+  --admin-border: color-mix(in srgb, var(--color-rule) 70%, transparent);
   --admin-radius-card: 1.25rem;
   --admin-radius-btn: 0.75rem;
-  --admin-shadow: 0 1px 2px rgb(20 18 15 / 0.04), 0 12px 28px -16px rgb(20 18 15 / 0.16);
-  --admin-shadow-hover: 0 2px 6px rgb(20 18 15 / 0.06), 0 22px 44px -18px rgb(20 18 15 / 0.22);
+  --admin-shadow: 0 1px 2px rgb(20 18 15 / 0.03), 0 10px 24px -18px rgb(20 18 15 / 0.12);
+  --admin-shadow-hover: 0 2px 6px rgb(20 18 15 / 0.05), 0 22px 44px -18px rgb(20 18 15 / 0.18);
+  /* [1.1] קנבס בהיר ואוורירי: המשטחים לבנים על רקע נייר עדין — פחות
+     "כבד" מגוני הקרם הרציפים, בלי לגעת בזהות האתר הציבורי */
+  --admin-canvas: #f8f7f4;
+  --admin-surface: #ffffff;
 }
 
 @layer components {
   /* --- כרטיס --- */
   .admin-card {
-    background: var(--color-cream);
+    background: var(--admin-surface);
     border: 1px solid var(--admin-border);
     border-radius: var(--admin-radius-card);
     box-shadow: var(--admin-shadow);
@@ -179,35 +183,42 @@
     margin-block-start: 0.35rem;
   }
 
-  /* --- טבלה: מוקפת, שורות עם hover, כותרת עדינה --- */
+  /* --- טבלה: משטח לבן, כותרת שקטה בלי uppercase, שורות נושמות --- */
   .admin-table-wrap {
     border: 1px solid var(--admin-border);
     border-radius: 1rem;
     overflow: hidden;
+    background: var(--admin-surface);
   }
   .admin-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-  .admin-table thead { background: var(--color-cream-2); }
+  .admin-table thead {
+    background: var(--admin-surface);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
   .admin-table th {
-    padding: 0.8rem 1.1rem;
+    padding: 0.85rem 1.1rem;
     text-align: start;
     font-weight: 600;
     color: var(--color-muted);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    font-size: 0.78rem;
+    border-block-end: 1px solid var(--admin-border);
   }
-  .admin-table td { padding: 0.9rem 1.1rem; border-top: 1px solid var(--admin-border); vertical-align: middle; }
+  .admin-table td { padding: 0.9rem 1.1rem; border-top: 1px solid color-mix(in srgb, var(--color-rule) 45%, transparent); vertical-align: middle; }
   .admin-table tbody tr { transition: background-color 150ms ease; }
-  .admin-table tbody tr:hover { background: var(--color-cream-2); }
+  .admin-table tbody tr:hover { background: color-mix(in srgb, var(--admin-accent) 3.5%, var(--admin-surface)); }
 
-  /* --- ניווט: קפסולה מפולחת --- */
+  /* --- ניווט: קפסולה לבנה צפה, קלה --- */
   .admin-nav-shell {
     display: inline-flex;
     align-items: center;
     gap: 0.15rem;
     padding: 0.3rem;
-    background: var(--color-cream-2);
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
     border-radius: var(--radius-pill);
+    box-shadow: var(--admin-shadow);
   }
   .admin-nav-link {
     display: inline-flex;
@@ -261,7 +272,7 @@
     align-items: center;
     gap: 0.9rem;
     padding: 1.15rem 1.3rem;
-    background: var(--color-cream);
+    background: var(--admin-surface);
     border: 1px solid var(--admin-border);
     border-radius: 1.1rem;
     transition: box-shadow 220ms ease, transform 220ms ease, border-color 220ms ease;

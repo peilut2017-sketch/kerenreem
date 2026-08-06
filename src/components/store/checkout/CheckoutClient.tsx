@@ -72,6 +72,26 @@ export function CheckoutClient() {
         }
         setOpenBlock(!hasContact ? 'contact' : !savedMethod ? 'fulfillment' : 'review');
       }
+      // [1.1] קופון שנקלט כבר בעגלה (kr:coupon) או ששרד ב-session —
+      // מוחל אוטומטית; האימות המחייב ממילא רץ שוב ב-placeOrder
+      const sessionCoupon = result.session?.coupon_code ?? null;
+      let storedCoupon: string | null = null;
+      try {
+        storedCoupon = window.localStorage.getItem('kr:coupon');
+      } catch {
+        storedCoupon = null;
+      }
+      const codeToApply = sessionCoupon ?? storedCoupon;
+      if (result.ok && codeToApply) {
+        const applied = await applyCoupon(codeToApply);
+        if (applied.ok && applied.code) {
+          setCoupon({
+            code: applied.code,
+            discountAmount: applied.discountAmount ?? 0,
+            freeShipping: applied.freeShipping ?? false,
+          });
+        }
+      }
       void recordCommerceEvent('checkout_started', {
         sessionKey: cart.sessionKey,
         locale,

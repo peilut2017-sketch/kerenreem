@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/admin/auth';
+import { requirePermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { ShippingManager } from '@/components/admin/orders/ShippingManager';
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
  * היא שורת נתונים — המנוע כבר תומך בכל הסוגים.
  */
 export default async function AdminShippingPage() {
-  await requireRole('admin');
+  await requirePermission('finance');
   const supabase = await createClient();
   const { data } = supabase
     ? await supabase.from('shipping_methods').select('*').order('sort_order')

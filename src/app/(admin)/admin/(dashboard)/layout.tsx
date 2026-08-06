@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { AdminNav } from '@/components/admin/AdminNav';
 import { AdminIcon } from '@/components/admin/AdminIcons';
+import { ROLE_LABELS } from '@/lib/admin/permissions';
 import { SignOutButton } from '@/components/admin/SignOutButton';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 
-const ROLE_LABELS = { admin: 'מנהל', editor: 'עורך', viewer: 'צופה' } as const;
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // בלי הגדרת סביבה אין מסד ואין אימות — מציגים הסבר במקום מסך שבור.
@@ -25,10 +25,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await requireRole('viewer');
 
   return (
-    <div className="flex min-h-dvh flex-col bg-cream-2/40">
+    <div className="flex min-h-dvh flex-col bg-[var(--admin-canvas)]">
       {/* הכותרת נדבקת לראש החלון, כמו באתר הציבורי: בטבלה ארוכה הניווט
           היה נעלם למעלה וכל מעבר בין מסכים חייב גלילה חזרה. */}
-      <header className="sticky top-0 z-30 border-b border-rule bg-cream/95 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-4 px-6 py-3.5">
           <div className="flex items-center gap-3">
             <Link href="/admin" className="flex items-center gap-2.5 font-serif text-[1.25rem] text-ink">

@@ -1,7 +1,8 @@
 'use server';
 
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { getCommerceFlags } from './settings';
 import { allowRequest, ipBucket } from './rate-limit';
 import { getCustomerSession, ensureCustomerRecord } from './account';
@@ -49,12 +50,67 @@ export async function sendLoginLink(email: string): Promise<AccountActionResult>
   return { ok: true };
 }
 
-/** נקרא אחרי ההתחברות: יצירת רשומת לקוח + שיוך הזמנות (idempotent). */
-export async function completeLogin(): Promise<AccountActionResult> {
+/**
+ * נקרא אחרי ההתחברות: יצירת רשומת לקוח + ‏Claim בטוח (idempotent).
+ * claimToken — טוקן הזמנת המקור אם ה-Claim התחיל מקישור מעקב/עמוד תודה.
+ * בהיעדרו, עוגן חלופי שווה-ערך: ה-checkout session של הדפדפן הזה (עוגיית
+ * httpOnly שהונפקה בעת ההזמנה) — נקרא בצד השרת בלבד.
+ */
+export async function completeLogin(claimToken?: string | null): Promise<AccountActionResult> {
   const session = await getCustomerSession();
   if (!session) return { ok: false, error: 'server' };
-  await ensureCustomerRecord(session);
+
+  const token = claimToken?.slice(0, 64) ?? null;
+  if (!token) {
+    // עוגן ה-checkout: אותה הוכחת-מקור כמו הטוקן, בלי לעבור דרך הלקוח
+    const store = await cookies();
+    const checkoutSessionId = store.get('kr-checkout')?.value ?? null;
+    if (checkoutSessionId) {
+      const service = createServiceClient();
+      if (service) {
+        const { data: checkoutSession } = await service
+          .from('checkout_sessions')
+          .select('order_id')
+          .eq('id', checkoutSessionId)
+          .maybeSingle();
+        if (checkoutSession?.order_id) {
+          // אין לנו את הטוקן הגולמי — משייכים את הזמנת המקור ישירות
+          await ensureCustomerRecord(session, null);
+          await claimOriginOrderById(session.userId, session.email, checkoutSession.order_id);
+          return { ok: true };
+        }
+      }
+    }
+  }
+
+  await ensureCustomerRecord(session, token);
   return { ok: true };
+}
+
+/** שיוך הזמנת מקור שהוכחה בעוגיית ה-checkout + הזמנות עבר בהתאמה כפולה. */
+async function claimOriginOrderById(
+  userId: string,
+  verifiedEmail: string | null,
+  orderId: string,
+): Promise<void> {
+  const service = createServiceClient();
+  if (!service || !verifiedEmail) return;
+  const { data: origin } = await service
+    .from('orders')
+    .select('id, contact_phone, contact_email, user_id')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!origin || origin.user_id) return;
+
+  await service.from('orders').update({ user_id: userId }).eq('id', origin.id).is('user_id', null);
+  if (origin.contact_phone && origin.contact_email === verifiedEmail) {
+    await service
+      .from('orders')
+      .update({ user_id: userId })
+      .eq('contact_email', verifiedEmail)
+      .eq('contact_phone', origin.contact_phone)
+      .is('user_id', null);
+  }
 }
 
 /**

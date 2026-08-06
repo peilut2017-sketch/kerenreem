@@ -52,7 +52,9 @@ export async function listOrders(filter: OrdersFilter): Promise<Order[]> {
     query = query.overlaps('tags', ['cancel-requested']);
   }
   if (filter.view === 'attention') {
-    query = query.overlaps('tags', ['amount-mismatch', 'attention']);
+    query = query.or(
+      'tags.ov.{amount-mismatch,attention,reconcile-mismatch},state.eq.cancel_pending_refund',
+    );
   }
   if (filter.q) {
     const q = filter.q.trim();
@@ -110,6 +112,13 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
   };
 }
 
+export interface InventoryLocationLevel {
+  locationId: string;
+  locationName: string;
+  onHand: number;
+  reserved: number;
+}
+
 export interface InventoryRow {
   bookId: string;
   title: string;
@@ -121,29 +130,64 @@ export interface InventoryRow {
   reserved: number;
   available: number;
   lowThreshold: number | null;
+  /** [1.1] פירוט פר מיקום — ריבוי מחסנים (הכרעה 9) */
+  perLocation: InventoryLocationLevel[];
+}
+
+export interface StockLocationRow {
+  id: string;
+  slug: string;
+  name: string;
+  kind: string;
+  isDefault: boolean;
+  active: boolean;
+}
+
+export async function listStockLocations(): Promise<StockLocationRow[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from('stock_locations')
+    .select('id, slug, name, kind, is_default, active')
+    .order('sort_order');
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    kind: row.kind,
+    isDefault: row.is_default,
+    active: row.active,
+  }));
 }
 
 export async function listInventory(): Promise<InventoryRow[]> {
   const supabase = await createClient();
   if (!supabase) return [];
 
-  const [{ data: books }, { data: levels }] = await Promise.all([
+  const [{ data: books }, { data: levels }, locations] = await Promise.all([
     supabase
       .from('books')
       .select('id, title_he, sku, stock_location, is_purchasable, is_stock_managed, low_stock_threshold, stock_quantity')
       .order('title_he'),
     supabase.from('inventory_levels').select('*'),
+    listStockLocations(),
   ]);
 
-  const levelByBook = new Map<string, InventoryLevel>();
+  const locationName = new Map(locations.map((loc) => [loc.id, loc.name]));
+  // [1.1] ספר יכול להחזיק level בכל מחסן — צוברים, לא דורסים
+  const levelsByBook = new Map<string, InventoryLevel[]>();
   for (const level of (levels ?? []) as InventoryLevel[]) {
-    levelByBook.set(level.book_id, level);
+    const list = levelsByBook.get(level.book_id) ?? [];
+    list.push(level);
+    levelsByBook.set(level.book_id, list);
   }
 
   return (books ?? []).map((book) => {
-    const level = levelByBook.get(book.id);
-    const onHand = level?.on_hand ?? book.stock_quantity ?? 0;
-    const reserved = level?.reserved ?? 0;
+    const bookLevels = levelsByBook.get(book.id) ?? [];
+    const onHand = bookLevels.length
+      ? bookLevels.reduce((sum, level) => sum + level.on_hand, 0)
+      : (book.stock_quantity ?? 0);
+    const reserved = bookLevels.reduce((sum, level) => sum + level.reserved, 0);
     return {
       bookId: book.id,
       title: book.title_he,
@@ -155,6 +199,14 @@ export async function listInventory(): Promise<InventoryRow[]> {
       reserved,
       available: onHand - reserved,
       lowThreshold: book.low_stock_threshold,
+      perLocation: bookLevels
+        .map((level) => ({
+          locationId: level.location_id,
+          locationName: locationName.get(level.location_id) ?? '—',
+          onHand: level.on_hand,
+          reserved: level.reserved,
+        }))
+        .sort((a, b) => a.locationName.localeCompare(b.locationName, 'he')),
     };
   });
 }

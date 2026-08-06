@@ -69,6 +69,31 @@
 
 ---
 
+## סבב בנייה 1.1 — מימוש ההכרעות בקוד (אוגוסט 2026)
+
+בוצע מיד אחרי סבב התיעוד, לפי ה-backlog ‏B1–B14. מה נבנה:
+
+| # | מה נבנה | איפה |
+|---|---|---|
+| B1 | ‏migration ‎36: ‏`book_costs` + ‏`can_view_costs()`, ‏`order_items.cost_price_snapshot`, ‏`orders.actual_shipping_cost`, ‏`coupons.combinable_with_coupons`, עמודות webhook (‏normalized/truncated/purged), חמשת התפקידים + 4 פונקציות הרשאה + עדכון כל ה-policies, ‏`cancel_pending_refund`, ‏`commerce_adjust_stock` עם מיקום + ‏`commerce_transfer_stock` | `supabase/36_v11_corrections.sql` |
+| B2 | ‏`contact_hash` = ‏HMAC-SHA256 עם `COMMERCE_HMAC_SECRET` (נפילה מבוקרת ל-service key) + השוואה כפולה מול hash ישן | `guest-token.ts`, `coupons.ts`, `.env.example` |
+| B3 | זרימת הביטול המתוקנת: ‏`cancelOrder` ייעודי (לא-שולם ⇒ ביטול+שחרור; שולם ⇒ ‏cancel_pending_refund), ‏`refundOrder` משלים ל-cancelled רק בזיכוי מלא + ‏cancel_restock לפריטים שלא נשלחו; מעבר ישיר ל-cancelled נחסם ב-UI ובפעולה | `orders-actions.ts`, `state-machines.ts` (+`cancellationPath`), ‏`OrderActionsPanel` |
+| B4 | ‏Claim בטוח: טוקן ההזמנה הוא העוגן (או עוגיית ה-checkout), הזמנות עבר רק בהתאמת טלפון+מייל, אין מיזוג בספק; ‏CTA בעמוד המעקב עם `?claim=` | `account.ts`, `account-actions.ts`, ‏`LoginClient`, עמוד המעקב |
+| B5 | צמצום Payload (רשימת שדות רגישים, תקרת 256KB, חתימה-שגויה בלי גוף) + ‏`payload_normalized` + ‏job טיהור 90 יום ב-cron | `webhook-processing.ts`, ‏cron |
+| B6 | מסך צוות והרשאות: הזמנה במייל + סיסמה ראשונית (מוצגת פעם אחת כשאין ספק מייל), חמשת התפקידים עם תיאורים, שינוי תפקיד, הסרת גישה; מודל הרשאות דו-ממדי (`permissions.ts` + ‏`requirePermission`/`assertPermission`) על כל מסכי ופעולות החנות | `/admin/team`, `team-actions.ts`, `permissions.ts`, `auth.ts` |
+| B7 | ניווט אדמין: קבוצת "חנות" מלאה (הזמנות, מלאי ומחסנים, אספקה, קופונים, דוחות ורווחיות, הגדרות חנות) עם אייקונים ייעודיים חדשים; סינון תפריט לפי הרשאה — עורך תוכן אינו רואה חנות, מוכרן אינו רואה תוכן | `AdminNav.tsx`, `AdminIcons.tsx` |
+| B8 | אייקון המועדפים = ספר (רכיב `FavouriteIcon` אחיד בכל הכרטיסים), עמוד ציבורי `/favourites` ("הספרים שאהבתי") עם ריקות מעוצבת, ואייקוני כותרת: ספר עם מונה + חשבון (כשפעיל) + סל | `FavouriteIcon.tsx`, `/favourites`, `HeaderQuickLinks.tsx` |
+| B9 | קופון כבר בעגלה: שדה מתקפל בעמוד העגלה, אימות שרתי מלא, שורת הנחה בסיכום וב-Mini Cart, נדידה אוטומטית ל-Checkout; אכיפת `combinable_with_coupons` (שגיאת not_combinable) + השדה בטופס הקופונים | `CartProvider`, `CartPageClient`, `cart-actions.ts`, `checkout-actions.ts`, `CouponsManager` |
+| B10 | ריבוי מחסנים: פירוט פר מיקום בטבלת המלאי, תנועה למיקום נבחר, העברה אטומית בין מחסנים, ניהול מיקומים (הוספה) | `InventoryTable`, `commerce-queries.ts`, `inventory.ts` |
+| B11 | עלויות ורווחיות: פאנל עלות בעמוד הספר (בהרשאה), צילום עלות בהזמנה, מקבץ רווחיות בדוחות (COGS, רווח גולמי+שיעור, רווח לפי ספר, פער משלוח נגבה-מול-בפועל) + שדה עלות משלוח בפועל בעמוד ההזמנה | `BookCostPanel`, `costs-actions.ts`, `checkout.ts`, עמוד הדוחות |
+| B12 | התאמה יומית מול מורנינג (שער G3): הצלבת payments מול סטטוס הספק, תיוג `reconcile-mismatch` + אירוע ציר זמן + שורה בדוחות ובתצוגת "דורשות טיפול" | `reconciliation.ts`, ‏cron, דוחות |
+| B14 | גישת לקוח: מסמך להורדה מעמוד המעקב (היה), היסטוריית הזמנות בחשבון (היה), הצעת חשבון בטוקן מעמוד המעקב (חדש) | עמוד המעקב |
+| UI | רענון עיצובי: עגלה בכרטיסים קלים עם צל עדין, ‏Mini Cart עם שורת הנחה, ריקות עם אייקון; אדמין — קנבס בהיר, משטחים לבנים, טבלאות בלי uppercase עם כותרת דביקה, ניווט קפסולה צפה, 8 אייקונים חדשים | `admin.css`, `CartPageClient`, `MiniCart`, ‏layout |
+
+**נשאר פתוח:** ‏B13 (לכידה באריזה — ממתין לאימותי A13/A14 מול Sandbox של מורנינג); צבירה בפועל של שני קופונים צבירים (יגיע עם מנוע ה-promotions — כרגע צבירים מחליפים זה את זה ולא-צבירים נחסמים); ייבוא עלויות משלוח מקובץ של חברת המשלוחים. **תזכורת תפעולית:** יש להריץ את `36_v11_corrections.sql` ב-Supabase ולהגדיר `COMMERCE_HMAC_SECRET` (ראו `.env.example`).
+
+---
+
 ## גרסה 1.0 — האפיון המקורי
 
 שישה מסמכים: מסמך אב (31 פרקים), מודל נתונים (‏migrations ‎23–35), ‏19 תרשימי תהליכים, ניתוח פערים מאומת מול הקוד, תוכנית מימוש בעשרה שלבים, ‏23 החלטות פתוחות לבעל האתר. בעקבותיו — סבבי בנייה שמימשו את שלבי התוכנית 1–10 בקוד (ראו סעיף 0 בניתוח הפערים).

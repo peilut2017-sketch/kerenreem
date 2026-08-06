@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertRole } from './auth';
+import { assertPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -18,7 +18,7 @@ export async function createCoupon(
   _prev: CouponFormState,
   formData: FormData,
 ): Promise<CouponFormState> {
-  const session = await assertRole('admin');
+  const session = await assertPermission('finance');
   if ('error' in session) return { status: 'error', message: session.error };
 
   const supabase = await createClient();
@@ -53,6 +53,7 @@ export async function createCoupon(
     max_uses_per_customer: Number(formData.get('max_uses_per_customer') ?? 1) || 1,
     ends_at: endsAtRaw ? new Date(`${endsAtRaw}T23:59:59`).toISOString() : null,
     combinable_with_sale: formData.get('combinable_with_sale') === 'on',
+    combinable_with_coupons: formData.get('combinable_with_coupons') === 'on',
     active: true,
     created_by: session.userId,
   });
@@ -73,7 +74,7 @@ export async function createCoupon(
 }
 
 export async function setCouponActive(couponId: string, active: boolean): Promise<void> {
-  const session = await assertRole('admin');
+  const session = await assertPermission('finance');
   if ('error' in session) return;
   const supabase = await createClient();
   if (!supabase) return;

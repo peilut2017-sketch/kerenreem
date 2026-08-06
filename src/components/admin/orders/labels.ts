@@ -8,6 +8,7 @@ export const ORDER_STATE_LABELS: Record<string, string> = {
   pending: 'ממתינה',
   confirmed: 'התקבלה',
   processing: 'בטיפול',
+  cancel_pending_refund: 'ממתינה לזיכוי (ביטול)',
   completed: 'הושלמה',
   cancelled: 'בוטלה',
   closed: 'נסגרה',

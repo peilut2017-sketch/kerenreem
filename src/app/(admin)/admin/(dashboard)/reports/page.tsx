@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requirePermission } from '@/lib/admin/auth';
+import { hasPermission } from '@/lib/admin/permissions';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { StatTile } from '@/components/admin/analytics/StatTile';
@@ -21,7 +22,8 @@ export default async function AdminReportsPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  await requireRole('editor');
+  const session = await requirePermission('finance');
+  const canViewCosts = hasPermission(session.profile.role, 'costs');
   const { days: daysParam } = await searchParams;
   const days = (RANGES as readonly number[]).includes(Number(daysParam)) ? Number(daysParam) : 30;
   const since = new Date();
@@ -38,7 +40,7 @@ export default async function AdminReportsPage({
     supabase.from('payments').select('*').gte('created_at', since.toISOString()).limit(4000),
     supabase
       .from('order_items')
-      .select('order_id, title_snapshot, quantity, line_total')
+      .select('order_id, title_snapshot, quantity, line_total, cost_price_snapshot')
       .limit(8000),
     supabase
       .from('checkout_sessions')
@@ -116,6 +118,46 @@ export default async function AdminReportsPage({
   };
   const completion = funnel.started > 0 ? Math.round((funnel.converted / funnel.started) * 100) : 0;
 
+  // [1.1] רווחיות (17.14) — מהצילומים בשורות ההזמנה, למנהלים בלבד.
+  // פריט ללא עלות מתועדת נספר בנפרד — לא מוצג כרווח מלא.
+  const productRevenue = items.reduce((sum, item) => sum + Number(item.line_total ?? 0), 0);
+  const costedItems = items.filter((item) => item.cost_price_snapshot != null);
+  const cogs = costedItems.reduce(
+    (sum, item) => sum + Number(item.cost_price_snapshot) * item.quantity,
+    0,
+  );
+  const uncostedUnits = items
+    .filter((item) => item.cost_price_snapshot == null)
+    .reduce((sum, item) => sum + item.quantity, 0);
+  const grossProfit = productRevenue - cogs;
+  const margin = productRevenue > 0 ? Math.round((grossProfit / productRevenue) * 100) : 0;
+
+  // רווח לפי ספר (רק פריטים עם עלות)
+  const profitByBook = new Map<string, number>();
+  for (const item of costedItems) {
+    const title = item.title_snapshot ?? 'ללא שם';
+    const profit = Number(item.line_total ?? 0) - Number(item.cost_price_snapshot) * item.quantity;
+    profitByBook.set(title, (profitByBook.get(title) ?? 0) + profit);
+  }
+  const topProfitBooks = [...profitByBook.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([label, value]) => ({ label, value: Math.round(value) }));
+
+  // פער משלוח: מה שנגבה מול העלות בפועל (רק הזמנות שהוזנה בהן עלות)
+  const shippedWithActual = paidOrders.filter((order) => order.actual_shipping_cost != null);
+  const shippingCharged = shippedWithActual.reduce(
+    (sum, order) => sum + Number(order.shipping_total ?? 0),
+    0,
+  );
+  const shippingActual = shippedWithActual.reduce(
+    (sum, order) => sum + Number(order.actual_shipping_cost ?? 0),
+    0,
+  );
+  const reconcileMismatches = orders.filter((order) =>
+    (order.tags ?? []).includes('reconcile-mismatch'),
+  );
+
   return (
     <>
       <AdminHeader
@@ -190,6 +232,11 @@ export default async function AdminReportsPage({
               href="/admin/orders?view=attention"
             />
             <ReconRow
+              label="פערי התאמה יומית (reconciliation)"
+              count={reconcileMismatches.length}
+              href="/admin/orders?view=attention"
+            />
+            <ReconRow
               label="בקשות ביטול פתוחות"
               count={cancelRequests.length}
               href="/admin/orders?view=cancel_requests"
@@ -216,6 +263,63 @@ export default async function AdminReportsPage({
           <p className="mt-2 text-caption text-muted">שיעור השלמה: {completion}%</p>
         </section>
       </div>
+
+      {/* [1.1] רווחיות (17.14) — מנהל-על ומנהל בלבד; מהצילומים, לא מהעלות הנוכחית */}
+      {canViewCosts ? (
+        <section aria-labelledby="profit-heading" className="mt-10">
+          <h2 id="profit-heading" className="mb-4 font-serif text-h3 text-ink">
+            רווחיות
+          </h2>
+          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatTile
+              icon="finance"
+              label="עלות המכר (COGS)"
+              value={formatPrice(cogs, 'he', { alwaysAgorot: true })}
+              hint={uncostedUnits > 0 ? `${uncostedUnits} יחידות ללא עלות מתועדת` : undefined}
+            />
+            <StatTile
+              icon="analytics"
+              label="רווח גולמי"
+              value={formatPrice(grossProfit, 'he', { alwaysAgorot: true })}
+              hint={`${margin}% מהכנסות המוצרים`}
+            />
+            <StatTile
+              icon="store"
+              label="משלוח שנגבה (בהזמנות עם עלות)"
+              value={formatPrice(shippingCharged, 'he', { alwaysAgorot: true })}
+            />
+            <StatTile
+              icon="dashboard"
+              label="פער משלוח (נגבה − בפועל)"
+              value={formatPrice(shippingCharged - shippingActual, 'he', { alwaysAgorot: true })}
+              hint={
+                shippedWithActual.length > 0
+                  ? `${shippedWithActual.length} הזמנות עם עלות בפועל`
+                  : 'טרם הוזנו עלויות משלוח בפועל'
+              }
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <section className="admin-card px-5 py-4">
+              <h2 className="mb-3 text-small font-bold text-ink">רווח גולמי לפי ספר (₪)</h2>
+              <BarList
+                items={topProfitBooks}
+                emptyLabel="אין נתוני עלות בטווח — הזינו עלות ליחידה בעמוד הספר."
+              />
+            </section>
+            <section className="admin-card px-5 py-4">
+              <h2 className="mb-3 text-small font-bold text-ink">איך זה מחושב</h2>
+              <ul className="space-y-1.5 text-caption text-muted">
+                <li>· עלות המכר — מצילום העלות בעת ההזמנה, לא מהעלות הנוכחית.</li>
+                <li>· רווח גולמי = הכנסות מוצרים (אחרי הנחות, לפני משלוח) − עלות המכר.</li>
+                <li>· פריטים ללא עלות מתועדת נספרים בנפרד ואינם מוצגים כרווח.</li>
+                <li>· עמלת סליקה בפועל תתווסף עם נתוני ההתאמה ממורנינג (A8).</li>
+                <li>· עלות משלוח בפועל מוזנת בעמוד ההזמנה או בייבוא מחברת המשלוחים.</li>
+              </ul>
+            </section>
+          </div>
+        </section>
+      ) : null}
     </>
   );
 }

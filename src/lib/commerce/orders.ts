@@ -15,6 +15,7 @@ export {
   DOCUMENT_STATE_TRANSITIONS,
   isTransitionAllowed,
   customerStatusKey,
+  cancellationPath,
   type StateAxis,
 } from './state-machines';
 

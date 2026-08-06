@@ -1,6 +1,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { hashGuestToken } from './guest-token';
 import type { Customer, Order, SavedBook } from '@/lib/supabase/types';
 
 /**
@@ -8,11 +9,12 @@ import type { Customer, Order, SavedBook } from '@/lib/supabase/types';
  * customers ובלי profiles (ההפרדה של migration 23). הקריאות כאן עוברות
  * דרך ה-RLS של הלקוח — הוא רואה רק את שלו.
  *
- * ⚠️ הנחה A12: עד חיבור ספק SMS, ההתחברות היא בקישור חד-פעמי למייל
- * (Supabase email OTP — עובד ללא תצורה נוספת). שיוך הזמנות עבר נעשה
- * לפי המייל *המאומת* — הכתובת שקיבלה את אישורי ההזמנה — ולא לפי טלפון.
- * כשיחובר ספק SMS, OTP לטלפון נוסף כמסלול ראשי והשיוך עובר לטלפון
- * מאומת, כמפרט.
+ * [1.1] מנגנון Claim בטוח (סעיף 7 בסבב התיקונים, תרשים 18):
+ * עוגן השיוך הוא *טוקן ההזמנה* — לא מזהה קשר לבדו. הזמנת המקור (שמטוקנה
+ * התחיל ה-Claim) משויכת תמיד; הזמנות עבר משויכות רק בהתאמה כפולה — גם
+ * הטלפון וגם המייל זהים לזהות המאומתת. התאמה חלקית ⇒ אין שיוך אוטומטי;
+ * ההזמנה נשארת נגישה בטוקן שלה ואיש הצוות יכול לשייך ידנית. טלפונים
+ * משותפים (קו משפחתי/כשר) הם תרחיש נפוץ בקהל — מספר לבדו אינו הוכחה.
  */
 
 export interface CustomerSession {
@@ -41,52 +43,83 @@ export async function getCustomerSession(): Promise<CustomerSession | null> {
 }
 
 /**
- * יצירת רשומת הלקוח אחרי ההתחברות הראשונה + שיוך הזמנות אורח עם אותו
- * מייל מאומת (החשבון הפסיבי — תרשים 18). Idempotent: ריצה חוזרת לא
- * משנה דבר. service role: ללקוחות אין policy יצירה במכוון.
+ * יצירת רשומת הלקוח אחרי ההתחברות + ‏Claim בטוח (תרשים 18 המתוקן).
+ * Idempotent: ריצה חוזרת לא משנה דבר. service role: ללקוחות אין policy
+ * יצירה במכוון.
+ *
+ * claimToken — טוקן הזמנת המקור (מהמייל / עמוד המעקב / עמוד התודה):
+ * מוכיח בעלות על אותה הזמנה. בלעדיו לא משויכת שום הזמנה אוטומטית —
+ * אי-ודאות פירושה לא-ממזגים.
  */
-export async function ensureCustomerRecord(session: CustomerSession): Promise<Customer | null> {
-  if (session.customer) return session.customer;
+export async function ensureCustomerRecord(
+  session: CustomerSession,
+  claimToken?: string | null,
+): Promise<Customer | null> {
   const service = createServiceClient();
-  if (!service || !session.email) return null;
+  if (!service || !session.email) return session.customer;
 
-  // פרטי ההזמנה האחרונה עם המייל הזה — מקור השם והטלפון, בלי טופס נוסף
-  const { data: lastOrder } = await service
-    .from('orders')
-    .select('contact_name, contact_phone')
-    .eq('contact_email', session.email)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const phone = lastOrder?.contact_phone ?? `pending:${session.userId}`;
-  const { data: customer, error } = await service
-    .from('customers')
-    .upsert(
-      {
-        id: session.userId,
-        phone,
-        email: session.email,
-        full_name: lastOrder?.contact_name ?? null,
-      },
-      { onConflict: 'id' },
-    )
-    .select('*')
-    .maybeSingle();
-  if (error) {
-    console.error('[commerce:account] ensure customer', error.message);
-    return null;
+  // הזמנת המקור — רק אם הטוקן מוכיח אותה (hash מלא, לא ניחוש)
+  let originOrder: {
+    id: string;
+    contact_name: string | null;
+    contact_phone: string | null;
+    contact_email: string | null;
+    user_id: string | null;
+  } | null = null;
+  if (claimToken) {
+    const { data } = await service
+      .from('orders')
+      .select('id, contact_name, contact_phone, contact_email, user_id')
+      .eq('guest_token_hash', hashGuestToken(claimToken))
+      .eq('guest_token_revoked', false)
+      .maybeSingle();
+    originOrder = data ?? null;
   }
 
-  // שיוך הזמנות העבר: רק הזמנות שהמייל *המאומת* הזה קיבל את אישוריהן
-  const { error: claimError } = await service
-    .from('orders')
-    .update({ user_id: session.userId })
-    .eq('contact_email', session.email)
-    .is('user_id', null);
-  if (claimError) console.error('[commerce:account] claim orders', claimError.message);
+  let customer = session.customer;
+  if (!customer) {
+    const { data, error } = await service
+      .from('customers')
+      .upsert(
+        {
+          id: session.userId,
+          // בלי הזמנת מקור מוכחת אין טלפון מאומת — נשאר ממתין להשלמה
+          phone: originOrder?.contact_phone ?? `pending:${session.userId}`,
+          email: session.email,
+          full_name: originOrder?.contact_name ?? null,
+        },
+        { onConflict: 'id' },
+      )
+      .select('*')
+      .maybeSingle();
+    if (error) {
+      console.error('[commerce:account] ensure customer', error.message);
+      return null;
+    }
+    customer = (data as Customer | null) ?? null;
+  }
 
-  return (customer as Customer | null) ?? null;
+  if (originOrder && !originOrder.user_id) {
+    // שיוך הזמנת המקור — הטוקן הוכיח אותה
+    await service
+      .from('orders')
+      .update({ user_id: session.userId })
+      .eq('id', originOrder.id)
+      .is('user_id', null);
+
+    // הזמנות עבר: התאמה כפולה בלבד — גם הטלפון וגם המייל המאומת
+    if (originOrder.contact_phone && originOrder.contact_email === session.email) {
+      const { error: claimError } = await service
+        .from('orders')
+        .update({ user_id: session.userId })
+        .eq('contact_email', session.email)
+        .eq('contact_phone', originOrder.contact_phone)
+        .is('user_id', null);
+      if (claimError) console.error('[commerce:account] claim orders', claimError.message);
+    }
+  }
+
+  return customer;
 }
 
 /** הזמנות הלקוח — דרך ה-RLS (orders_own_read: user_id = auth.uid()). */

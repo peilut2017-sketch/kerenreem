@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 import { round2 } from './pricing';
-import { hashContact } from './guest-token';
+import { hashContact, legacyHashContact } from './guest-token';
 import type { ValidatedCart } from './cart';
 
 /**
@@ -29,6 +29,8 @@ export interface CouponRow {
     exclude_book_ids?: string[];
   };
   combinable_with_sale: boolean;
+  /** [1.1] "ניתן לצירוף עם קופונים נוספים" — ברירת מחדל לא (מודל 3.14) */
+  combinable_with_coupons: boolean;
   active: boolean;
 }
 
@@ -36,7 +38,9 @@ export type CouponError =
   | 'invalid'
   | 'min_total'
   | 'used_up'
-  | 'not_applicable';
+  | 'not_applicable'
+  /** [1.1] קופון קיים או חדש אינו מסומן "ניתן לצירוף" (ברירת מחדל: לא) */
+  | 'not_combinable';
 
 export interface CouponResult {
   ok: boolean;
@@ -97,11 +101,12 @@ export async function validateCoupon(
     return { ...NO_COUPON, error: 'used_up' };
   }
   if (contactPhone) {
+    // השוואה כפולה (HMAC + hash ישן) — תקופת המעבר של סעיף 6 בסבב 1.1
     const { count: customerUses } = await service
       .from('coupon_redemptions')
       .select('id', { count: 'exact', head: true })
       .eq('coupon_id', coupon.id)
-      .eq('contact_hash', hashContact(contactPhone));
+      .in('contact_hash', [hashContact(contactPhone), legacyHashContact(contactPhone)]);
     if ((customerUses ?? 0) >= coupon.max_uses_per_customer) {
       return { ...NO_COUPON, error: 'used_up' };
     }

@@ -3,7 +3,13 @@
  * בשינוי סכימה יש לעדכן כאן (או לייצר מחדש עם `supabase gen types typescript`).
  */
 
-export type UserRole = 'admin' | 'editor' | 'viewer';
+/**
+ * חמשת התפקידים של מודל 1.1 (פרק 19 במסמך האב) + viewer היסטורי:
+ * admin — מנהל-על; manager — הכל מלבד ניהול משתמשים; editor — עורך תוכן
+ * (ללא חנות); seller — מוכרן (חנות ללא תוכן); picker — מלקט (תפעול
+ * הזמנות בלבד, ללא סכומים); viewer — צפייה בתוכן בלבד.
+ */
+export type UserRole = 'admin' | 'manager' | 'editor' | 'seller' | 'picker' | 'viewer';
 
 export type OrderStatus = 'pending' | 'paid' | 'failed' | 'shipped' | 'cancelled' | 'refunded';
 
@@ -447,12 +453,17 @@ export interface Banner {
  * טיפוסי המסחר — משקפים את supabase/23–35_*.sql
  * ========================================================================= */
 
-/** ציר חיי ההזמנה. הישן (OrderStatus) נשאר לתאימות עד migration הניקיון. */
+/**
+ * ציר חיי ההזמנה. הישן (OrderStatus) נשאר לתאימות עד migration הניקיון.
+ * cancel_pending_refund [1.1]: אושר ביטול על הזמנה ששולמה — ההזמנה אינה
+ * cancelled עד שהזיכוי המלא מצליח במורנינג (תרשים 13).
+ */
 export type OrderState =
   | 'draft'
   | 'pending'
   | 'confirmed'
   | 'processing'
+  | 'cancel_pending_refund'
   | 'completed'
   | 'cancelled'
   | 'closed';
@@ -549,6 +560,8 @@ export interface Order {
   completed_at: string | null;
   tags: string[];
   idempotency_key: string | null;
+  /** [1.1] עלות המשלוח בפועל — מול shipping_total שנגבה (דוח הפער). */
+  actual_shipping_cost: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -566,6 +579,19 @@ export interface OrderItem {
   tax_rate_snapshot: number | null;
   line_total: number | null;
   is_preorder: boolean;
+  /** [1.1] צילום עלות ליחידה בעת ההזמנה — לצוות בהרשאת עלויות בלבד. */
+  cost_price_snapshot: number | null;
+}
+
+/** [1.1] עלות פנימית לספר — טבלה פרטית (book_costs), admin/manager בלבד. */
+export interface BookCost {
+  book_id: string;
+  cost_price: number;
+  currency: string;
+  note: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface OrderEvent {
@@ -640,6 +666,12 @@ export interface WebhookEvent {
   error: string | null;
   order_id: string | null;
   payment_id: string | null;
+  /** [1.1] השדות העסקיים שחולצו — שורדים את טיהור הגולמי (90 יום). */
+  payload_normalized: Record<string, unknown> | null;
+  /** [1.1] הגוף חצה את תקרת הגודל ולא נשמר גולמי. */
+  payload_truncated: boolean;
+  /** [1.1] מתי job התחזוקה רוקן את ה-payload הגולמי. */
+  raw_purged_at: string | null;
 }
 
 export interface Customer {
