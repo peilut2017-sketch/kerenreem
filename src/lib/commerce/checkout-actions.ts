@@ -492,6 +492,43 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
     });
   }
 
+  // [1.2] תיעוד הסכמות (פרק 4.8, מודל 3.3): אישור התקנון הוא תנאי להזמנה
+  // — נרשם תמיד; בחירת ערוץ נייד נרשמת רק כשסומנה (תיבה ריקה, החלטה 23)
+  if (service) {
+    const consentRows: {
+      customer_id: string | null;
+      email: string | null;
+      phone: string | null;
+      kind: 'terms' | 'channel_sms' | 'channel_whatsapp';
+      granted: boolean;
+      source: 'checkout';
+      order_id: string;
+    }[] = [
+      {
+        customer_id: session.customer_id,
+        email: session.contact_email,
+        phone: session.contact_phone,
+        kind: 'terms',
+        granted: true,
+        source: 'checkout',
+        order_id: created.order.id,
+      },
+    ];
+    if (session.notify_channel === 'sms' || session.notify_channel === 'whatsapp') {
+      consentRows.push({
+        customer_id: session.customer_id,
+        email: session.contact_email,
+        phone: session.contact_phone,
+        kind: session.notify_channel === 'sms' ? 'channel_sms' : 'channel_whatsapp',
+        granted: true,
+        source: 'checkout',
+        order_id: created.order.id,
+      });
+    }
+    const { error: consentError } = await service.from('consent_events').insert(consentRows);
+    if (consentError) console.error('[commerce:checkout] consent', consentError.message);
+  }
+
   if (service) {
     await sendOrderEmail(service, 'order_confirmation', created.order, {
       items: cart.lines

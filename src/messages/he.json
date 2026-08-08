@@ -518,7 +518,13 @@
     "couponErrNotCombinable": "לא ניתן לצרף את הקופון לקופון שכבר הוחל — קופון אחד להזמנה",
     "couponHave": "יש לי קוד קופון",
     "couponFreeShippingApplied": "קופון {code} — משלוח חינם",
-    "cartTrust": "התשלום מאובטח ומתבצע בדף הסליקה של חשבונית ירוקה — פרטי האשראי אינם נשמרים אצלנו."
+    "cartTrust": "התשלום מאובטח ומתבצע בדף הסליקה של חשבונית ירוקה — פרטי האשראי אינם נשמרים אצלנו.",
+    "accountOrderTitle": "פרטי הזמנה",
+    "accountBackToAccount": "חזרה לאזור האישי",
+    "backInStockCta": "הודיעו לי כשחוזר למלאי",
+    "backInStockPrompt": "נשלח לך מייל ברגע שהספר יחזור",
+    "backInStockDone": "נרשמת — נודיע לך במייל כשהספר יחזור למלאי",
+    "backInStockError": "הרישום נכשל — נסו שוב"
   },
   "error": {
     "notFoundTitle": "העמוד לא נמצא",

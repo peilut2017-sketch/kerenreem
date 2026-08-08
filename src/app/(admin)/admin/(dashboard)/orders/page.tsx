@@ -38,6 +38,7 @@ export default async function AdminOrdersPage({
       <AdminHeader
         title="הזמנות"
         description="כל ההזמנות מהאתר ומהטלפון. ארבעה צירי מצב לכל הזמנה: חיים, תשלום, אספקה ומסמך."
+        action={{ href: '/admin/orders/new', label: 'הזמנה טלפונית', icon: 'plus' }}
       />
 
       {/* תצוגות שמורות */}

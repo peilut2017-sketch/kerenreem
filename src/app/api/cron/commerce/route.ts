@@ -5,6 +5,12 @@ import {
   releaseExpiredReservations,
 } from '@/lib/commerce/webhook-processing';
 import { reconcileRecentPayments } from '@/lib/commerce/reconciliation';
+import {
+  autoCloseCompletedOrders,
+  expireStalePendingOrders,
+  notifyBackInStock,
+  purgeAbandonedSessions,
+} from '@/lib/commerce/maintenance';
 
 /**
  * משימות הרקע של המסחר, בקריאה אחת (Vercel Cron / מתזמן חיצוני):
@@ -27,12 +33,26 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const [polled, released, reconciliation, purged] = await Promise.all([
-    pollPendingPayments(10),
-    releaseExpiredReservations(),
-    reconcileRecentPayments(3),
-    purgeOldWebhookPayloads(90),
-  ]);
+  const [polled, released, reconciliation, purged, expired, closed, sessionsPurged, backInStock] =
+    await Promise.all([
+      pollPendingPayments(10),
+      releaseExpiredReservations(),
+      reconcileRecentPayments(3),
+      purgeOldWebhookPayloads(90),
+      expireStalePendingOrders(7),
+      autoCloseCompletedOrders(30),
+      purgeAbandonedSessions(),
+      notifyBackInStock(),
+    ]);
 
-  return NextResponse.json({ polled, released, reconciliation, purged });
+  return NextResponse.json({
+    polled,
+    released,
+    reconciliation,
+    purged,
+    expired,
+    closed,
+    sessionsPurged,
+    backInStock,
+  });
 }

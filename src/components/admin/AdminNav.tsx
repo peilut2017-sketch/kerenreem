@@ -66,6 +66,7 @@ const ITEMS: NavEntry[] = [
     perm: 'store_view',
     items: [
       { href: '/admin/orders', label: 'הזמנות', icon: 'orders', perm: 'store_view' },
+      { href: '/admin/customers', label: 'לקוחות', icon: 'authors', perm: 'store' },
       { href: '/admin/inventory', label: 'מלאי ומחסנים', icon: 'inventory', perm: 'store_view' },
       { href: '/admin/shipping', label: 'שיטות אספקה', icon: 'shipping', perm: 'finance' },
       { href: '/admin/coupons', label: 'קופונים', icon: 'coupon', perm: 'finance' },

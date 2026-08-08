@@ -6,6 +6,7 @@ import {
   addTracking,
   cancelOrder,
   markManualPayment,
+  sendPaymentLink,
   refundOrder,
   resendOrderEmail,
   setActualShippingCost,
@@ -180,22 +181,38 @@ export function OrderActionsPanel({
           </div>
         ) : null}
 
-        {/* פעולות כספיות — admin בלבד */}
-        {isAdmin && order.paymentState === 'pending' ? (
-          <div className="mb-4 border-t border-rule pt-3">
+        {/* גבייה על הזמנה ממתינה: קישור תשלום ללקוח + סימון תשלום חיצוני */}
+        {['pending', 'failed'].includes(order.paymentState) &&
+        !['cancelled', 'closed'].includes(order.state) ? (
+          <div className="mb-4 flex flex-wrap gap-2 border-t border-rule pt-3">
             <button
               type="button"
               disabled={pending}
               onClick={() =>
                 run(
-                  () => markManualPayment(order.id),
-                  'לסמן שהתשלום התקבל מחוץ לאתר? הפעולה מתועדת ב-audit.',
+                  () => sendPaymentLink(order.id),
+                  'לשלוח ללקוח מייל עם קישור לתשלום מאובטח במורנינג?',
                 )
               }
-              className="admin-btn admin-btn-quiet"
+              className="admin-btn admin-btn-solid"
             >
-              סימון תשלום חיצוני
+              שליחת קישור תשלום במייל
             </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  run(
+                    () => markManualPayment(order.id),
+                    'לסמן שהתשלום התקבל מחוץ לאתר (מזומן/העברה)? הפעולה מתועדת ב-audit.',
+                  )
+                }
+                className="admin-btn admin-btn-quiet"
+              >
+                סימון תשלום חיצוני
+              </button>
+            ) : null}
           </div>
         ) : null}
 
