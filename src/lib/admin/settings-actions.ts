@@ -194,7 +194,7 @@ export async function saveShelfBooks(bookIds: string[]): Promise<ActionResult> {
   });
 
   revalidatePath('/', 'layout');
-  revalidatePath('/admin/books/settings');
+  revalidatePath('/admin/books/homepage-shelf');
   return {};
 }
 

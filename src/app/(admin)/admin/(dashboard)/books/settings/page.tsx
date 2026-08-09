@@ -1,11 +1,10 @@
 import { requirePermission } from '@/lib/admin/auth';
-import { getSettings, listBooks } from '@/lib/admin/queries';
+import { getSettings } from '@/lib/admin/queries';
 import { getStoreSettings } from '@/lib/commerce/settings';
 import { isMorningConfigured } from '@/lib/commerce/morning';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { StoreSettingsForm } from '@/components/admin/StoreSettingsForm';
 import { StoreConfigForm } from '@/components/admin/StoreConfigForm';
-import { ShelfBooksPicker } from '@/components/admin/ShelfBooksPicker';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,22 +12,15 @@ export const dynamic = 'force-dynamic';
  * הגדרות קטלוג וחנות — עברו לכאן, תחת "ספרים", מעמוד ההגדרות הכללי:
  * הן שייכות לקטלוג ולא לזהות הארגון (ראו סעיף "רכז תחת ספרים" בבקשת
  * העיצוב). הגדרות הארגון (יצירת קשר, רשתות, לוגו) נשארות ב-/admin/settings.
+ *
+ * [1.7] "מדף הספרים בעמוד הבית" עבר מכאן ל-/admin/books/homepage-shelf
+ * (קבוצת "ספרים", לא "חנות"): זו החלטת תוכן, לא הגדרת חנות/כסף — גדירה
+ * מאחורי finance מנעה מעורך תוכן לגעת בה אפילו לצפייה.
  */
 export default async function BooksSettingsPage() {
   const session = await requirePermission('finance');
   const isAdmin = session.profile.role === 'admin';
-  const [settings, storeSettings, books] = await Promise.all([
-    getSettings(),
-    getStoreSettings(),
-    listBooks(),
-  ]);
-  // extra יכול להיות null בפועל גם שהעמודה במסד not null default '{}':
-  // שורה ישנה יכולה עדיין להחזיק ערך null. נפילה חזרה ל-{} כאן ולא ?.
-  // חוזר על כל שימוש — גישה ישירה ל-extra.X בלי הבדיקה קרסה את כל העמוד.
-  const extra = settings?.extra ?? {};
-  const shelfBookIds = Array.isArray(extra.shelf_book_ids)
-    ? (extra.shelf_book_ids as unknown[]).filter((id): id is string => typeof id === 'string')
-    : [];
+  const [settings, storeSettings] = await Promise.all([getSettings(), getStoreSettings()]);
 
   return (
     <>
@@ -49,23 +41,6 @@ export default async function BooksSettingsPage() {
               מסמכי האפיון תחת docs/commerce.
             </p>
             <StoreConfigForm settings={storeSettings} morningConfigured={isMorningConfigured()} />
-          </div>
-
-          <div className="border-t border-rule pt-8">
-            <h2 className="mb-1 font-serif text-h3 text-ink">מדף הספרים בעמוד הבית</h2>
-            <p className="mb-6 text-small text-muted">
-              בררת המחדל היא הכותרים האחרונים שנוספו. כדי להציג בחירה קבועה במקום זאת, הוסיפו ספרים לרשימה
-              הפעילה וסדרו אותם.
-            </p>
-            <ShelfBooksPicker
-              books={books.map((book) => ({
-                id: book.id,
-                title: book.title_he,
-                author: book.author?.name_he ?? book.author_name_he ?? null,
-                coverUrl: book.cover_image_url,
-              }))}
-              defaultIds={shelfBookIds}
-            />
           </div>
         </div>
       ) : (

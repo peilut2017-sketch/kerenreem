@@ -57,6 +57,7 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', minRole: 'viewer' },
       { href: '/admin/series', label: 'סדרות', icon: 'series', minRole: 'viewer' },
       { href: '/admin/tags', label: 'תגיות', icon: 'tags', minRole: 'viewer' },
+      { href: '/admin/books/homepage-shelf', label: 'מדף בעמוד הבית', icon: 'settings', minRole: 'viewer' },
     ],
   },
   {
