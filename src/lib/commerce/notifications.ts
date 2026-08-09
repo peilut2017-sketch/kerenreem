@@ -60,12 +60,17 @@ export function renderEmail(
     trackingUrl?: string | null;
     promisedDateLabel?: string | null;
     refundAmount?: number;
+    /** [1.2] קישור תשלום מורנינג — להזמנה טלפונית (פרק 9.6) */
+    paymentUrl?: string | null;
   } = {},
 ): RenderedEmail {
   const n = order.order_number;
   const total = formatPrice(order.total, order.locale, { alwaysAgorot: true });
   const track = extra.trackUrl
     ? `<p><a href="${extra.trackUrl}">לצפייה בהזמנה ולמעקב</a></p>`
+    : '';
+  const payLink = extra.paymentUrl
+    ? `<p style="margin:16px 0"><a href="${extra.paymentUrl}" style="background:#1f1c17;color:#fff;border-radius:999px;padding:12px 24px;text-decoration:none;display:inline-block">לתשלום מאובטח — ${total}</a></p><p style="color:#8a8577;font-size:13px">התשלום מתבצע בדף המאובטח של חשבונית ירוקה. הקישור בתוקף מוגבל.</p>`
     : '';
 
   switch (template) {
@@ -74,7 +79,7 @@ export function renderEmail(
         subject: `הזמנה ${n} התקבלה — מכון קרן רא״ם`,
         html: `${orderHeader(order)}<p>הזמנתך <strong>${n}</strong> נקלטה וממתינה להשלמת התשלום.</p>${
           extra.items ? orderLinesTable(extra.items) : ''
-        }<p>סה״כ לתשלום: <strong>${total}</strong></p>${
+        }<p>סה״כ לתשלום: <strong>${total}</strong></p>${payLink}${
           extra.promisedDateLabel ? `<p>אספקה משוערת: ${extra.promisedDateLabel}</p>` : ''
         }${track}${FOOTER}`,
       };

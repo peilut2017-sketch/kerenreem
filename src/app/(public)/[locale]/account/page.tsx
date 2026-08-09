@@ -73,9 +73,12 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
             {orders.map((order) => (
               <li key={order.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
                 <span>
-                  <span className="font-semibold text-ink tabular-nums">
+                  <Link
+                    href={`/account/orders/${order.order_number}`}
+                    className="font-semibold text-ink tabular-nums underline-offset-2 hover:text-burgundy hover:underline"
+                  >
                     {t('trackOrderNumber', { number: order.order_number })}
-                  </span>
+                  </Link>
                   <span className="ms-3 text-caption text-muted">
                     {new Intl.DateTimeFormat(locale === 'en' ? 'en-IL' : 'he-IL', {
                       dateStyle: 'short',

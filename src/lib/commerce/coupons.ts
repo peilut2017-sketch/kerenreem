@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 import { round2 } from './pricing';
 import { hashContact, legacyHashContact } from './guest-token';
+import { normalizePhone } from './phone';
 import type { ValidatedCart } from './cart';
 
 /**
@@ -31,6 +32,10 @@ export interface CouponRow {
   combinable_with_sale: boolean;
   /** [1.1] "ניתן לצירוף עם קופונים נוספים" — ברירת מחדל לא (מודל 3.14) */
   combinable_with_coupons: boolean;
+  /** [1.3] מינימום יחידות זכאיות ("קנה X ומעלה") */
+  min_quantity: number | null;
+  /** [1.3] קופון אישי: טלפון מנורמל או מייל; null = פתוח לכולם */
+  restricted_contact: string | null;
   active: boolean;
 }
 
@@ -73,6 +78,7 @@ export async function validateCoupon(
   code: string,
   cart: ValidatedCart,
   contactPhone?: string | null,
+  contactEmail?: string | null,
 ): Promise<CouponResult> {
   const service = createServiceClient();
   if (!service) return NO_COUPON;
@@ -114,6 +120,18 @@ export async function validateCoupon(
 
   if (coupon.min_total != null && cart.subtotal < coupon.min_total) {
     return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total };
+  }
+  // [1.3] "קנה X יחידות ומעלה"
+  if (coupon.min_quantity != null && cart.totalQuantity < coupon.min_quantity) {
+    return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total ?? undefined };
+  }
+  // [1.3] קופון אישי — מזוהה מול טלפון/מייל ההזמנה; בלי פרטי קשר (עגלה)
+  // או בלי התאמה — נדחה בהודעה גנרית (לא מדליפים למי הקופון שייך)
+  if (coupon.restricted_contact) {
+    const target = String(coupon.restricted_contact).trim().toLowerCase();
+    const phoneMatch = contactPhone ? normalizePhone(contactPhone) === normalizePhone(target) : false;
+    const emailMatch = contactEmail ? contactEmail.trim().toLowerCase() === target : false;
+    if (!phoneMatch && !emailMatch) return { ...NO_COUPON, error: 'invalid' };
   }
 
   const typedCoupon = coupon as CouponRow;

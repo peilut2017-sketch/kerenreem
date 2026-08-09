@@ -518,7 +518,14 @@
     "couponErrNotCombinable": "This coupon can’t be combined with the one already applied — one coupon per order",
     "couponHave": "I have a coupon code",
     "couponFreeShippingApplied": "Coupon {code} — free shipping",
-    "cartTrust": "Payment is completed securely on the Green Invoice payment page — card details never touch our servers."
+    "cartTrust": "Payment is completed securely on the Green Invoice payment page — card details never touch our servers.",
+    "accountOrderTitle": "Order details",
+    "accountBackToAccount": "Back to my account",
+    "backInStockCta": "Email me when it’s back",
+    "backInStockPrompt": "We’ll email you the moment this book is back in stock",
+    "backInStockDone": "You’re on the list — we’ll email you when it’s back",
+    "backInStockError": "Sign-up failed — please try again",
+    "promotionLabel": "Sale"
   },
   "error": {
     "notFoundTitle": "Page not found",

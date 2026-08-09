@@ -50,7 +50,11 @@ export function CartPageClient() {
   const freeShippingByCoupon = Boolean(appliedCoupon?.freeShipping);
   const shippingShown =
     view?.freeShipping.achieved || freeShippingByCoupon ? 0 : (view?.estimatedShipping ?? 0);
-  const totalEstimated = Math.max((view?.cart.subtotal ?? 0) - discount + shippingShown, 0);
+  const promoDiscount = view?.promotion?.discountAmount ?? 0;
+  const totalEstimated = Math.max(
+    (view?.cart.subtotal ?? 0) - discount - promoDiscount + shippingShown,
+    0,
+  );
 
   return (
     <div className="mt-8 grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_22rem]">
@@ -171,6 +175,14 @@ export function CartPageClient() {
                     {t('discount')} · {appliedCoupon.code}
                   </dt>
                   <dd className="tabular-nums">−{formatPrice(discount, locale)}</dd>
+                </div>
+              ) : null}
+              {view.promotion ? (
+                <div className="flex justify-between text-gold-deep">
+                  <dt>
+                    {t('promotionLabel')} · {view.promotion.name}
+                  </dt>
+                  <dd className="tabular-nums">−{formatPrice(view.promotion.discountAmount, locale)}</dd>
                 </div>
               ) : null}
               <div className="flex justify-between">

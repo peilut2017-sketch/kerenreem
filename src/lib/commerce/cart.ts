@@ -39,6 +39,8 @@ export interface ValidatedCartLine {
   weightGrams: number;
   freeShippingEligible: boolean;
   isPreorder: boolean;
+  /** [1.3] קטגוריית הספר — לתחולת מבצעים אוטומטיים */
+  categoryId: string | null;
   /** פריט שאינו ניתן עוד לרכישה — מוצג עם הודעה, לא נספר בסכום */
   removedReason: 'not_purchasable' | 'out_of_stock' | null;
 }
@@ -55,7 +57,7 @@ export interface ValidatedCart {
 }
 
 const CART_BOOK_COLUMNS =
-  'id, slug, title_he, title_en, cover_image_url, price, sale_price, sale_starts_at, sale_ends_at, sale_name_he, sale_name_en, currency, stock_quantity, is_purchasable, is_published, preorder_enabled, weight_grams, free_shipping_eligible, is_stock_managed, prep_days_override';
+  'id, slug, title_he, title_en, category_id, cover_image_url, price, sale_price, sale_starts_at, sale_ends_at, sale_name_he, sale_name_en, currency, stock_quantity, is_purchasable, is_published, preorder_enabled, weight_grams, free_shipping_eligible, is_stock_managed, prep_days_override';
 
 /**
  * אימות עגלה מלא מול המסד. previousPrices — המחירים שהוצגו ללקוח
@@ -150,6 +152,7 @@ export async function validateCart(
       weightGrams: book.weight_grams ?? 0,
       freeShippingEligible: book.free_shipping_eligible !== false,
       isPreorder: availability === 'preorder',
+      categoryId: book.category_id ?? null,
       removedReason: null,
     });
   }
@@ -189,6 +192,7 @@ function buildRemovedLine(
     weightGrams: 0,
     freeShippingEligible: true,
     isPreorder: false,
+        categoryId: book.category_id ?? null,
     removedReason: reason,
   };
 }

@@ -134,8 +134,11 @@ export function CheckoutClient() {
 
   const shippingShown =
     method && !method.isPickup ? (coupon?.freeShipping ? 0 : method.price) : 0;
+  // [1.3] מבצע אוטומטי — נכלל בסכום כשאין קופון או כשהמבצע צביר
+  const promo = bootstrap?.promotion ?? null;
+  const promoDiscount = promo && (!coupon || promo.combinableWithCoupon) ? promo.discountAmount : 0;
   const displayedTotal = Math.max(
-    (bootstrap?.cart?.subtotal ?? 0) + shippingShown - (coupon?.discountAmount ?? 0),
+    (bootstrap?.cart?.subtotal ?? 0) + shippingShown - (coupon?.discountAmount ?? 0) - promoDiscount,
     0,
   );
 
@@ -331,6 +334,14 @@ export function CheckoutClient() {
                 {t('discount')} · <span dir="ltr">{coupon.code}</span>
               </dt>
               <dd className="tabular-nums">− {formatPrice(coupon.discountAmount, locale)}</dd>
+            </div>
+          ) : null}
+          {promoDiscount > 0 && promo ? (
+            <div className="flex justify-between text-gold-deep">
+              <dt>
+                {t('promotionLabel')} · {promo.name}
+              </dt>
+              <dd className="tabular-nums">− {formatPrice(promoDiscount, locale)}</dd>
             </div>
           ) : null}
           <div className="flex justify-between border-t border-rule pt-2 text-ink">

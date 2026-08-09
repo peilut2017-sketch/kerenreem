@@ -1,4 +1,5 @@
 'use server';
+import { reconcileBookStockFromForm } from '@/lib/commerce/inventory';
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -305,6 +306,15 @@ export async function saveEntity(
       return { status: 'error', message: 'יש שדות שדורשים תיקון', fieldErrors };
     }
 
+    // [1.3] מלאי אינו נכתב ישירות: stock_quantity הוא מטמון נגזר מטבלת
+    // המלאי (migration 30) — כתיבה ישירה נדרסת בטריגר. הערך שהוזן מיושם
+    // אחרי השמירה כתנועת ספירה דרך הפונקציה האטומית.
+    let stockTarget: number | null = null;
+    if (entityKey === 'books' && typeof payload.stock_quantity === 'number') {
+      stockTarget = payload.stock_quantity;
+      delete payload.stock_quantity;
+    }
+
     // רק id. הקוד הזה משרת את כל הישויות, ולכן אסור לו לנקוב בעמודה
     // שקיימת רק בחלקן: בקשת slug הפילה כל שמירת באנר ב-42703, כי לבאנרים
     // אין מזהה כתובת. ה-slug גם לא נקרא כאן מעולם.
@@ -315,6 +325,16 @@ export async function saveEntity(
     if (result.error) {
       console.error('[admin:save]', entity.table, result.error.code, result.error.message);
       return { status: 'error', ...describeDbError(result.error, entity) };
+    }
+
+    if (entityKey === 'books' && stockTarget != null && result.data?.id) {
+      const sync = await reconcileBookStockFromForm(result.data.id, stockTarget, session.userId);
+      if (!sync.ok && sync.reason !== 'not_configured') {
+        return {
+          status: 'error',
+          message: `הספר נשמר אך עדכון המלאי נכשל: ${sync.reason}. עדכנו במסך המלאי.`,
+        };
+      }
     }
 
     // update שלא פגע באף שורה: RLS סינן אותה, או שה-id אינו קיים.

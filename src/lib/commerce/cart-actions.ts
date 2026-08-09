@@ -2,6 +2,7 @@
 
 import { validateCart, type CartInputItem, type ValidatedCart } from './cart';
 import { validateCoupon, type CouponError } from './coupons';
+import { findBestPromotion } from './promotions';
 import { getCommerceFlags, getStoreSettings } from './settings';
 import { amountToFreeShipping, getAvailableMethods } from './shipping';
 import { getPromisedDate, formatPromisedDate } from './delivery-date';
@@ -37,6 +38,8 @@ export interface CartViewModel {
   };
   /** [1.1] קופון שהוזן בעגלה (הכרעה 13) — מאומת מחדש בשרת בכל טעינה */
   coupon: CartCouponView | null;
+  /** [1.3] מבצע אוטומטי שחל על העגלה — בלי קוד */
+  promotion: { name: string; discountAmount: number; combinableWithCoupon: boolean } | null;
   estimatedShipping: number | null;
   estimatedDeliveryDate: string | null;
   estimatedDeliveryLabel: string | null;
@@ -70,6 +73,17 @@ export async function getCartView(
       freeShipping: result.freeShipping,
     };
   }
+
+  // [1.3] מבצע אוטומטי: מוחל מעצמו; אינו נערם עם קופון אלא אם סומן צביר
+  const promoResult = cart.totalQuantity > 0 ? await findBestPromotion(cart) : null;
+  const promotion =
+    promoResult && (!coupon?.ok || promoResult.promotion.combinable_with_coupon)
+      ? {
+          name: promoResult.promotion.name,
+          discountAmount: promoResult.discountAmount,
+          combinableWithCoupon: promoResult.promotion.combinable_with_coupon,
+        }
+      : null;
 
   const shape = {
     subtotal: cart.subtotal,
@@ -115,6 +129,7 @@ export async function getCartView(
         cart.subtotal >= settings.free_shipping_threshold,
     },
     coupon,
+    promotion,
     estimatedShipping,
     estimatedDeliveryDate,
     estimatedDeliveryLabel,

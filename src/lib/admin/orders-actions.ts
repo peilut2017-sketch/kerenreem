@@ -14,7 +14,9 @@ import {
 import { adjustStock, releaseStock, transferStock } from '@/lib/commerce/inventory';
 import { sendOrderEmail, type EmailTemplate } from '@/lib/commerce/notifications';
 import { refundTransaction } from '@/lib/commerce/morning';
-import type { Order } from '@/lib/supabase/types';
+import { createManualOrder } from '@/lib/commerce/manual-orders';
+import { startPayment } from '@/lib/commerce/payments';
+import type { Order, ShippingAddress } from '@/lib/supabase/types';
 
 /**
  * פעולות הצוות על הזמנות ומלאי (פרקים 9–10 במסמך האב). הקריאות עוברות
@@ -560,6 +562,83 @@ export async function setActualShippingCost(
     { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
     { cost },
   );
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * הזמנה ידנית — ערוץ הטלפון (פרק 9.6): הצוות קולט את ההזמנה בשיחה.
+ * מחירים מהקטלוג בלבד; מלאי נשמר; ללקוח נשלח מייל אישור עם קישור מעקב.
+ */
+export async function createManualOrderAction(input: {
+  items: { bookId: string; quantity: number }[];
+  contact: { name: string; phone: string; email: string | null };
+  fulfillment:
+    | { type: 'pickup' }
+    | { type: 'shipping'; methodId: string; address: ShippingAddress };
+  note: string | null;
+}): Promise<OrderActionResult & { orderId?: string; orderNumber?: number }> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+
+  const result = await createManualOrder({
+    ...input,
+    locale: 'he',
+    actor: { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
+  });
+  if (!result.ok || !result.order) return { ok: false, error: result.error };
+
+  const service = createServiceClient();
+  if (service && result.order.contact_email && result.guestToken) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+    await sendOrderEmail(service, 'order_confirmation', result.order, {
+      trackUrl: `${siteUrl}/orders/track/${result.guestToken}`,
+    });
+  }
+
+  revalidateOrders(result.order.id);
+  return { ok: true, orderId: result.order.id, orderNumber: result.order.order_number };
+}
+
+/**
+ * שליחת קישור תשלום מורנינג ללקוח במייל (משלים את ההזמנה הטלפונית):
+ * ממחזר דף תשלום פתוח אם קיים; בלי מורנינג מוגדרת — שגיאה ברורה.
+ */
+export async function sendPaymentLink(orderId: string): Promise<OrderActionResult> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+  if (!order.contact_email) return { ok: false, error: 'להזמנה אין כתובת מייל — גבו טלפונית וסמנו תשלום חיצוני' };
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  const payment = await startPayment(order as Order, { siteUrl });
+  if (!payment.ok || !payment.paymentUrl) {
+    return {
+      ok: false,
+      error:
+        payment.error === 'not_configured'
+          ? 'מורנינג אינה מוגדרת (מפתחות API חסרים) — סמנו תשלום חיצוני במקום'
+          : `יצירת דף התשלום נכשלה: ${payment.error}`,
+    };
+  }
+
+  await sendOrderEmail(
+    service,
+    'order_confirmation',
+    order as Order,
+    { paymentUrl: payment.paymentUrl },
+    `payment-link:${Date.now()}`,
+  );
+  await recordOrderEvent(service, orderId, 'payment_link_sent', {
+    type: 'staff',
+    id: session.userId,
+    label: session.profile.full_name ?? undefined,
+  }, { url_expires: true });
+
   revalidateOrders(orderId);
   return { ok: true };
 }

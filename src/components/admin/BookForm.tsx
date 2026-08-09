@@ -659,14 +659,14 @@ export function BookForm({
                         />
                         <TextField
                           name="stock_quantity"
-                          label="מלאי"
+                          label="מלאי פיזי (סה״כ בכל המחסנים)"
                           type="number"
                           dir="ltr"
                           min={0}
                           step={1}
                           defaultValue={book?.stock_quantity}
                           error={errors.stock_quantity}
-                          hint="ריק = 0. עם הפעלת ניהול המלאי המלא העדכון יעבור לתנועות מלאי."
+                          hint="ריק = 0. השינוי נרשם כתנועת ספירה ב-ledger המלאי; פירוט פר מחסן והעברות — במסך מלאי ומחסנים. עלות ליחידה — בפאנל שבתחתית העמוד."
                         />
                         <TextField
                           name="weight_grams"
@@ -683,7 +683,7 @@ export function BookForm({
                       <div className="grid gap-5 sm:grid-cols-2">
                         <TextField
                           name="stock_location"
-                          label="מיקום"
+                          label="מיקום מדף (בתוך המחסן)"
                           defaultValue={book?.stock_location}
                           hint="מיקום המלאי הפיזי, למשל ״מדף A3״ — לצוות בלבד, לא מוצג באתר."
                         />
