@@ -46,6 +46,7 @@ export default async function AttentionReportPage() {
     },
     { label: 'פערי סכומים / התאמה', count: counts.amountOrReconcileMismatch, href: savedViewHref('attention') },
     { label: 'כשלי Webhook', count: counts.webhookFailures, href: '/admin/reports/webhooks' },
+    { label: 'מלאי שלילי (תקלת נתונים)', count: counts.negativeStock, href: '/admin/inventory' },
   ];
 
   const totalAttention = rows.reduce((sum, r) => sum + r.count, 0);
@@ -54,7 +55,7 @@ export default async function AttentionReportPage() {
     <>
       <AdminHeader
         title="הזמנות שדורשות טיפול"
-        description="דוח עבודה יומי — לא רק אנליטיקה. אין חלון תאריכים: אלה בעיות פתוחות עכשיו, גם אם ישנות."
+        description="דוח עבודה יומי — לא רק אנליטיקה, וגם מסך החריגים המרכזי. אין חלון תאריכים: אלה בעיות פתוחות עכשיו, גם אם ישנות."
         action={{ href: '/admin/reports', label: 'כל הדוחות', variant: 'quiet' }}
       />
 

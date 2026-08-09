@@ -10,6 +10,12 @@ import { createServiceClient } from '@/lib/supabase/service';
  * "בהכנה זמן רב" ו"טרם נשלח זמן רב" משתמשות ב-created_at כקירוב לזמן
  * הכניסה למצב (אין timestamp ייעודי per-axis על ההזמנה עצמה), ו"משלוח
  * באיחור" משווה למועד המובטח בפועל.
+ *
+ * גם ה"דוח חריגים מרכזי" שהוגדר בנפרד (26) מתכנס לכאן: החפיפה בין שתי
+ * הרשימות שבאפיון גדולה מכדי להצדיק שני מסכים כמעט-זהים (תשלום ללא
+ * מסמך, שולם ולא טופל, משלוח באיחור, Webhook כושל — מופיעים בשתיהן).
+ * "מלאי שלילי" — היחיד מרשימת 26 שלא היה מכוסה בכלל בשום מסך — נוסף
+ * כאן. "מחיר חריג" נשאר עתידי: דורש הגדרת סף סטטיסטי ולא רק בדיקת null.
  */
 
 const STALE_DAYS = 3;
@@ -23,6 +29,7 @@ export interface AttentionCounts {
   shippedLate: number;
   amountOrReconcileMismatch: number;
   webhookFailures: number;
+  negativeStock: number;
 }
 
 export interface OpenServiceRequestRow {
@@ -52,6 +59,7 @@ export function emptyAttentionReport(error = false): AttentionReport {
       shippedLate: 0,
       amountOrReconcileMismatch: 0,
       webhookFailures: 0,
+      negativeStock: 0,
     },
     openServiceRequests: [],
     error,
@@ -76,6 +84,7 @@ export async function getAttentionReport(): Promise<AttentionReport> {
     shippedLate,
     mismatch,
     webhookFailures,
+    negativeStock,
     requestsRes,
   ] = await Promise.all([
     count(
@@ -130,6 +139,7 @@ export async function getAttentionReport(): Promise<AttentionReport> {
             .in('processing_status', ['failed', 'invalid_signature']),
         )
       : Promise.resolve(0),
+    count(supabase.from('books').select('id', { count: 'exact', head: true }).lt('stock_quantity', 0)),
     supabase
       .from('service_requests')
       .select('id, order_id, kind, status, requested_by, created_at')
@@ -168,6 +178,7 @@ export async function getAttentionReport(): Promise<AttentionReport> {
       shippedLate,
       amountOrReconcileMismatch: mismatch,
       webhookFailures,
+      negativeStock,
     },
     openServiceRequests,
     error: false,
