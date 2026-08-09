@@ -8,6 +8,7 @@ import { OrderActionsPanel } from '@/components/admin/orders/OrderActionsPanel';
 import { OrderProcessStrip } from '@/components/admin/orders/OrderProcessStrip';
 import { PickingPanel } from '@/components/admin/orders/PickingPanel';
 import { ServiceRequestsPanel } from '@/components/admin/orders/ServiceRequestsPanel';
+import { PrintMenu, type PrintMenuItem } from '@/components/admin/print/PrintMenu';
 import {
   AXIS_LABELS,
   DOC_STATUS_LABELS,
@@ -94,6 +95,21 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     .filter((p) => p.kind === 'refund' && p.status === 'succeeded')
     .reduce((sum, p) => sum + Number(p.amount), 0);
 
+  // [1.5] "כפתור הדפסה אחד לא מספיק" — כל מסמכי ההזמנה במקום אחד.
+  // הרשאה כמו שאר העמוד: מסמכים עם מחיר דורשים store (canSeeMoney),
+  // ליקוט/משלוח מספיקים ב-store_view (כמו canPick).
+  const printItems: PrintMenuItem[] = [];
+  if (canSeeMoney) {
+    printItems.push({ href: `/admin/orders/${order.id}/print/order-sheet`, label: 'דף הזמנה פנימי' });
+  }
+  if (canPick) {
+    printItems.push(
+      { href: `/admin/orders/${order.id}/print/picking-list`, label: 'רשימת ליקוט' },
+      { href: `/admin/orders/${order.id}/print/packing-slip`, label: 'תעודת משלוח' },
+      { href: `/admin/orders/${order.id}/print/shipping-label`, label: 'מדבקת משלוח' },
+    );
+  }
+
   return (
     <>
       <AdminHeader
@@ -109,6 +125,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         }`}
         action={{ href: '/admin/orders', label: 'כל ההזמנות', variant: 'quiet' }}
       />
+
+      {printItems.length > 0 ? (
+        <div className="-mt-6 mb-6 flex justify-end">
+          <PrintMenu items={printItems} documents={documents} />
+        </div>
+      ) : null}
 
       <OrderProcessStrip
         state={order.state}
