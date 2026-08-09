@@ -162,22 +162,130 @@ export async function mergeSavedBooks(input: {
 export async function updateMyDetails(input: {
   fullName: string;
   email: string;
-}): Promise<AccountActionResult> {
+  phone?: string;
+}): Promise<AccountActionResult & { emailConfirmationSent?: boolean }> {
   const session = await getCustomerSession();
   if (!session) return { ok: false, error: 'server' };
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(input.email.trim())) {
+  const email = input.email.trim().slice(0, 160);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
     return { ok: false, error: 'invalid_email' };
   }
   const supabase = await createClient();
   if (!supabase) return { ok: false, error: 'server' };
-  const { error } = await supabase
-    .from('customers')
-    .update({
-      full_name: input.fullName.trim().slice(0, 120) || null,
-      email: input.email.trim().slice(0, 160),
-    })
-    .eq('id', session.userId);
+  const patch: Record<string, string | null> = {
+    full_name: input.fullName.trim().slice(0, 120) || null,
+    email,
+  };
+  if (input.phone?.trim()) patch.phone = input.phone.trim().slice(0, 30);
+  const { error } = await supabase.from('customers').update(patch).eq('id', session.userId);
   if (error) return { ok: false, error: 'server' };
+
+  // מייל ההתחברות (auth) שונה ממייל הקשר? מפעילים את זרימת האימות של
+  // Supabase — קישור אישור נשלח לכתובת החדשה; עד האישור מתחברים בישנה.
+  let emailConfirmationSent = false;
+  if (session.email && email.toLowerCase() !== session.email.toLowerCase()) {
+    const { error: authError } = await supabase.auth.updateUser({ email });
+    emailConfirmationSent = !authError;
+    if (authError) console.error('[commerce:account] auth email change', authError.message);
+  }
+  return { ok: true, emailConfirmationSent };
+}
+
+/* ---------------------- [1.3] פנקס הכתובות (פרק 4.6) ---------------------- */
+
+export interface AddressInput {
+  label: string;
+  recipientName: string;
+  phone: string;
+  city: string;
+  street: string;
+  houseNumber: string;
+  entrance: string;
+  floor: string;
+  apartment: string;
+  zip: string;
+  isDefault: boolean;
+}
+
+export async function saveMyAddress(
+  addressId: string | null,
+  input: AddressInput,
+): Promise<AccountActionResult> {
+  const session = await getCustomerSession();
+  if (!session) return { ok: false, error: 'server' };
+  if (!input.city.trim() || !input.street.trim() || !input.recipientName.trim()) {
+    return { ok: false, error: 'server' };
+  }
+  const supabase = await createClient();
+  if (!supabase) return { ok: false, error: 'server' };
+
+  const row = {
+    customer_id: session.userId,
+    label: input.label.trim().slice(0, 60) || null,
+    recipient_name: input.recipientName.trim().slice(0, 120),
+    phone: input.phone.trim().slice(0, 30) || null,
+    city: input.city.trim().slice(0, 80),
+    street: input.street.trim().slice(0, 120),
+    house_number: input.houseNumber.trim().slice(0, 20),
+    entrance: input.entrance.trim().slice(0, 20) || null,
+    floor: input.floor.trim().slice(0, 20) || null,
+    apartment: input.apartment.trim().slice(0, 20) || null,
+    zip: input.zip.trim().slice(0, 12) || null,
+    is_default: input.isDefault,
+  };
+  if (input.isDefault) {
+    await supabase
+      .from('customer_addresses')
+      .update({ is_default: false })
+      .eq('customer_id', session.userId);
+  }
+  const { error } = addressId
+    ? await supabase.from('customer_addresses').update(row).eq('id', addressId)
+    : await supabase.from('customer_addresses').insert(row);
+  if (error) {
+    console.error('[commerce:account] address', error.message);
+    return { ok: false, error: 'server' };
+  }
+  return { ok: true };
+}
+
+export async function deleteMyAddress(addressId: string): Promise<AccountActionResult> {
+  const session = await getCustomerSession();
+  if (!session) return { ok: false, error: 'server' };
+  const supabase = await createClient();
+  if (!supabase) return { ok: false, error: 'server' };
+  const { error } = await supabase.from('customer_addresses').delete().eq('id', addressId);
+  if (error) return { ok: false, error: 'server' };
+  return { ok: true };
+}
+
+/**
+ * [1.3] מחיקת חשבון (פרק 4.8 / מודל 5.9): נתוני הפרופיל, הכתובות
+ * והשמורים נמחקים; ההזמנות והמסמכים נשארים (חובת שמירה 7 שנים) —
+ * ‏orders.user_id מתנתק אוטומטית (on delete set null). המשתמש מנותק.
+ */
+export async function deleteMyAccount(): Promise<AccountActionResult> {
+  const session = await getCustomerSession();
+  if (!session) return { ok: false, error: 'server' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'server' };
+
+  await service.from('saved_books').delete().eq('customer_id', session.userId);
+  await service.from('customer_addresses').delete().eq('customer_id', session.userId);
+  await service.from('customers').delete().eq('id', session.userId);
+  await service.from('consent_events').insert({
+    customer_id: null,
+    email: session.email,
+    phone: null,
+    kind: 'terms',
+    granted: false,
+    source: 'account',
+  });
+  // מחיקת משתמש ה-Auth עצמו — ההזמנות כבר נותקו דרך ה-FK
+  await service.auth.admin.deleteUser(session.userId).catch(() => undefined);
+
+  const supabase = await createClient();
+  await supabase?.auth.signOut();
   return { ok: true };
 }
 

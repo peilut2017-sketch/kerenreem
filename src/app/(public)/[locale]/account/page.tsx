@@ -64,7 +64,65 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
 
       <AccountClientSection />
 
-      <section className="mt-10">
+      {/* [1.3] ניווט מהיר — כרטיסי הפעולות של החשבון (פרק 4.5) */}
+      <nav aria-label={t('accountTitle')} className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <a
+          href="#orders"
+          className="group flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border border-rule bg-cream px-3 py-4 text-center shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:border-gold/60"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-burgundy">
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2 4 6v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-2-4H6ZM4 6h16M9 10a3 3 0 0 0 6 0" />
+            </svg>
+          </span>
+          <span className="text-caption font-semibold text-ink group-hover:text-burgundy">
+            {t('accountOrdersTitle')}
+          </span>
+        </a>
+        <Link
+          href="/account/addresses"
+          className="group flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border border-rule bg-cream px-3 py-4 text-center shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:border-gold/60"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-burgundy">
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </span>
+          <span className="text-caption font-semibold text-ink group-hover:text-burgundy">
+            {t('addressesTitle')}
+          </span>
+        </Link>
+        <Link
+          href="/account/settings"
+          className="group flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border border-rule bg-cream px-3 py-4 text-center shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:border-gold/60"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-burgundy">
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01A1.7 1.7 0 0 0 10 4.09V4a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01c.26.63.87 1.04 1.56 1.03H21a2 2 0 1 1 0 4h-.09c-.68 0-1.3.41-1.51 1.03Z" />
+            </svg>
+          </span>
+          <span className="text-caption font-semibold text-ink group-hover:text-burgundy">
+            {t('settingsTitle')}
+          </span>
+        </Link>
+        <Link
+          href="/favourites"
+          className="group flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border border-rule bg-cream px-3 py-4 text-center shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:border-gold/60"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-burgundy">
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21H6.5A2.5 2.5 0 0 1 4 18.5V5a2 2 0 0 1 2-2h13v18ZM4 18.5A2.5 2.5 0 0 1 6.5 16H19" />
+            </svg>
+          </span>
+          <span className="text-caption font-semibold text-ink group-hover:text-burgundy">
+            {t('favouritesTitle')}
+          </span>
+        </Link>
+      </nav>
+
+      <section id="orders" className="mt-10 scroll-mt-24">
         <h2 className="font-serif text-h3 text-ink">{t('accountOrdersTitle')}</h2>
         {orders.length === 0 ? (
           <p className="mt-3 text-small text-muted">{t('accountNoOrders')}</p>
