@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { savedViewHref } from '@/lib/admin/commerce-queries';
 import { getAttentionReport } from '@/lib/admin/reporting/attention-data';
@@ -21,7 +21,7 @@ function formatAge(createdAt: string): string {
  * לרשימת ההזמנות המסוננת או לבקשת השירות הספציפית.
  */
 export default async function AttentionReportPage() {
-  await requirePermission('finance');
+  await requireScreenPermission('reports', 'view');
   const report = await getAttentionReport();
   const { counts } = report;
 

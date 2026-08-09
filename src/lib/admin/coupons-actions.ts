@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertPermission } from './auth';
+import { assertScreenPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -38,7 +38,7 @@ export async function saveCoupon(
   couponId: string | null,
   input: CouponInput,
 ): Promise<{ ok: boolean; error?: string }> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('coupons', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -96,7 +96,7 @@ export async function saveCoupon(
 }
 
 export async function setCouponActive(couponId: string, active: boolean): Promise<void> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('coupons', 'edit');
   if ('error' in session) return;
   const supabase = await createClient();
   if (!supabase) return;
@@ -116,7 +116,7 @@ export async function setCouponActive(couponId: string, active: boolean): Promis
  * (ההיסטוריה החשבונאית נשמרת, unique ההזמנות מפנה אליו).
  */
 export async function deleteCoupon(couponId: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('coupons', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -155,7 +155,7 @@ export async function savePromotion(
     active: boolean;
   },
 ): Promise<{ ok: boolean; error?: string }> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('coupons', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   if (!input.name.trim()) return { ok: false, error: 'שם המבצע חסר' };
   if (!(input.value > 0)) return { ok: false, error: 'ערך ההנחה חייב להיות חיובי' };
@@ -194,7 +194,7 @@ export async function savePromotion(
 }
 
 export async function deletePromotion(promotionId: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('coupons', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };

@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { StatTile } from '@/components/admin/analytics/StatTile';
@@ -38,7 +38,7 @@ export default async function FunnelReportPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  await requirePermission('finance');
+  await requireScreenPermission('reports', 'view');
   const { days: daysParam } = await searchParams;
   const days = parseRangeParam(daysParam);
   const range = rangeFromDays(days);

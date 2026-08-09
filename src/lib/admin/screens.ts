@@ -101,14 +101,8 @@ const STORE_SCREENS = SCREENS.filter((s) => s.family === 'store').map((s) => s.k
  * costs/reports-profitability נשארים admin+manager בלבד כברירת מחדל בכל
  * התפקידים האחרים (כולל store_manager) — ניתן להעניק ב-override פרטני.
  */
-const SELLER_SCREENS: readonly ScreenKey[] = [
-  'orders',
-  'customers',
-  'inventory',
-  'sale-prices',
-  'reports-inventory-moves',
-];
-const PICKER_SCREENS: readonly ScreenKey[] = ['orders', 'inventory', 'reports-inventory-moves'];
+const SELLER_SCREENS: readonly ScreenKey[] = ['orders', 'customers', 'inventory', 'reports-inventory-moves'];
+const PICKER_SCREENS: readonly ScreenKey[] = ['orders', 'inventory'];
 
 export interface ScreenAccess {
   view: boolean;

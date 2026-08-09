@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { getCustomerDetail } from '@/lib/admin/commerce-queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { formatPrice } from '@/lib/commerce/pricing';
@@ -45,7 +45,7 @@ function formatDateTime(value: string): string {
  * מייל, לא customers.id — כמו ברשימת הלקוחות, כי רוב הלקוחות אורחים.
  */
 export default async function CustomerDetailPage({ params }: { params: Promise<{ key: string }> }) {
-  await requirePermission('store');
+  await requireScreenPermission('customers', 'view');
   const { key } = await params;
   const detail = await getCustomerDetail(key);
 

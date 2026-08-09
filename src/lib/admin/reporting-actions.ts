@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertPermission } from './auth';
+import { assertScreenPermission } from './auth';
 import { reconcileRecentPayments } from '@/lib/commerce/reconciliation';
 
 /**
@@ -13,7 +13,7 @@ import { reconcileRecentPayments } from '@/lib/commerce/reconciliation';
 export async function runReconciliationNow(): Promise<
   { ok: true; checked: number; mismatched: number } | { ok: false; error: string }
 > {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('reports', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
 
   const summary = await reconcileRecentPayments(3);

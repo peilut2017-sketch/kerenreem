@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { getSettings } from '@/lib/admin/queries';
 import { getStoreSettings } from '@/lib/commerce/settings';
 import { isMorningConfigured } from '@/lib/commerce/morning';
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
  * מאחורי finance מנעה מעורך תוכן לגעת בה אפילו לצפייה.
  */
 export default async function BooksSettingsPage() {
-  const session = await requirePermission('finance');
+  const session = await requireScreenPermission('store-settings', 'view');
   const isAdmin = session.profile.role === 'admin';
   const [settings, storeSettings] = await Promise.all([getSettings(), getStoreSettings()]);
 

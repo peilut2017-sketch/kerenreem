@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { StatTile } from '@/components/admin/analytics/StatTile';
 import { RangePicker } from '@/components/admin/reporting/RangePicker';
@@ -52,7 +52,7 @@ export default async function BooksEngagementReportPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  await requirePermission('finance');
+  await requireScreenPermission('reports', 'view');
   const { days: daysParam } = await searchParams;
   const days = parseRangeParam(daysParam);
   const range = rangeFromDays(days);

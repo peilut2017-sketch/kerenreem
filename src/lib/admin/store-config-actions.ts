@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertPermission } from './auth';
+import { assertScreenPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
 import { isMorningConfigured } from '@/lib/commerce/morning';
 
@@ -42,7 +42,7 @@ export async function saveStoreConfig(
   _prev: StoreConfigState,
   formData: FormData,
 ): Promise<StoreConfigState> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('store-settings', 'edit');
   if ('error' in session) return { status: 'error', message: session.error };
 
   const supabase = await createClient();

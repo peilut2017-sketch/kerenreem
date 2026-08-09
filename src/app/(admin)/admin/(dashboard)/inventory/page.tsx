@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { hasPermission } from '@/lib/admin/permissions';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { listInventory, listStockLocations } from '@/lib/admin/commerce-queries';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * לעולם לא כתיבה ישירה של מספר. ההיסטוריה המלאה ב-ledger.
  */
 export default async function AdminInventoryPage() {
-  const session = await requirePermission('store_view');
+  const session = await requireScreenPermission('inventory', 'view');
   const [rows, locations, settings] = await Promise.all([
     listInventory(),
     listStockLocations(),

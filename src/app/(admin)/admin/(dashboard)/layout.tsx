@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireRole, getAllScreenAccess } from '@/lib/admin/auth';
 import { AdminNav } from '@/components/admin/AdminNav';
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import { ROLE_LABELS } from '@/lib/admin/permissions';
@@ -23,6 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   const session = await requireRole('viewer');
+  const screenAccess = await getAllScreenAccess(session);
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--admin-canvas)]">
@@ -59,7 +60,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
 
         <div className="mx-auto w-full max-w-[80rem] px-6 pb-3">
-          <AdminNav role={session.profile.role} />
+          <AdminNav role={session.profile.role} screenAccess={screenAccess} />
         </div>
       </header>
 

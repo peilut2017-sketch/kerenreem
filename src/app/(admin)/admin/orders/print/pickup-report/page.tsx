@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { getPickupQueue } from '@/lib/admin/print/print-data';
 import { PrintSheet } from '@/components/admin/print/PrintSheet';
 import { PrintToolbar } from '@/components/admin/print/PrintToolbar';
@@ -12,7 +12,7 @@ const STALE_DAYS = 3;
  * מחכות. מסומנות ⚠ מעבר ל-STALE_DAYS, כדי לזהות הזמנות ששכחו מהן.
  */
 export default async function PickupReportPrintPage() {
-  await requirePermission('store_view');
+  await requireScreenPermission('orders', 'view');
   const orders = await getPickupQueue();
   const now = new Date().getTime();
   const dateFmt = new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' });

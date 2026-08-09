@@ -3,7 +3,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasPermission, type AdminPermission } from './permissions';
-import { ADMIN_ONLY_SCREENS, defaultScreenAccess, type ScreenAccess, type ScreenKey } from './screens';
+import { ADMIN_ONLY_SCREENS, SCREENS, defaultScreenAccess, type ScreenAccess, type ScreenKey } from './screens';
 import type { Profile, UserRole } from '@/lib/supabase/types';
 
 export interface AdminSession {
@@ -213,6 +213,25 @@ export async function screenAccess(session: AdminSession, screen: ScreenKey): Pr
   }
   const overrides = await getScreenOverrides(session.userId);
   return overrides.get(screen) ?? defaultScreenAccess(session.profile.role, screen);
+}
+
+/**
+ * מפת הרשאות מלאה לכל המסכים, למשתמש הנוכחי — ל-AdminNav (צד לקוח): כדי
+ * שהניווט יציג בדיוק את מה שהעמוד עצמו יאפשר (כולל override), לא רק את
+ * ברירת המחדל של ה-role, בלי שאילתה נפרדת לכל אחד מ-28 המסכים.
+ */
+export async function getAllScreenAccess(session: AdminSession): Promise<Record<ScreenKey, ScreenAccess>> {
+  const overrides = await getScreenOverrides(session.userId);
+  const map = {} as Record<ScreenKey, ScreenAccess>;
+  for (const screen of SCREENS) {
+    if (ADMIN_ONLY_SCREENS.has(screen.key)) {
+      const allowed = session.profile.role === 'admin';
+      map[screen.key] = { view: allowed, edit: allowed };
+    } else {
+      map[screen.key] = overrides.get(screen.key) ?? defaultScreenAccess(session.profile.role, screen.key);
+    }
+  }
+  return map;
 }
 
 /** גרסת redirect — חוסמת גישה מלאה למסך (לא רק הסתרת עריכה) כשאין view. */

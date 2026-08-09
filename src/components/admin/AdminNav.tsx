@@ -5,16 +5,20 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdminIcon, type AdminIconName } from './AdminIcons';
 import { hasPermission, type AdminPermission } from '@/lib/admin/permissions';
+import type { ScreenAccess, ScreenKey } from '@/lib/admin/screens';
 import type { UserRole } from '@/lib/supabase/types';
 
 /**
- * גישה לפריט ניווט — שני צירים (מודל 1.1, פרק 19): צד התוכן נשען על
- * הדירוג הליניארי (minRole), וצד החנות על הרשאה דו-ממדית (perm) — כך
- * עורך תוכן אינו רואה את קבוצת החנות כלל, ומוכרן אינו רואה תוכן.
+ * גישה לפריט ניווט: רוב הפריטים (מודל 1.7) גדורים כעת דרך screen — אותה
+ * מפת הרשאות פר-מסך שהעמוד עצמו בודק (requireScreenPermission), כולל
+ * override מותאם אישית. ארבעת הפריטים המערכתיים (דשבורד/צוות/הגדרות/
+ * יומן ביקורת/אבחון) עדיין לא מפתחות מסך משלהם ונשארים על הדגם הישן
+ * (minRole הליניארי ו/או perm הדו-ממדי, permissions.ts).
  */
 interface NavAccess {
   minRole?: UserRole;
   perm?: AdminPermission;
+  screen?: ScreenKey;
 }
 
 interface SubLink extends NavAccess {
@@ -50,46 +54,44 @@ const ITEMS: NavEntry[] = [
     type: 'group',
     label: 'ספרים',
     icon: 'books',
-    minRole: 'viewer',
+    // ללא שער עצמי — הקבוצה מוצגת אם ולו פריט אחד בתוכה גלוי (ראו visible למטה)
     items: [
-      { href: '/admin/books', label: 'כל הספרים', icon: 'books', minRole: 'viewer' },
-      { href: '/admin/authors', label: 'מחברים', icon: 'authors', minRole: 'viewer' },
-      { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', minRole: 'viewer' },
-      { href: '/admin/series', label: 'סדרות', icon: 'series', minRole: 'viewer' },
-      { href: '/admin/tags', label: 'תגיות', icon: 'tags', minRole: 'viewer' },
-      { href: '/admin/books/homepage-shelf', label: 'מדף בעמוד הבית', icon: 'settings', minRole: 'viewer' },
+      { href: '/admin/books', label: 'כל הספרים', icon: 'books', screen: 'books' },
+      { href: '/admin/authors', label: 'מחברים', icon: 'authors', screen: 'authors' },
+      { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', screen: 'categories' },
+      { href: '/admin/series', label: 'סדרות', icon: 'series', screen: 'series' },
+      { href: '/admin/tags', label: 'תגיות', icon: 'tags', screen: 'tags' },
+      { href: '/admin/books/homepage-shelf', label: 'מדף בעמוד הבית', icon: 'settings', screen: 'homepage-shelf' },
     ],
   },
   {
     type: 'group',
     label: 'חנות',
     icon: 'store',
-    perm: 'store_view',
     items: [
-      { href: '/admin/orders', label: 'הזמנות', icon: 'orders', perm: 'store_view' },
-      { href: '/admin/customers', label: 'לקוחות', icon: 'authors', perm: 'store' },
-      { href: '/admin/inventory', label: 'מלאי ומחסנים', icon: 'inventory', perm: 'store_view' },
-      { href: '/admin/shipping', label: 'שיטות אספקה', icon: 'shipping', perm: 'finance' },
-      { href: '/admin/coupons', label: 'קופונים', icon: 'coupon', perm: 'finance' },
-      { href: '/admin/books/sale-prices', label: 'מחירי מבצע', icon: 'coupon', perm: 'finance' },
-      { href: '/admin/reports', label: 'דוחות ורווחיות', icon: 'finance', perm: 'finance' },
-      { href: '/admin/books/settings', label: 'הגדרות חנות', icon: 'settings', perm: 'finance' },
+      { href: '/admin/orders', label: 'הזמנות', icon: 'orders', screen: 'orders' },
+      { href: '/admin/customers', label: 'לקוחות', icon: 'authors', screen: 'customers' },
+      { href: '/admin/inventory', label: 'מלאי ומחסנים', icon: 'inventory', screen: 'inventory' },
+      { href: '/admin/shipping', label: 'שיטות אספקה', icon: 'shipping', screen: 'shipping' },
+      { href: '/admin/coupons', label: 'קופונים', icon: 'coupon', screen: 'coupons' },
+      { href: '/admin/books/sale-prices', label: 'מחירי מבצע', icon: 'coupon', screen: 'sale-prices' },
+      { href: '/admin/reports', label: 'דוחות ורווחיות', icon: 'finance', screen: 'reports' },
+      { href: '/admin/books/settings', label: 'הגדרות חנות', icon: 'settings', screen: 'store-settings' },
     ],
   },
-  { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', minRole: 'viewer', perm: 'content' },
-  { type: 'link', href: '/admin/events', label: 'אירועים', icon: 'events', minRole: 'viewer', perm: 'content' },
-  { type: 'link', href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', minRole: 'viewer', perm: 'content' },
-  { type: 'link', href: '/admin/pages', label: 'עמודי תוכן', icon: 'pages', minRole: 'viewer', perm: 'content' },
-  { type: 'link', href: '/admin/analytics', label: 'אנליטיקס', icon: 'analytics', minRole: 'editor' },
+  { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', screen: 'banners' },
+  { type: 'link', href: '/admin/events', label: 'אירועים', icon: 'events', screen: 'events' },
+  { type: 'link', href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', screen: 'activities' },
+  { type: 'link', href: '/admin/pages', label: 'עמודי תוכן', icon: 'pages', screen: 'pages' },
+  { type: 'link', href: '/admin/analytics', label: 'אנליטיקס', icon: 'analytics', screen: 'analytics' },
   {
     type: 'group',
     label: 'פניות מהאתר',
     icon: 'messages',
-    minRole: 'editor',
     items: [
-      { href: '/admin/messages', label: 'פניות שהתקבלו', icon: 'messages', minRole: 'editor' },
-      { href: '/admin/contact-topics', label: 'תחומי פנייה', icon: 'tags', minRole: 'editor' },
-      { href: '/admin/contact-fields', label: 'שדות מותאמים', icon: 'columns', minRole: 'editor' },
+      { href: '/admin/messages', label: 'פניות שהתקבלו', icon: 'messages', screen: 'messages' },
+      { href: '/admin/contact-topics', label: 'תחומי פנייה', icon: 'tags', screen: 'contact-topics' },
+      { href: '/admin/contact-fields', label: 'שדות מותאמים', icon: 'columns', screen: 'contact-fields' },
     ],
   },
   { type: 'link', href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
@@ -109,11 +111,14 @@ const RANK: Record<UserRole, number> = {
 };
 
 /**
+ * screen ⇒ נבדק ישירות מול מפת ההרשאות (כולל override מותאם אישית) —
+ * המקור היחיד שגם העמוד עצמו קורא ממנו. אחרת (ארבעת פריטי המערכת בלבד):
  * perm בלבד ⇒ ההרשאה מכריעה. minRole בלבד ⇒ הדירוג מכריע, אך תפקידי
  * החנות (מוכרן/מלקט/ניהול חנות) מוחרגים — דירוגם קיים רק לחסימת עמודי
  * תוכן בשרת, לא כזכות תוכן. שניהם ⇒ תפקידי חנות דרך ההרשאה, השאר דרך הדירוג.
  */
-function canSee(role: UserRole, access: NavAccess): boolean {
+function canSee(role: UserRole, screenAccess: Record<ScreenKey, ScreenAccess>, access: NavAccess): boolean {
+  if (access.screen) return screenAccess[access.screen]?.view ?? false;
   const storeRole = role === 'seller' || role === 'picker' || role === 'store_manager';
   if (access.perm && !access.minRole) return hasPermission(role, access.perm);
   if (access.perm && access.minRole) {
@@ -127,7 +132,13 @@ function matchesLink(pathname: string, href: string): boolean {
   return href === '/admin' ? pathname === '/admin' : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AdminNav({ role }: { role: UserRole }) {
+export function AdminNav({
+  role,
+  screenAccess,
+}: {
+  role: UserRole;
+  screenAccess: Record<ScreenKey, ScreenAccess>;
+}) {
   const pathname = usePathname();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   // ממוזכר כדי לזהות ניווט לעמוד חדש ולסגור תפריט פתוח — במהלך הרינדור
@@ -138,15 +149,15 @@ export function AdminNav({ role }: { role: UserRole }) {
 
   const visible = useMemo(
     () =>
-      ITEMS.filter((item) => canSee(role, item))
-        .map((item) =>
-          item.type === 'group'
-            ? { ...item, items: item.items.filter((sub) => canSee(role, sub)) }
-            : item,
-        )
-        // קבוצה שהתרוקנה לא תוצג בכלל
-        .filter((item) => item.type !== 'group' || item.items.length > 0),
-    [role],
+      ITEMS.map((item) =>
+        item.type === 'group'
+          ? { ...item, items: item.items.filter((sub) => canSee(role, screenAccess, sub)) }
+          : item,
+      )
+        // קישור בודד: השער שלו עצמו. קבוצה: גלויה אם ולו פריט אחד בתוכה גלוי —
+        // לקבוצות "ספרים"/"חנות"/"פניות מהאתר" אין יותר שער עצמאי משלהן.
+        .filter((item) => (item.type === 'group' ? item.items.length > 0 : canSee(role, screenAccess, item))),
+    [role, screenAccess],
   );
 
   if (pathname !== seenPathname) {

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertPermission } from './auth';
+import { assertPermission, assertScreenPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
@@ -63,7 +63,7 @@ export async function staffTransitionOrder(
   to: string,
 ): Promise<OrderActionResult> {
   // ציר האספקה פתוח גם למלקט; ציר ההזמנה — למנהלי חנות בלבד
-  const session = await assertPermission(axis === 'fulfillment_state' ? 'store_view' : 'store');
+  const session = await assertScreenPermission('orders', axis === 'fulfillment_state' ? 'view' : 'edit');
   if ('error' in session) return { ok: false, error: session.error };
 
   const service = createServiceClient();
@@ -106,7 +106,7 @@ export async function staffTransitionOrder(
  * פיזית (תנועת return_restock נפרדת ממסך המלאי).
  */
 export async function cancelOrder(orderId: string, reason: string): Promise<OrderActionResult> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -177,7 +177,7 @@ export async function openReturnRequest(
   reason: string,
   items: { bookId: string; title: string; quantity: number }[],
 ): Promise<OrderActionResult> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה' };
   if (items.length === 0) return { ok: false, error: 'יש לבחור לפחות פריט אחד להחזרה' };
@@ -204,7 +204,7 @@ export async function closeServiceRequest(
   status: 'resolved' | 'declined',
   note: string,
 ): Promise<OrderActionResult> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -225,7 +225,7 @@ export async function addTracking(
   orderId: string,
   input: { company: string; trackingNumber: string; trackingUrl?: string },
 ): Promise<OrderActionResult> {
-  const session = await assertPermission('store_view');
+  const session = await assertScreenPermission('orders', 'view');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -287,7 +287,7 @@ export async function addTracking(
  * שכבר יצא ללקוח אינו ניתן לביטול; זו הגבלה מוצגת ב-UI, לא כאן.
  */
 export async function undoShipment(orderId: string, reason: string): Promise<OrderActionResult> {
-  const session = await assertPermission('store_view');
+  const session = await assertScreenPermission('orders', 'view');
   if ('error' in session) return { ok: false, error: session.error };
   if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה — נשמרת בציר הזמן' };
   const service = createServiceClient();
@@ -329,7 +329,7 @@ export async function undoShipment(orderId: string, reason: string): Promise<Ord
 
 /** הערה פנימית — נשמרת בציר הזמן (order_events), לא על ההזמנה. */
 export async function addOrderNote(orderId: string, note: string): Promise<OrderActionResult> {
-  const session = await assertPermission('store_view');
+  const session = await assertScreenPermission('orders', 'view');
   if ('error' in session) return { ok: false, error: session.error };
   if (!note.trim()) return { ok: false, error: 'הערה ריקה' };
 
@@ -696,7 +696,7 @@ export async function resendOrderEmail(
   orderId: string,
   template: EmailTemplate,
 ): Promise<OrderActionResult> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -724,7 +724,7 @@ export async function staffAdjustStock(input: {
   /** [1.1] מיקום מפורש (ריבוי מחסנים); ריק = המיקום הראשי */
   locationId?: string | null;
 }): Promise<OrderActionResult & { onHand?: number }> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -770,7 +770,7 @@ export async function staffTransferStock(input: {
   qty: number;
   note?: string;
 }): Promise<OrderActionResult> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -873,7 +873,7 @@ export async function previewManualOrderTotalsAction(input: {
   contactPhone: string | null;
   contactEmail: string | null;
 }): Promise<ManualOrderPreview> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) {
     return {
       ok: false,
@@ -905,7 +905,7 @@ export async function createManualOrderAction(input: {
   couponCode: string | null;
   note: string | null;
 }): Promise<OrderActionResult & { orderId?: string; orderNumber?: number }> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
 
   const result = await createManualOrder({
@@ -932,7 +932,7 @@ export async function createManualOrderAction(input: {
  * ממחזר דף תשלום פתוח אם קיים; בלי מורנינג מוגדרת — שגיאה ברורה.
  */
 export async function sendPaymentLink(orderId: string): Promise<OrderActionResult> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -1023,7 +1023,7 @@ export async function editOrderItems(
   changes: { itemId: string; quantity: number }[],
   reason: string,
 ): Promise<OrderActionResult> {
-  const session = await assertPermission('store');
+  const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה לעריכה — נשלחת ללקוח ונשמרת בציר הזמן' };
   const service = createServiceClient();
@@ -1166,7 +1166,7 @@ export async function savePickingState(
   picked: { itemId: string; pickedQuantity: number }[],
   packingNote: string | null,
 ): Promise<OrderActionResult> {
-  const session = await assertPermission('store_view');
+  const session = await assertScreenPermission('orders', 'view');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };

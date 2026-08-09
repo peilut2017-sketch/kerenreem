@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { getOrderForPrint } from '@/lib/admin/print/print-data';
 import { PrintSheet } from '@/components/admin/print/PrintSheet';
 import { PrintToolbar } from '@/components/admin/print/PrintToolbar';
@@ -16,7 +16,7 @@ export default async function PickingListPrintPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requirePermission('store_view');
+  await requireScreenPermission('orders', 'view');
   const { id } = await params;
   const data = await getOrderForPrint(id);
   if (!data) notFound();

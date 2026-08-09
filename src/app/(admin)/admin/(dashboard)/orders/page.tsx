@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { listOrders, SAVED_VIEWS, savedViewHref, type OrdersFilter } from '@/lib/admin/commerce-queries';
 import { OrdersTable } from '@/components/admin/orders/OrdersTable';
@@ -15,7 +15,7 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<OrdersFilter>;
 }) {
-  await requirePermission('store_view');
+  await requireScreenPermission('orders', 'view');
   const filter = await searchParams;
   // [1.4] כל תצוגה נושאת view משלה עכשיו — השוואה ישירה אחת, לא התאמה
   // חלקית של state+payment ששכחה את ציר האספקה (ראו הערה ב-SAVED_VIEWS).
