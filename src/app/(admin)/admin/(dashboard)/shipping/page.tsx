@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { ShippingManager } from '@/components/admin/orders/ShippingManager';
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
  * לפי עיר היעד ב-getAvailableMethods.
  */
 export default async function AdminShippingPage() {
-  await requirePermission('finance');
+  await requireScreenPermission('shipping', 'view');
   const supabase = await createClient();
   const [methodsRes, zonesRes] = supabase
     ? await Promise.all([

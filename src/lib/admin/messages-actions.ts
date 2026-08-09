@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { assertRole } from './auth';
+import { assertRole, assertScreenPermission } from './auth';
 import type { ActionResult } from './actions';
 
 /**
@@ -12,7 +12,7 @@ import type { ActionResult } from './actions';
 
 /** סימון פנייה כטופלה/לא טופלה. */
 export async function setMessageHandled(id: string, handled: boolean): Promise<ActionResult> {
-  const session = await assertRole('editor');
+  const session = await assertScreenPermission('messages', 'edit');
   if ('error' in session) return session;
 
   const supabase = await createClient();

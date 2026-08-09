@@ -1,4 +1,4 @@
-import type { UserRole } from '@/lib/supabase/types';
+import type { ScreenKey } from './screens';
 
 /**
  * הגדרת הישויות הניתנות לעריכה.
@@ -54,8 +54,8 @@ export interface RelationSpec {
 
 export interface EntitySpec {
   table: string;
-  /** התפקיד המינימלי הנדרש לכתיבה */
-  writeRole: UserRole;
+  /** [1.7] מסך ההרשאה הגרגרי (screens.ts) — assertScreenPermission(screenKey, 'edit') */
+  screenKey: ScreenKey;
   fields: FieldSpec[];
   /**
    * מסלולים ציבוריים לרענון אחרי שמירה, **כתבניות נתיב** ולא ככתובות ממשיות.
@@ -85,7 +85,7 @@ const fd = (name: string, type: FieldType = 'text'): FieldSpec => f(name, type, 
 export const ENTITIES = {
   books: {
     table: 'books',
-    writeRole: 'editor',
+    screenKey: 'books',
     fields: [
       // אינו חובה — ספר בלי מזהה מקבל אחד אוטומטית בשמירה (ראו actions.ts)
       f('slug'),
@@ -178,7 +178,7 @@ export const ENTITIES = {
 
   authors: {
     table: 'authors',
-    writeRole: 'editor',
+    screenKey: 'authors',
     fields: [
       f('slug', 'text', true),
       f('name_he', 'text', true),
@@ -200,7 +200,7 @@ export const ENTITIES = {
 
   events: {
     table: 'events',
-    writeRole: 'editor',
+    screenKey: 'events',
     fields: [
       f('slug', 'text', true),
       f('title_he', 'text', true),
@@ -219,7 +219,7 @@ export const ENTITIES = {
 
   activities: {
     table: 'activities',
-    writeRole: 'editor',
+    screenKey: 'activities',
     fields: [
       f('slug', 'text', true),
       f('title_he', 'text', true),
@@ -238,7 +238,7 @@ export const ENTITIES = {
 
   pages: {
     table: 'pages',
-    writeRole: 'editor',
+    screenKey: 'pages',
     fields: [
       f('slug', 'text', true),
       f('title_he', 'text', true),
@@ -254,7 +254,7 @@ export const ENTITIES = {
 
   banners: {
     table: 'banners',
-    writeRole: 'editor',
+    screenKey: 'banners',
     fields: [
       f('title_he', 'text', true),
       f('title_en'),
@@ -276,7 +276,7 @@ export const ENTITIES = {
 
   categories: {
     table: 'categories',
-    writeRole: 'editor',
+    screenKey: 'categories',
     fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), fd('sort_order', 'number')],
     // הרשימה נגזרת מהשאילתות ולא ממה שמוצג בפועל, ולכן היא רחבה מהנדרש:
     // הקטגוריה מצורפת לכל שליפת ספרים גם במסלולים שאינם מציגים את שמה.
@@ -287,14 +287,14 @@ export const ENTITIES = {
 
   series: {
     table: 'series',
-    writeRole: 'editor',
+    screenKey: 'series',
     fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), f('description_he')],
     revalidate: ['/books', '/books/[slug]', ''],
   },
 
   tags: {
     table: 'tags',
-    writeRole: 'editor',
+    screenKey: 'tags',
     fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), f('description_he')],
     // is_system אינו כאן: הוא נקבע פעם אחת ביצירה (תגיות מערכת נזרעות
     // בקוד, ראו 08_pim_stage_a.sql) ואינו אמור להיות שדה שעורך יכול לשנות.
@@ -303,7 +303,7 @@ export const ENTITIES = {
 
   contact_topics: {
     table: 'contact_topics',
-    writeRole: 'editor',
+    screenKey: 'contact-topics',
     fields: [
       f('name_he', 'text', true),
       f('name_en'),
@@ -315,7 +315,7 @@ export const ENTITIES = {
 
   contact_fields: {
     table: 'contact_fields',
-    writeRole: 'editor',
+    screenKey: 'contact-fields',
     fields: [
       f('label_he', 'text', true),
       f('label_en'),

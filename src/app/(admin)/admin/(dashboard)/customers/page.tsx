@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { AdminIcon } from '@/components/admin/AdminIcons';
@@ -29,7 +29,7 @@ export default async function AdminCustomersPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  await requirePermission('store');
+  await requireScreenPermission('customers', 'view');
   const { q } = await searchParams;
   const supabase = await createClient();
 

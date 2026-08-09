@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { listBooks, type BookRow } from '@/lib/admin/queries';
 import { getEffectivePrice, formatPrice } from '@/lib/commerce/pricing';
 import { AdminHeader } from '@/components/admin/AdminList';
@@ -82,7 +82,7 @@ const columns: AdminRecordColumn<SaleRow>[] = [
  * קריאה עם קישור לעריכה — לא בונה מנגנון עריכה מרוכזת חדש.
  */
 export default async function SalePricesPage() {
-  await requirePermission('finance');
+  await requireScreenPermission('sale-prices', 'view');
   const books = await listBooks();
 
   const rows: SaleRow[] = books

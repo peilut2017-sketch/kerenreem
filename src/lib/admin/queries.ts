@@ -335,6 +335,26 @@ export async function listProfiles(): Promise<(Profile & { email?: string })[]> 
   return (data as Profile[] | null) ?? [];
 }
 
+export interface ScreenOverrideRow {
+  user_id: string;
+  screen_key: string;
+  can_view: boolean;
+  can_edit: boolean;
+}
+
+/**
+ * [1.7] כל שורות ה-override הקיימות, לכל אנשי הצוות — שאילתה אחת במקום
+ * N (אחת פר-משתמש) בעמוד הצוות, שמציג את כולם יחד. TeamManager מקבץ
+ * לפי user_id בצד הלקוח.
+ */
+export async function listScreenOverrides(): Promise<ScreenOverrideRow[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('user_screen_permissions')
+    .select('user_id, screen_key, can_view, can_edit');
+  return (data as ScreenOverrideRow[] | null) ?? [];
+}
+
 export interface ContactMessage {
   id: string;
   name: string;

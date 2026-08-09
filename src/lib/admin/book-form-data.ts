@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { hasRole, requireRole } from './auth';
+import { requireScreenPermission, screenAccess } from './auth';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   getBook,
@@ -19,7 +19,6 @@ import type {
   Category,
   Series,
   Tag,
-  UserRole,
 } from '@/lib/supabase/types';
 
 /**
@@ -46,9 +45,9 @@ export interface BookFormData {
   stockOnHand: number | null;
 }
 
-async function loadShared(minimum: UserRole) {
+async function loadShared(mode: 'view' | 'edit') {
   const [session, authors, categories, tags, attributes, series, settings] = await Promise.all([
-    requireRole(minimum),
+    requireScreenPermission('books', mode),
     listAuthorsAdmin(),
     listCategoriesAdmin(),
     listTags(),
@@ -60,7 +59,7 @@ async function loadShared(minimum: UserRole) {
 }
 
 export async function loadNewBookFormData(): Promise<BookFormData> {
-  const { session, authors, categories, tags, attributes, series, settings } = await loadShared('editor');
+  const { authors, categories, tags, attributes, series, settings } = await loadShared('edit');
   return {
     book: null,
     authors,
@@ -70,7 +69,9 @@ export async function loadNewBookFormData(): Promise<BookFormData> {
     series,
     relations: { tagIds: [], categoryIds: [], attributeValueIds: [] },
     storeEnabled: settings?.store_enabled ?? false,
-    canWrite: hasRole(session.profile.role, 'editor'),
+    // הגישה לעמוד עצמו כבר דרשה edit (loadShared('edit') למעלה) — אין
+    // מצב שבו canWrite כאן false בפועל.
+    canWrite: true,
     stockOnHand: null,
   };
 }
@@ -90,7 +91,7 @@ async function getBookStockOnHand(bookId: string, fallback: number | null): Prom
 
 export async function loadEditBookFormData(id: string): Promise<BookFormData> {
   const [{ session, authors, categories, tags, attributes, series, settings }, book, relations] =
-    await Promise.all([loadShared('viewer'), getBook(id), getBookRelations(id)]);
+    await Promise.all([loadShared('view'), getBook(id), getBookRelations(id)]);
 
   if (!book) notFound();
   const stockOnHand = await getBookStockOnHand(id, book.stock_quantity ?? 0);
@@ -104,7 +105,7 @@ export async function loadEditBookFormData(id: string): Promise<BookFormData> {
     series,
     relations,
     storeEnabled: settings?.store_enabled ?? false,
-    canWrite: hasRole(session.profile.role, 'editor'),
+    canWrite: (await screenAccess(session, 'books')).edit,
     stockOnHand,
   };
 }

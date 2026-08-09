@@ -1,15 +1,15 @@
-import { requireRole, hasRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { BannerForm } from '@/components/admin/BannerForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewBannerPage() {
-  const session = await requireRole('editor');
+  await requireScreenPermission('banners', 'edit');
   return (
     <>
       <AdminHeader title="באנר חדש" />
-      <BannerForm banner={null} canWrite={hasRole(session.profile.role, 'editor')} />
+      <BannerForm banner={null} canWrite={true} />
     </>
   );
 }

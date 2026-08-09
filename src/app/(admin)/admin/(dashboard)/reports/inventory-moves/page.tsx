@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { INVENTORY_MOVE_TYPE_LABELS, listInventoryMoves } from '@/lib/admin/commerce-queries';
 
@@ -32,7 +32,7 @@ export default async function InventoryMovesReportPage({
 }: {
   searchParams: Promise<{ book?: string; type?: string; page?: string }>;
 }) {
-  await requirePermission('store');
+  await requireScreenPermission('reports-inventory-moves', 'view');
   const filter = await searchParams;
   const result = await listInventoryMoves({ bookId: filter.book, moveType: filter.type, page: filter.page });
   const { rows, page, pageSize, total, error } = result;

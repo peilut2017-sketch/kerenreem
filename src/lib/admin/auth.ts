@@ -3,6 +3,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasPermission, type AdminPermission } from './permissions';
+import { ADMIN_ONLY_SCREENS, SCREENS, defaultScreenAccess, type ScreenAccess, type ScreenKey } from './screens';
 import type { Profile, UserRole } from '@/lib/supabase/types';
 
 export interface AdminSession {
@@ -34,14 +35,16 @@ export type AdminSessionResult =
   | { status: 'not-configured' };
 
 /**
- * דירוג ליניארי — משרת את שערי *התוכן* הקיימים (requireRole): מוכרן
- * ומלקט מדורגים מתחת ל-editor ולכן חסומים מעמודי תוכן. שערי *החנות*
- * אינם משתמשים בדירוג — הם דו-ממדיים ועוברים דרך requirePermission.
+ * דירוג ליניארי — משרת את שערי *התוכן* הקיימים (requireRole): מוכרן,
+ * מלקט ו-store_manager מדורגים מתחת ל-editor ולכן חסומים מעמודי תוכן. שערי
+ * *החנות* אינם משתמשים בדירוג — הם דו-ממדיים ועוברים דרך requirePermission
+ * (ובהדרגה — requireScreenPermission, screens.ts).
  */
 const RANK: Record<UserRole, number> = {
   viewer: 0,
   picker: 1,
   seller: 2,
+  store_manager: 2,
   editor: 3,
   manager: 4,
   admin: 5,
@@ -173,5 +176,83 @@ export async function assertPermission(
   if (!hasPermission(result.profile.role, permission)) {
     return { error: 'אין הרשאה לפעולה זו' };
   }
+  return result;
+}
+
+/**
+ * [1.7] הרשאה גרגרית פר-מסך (screens.ts) — מחליפה בהדרגה את requireRole/
+ * requirePermission, מסך-מסך (ראו שלבי ג'/ד' בתכנית). ה-override, אם קיים,
+ * גובר על ברירת המחדל של ה-role; בלי override — ברירת המחדל בלבד.
+ *
+ * cache()-ה כמו getAdminSessionResult: כל page.tsx/action קורא לזה, ובלי
+ * דה-דופליקציה כל טעינת מסך הייתה מבצעת שאילתת overrides נוספת מיותרת.
+ */
+const getScreenOverrides = cache(async (userId: string): Promise<Map<ScreenKey, ScreenAccess>> => {
+  const supabase = await createClient();
+  if (!supabase) return new Map();
+  const { data } = await supabase
+    .from('user_screen_permissions')
+    .select('screen_key, can_view, can_edit')
+    .eq('user_id', userId);
+  const map = new Map<ScreenKey, ScreenAccess>();
+  for (const row of data ?? []) {
+    map.set(row.screen_key as ScreenKey, { view: row.can_view, edit: row.can_edit });
+  }
+  return map;
+});
+
+/**
+ * חשיפה ציבורית של בדיקת ההרשאה, בלי redirect — לעמודי צפייה שצריכים
+ * להחליט האם להציג טופס לעריכה או תצוגה בלבד (כמו hasRole(role,'editor')
+ * הישן), לא רק לחסום גישה מלאה.
+ */
+export async function screenAccess(session: AdminSession, screen: ScreenKey): Promise<ScreenAccess> {
+  if (ADMIN_ONLY_SCREENS.has(screen)) {
+    const allowed = session.profile.role === 'admin';
+    return { view: allowed, edit: allowed };
+  }
+  const overrides = await getScreenOverrides(session.userId);
+  return overrides.get(screen) ?? defaultScreenAccess(session.profile.role, screen);
+}
+
+/**
+ * מפת הרשאות מלאה לכל המסכים, למשתמש הנוכחי — ל-AdminNav (צד לקוח): כדי
+ * שהניווט יציג בדיוק את מה שהעמוד עצמו יאפשר (כולל override), לא רק את
+ * ברירת המחדל של ה-role, בלי שאילתה נפרדת לכל אחד מ-28 המסכים.
+ */
+export async function getAllScreenAccess(session: AdminSession): Promise<Record<ScreenKey, ScreenAccess>> {
+  const overrides = await getScreenOverrides(session.userId);
+  const map = {} as Record<ScreenKey, ScreenAccess>;
+  for (const screen of SCREENS) {
+    if (ADMIN_ONLY_SCREENS.has(screen.key)) {
+      const allowed = session.profile.role === 'admin';
+      map[screen.key] = { view: allowed, edit: allowed };
+    } else {
+      map[screen.key] = overrides.get(screen.key) ?? defaultScreenAccess(session.profile.role, screen.key);
+    }
+  }
+  return map;
+}
+
+/** גרסת redirect — חוסמת גישה מלאה למסך (לא רק הסתרת עריכה) כשאין view. */
+export async function requireScreenPermission(
+  screen: ScreenKey,
+  mode: 'view' | 'edit' = 'view',
+): Promise<AdminSession> {
+  const session = await requireRole('viewer');
+  const access = await screenAccess(session, screen);
+  if (!access[mode]) redirect('/admin?denied=1');
+  return session;
+}
+
+/** מקבילת requireScreenPermission לפעולות שרת — שגיאה במקום redirect. */
+export async function assertScreenPermission(
+  screen: ScreenKey,
+  mode: 'view' | 'edit' = 'edit',
+): Promise<AdminSession | { error: string }> {
+  const result = await assertRole('viewer');
+  if ('error' in result) return result;
+  const access = await screenAccess(result, screen);
+  if (!access[mode]) return { error: 'אין הרשאה לפעולה זו' };
   return result;
 }

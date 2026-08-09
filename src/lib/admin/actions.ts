@@ -4,7 +4,7 @@ import { reconcileBookStockFromForm } from '@/lib/commerce/inventory';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { assertRole } from './auth';
+import { assertRole, assertScreenPermission } from './auth';
 import {
   ENTITIES,
   isEntityKey,
@@ -239,7 +239,7 @@ export async function saveEntity(
     // הטיפוס המפורש נדרש: satisfies מצמצם כל ישות לצורתה המדויקת, ואז
     // relations "אינו קיים" על ישויות שאין להן טבלאות קישור.
     const entity: EntitySpec = ENTITIES[entityKey as EntityKey];
-    const session = await assertRole(entity.writeRole);
+    const session = await assertScreenPermission(entity.screenKey, 'edit');
     if ('error' in session) return { status: 'error', message: session.error };
 
     const supabase = await createClient();
@@ -423,7 +423,7 @@ export async function deleteEntity(entityKey: string, id: string): Promise<Actio
     if (!isEntityKey(entityKey)) return { error: 'ישות לא מוכרת' };
 
     const entity = ENTITIES[entityKey as EntityKey];
-    const session = await assertRole(entity.writeRole);
+    const session = await assertScreenPermission(entity.screenKey, 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();
@@ -471,7 +471,7 @@ export async function togglePublished(
       return { error: 'לישות זו אין מצב פרסום' };
     }
 
-    const session = await assertRole(entity.writeRole);
+    const session = await assertScreenPermission(entity.screenKey, 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();
@@ -512,7 +512,7 @@ export async function bulkUpdateBooks(
 
   try {
     const entity = ENTITIES.books;
-    const session = await assertRole(entity.writeRole);
+    const session = await assertScreenPermission(entity.screenKey, 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();
@@ -554,7 +554,7 @@ export async function bulkUpdateBooks(
  */
 export async function createTag(name: string): Promise<{ tag?: Tag; error?: string }> {
   try {
-    const session = await assertRole('editor');
+    const session = await assertScreenPermission('books', 'edit');
     if ('error' in session) return { error: session.error };
 
     const trimmed = name.trim();
@@ -595,7 +595,7 @@ export async function createTag(name: string): Promise<{ tag?: Tag; error?: stri
  */
 export async function createAuthorQuick(name: string): Promise<{ author?: Author; error?: string }> {
   try {
-    const session = await assertRole('editor');
+    const session = await assertScreenPermission('books', 'edit');
     if ('error' in session) return { error: session.error };
 
     const trimmed = name.trim();
@@ -626,7 +626,7 @@ export async function createAuthorQuick(name: string): Promise<{ author?: Author
 
 export async function createCategoryQuick(name: string): Promise<{ category?: Category; error?: string }> {
   try {
-    const session = await assertRole('editor');
+    const session = await assertScreenPermission('books', 'edit');
     if ('error' in session) return { error: session.error };
 
     const trimmed = name.trim();
@@ -657,7 +657,7 @@ export async function createCategoryQuick(name: string): Promise<{ category?: Ca
 
 export async function createSeriesQuick(name: string): Promise<{ series?: Series; error?: string }> {
   try {
-    const session = await assertRole('editor');
+    const session = await assertScreenPermission('books', 'edit');
     if ('error' in session) return { error: session.error };
 
     const trimmed = name.trim();
@@ -698,7 +698,7 @@ export async function saveBookImages(
   images: { image_url: string; alt: string; caption_he: string }[],
 ): Promise<ActionResult> {
   try {
-    const session = await assertRole('editor');
+    const session = await assertScreenPermission('books', 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();
@@ -742,7 +742,7 @@ export async function saveBookToc(
   entries: { title_he: string; level: number; page_number: number | null; summary_he: string }[],
 ): Promise<ActionResult> {
   try {
-    const session = await assertRole('editor');
+    const session = await assertScreenPermission('books', 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();
@@ -795,7 +795,7 @@ export async function saveBookPreviewPages(
   pages: { page_number: number; image_url: string; width: number; height: number }[],
 ): Promise<ActionResult> {
   try {
-    const session = await assertRole('editor');
+    const session = await assertScreenPermission('books', 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();
@@ -867,7 +867,7 @@ export async function saveEventBlocks(
   }[],
 ): Promise<ActionResult> {
   try {
-    const session = await assertRole('editor');
+    const session = await assertScreenPermission('books', 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { listTags, countBooksByTag } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -7,7 +7,7 @@ import { RowActions } from '@/components/admin/RowActions';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminTagsPage() {
-  await requireRole('viewer');
+  await requireScreenPermission('tags', 'view');
   const [tags, counts] = await Promise.all([listTags(), countBooksByTag()]);
 
   return (

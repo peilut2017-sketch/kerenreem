@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { getSettings, listBanners } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -8,7 +8,7 @@ import { BannersEnabledToggle } from '@/components/admin/BannersEnabledToggle';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminBannersPage() {
-  await requireRole('viewer');
+  await requireScreenPermission('banners', 'view');
   const [banners, settings] = await Promise.all([listBanners(), getSettings()]);
   // extra יכול להיות null בפועל גם שהעמודה במסד not null default '{}':
   // שורה ישנה יכולה עדיין להחזיק ערך null. גישה ישירה ל-extra.X בלי

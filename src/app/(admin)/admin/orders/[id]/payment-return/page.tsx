@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { PaymentReturnSignal } from '@/components/admin/orders/PaymentReturnSignal';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ export default async function PaymentReturnPage({
 }: {
   searchParams: Promise<{ outcome?: string }>;
 }) {
-  await requirePermission('store_view');
+  await requireScreenPermission('orders', 'view');
   const { outcome } = await searchParams;
   const success = outcome === 'success';
 

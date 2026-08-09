@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { isMorningConfigured } from '@/lib/commerce/morning';
@@ -23,7 +23,7 @@ function formatDateTime(value: string): string {
  * פעילות בטווח שנבחר (חריג ישן נעלם בשקט אחרת, ודווקא הוא נשכח).
  */
 export default async function ReconciliationReportPage() {
-  await requirePermission('finance');
+  await requireScreenPermission('reports', 'view');
   const supabase = await createClient();
   const service = createServiceClient();
   const morningConfigured = isMorningConfigured();

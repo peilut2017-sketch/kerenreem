@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { listContactFields } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable, PublishBadge } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -14,7 +14,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
 };
 
 export default async function AdminContactFieldsPage() {
-  await requireRole('viewer');
+  await requireScreenPermission('contact-fields', 'view');
   const fields = await listContactFields();
 
   return (

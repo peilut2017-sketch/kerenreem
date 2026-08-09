@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { assertPermission } from './auth';
+import { assertScreenPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -26,7 +26,7 @@ export async function saveShippingMethod(
   _prev: ShippingFormState,
   formData: FormData,
 ): Promise<ShippingFormState> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('shipping', 'edit');
   if ('error' in session) return { status: 'error', message: session.error };
   const supabase = await createClient();
   if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };
@@ -92,7 +92,7 @@ export async function saveShippingZone(
   _prev: ShippingFormState,
   formData: FormData,
 ): Promise<ShippingFormState> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('shipping', 'edit');
   if ('error' in session) return { status: 'error', message: session.error };
   const supabase = await createClient();
   if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };
@@ -140,7 +140,7 @@ export async function saveShippingZone(
 
 /** מחיקת אזור — שיטות המשויכות אליו הופכות זמינות לכל עיר (zone_id set null ב-FK), לא נמחקות. */
 export async function deleteShippingZone(zoneId: string): Promise<ShippingFormState> {
-  const session = await assertPermission('finance');
+  const session = await assertScreenPermission('shipping', 'edit');
   if ('error' in session) return { status: 'error', message: session.error };
   const supabase = await createClient();
   if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };

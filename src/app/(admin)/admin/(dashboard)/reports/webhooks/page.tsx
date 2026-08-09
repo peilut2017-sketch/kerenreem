@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { createServiceClient } from '@/lib/supabase/service';
 import { AdminHeader } from '@/components/admin/AdminList';
 
@@ -30,7 +30,7 @@ function formatDateTime(value: string): string {
  * בעוד העמוד פתוח מ-finance — manager לא-super-admin לא ייתקל במסך ריק.
  */
 export default async function WebhookFailuresPage() {
-  await requirePermission('finance');
+  await requireScreenPermission('reports', 'view');
   const service = createServiceClient();
 
   const { data: events } = service

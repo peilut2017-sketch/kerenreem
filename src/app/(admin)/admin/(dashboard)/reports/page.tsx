@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { AdminIcon } from '@/components/admin/AdminIcons';
@@ -24,7 +24,7 @@ const DASHBOARD_DAYS = 30;
  * גלוי מהיום הראשון גם לפני שכל דוח נבנה (registry.ts).
  */
 export default async function ReportsIndexPage() {
-  await requirePermission('finance');
+  await requireScreenPermission('reports', 'view');
   const range = rangeFromDays(DASHBOARD_DAYS);
   const compareRange = previousPeriod(range);
   const supabase = await createClient();

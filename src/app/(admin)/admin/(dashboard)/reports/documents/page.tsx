@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { StatTile } from '@/components/admin/analytics/StatTile';
 import { DOC_TYPE_LABELS } from '@/components/admin/orders/labels';
@@ -18,7 +18,7 @@ function formatDateTime(value: string | null): string {
 
 /** [1.5] מסמכים חשבונאיים — סטטוס הפקה מול מורנינג, לפי סוג, ורשימת כשלים לטיפול. */
 export default async function DocumentsReportPage() {
-  await requirePermission('finance');
+  await requireScreenPermission('reports', 'view');
   const report = await getDocumentsReport();
 
   const totalFailed = report.byType.reduce((sum, t) => sum + t.failed, 0);

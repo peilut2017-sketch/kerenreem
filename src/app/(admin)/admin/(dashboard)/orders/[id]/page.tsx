@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { hasPermission } from '@/lib/admin/permissions';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { getOrderDetail } from '@/lib/admin/commerce-queries';
@@ -77,7 +77,7 @@ function formatDateTime(value: string): string {
  * לקוח, תשלום, מסמכים, הודעות — וציר זמן מלא עם מבצע כל פעולה.
  */
 export default async function AdminOrderPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await requirePermission('store_view');
+  const session = await requireScreenPermission('orders', 'view');
   const { id } = await params;
   const detail = await getOrderDetail(id);
   if (!detail) notFound();

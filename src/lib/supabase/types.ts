@@ -4,12 +4,15 @@
  */
 
 /**
- * חמשת התפקידים של מודל 1.1 (פרק 19 במסמך האב) + viewer היסטורי:
- * admin — מנהל-על; manager — הכל מלבד ניהול משתמשים; editor — עורך תוכן
- * (ללא חנות); seller — מוכרן (חנות ללא תוכן); picker — מלקט (תפעול
- * הזמנות בלבד, ללא סכומים); viewer — צפייה בתוכן בלבד.
+ * תפקידי מודל 1.7 (הרשאות גרגריות פר-מסך, migration 41) + viewer היסטורי:
+ * admin — מנהל־על; manager — מנהל ראשי (הכל מלבד ניהול משתמשים); editor —
+ * ניהול תוכן (ללא חנות); store_manager — ניהול חנות (חנות מלאה ללא תוכן,
+ * ללא ניהול צוות); seller — מוכרן (תת-דרגה מצומצמת בתוך ניהול חנות); picker
+ * — מלקט (תת-דרגה מצומצמת עוד יותר — תפעול הזמנות בלבד, ללא סכומים); viewer
+ * — תפקיד היסטורי, ללא הרשאה. הרשאות בפועל נגזרות מ-src/lib/admin/screens.ts
+ * (ברירת מחדל לפי role) וניתנות ל-override פר-משתמש/מסך (user_screen_permissions).
  */
-export type UserRole = 'admin' | 'manager' | 'editor' | 'seller' | 'picker' | 'viewer';
+export type UserRole = 'admin' | 'manager' | 'editor' | 'store_manager' | 'seller' | 'picker' | 'viewer';
 
 export type OrderStatus = 'pending' | 'paid' | 'failed' | 'shipped' | 'cancelled' | 'refunded';
 

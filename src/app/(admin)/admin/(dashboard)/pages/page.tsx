@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { listPagesAdmin } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 const REQUIRED_SLUGS = ['terms', 'privacy', 'accessibility'];
 
 export default async function AdminPagesPage() {
-  await requireRole('viewer');
+  await requireScreenPermission('pages', 'view');
   const pages = await listPagesAdmin();
   const missing = REQUIRED_SLUGS.filter((slug) => !pages.some((page) => page.slug === slug));
 

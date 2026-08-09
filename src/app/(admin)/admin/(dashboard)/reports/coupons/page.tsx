@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { CsvDownloadButton } from '@/components/admin/reporting/CsvDownloadButton';
 import { getCouponPerformance } from '@/lib/admin/reporting/coupons-data';
@@ -11,7 +11,7 @@ const KIND_LABELS: Record<string, string> = { percent: 'אחוז', fixed: 'סכ�
 
 /** [1.5] ביצועי קופונים — שימושים, הנחה שניתנה, הכנסה מהזמנות ששולמו, AOV. כל הזמן, לא טווח. */
 export default async function CouponsReportPage() {
-  await requirePermission('finance');
+  await requireScreenPermission('reports', 'view');
   const { rows, error } = await getCouponPerformance();
 
   return (

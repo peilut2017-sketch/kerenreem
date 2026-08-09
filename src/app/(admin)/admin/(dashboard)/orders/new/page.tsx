@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { getEffectivePrice } from '@/lib/commerce/pricing';
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * (קישור תשלום במייל / תשלום חיצוני).
  */
 export default async function NewManualOrderPage() {
-  await requirePermission('store');
+  await requireScreenPermission('orders', 'edit');
   const supabase = await createClient();
 
   const [booksRes, methodsRes] = supabase

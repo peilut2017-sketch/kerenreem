@@ -144,3 +144,56 @@ export async function revokeStaffAccess(userId: string): Promise<TeamActionResul
   revalidatePath('/admin/team');
   return { ok: true };
 }
+
+/**
+ * [1.7] הרשאה מותאמת אישית פר-משתמש/מסך (screens.ts) — חורגת מברירת המחדל
+ * של ה-role עד שתימחק. מנהל־על בלבד (אותה הרשאת users כמו שאר המסך).
+ * upsert מלא על כל השורות שהתקבלו (לא רק ה-delta מברירת המחדל) — פשוט
+ * וחד-משמעי יותר מחישוב הפרש, במחיר כמה שורות מיותרות בטבלה.
+ */
+export async function saveScreenOverrides(
+  userId: string,
+  overrides: { screen: string; view: boolean; edit: boolean }[],
+): Promise<TeamActionResult> {
+  const session = await assertPermission('users');
+  if ('error' in session) return { ok: false, error: session.error };
+
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const rows = overrides.map((o) => ({
+    user_id: userId,
+    screen_key: o.screen,
+    can_view: o.view,
+    can_edit: o.edit,
+  }));
+  const { error } = await service
+    .from('user_screen_permissions')
+    .upsert(rows, { onConflict: 'user_id,screen_key' });
+  if (error) return { ok: false, error: error.message };
+
+  await service.from('audit_log').insert({
+    user_id: session.userId,
+    action: 'update',
+    table_name: 'user_screen_permissions',
+    record_id: userId,
+    context: 'הרשאה מותאמת אישית',
+  });
+  revalidatePath('/admin/team');
+  return { ok: true };
+}
+
+/** ביטול ההתאמה האישית — המשתמש חוזר לברירת המחדל הרגילה של ה-role שלו. */
+export async function clearScreenOverrides(userId: string): Promise<TeamActionResult> {
+  const session = await assertPermission('users');
+  if ('error' in session) return { ok: false, error: session.error };
+
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { error } = await service.from('user_screen_permissions').delete().eq('user_id', userId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/admin/team');
+  return { ok: true };
+}
