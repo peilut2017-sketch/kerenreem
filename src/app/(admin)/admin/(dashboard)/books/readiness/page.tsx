@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/admin/auth';
 import { listBookIdsWithTags, listBooks, type BookRow } from '@/lib/admin/queries';
 import { computeCompletion, type CompletionItem } from '@/lib/completion';
 import { AdminHeader } from '@/components/admin/AdminList';
-import { AdminIcon } from '@/components/admin/AdminIcons';
+import { StatTile } from '@/components/admin/analytics/StatTile';
 import { AdminRecordList, type AdminRecordColumn } from '@/components/admin/AdminRecordList';
 import type { BookRelations } from '@/lib/supabase/types';
 
@@ -104,19 +104,11 @@ export default async function BooksReadinessPage() {
         </div>
       ) : (
         <>
-          <dl className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {aggregated.map((entry) => (
-              <div key={entry.label} className="admin-card flex items-center gap-3 px-5 py-4">
-                <span className="admin-icon-chip h-11 w-11">
-                  <AdminIcon name="diagnostics" className="h-5 w-5" />
-                </span>
-                <span>
-                  <dt className="text-caption text-muted">{entry.label}</dt>
-                  <dd className="mt-0.5 font-serif text-h3 tabular-nums text-ink">{entry.count}</dd>
-                </span>
-              </div>
+              <StatTile key={entry.label} icon="diagnostics" label={entry.label} value={entry.count.toLocaleString('he-IL')} />
             ))}
-          </dl>
+          </div>
 
           <p className="mb-3 text-caption text-muted">
             {rows.length.toLocaleString('he-IL')} מתוך {purchasable.length.toLocaleString('he-IL')} ספרי הרכישה

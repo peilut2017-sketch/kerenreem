@@ -55,6 +55,15 @@ export default async function ReconciliationReportPage() {
   const runs = runsRes.data ?? [];
   const lastRun = runs[0] ?? null;
 
+  // [1.6] כותרת חיובית ("48 עסקאות תקינות") — לא רק תגי אזהרה כשיש חריג.
+  // מזהי הזמנה ייחודיים (לא סכום שלוש הרשימות) כדי לא לספור הזמנה
+  // שמסומנת גם ללא-מסמך וגם בפער-סכום פעמיים.
+  const paidOrders = outstanding.filter((o) =>
+    ['paid', 'partially_refunded', 'refunded'].includes(o.payment_state),
+  );
+  const issueIds = new Set([...paidNoDoc, ...amountMismatch, ...reconcileMismatch].map((o) => o.id));
+  const isFullyHealthy = morningConfigured && issueIds.size === 0 && webhookFailureCount === 0;
+
   return (
     <>
       <AdminHeader
@@ -66,6 +75,10 @@ export default async function ReconciliationReportPage() {
       {!morningConfigured ? (
         <p role="status" className="admin-card mb-6 border-s-2 border-s-[var(--admin-warning)] px-4 py-3 text-small text-[var(--admin-warning)]">
           ⚠ מורנינג אינה מוגדרת (מפתחות API חסרים) — ההתאמה היומית לא רצה. &ldquo;הכול תקין&rdquo; למטה אינו אמין.
+        </p>
+      ) : isFullyHealthy ? (
+        <p role="status" className="admin-card mb-6 border-s-2 border-s-[var(--admin-success)] px-4 py-3 text-small text-ink">
+          ✓ {paidOrders.length.toLocaleString('he-IL')} הזמנות ששולמו תואמות את מורנינג. אין חריגים פתוחים וללא כשלי Webhook.
         </p>
       ) : null}
 

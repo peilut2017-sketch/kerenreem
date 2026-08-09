@@ -395,6 +395,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                   lineTotal: item.line_total ?? item.unit_price * item.quantity,
                 })),
                 shippingTotal: order.shipping_total,
+                isPickup: order.fulfillment_type === 'pickup',
               }}
               isAdmin={isAdmin}
             />

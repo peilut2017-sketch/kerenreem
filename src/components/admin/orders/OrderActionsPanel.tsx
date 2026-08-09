@@ -25,6 +25,27 @@ import { FULFILLMENT_STATE_LABELS, ORDER_STATE_LABELS } from './labels';
 import type { FulfillmentState, OrderState } from '@/lib/supabase/types';
 
 /**
+ * [1.6] פעולה ראשית תלויית-מצב (ביקורת ג.20/י.4): לא "קיר כפתורים
+ * שווי-משקל" עם תוויות שם-עצם ("בהכנה", "מוכן לאיסוף") אלא פועל בודד,
+ * מנוסח כפעולה, לצעד הבא הברור ביותר. שני מצבי האספקה שיש להם צעד הבא
+ * חד-משמעי (unfulfilled, ready_for_pickup — לכל אחד יעד מעברים יחיד
+ * במכונת המצבים) מקבלים כפתור ראשי; preparing תלוי בשיטת האספקה: איסוף
+ * עצמי ⇐ "מוכן לאיסוף" ראשי, משלוח ⇐ אין כפתור מצב כללי כי הצעד הבא
+ * האמיתי הוא מילוי טופס המסירה לשליח למטה (שכבר מעוצב כפעולה ראשית).
+ */
+function primaryFulfillmentAction(
+  fulfillmentState: FulfillmentState,
+  isPickup: boolean,
+): { label: string; target: FulfillmentState } | null {
+  if (fulfillmentState === 'unfulfilled') return { label: 'התחלת הכנה', target: 'preparing' };
+  if (fulfillmentState === 'preparing' && isPickup) {
+    return { label: 'מוכן לאיסוף — עדכון ומייל ללקוח', target: 'ready_for_pickup' };
+  }
+  if (fulfillmentState === 'ready_for_pickup') return { label: 'נאסף על ידי הלקוח', target: 'fulfilled' };
+  return null;
+}
+
+/**
  * לוח הפעולות בעמוד ההזמנה: רק מעברים חוקיים מהמצב הנוכחי מוצעים;
  * פעולות כספיות (תשלום ידני, זיכוי) — admin בלבד, עם אישור כפול.
  * משלוח חלקי חסום בממשק (החלטה 13) — partially_fulfilled מסונן.
@@ -44,6 +65,7 @@ export function OrderActionsPanel({
     actualShippingCost?: number | null;
     items: RefundableItem[];
     shippingTotal: number;
+    isPickup: boolean;
   };
   isAdmin: boolean;
 }) {
@@ -90,8 +112,13 @@ export function OrderActionsPanel({
   );
   const paidNeedsRefund = ['paid', 'partially_refunded'].includes(order.paymentState);
   const awaitingRefund = order.state === 'cancel_pending_refund';
+  const primaryFulfillment = primaryFulfillmentAction(order.fulfillmentState, order.isPickup);
   const fulfillmentTargets = (FULFILLMENT_STATE_TRANSITIONS[order.fulfillmentState] ?? []).filter(
-    (target) => target !== 'partially_fulfilled' && target !== 'shipped',
+    (target) =>
+      target !== 'partially_fulfilled' &&
+      target !== 'shipped' &&
+      target !== primaryFulfillment?.target &&
+      (order.isPickup || target !== 'ready_for_pickup'),
   );
 
   return (
@@ -203,7 +230,17 @@ export function OrderActionsPanel({
           </p>
         ) : null}
 
-        {/* מעברי ציר האספקה */}
+        {/* מעברי ציר האספקה: פעולה ראשית תלוית-מצב, ומתחתיה מעברי משנה שקטים */}
+        {primaryFulfillment ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => staffTransitionOrder(order.id, 'fulfillment_state', primaryFulfillment.target))}
+            className="admin-btn admin-btn-solid mb-3 w-full sm:w-auto"
+          >
+            {primaryFulfillment.label}
+          </button>
+        ) : null}
         {fulfillmentTargets.length > 0 ? (
           <div className="mb-4 flex flex-wrap gap-2">
             {fulfillmentTargets.map((target) => (
@@ -220,8 +257,9 @@ export function OrderActionsPanel({
           </div>
         ) : null}
 
-        {/* משלוח: חברת שילוח + מספר מעקב ⇒ shipped + מייל */}
-        {['preparing', 'unfulfilled'].includes(order.fulfillmentState) ? (
+        {/* משלוח: חברת שילוח + מספר מעקב ⇒ shipped + מייל. איסוף עצמי
+            אינו עובר כאן — ה-CTA הראשי למעלה (מוכן לאיסוף) הוא הצעד שלו */}
+        {!order.isPickup && ['preparing', 'unfulfilled'].includes(order.fulfillmentState) ? (
           <div className="mb-4 space-y-2 border-t border-rule pt-3">
             <p className="text-caption font-semibold text-ink">מסירה לשליח</p>
             <input
