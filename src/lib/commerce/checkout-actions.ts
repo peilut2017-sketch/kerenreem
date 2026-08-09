@@ -316,6 +316,25 @@ export async function saveContact(input: {
   return { ok: Boolean(updated) };
 }
 
+/** גזירת אורך לכל שדה כתובת (חופשי-טקסט) — שאר השדות בקופה כבר גזורים
+ * (contact_name/email/gift_message/courier_notes), אבל הכתובת נכתבה כמו-
+ * שהיא ל-session ומשם ל-orders.shipping_address, בלי גבול, ואפשר היה
+ * לתפוח שורה במסד ואת כל שאילתות/הדפסות ההזמנה עם מחרוזת של מגה-בייטים. */
+function sanitizeAddress(a: Partial<ShippingAddress>): Partial<ShippingAddress> {
+  const cap = (v: string | undefined) => (typeof v === 'string' ? v.slice(0, 120) : v);
+  return {
+    recipient_name: cap(a.recipient_name),
+    phone: cap(a.phone),
+    city: cap(a.city),
+    street: cap(a.street),
+    house_number: cap(a.house_number),
+    entrance: cap(a.entrance),
+    floor: cap(a.floor),
+    apartment: cap(a.apartment),
+    zip: cap(a.zip),
+  };
+}
+
 /** בלוק 2 — אספקה: משלוח עם כתובת מלאה, או איסוף עצמי. */
 export async function saveFulfillment(input: {
   methodId: string;
@@ -341,7 +360,7 @@ export async function saveFulfillment(input: {
     fulfillment: {
       type: input.isPickup ? 'pickup' : 'shipping',
       method_id: input.methodId,
-      address: input.isPickup ? undefined : input.address,
+      address: input.isPickup ? undefined : sanitizeAddress(input.address ?? {}),
       courier_notes: input.courierNotes?.slice(0, 500),
     },
   });

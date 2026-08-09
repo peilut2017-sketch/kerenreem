@@ -126,7 +126,7 @@ export function renderEmail(
         }${
           extra.trackingNumber
             ? `<p>מספר מעקב: <strong dir="ltr">${escapeHtml(extra.trackingNumber)}</strong>${
-                extra.trackingUrl ? ` · <a href="${extra.trackingUrl}">מעקב אצל חברת המשלוחים</a>` : ''
+                extra.trackingUrl ? ` · <a href="${escapeHtml(extra.trackingUrl)}">מעקב אצל חברת המשלוחים</a>` : ''
               }</p>`
             : ''
         }${extra.promisedDateLabel ? `<p>אספקה משוערת: ${extra.promisedDateLabel}</p>` : ''}${track}${FOOTER}`,

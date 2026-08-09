@@ -56,6 +56,23 @@ function revalidateOrders(orderId?: string) {
   if (orderId) revalidatePath(`/admin/orders/${orderId}`);
 }
 
+/**
+ * קישור מעקב בטוח: http(s) בלבד, אחרת null. הקישור נשמר ומוצג ללקוח
+ * בעמוד המעקב הציבורי ובמייל — javascript:/data: או תו שובר-תכונה כאן
+ * הופכים להזרקה מאוחסנת בצד הלקוח. בדיקה דרך URL parser, לא regex.
+ */
+function sanitizeTrackingUrl(raw: string | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+    return url.toString().slice(0, 500);
+  } catch {
+    return null;
+  }
+}
+
 /** מעבר מצב באחד מארבעת הצירים — רק מעברים חוקיים, עם תיעוד מלא. */
 export async function staffTransitionOrder(
   orderId: string,
@@ -238,12 +255,18 @@ export async function addTracking(
     return { ok: false, error: transition.error ?? 'לא ניתן לסמן את ההזמנה כנשלחה מהמצב הנוכחי' };
   }
 
+  // קישור המעקב מוצג ללקוח בעמוד המעקב הציבורי ובמייל השילוח — ולכן חייב
+  // להיות http(s) בלבד. בלי אימות סכימה, נציג (או חשבון נציג שנפרץ) יכול
+  // לשמור javascript:... או תו " ששובר מתוך תכונת ה-href במייל — הזרקת
+  // סקריפט/HTML מאוחסן שמגיעה ישירות לדפדפן/תיבת הדואר של הלקוח.
+  const safeTrackingUrl = sanitizeTrackingUrl(input.trackingUrl);
+
   await service
     .from('orders')
     .update({
       tracking_company: input.company.trim().slice(0, 80) || null,
       tracking_number: input.trackingNumber.trim().slice(0, 80),
-      tracking_url: input.trackingUrl?.trim().slice(0, 500) || null,
+      tracking_url: safeTrackingUrl,
     })
     .eq('id', orderId);
 
@@ -272,7 +295,7 @@ export async function addTracking(
     .filter((item) => item.quantity > 0);
   await sendOrderEmail(service, 'shipped', transition.order, {
     trackingNumber: input.trackingNumber,
-    trackingUrl: input.trackingUrl ?? null,
+    trackingUrl: safeTrackingUrl,
     items: itemsForEmail,
   });
 

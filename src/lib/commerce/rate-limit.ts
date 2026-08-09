@@ -29,11 +29,22 @@ export async function allowRequest(
   return data === true;
 }
 
-/** מפתח דלי לפי IP מהכותרות — לספירה בלבד, לעולם לא להרשאה. */
+/**
+ * מפתח דלי לפי IP מהכותרות — לספירה בלבד, לעולם לא להרשאה.
+ *
+ * [1.7] הידוק מקור ה-IP: קודם x-real-ip, שספקי האירוח (Vercel וכד') דורסים
+ * בערך האמיתי של ה-peer ולכן אינו ניתן לזיוף מהלקוח. אם אין — נלקח ה-hop
+ * ה*אחרון* ב-x-forwarded-for (זה שהפרוקסי המהימן הוסיף, הקרוב לשרת), ולא
+ * ה-hop הראשון (טענת הלקוח, ניתנת לזיוף בכל בקשה). קודם השתמשנו ב-hop
+ * הראשון, כך שכל דלי לפי IP היה עקיף על-ידי כותרת מזויפת — למשל הצפת
+ * מיילים דרך sendLoginLink. הדליים שאינם לפי IP (order-find:<מספר>,
+ * login-email:<מייל>) נשארים ההגנה שאינה ניתנת לזיוף כנגד enumeration.
+ */
 export function ipBucket(scope: string, headers: Headers): string {
-  const ip =
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    headers.get('x-real-ip') ||
-    'unknown';
+  const forwarded = headers.get('x-forwarded-for');
+  const lastHop = forwarded
+    ? forwarded.split(',').map((part) => part.trim()).filter(Boolean).pop()
+    : undefined;
+  const ip = headers.get('x-real-ip')?.trim() || lastHop || 'unknown';
   return `${scope}:${ip}`;
 }

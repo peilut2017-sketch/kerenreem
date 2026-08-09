@@ -18,6 +18,22 @@ import { Link } from '@/i18n/navigation';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * מגן רינדור על קישור המעקב: כתיבה כבר מסוננת (sanitizeTrackingUrl ב-
+ * orders-actions), אבל שורות ישנות במסד עלולות עדיין להחזיק ערך שאינו
+ * http(s) — ו-React אינו חוסם href="javascript:...". מחזיר undefined
+ * לערך לא-בטוח, כך שהקישור פשוט לא מוצג.
+ */
+function safeHttpUrl(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -207,11 +223,11 @@ export default async function TrackOrderPage({
             <p className="mt-4 border-t border-rule pt-3 text-small text-ink-soft">
               {t('trackTrackingNumber', { number: order.tracking_number })}
               {order.tracking_company ? ` · ${order.tracking_company}` : ''}
-              {order.tracking_url ? (
+              {safeHttpUrl(order.tracking_url) ? (
                 <>
                   {' · '}
                   <a
-                    href={order.tracking_url}
+                    href={safeHttpUrl(order.tracking_url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-burgundy underline underline-offset-2"

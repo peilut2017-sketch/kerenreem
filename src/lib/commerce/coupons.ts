@@ -140,6 +140,20 @@ export async function validateCoupon(
     if (!phoneMatch && !emailMatch) return { ...NO_COUPON, error: 'invalid' };
   }
 
+  // [1.7] "רק בהזמנה ראשונה" — הדגל היה קיים בסכימה ובטיפוס אך לא נאכף
+  // כלל (לא נקרא בשום מקום), כך שקופון "ברוכים הבאים" חל שוב ושוב ללקוח
+  // חוזר. אכיפה: אם קיימת הזמנה ששולמה בעבר עם אותו טלפון — לא הזמנה
+  // ראשונה. בלי טלפון (עגלה לפני הזנת פרטים) הבדיקה נדחית לאימות המחודש
+  // ב-placeOrder, שם הטלפון כבר ידוע.
+  if (coupon.first_order_only && contactPhone) {
+    const { count: priorOrders } = await service
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('contact_phone', normalizePhone(contactPhone))
+      .in('payment_state', ['paid', 'partially_refunded', 'refunded']);
+    if ((priorOrders ?? 0) > 0) return { ...NO_COUPON, error: 'not_applicable' };
+  }
+
   const typedCoupon = coupon as CouponRow;
   if (typedCoupon.kind === 'free_shipping') {
     return { ok: true, coupon: typedCoupon, discountAmount: 0, freeShipping: true };
@@ -174,7 +188,10 @@ export async function recordRedemption(
     contact_hash: hashContact(input.contactPhone),
     amount_discounted: input.amountDiscounted,
   });
+  // 23505 = מימוש כפול לאותה הזמנה (idempotency), לא שגיאה. P0001 =
+  // [1.7] טריגר מגבלת השימוש (43_coupon_usage_cap) חסם מרוץ — הליגר
+  // נשאר מדויק ולא חורג מ-max_uses; נרשם ללוג לצורך מעקב.
   if (error && error.code !== '23505') {
-    console.error('[commerce:coupons] redemption', error.message);
+    console.error('[commerce:coupons] redemption', error.code, error.message);
   }
 }

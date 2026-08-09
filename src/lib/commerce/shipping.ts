@@ -37,13 +37,28 @@ export const getShippingZones = cache(async (): Promise<ShippingZone[]> => {
 });
 
 /**
+ * נרמול שם עיר להשוואה: קיפול רווחים פנימיים לרווח יחיד, הסרת תווי אפס-
+ * רוחב, ותחתית אחידה. בלי זה ההשוואה הייתה רגישה לרווח כפול/תו נסתר/
+ * אות גדולה, כך שלקוח בעיר שאמורה להיות *מוחרגת* (kind='exclude') יכול
+ * היה לעקוף את הסינון בהקלדה מעט שונה, ולקוח בעיר מותרת (kind='include')
+ * לאבד בשקט שיטת משלוח על פער איות. נרמול משני הצדדים סוגר את שני הכיוונים.
+ */
+function normalizeCity(value: string): string {
+  return value
+    // תווי אפס-רוחב וסימני כיווניות (RTL/LTR marks) — בלתי-נראים אך שוברים השוואה
+    .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
  * האם עיר נתונה מכוסה על ידי אזור — kind='include' דורש שהעיר תופיע
- * ברשימה, kind='exclude' דורש שלא תופיע (רשימת חריגים). השוואה אחרי
- * trim בלבד — בלי מאגר ערים קנוני במסד, זו ההשוואה הבטוחה היחידה.
+ * ברשימה, kind='exclude' דורש שלא תופיע (רשימת חריגים).
  */
 function zoneAllowsCity(zone: ShippingZone, city: string): boolean {
-  const normalized = city.trim();
-  const inList = zone.cities.some((entry) => entry.trim() === normalized);
+  const normalized = normalizeCity(city);
+  const inList = zone.cities.some((entry) => normalizeCity(entry) === normalized);
   return zone.kind === 'include' ? inList : !inList;
 }
 
@@ -55,8 +70,12 @@ export interface CartShape {
 }
 
 function withinDates(method: ShippingMethod, now: Date): boolean {
-  const from = method.valid_from ? new Date(method.valid_from) : null;
-  const until = method.valid_until ? new Date(method.valid_until) : null;
+  // valid_from/valid_until הן עמודות date (יום בלבד). new Date('2026-08-09')
+  // מתפרש כחצות UTC = 03:00 בישראל, כך ששיטה עם valid_until ליום מסוים
+  // "נעלמה" כבר ב-03:00 באותו בוקר במקום בסופו. עוגנים לגבולות היום
+  // בשעון ישראל: תחילת היום ל-from, סוף היום ל-until.
+  const from = method.valid_from ? new Date(`${method.valid_from}T00:00:00+03:00`) : null;
+  const until = method.valid_until ? new Date(`${method.valid_until}T23:59:59+03:00`) : null;
   return (!from || from <= now) && (!until || until >= now);
 }
 

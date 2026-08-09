@@ -15,6 +15,14 @@ import { getCommerceFlags } from './settings';
 
 export const MAX_QTY_PER_ITEM = 99;
 
+/**
+ * תקרה למספר שורות שונות בעגלה. הכמות פר-פריט כבר חסומה ל-99, אבל מספר
+ * הפריטים השונים לא היה חסום — קורא ל-validateCart עם עשרות אלפי {bookId}
+ * ייצר שאילתת IN(...) ענקית פר-בקשה, זול לתוקף ויקר למסד. 200 כותרים
+ * שונים בעגלה אחת הוא כבר הרבה מעבר לכל שימוש אמיתי.
+ */
+export const MAX_CART_LINES = 200;
+
 export interface CartInputItem {
   bookId: string;
   quantity: number;
@@ -92,6 +100,7 @@ export async function validateCart(
     maxPrepDays: 0,
   };
   const cleaned = items
+    .slice(0, MAX_CART_LINES)
     .filter((item) => item.quantity > 0)
     .map((item) => ({ ...item, quantity: Math.min(Math.floor(item.quantity), MAX_QTY_PER_ITEM) }));
   if (cleaned.length === 0) return empty;
