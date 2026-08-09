@@ -524,7 +524,8 @@
     "backInStockCta": "הודיעו לי כשחוזר למלאי",
     "backInStockPrompt": "נשלח לך מייל ברגע שהספר יחזור",
     "backInStockDone": "נרשמת — נודיע לך במייל כשהספר יחזור למלאי",
-    "backInStockError": "הרישום נכשל — נסו שוב"
+    "backInStockError": "הרישום נכשל — נסו שוב",
+    "promotionLabel": "מבצע"
   },
   "error": {
     "notFoundTitle": "העמוד לא נמצא",

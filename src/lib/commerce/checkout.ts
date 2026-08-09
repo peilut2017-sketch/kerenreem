@@ -116,6 +116,8 @@ export interface CreateOrderInput {
   address: ShippingAddress | null;
   taxRate: number;
   coupon?: { id: string; code: string } | null;
+  /** [1.3] המבצע האוטומטי שהוחל — צילום על ההזמנה */
+  promotion?: { id: string; name: string } | null;
   actor?: Actor;
 }
 
@@ -175,6 +177,8 @@ export async function createOrderFromSession(input: CreateOrderInput): Promise<C
     currency: 'ILS',
     coupon_id: input.coupon?.id ?? null,
     coupon_code_snapshot: input.coupon?.code ?? null,
+    promotion_id: input.promotion?.id ?? null,
+    promotion_name_snapshot: input.promotion?.name ?? null,
     fulfillment_type: input.shippingMethod?.isPickup ? 'pickup' : 'shipping',
     shipping_method_id: input.shippingMethod?.id ?? null,
     shipping_method_name_snapshot: input.shippingMethod?.name ?? null,

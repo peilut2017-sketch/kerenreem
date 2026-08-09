@@ -524,7 +524,8 @@
     "backInStockCta": "Email me when it’s back",
     "backInStockPrompt": "We’ll email you the moment this book is back in stock",
     "backInStockDone": "You’re on the list — we’ll email you when it’s back",
-    "backInStockError": "Sign-up failed — please try again"
+    "backInStockError": "Sign-up failed — please try again",
+    "promotionLabel": "Sale"
   },
   "error": {
     "notFoundTitle": "Page not found",

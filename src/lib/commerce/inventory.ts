@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import type { Book } from '@/lib/supabase/types';
 
 /**
@@ -122,4 +123,36 @@ export async function transferStock(
   }
   const row = Array.isArray(data) ? data[0] : data;
   return { ok: Boolean(row?.ok), reason: String(row?.reason ?? 'unknown') };
+}
+
+/**
+ * [1.3] תיקון סנכרון טופס הספר: books.stock_quantity הוא מטמון נגזר —
+ * כתיבה ישירה אליו נדרסת בטריגר וה-ledger עיוור לה. במקום זה, הערך
+ * שהוזן בטופס מיושם כתנועת "ספירה" (count) על מיקום ברירת המחדל: הפרש
+ * מול המלאי הפיזי הקיים, דרך הפונקציה האטומית — המטמון וה-ledger
+ * נשארים עקביים, וההיסטוריה מלאה.
+ */
+export async function reconcileBookStockFromForm(
+  bookId: string,
+  targetOnHand: number,
+  actorId?: string,
+): Promise<StockOpResult & { onHand?: number }> {
+  const service = createServiceClient();
+  if (!service) return { ok: false, reason: 'not_configured' };
+
+  const { data: levels } = await service
+    .from('inventory_levels')
+    .select('on_hand')
+    .eq('book_id', bookId);
+  const current = (levels ?? []).reduce((sum, level) => sum + level.on_hand, 0);
+  const delta = targetOnHand - current;
+  if (delta === 0) return { ok: true, reason: 'unchanged', onHand: current };
+
+  return adjustStock(service, {
+    bookId,
+    delta,
+    moveType: 'count',
+    reason: 'עדכון כמות מטופס הספר',
+    actorId,
+  });
 }

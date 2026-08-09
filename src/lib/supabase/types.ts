@@ -562,6 +562,14 @@ export interface Order {
   idempotency_key: string | null;
   /** [1.1] עלות המשלוח בפועל — מול shipping_total שנגבה (דוח הפער). */
   actual_shipping_cost: number | null;
+  /** [1.3] הערת מלקט — למה לא לוקט הכל, וכד' */
+  packing_note: string | null;
+  /** [1.3] שורת הנחת צוות מנומקת (עריכת חשבון עד האריזה) */
+  staff_discount: number;
+  staff_discount_reason: string | null;
+  /** [1.3] המבצע האוטומטי שהוחל (צילום) */
+  promotion_id: string | null;
+  promotion_name_snapshot: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -581,6 +589,31 @@ export interface OrderItem {
   is_preorder: boolean;
   /** [1.1] צילום עלות ליחידה בעת ההזמנה — לצוות בהרשאת עלויות בלבד. */
   cost_price_snapshot: number | null;
+  /** [1.3] כמה לוקטו בפועל; null = טרם התחיל ליקוט */
+  picked_quantity: number | null;
+}
+
+/** [1.3] מבצע אוטומטי — הנחה כלל-אתרית/קטגוריה/ספרים, בלי קוד. */
+export interface Promotion {
+  id: string;
+  name: string;
+  kind: 'percent' | 'fixed';
+  value: number;
+  scope: {
+    all?: boolean;
+    category_ids?: string[];
+    book_ids?: string[];
+    exclude_book_ids?: string[];
+  };
+  min_total: number | null;
+  min_quantity: number | null;
+  combinable_with_coupon: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  priority: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 /** [1.1] עלות פנימית לספר — טבלה פרטית (book_costs), admin/manager בלבד. */

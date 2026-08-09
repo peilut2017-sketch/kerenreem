@@ -20,6 +20,7 @@ import { startPayment } from './payments';
 import { sendOrderEmail } from './notifications';
 import { recordOrderEvent } from './orders';
 import { recordRedemption, validateCoupon, type CouponError } from './coupons';
+import { findBestPromotion } from './promotions';
 
 /**
  * פעולות ה-Checkout (תרשימים 4–7). העיקרון: הדפדפן שולח כוונות; כל
@@ -80,6 +81,8 @@ export interface CheckoutBootstrap {
     | 'coupon_code'
   > | null;
   cart: ValidatedCart | null;
+  /** [1.3] מבצע אוטומטי שחל — הסכום המוצג חייב לכלול אותו */
+  promotion: { name: string; discountAmount: number; combinableWithCoupon: boolean } | null;
   methods: MethodOption[];
   installments: { minTotal: number; max: number } | null;
   supportPhone: string | null;
@@ -137,6 +140,7 @@ export async function startCheckout(
     sessionId: null,
     session: null,
     cart: null,
+    promotion: null,
     methods: [],
     installments: null,
     supportPhone: null,
@@ -181,6 +185,7 @@ export async function startCheckout(
   if (!session) return disabled;
 
   const settings = await getStoreSettings();
+  const promoResult = await findBestPromotion(cart);
   return {
     ok: true,
     enabled: true,
@@ -202,6 +207,13 @@ export async function startCheckout(
       coupon_code: session.coupon_code,
     },
     cart,
+    promotion: promoResult
+      ? {
+          name: promoResult.promotion.name,
+          discountAmount: promoResult.discountAmount,
+          combinableWithCoupon: promoResult.promotion.combinable_with_coupon,
+        }
+      : null,
     methods: await buildMethodOptions(cart, locale),
     installments:
       settings.installments_min_total <= cart.subtotal
@@ -328,7 +340,7 @@ export async function applyCoupon(code: string): Promise<CouponActionResult> {
     session.items.map((item) => ({ bookId: item.book_id, quantity: item.quantity })),
     session.locale,
   );
-  const result = await validateCoupon(code, cart, session.contact_phone);
+  const result = await validateCoupon(code, cart, session.contact_phone, session.contact_email);
   if (!result.ok || !result.coupon) {
     return { ok: false, error: result.error ?? 'invalid', minTotal: result.minTotal };
   }
@@ -339,7 +351,7 @@ export async function applyCoupon(code: string): Promise<CouponActionResult> {
   // צבירים מחליפים זה את זה במפורש, לא-צבירים נחסמים עם הסבר.)
   const existingCode = session.coupon_code?.toUpperCase() ?? null;
   if (existingCode && existingCode !== result.coupon.code) {
-    const existing = await validateCoupon(existingCode, cart, session.contact_phone);
+    const existing = await validateCoupon(existingCode, cart, session.contact_phone, session.contact_email);
     const bothCombinable =
       Boolean(existing.coupon?.combinable_with_coupons) &&
       Boolean(result.coupon.combinable_with_coupons);
@@ -424,7 +436,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   let couponFreeShipping = false;
   let coupon: { id: string; code: string } | null = null;
   if (session.coupon_code) {
-    const couponResult = await validateCoupon(session.coupon_code, cart, session.contact_phone);
+    const couponResult = await validateCoupon(session.coupon_code, cart, session.contact_phone, session.contact_email);
     if (couponResult.ok && couponResult.coupon) {
       couponDiscount = couponResult.discountAmount;
       couponFreeShipping = couponResult.freeShipping;
@@ -436,8 +448,19 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
     }
   }
 
+  // [1.3] מבצע אוטומטי — אותו כלל כמו בעגלה: לא נערם עם קופון אלא אם צביר
+  const promoResult = await findBestPromotion(cart);
+  const promotion =
+    promoResult && (!coupon || promoResult.promotion.combinable_with_coupon) ? promoResult : null;
+
   const shippingPrice = couponFreeShipping && !method.isPickup ? 0 : method.price;
-  const totals = computeTotals(cart, shippingPrice, settings, session.donation_amount ?? 0, couponDiscount);
+  const totals = computeTotals(
+    cart,
+    shippingPrice,
+    settings,
+    session.donation_amount ?? 0,
+    couponDiscount + (promotion?.discountAmount ?? 0),
+  );
 
   // הסכום שהוצג ללקוח מול המחושב עכשיו — פער עוצר, לא מחייב בשקט
   if (Math.abs(totals.total - input.displayedTotal) >= 0.01) {
@@ -467,6 +490,9 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
     address,
     taxRate: settings.vat_mode === 'included' ? settings.vat_rate : 0,
     coupon,
+    promotion: promotion
+      ? { id: promotion.promotion.id, name: promotion.promotion.name }
+      : null,
   });
 
   if (!created.ok || !created.order) {
