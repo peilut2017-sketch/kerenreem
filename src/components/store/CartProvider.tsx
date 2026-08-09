@@ -135,7 +135,7 @@ export function CartProvider({
       const current = Number(map[bookId]) || 0;
       set(bookId, String(Math.min(current + 1, 99)));
       showToast(t('addedToCart', { title }));
-      void recordCommerceEvent('product_added_to_cart', { sessionKey, bookId, locale });
+      void recordCommerceEvent('product_added_to_cart', { sessionKey, bookId, locale }).catch(() => {});
     },
     [map, set, showToast, t, sessionKey, locale],
   );
@@ -155,7 +155,7 @@ export function CartProvider({
         return;
       }
       set(bookId, String(Math.min(Math.floor(quantity), 99)));
-      void recordCommerceEvent('cart_updated', { sessionKey, bookId, locale });
+      void recordCommerceEvent('cart_updated', { sessionKey, bookId, locale }).catch(() => {});
     },
     [set, removeItem, sessionKey, locale],
   );
@@ -176,7 +176,7 @@ export function CartProvider({
     miniCartOpen,
     openMiniCart: () => {
       setMiniCartOpen(true);
-      void recordCommerceEvent('cart_viewed', { sessionKey, locale });
+      void recordCommerceEvent('cart_viewed', { sessionKey, locale }).catch(() => {});
     },
     closeMiniCart: () => setMiniCartOpen(false),
     sessionKey,
@@ -185,7 +185,7 @@ export function CartProvider({
       const normalized = code.trim().toUpperCase().slice(0, 40);
       if (normalized) {
         setCouponValue(normalized);
-        void recordCommerceEvent('coupon_applied', { sessionKey, locale });
+        void recordCommerceEvent('coupon_applied', { sessionKey, locale }).catch(() => {});
       }
     },
     clearCoupon: clearCouponValue,

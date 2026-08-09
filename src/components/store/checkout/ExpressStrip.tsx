@@ -42,7 +42,7 @@ export function ExpressStrip({
       sessionKey: cart?.sessionKey ?? '',
       locale,
       meta: { wallet },
-    });
+    }).catch(() => {});
   }
 
   const base =

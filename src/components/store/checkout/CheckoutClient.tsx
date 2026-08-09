@@ -37,6 +37,7 @@ export function CheckoutClient() {
   const router = useRouter();
   const cart = useCart();
   const [bootstrap, setBootstrap] = useState<CheckoutBootstrap | null>(null);
+  const [bootstrapError, setBootstrapError] = useState(false);
   const [openBlock, setOpenBlock] = useState<BlockId>('contact');
   const [contactDone, setContactDone] = useState(false);
   const [fulfillmentDone, setFulfillmentDone] = useState(false);
@@ -56,10 +57,18 @@ export function CheckoutClient() {
 
   const items = cart?.items ?? [];
 
-  useEffect(() => {
-    if (started.current || !cart || items.length === 0) return;
-    started.current = true;
-    void (async () => {
+  /**
+   * [1.4] לפני התיקון הפונקציה הזו רצה בלי try/catch בכלל: כשל רשת אמיתי
+   * ב-startCheckout (לא כשל עסקי — {ok:false} כבר מטופל כראוי, אלא throw
+   * כמו ניתוק) השאיר את bootstrap===null לנצח, ו-started.current שכבר
+   * הפך ל-true חסם כל ניסיון חוזר — שלד טעינה נצחי בלי דרך לצאת ממנו.
+   * עכשיו הכשל נתפס, מוצג מסך שגיאה עם "ניסיון נוסף" שקורא לפונקציה
+   * הזו שוב ישירות (בלי דרך started.current, ששייך רק לניסיון האוטומטי).
+   */
+  const runBootstrap = useCallback(async () => {
+    if (!cart || items.length === 0) return;
+    setBootstrapError(false);
+    try {
       const result = await startCheckout(items, locale);
       setBootstrap(result);
       if (result.session) {
@@ -85,24 +94,37 @@ export function CheckoutClient() {
       }
       const codeToApply = sessionCoupon ?? storedCoupon;
       if (result.ok && codeToApply) {
-        const applied = await applyCoupon(codeToApply);
-        if (applied.ok && applied.code) {
-          setCoupon({
-            code: applied.code,
-            discountAmount: applied.discountAmount ?? 0,
-            freeShipping: applied.freeShipping ?? false,
-          });
+        try {
+          const applied = await applyCoupon(codeToApply);
+          if (applied.ok && applied.code) {
+            setCoupon({
+              code: applied.code,
+              discountAmount: applied.discountAmount ?? 0,
+              freeShipping: applied.freeShipping ?? false,
+            });
+          }
+        } catch {
+          // קופון שלא נטען לא אמור לחסום את כל תהליך הקופה — ניתן עדיין
+          // להזין אותו ידנית בבלוק הסקירה
         }
       }
       void recordCommerceEvent('checkout_started', {
         sessionKey: cart.sessionKey,
         locale,
         meta: { items: items.length },
-      });
-    })();
+      }).catch(() => {});
+    } catch {
+      setBootstrapError(true);
+    }
     // items נבדק בכניסה בלבד — ה-session כבר מחזיק את הצילום
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, locale]);
+
+  useEffect(() => {
+    if (started.current || !cart || items.length === 0) return;
+    started.current = true;
+    void runBootstrap();
+  }, [cart, items.length, runBootstrap]);
 
   const submitContact = useCallback(
     async (values: ContactValues) => {
@@ -110,7 +132,7 @@ export function CheckoutClient() {
       if (result.ok) {
         setContactDone(true);
         setOpenBlock('fulfillment');
-        void recordCommerceEvent('contact_submitted', { sessionKey: cart?.sessionKey ?? '', locale });
+        void recordCommerceEvent('contact_submitted', { sessionKey: cart?.sessionKey ?? '', locale }).catch(() => {});
       }
       return result;
     },
@@ -127,7 +149,7 @@ export function CheckoutClient() {
         void recordCommerceEvent(selected.isPickup ? 'pickup_selected' : 'shipping_selected', {
           sessionKey: cart?.sessionKey ?? '',
           locale,
-        });
+        }).catch(() => {});
       }
       return result;
     },
@@ -153,7 +175,7 @@ export function CheckoutClient() {
         freeShipping: result.freeShipping ?? false,
       });
       setServerTotal(null);
-      void recordCommerceEvent('coupon_applied', { sessionKey: cart?.sessionKey ?? '', locale });
+      void recordCommerceEvent('coupon_applied', { sessionKey: cart?.sessionKey ?? '', locale }).catch(() => {});
     }
     return result;
   }, [cart?.sessionKey, locale]);
@@ -175,7 +197,7 @@ export function CheckoutClient() {
           setPlaceError(extrasResult.fieldErrors?.terms ? t('errTerms') : t('errServer'));
           return;
         }
-        void recordCommerceEvent('payment_started', { sessionKey: cart?.sessionKey ?? '', locale });
+        void recordCommerceEvent('payment_started', { sessionKey: cart?.sessionKey ?? '', locale }).catch(() => {});
         const result = await placeOrder({ displayedTotal: serverTotal ?? displayedTotal });
         if (!result.ok) {
           if (result.error === 'total_changed' && result.serverTotal != null) {
@@ -212,6 +234,10 @@ export function CheckoutClient() {
           return;
         }
         router.push('/checkout/result?outcome=created');
+      } catch {
+        // [1.4] כשל רשת אמיתי (throw, לא {ok:false}) היה משאיר את הכפתור
+        // חוזר לפעיל בלי שום הודעה — הלקוח לא יודע אם ההזמנה בוצעה או לא
+        setPlaceError(t('errServer'));
       } finally {
         // בזמן ניווט אמיתי אל דף התשלום אין לשחרר את הכפתור — הוא ייעלם
         // מהמסך תוך רגע, ו"חוזר לפעיל" שקרי בטעות ניתן ללחיצה כפולה
@@ -240,6 +266,23 @@ export function CheckoutClient() {
         <Link href="/books" className="btn btn-quiet">
           {t('cartEmptyCta')}
         </Link>
+      </div>
+    );
+  }
+  if (bootstrapError) {
+    return (
+      <div role="alert" className="mx-auto flex max-w-md flex-col items-center gap-4 py-16 text-center">
+        <p className="text-lead text-muted">{t('errBootstrap')}</p>
+        <button
+          type="button"
+          onClick={() => {
+            started.current = true;
+            void runBootstrap();
+          }}
+          className="btn btn-solid"
+        >
+          {t('errRetry')}
+        </button>
       </div>
     );
   }

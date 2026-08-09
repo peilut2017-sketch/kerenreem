@@ -38,8 +38,13 @@ export function TrackCancelRequest({ token }: { token: string }) {
           onSubmit={(event) => {
             event.preventDefault();
             startTransition(async () => {
-              const result = await requestCancelByToken(token, reason);
-              setState(result.ok ? 'sent' : 'error');
+              try {
+                const result = await requestCancelByToken(token, reason);
+                setState(result.ok ? 'sent' : 'error');
+              } catch {
+                // [1.4] היה בלי try/catch — כשל רשת החזיר את הכפתור לפעיל בלי שום הודעה
+                setState('error');
+              }
             });
           }}
           className="mx-auto max-w-md space-y-3 text-start"

@@ -35,10 +35,12 @@ export function ContactBlock({
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState(false);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
+    setFormError(false);
     try {
       const result = await onSubmit(values);
       setErrors(
@@ -55,6 +57,9 @@ export function ContactBlock({
             )
           : {},
       );
+    } catch {
+      // [1.4] היה בלי catch — כשל רשת לא הציג שום הודעה, רק שחרר את הכפתור
+      setFormError(true);
     } finally {
       setBusy(false);
     }
@@ -132,6 +137,12 @@ export function ContactBlock({
 
         {supportPhone ? (
           <p className="text-caption text-muted">{t('noEmailLine', { phone: supportPhone })}</p>
+        ) : null}
+
+        {formError ? (
+          <p role="alert" className="text-caption text-burgundy">
+            {t('errServer')}
+          </p>
         ) : null}
 
         <button type="submit" disabled={busy} className="btn btn-solid">

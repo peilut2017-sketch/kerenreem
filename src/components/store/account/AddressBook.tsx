@@ -70,6 +70,9 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
   const [form, setForm] = useState<AddressInput>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  // [1.4] remove/makeDefault לא בדקו תוצאה ולא היה להם catch בכלל —
+  // כשל (עסקי או רשת) היה חוזר ל-idle בלי שום סימן שהפעולה לא הצליחה
+  const [listError, setListError] = useState(false);
 
   const set = <K extends keyof AddressInput>(key: K, value: AddressInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -91,6 +94,8 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
       setForm(EMPTY);
       setError(false);
       router.refresh();
+    } catch {
+      setError(true);
     } finally {
       setBusy(false);
     }
@@ -99,9 +104,16 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
   async function remove(address: CustomerAddress) {
     if (!window.confirm(t('addressDeleteConfirm'))) return;
     setBusy(true);
+    setListError(false);
     try {
-      await deleteMyAddress(address.id);
+      const result = await deleteMyAddress(address.id);
+      if (!result.ok) {
+        setListError(true);
+        return;
+      }
       router.refresh();
+    } catch {
+      setListError(true);
     } finally {
       setBusy(false);
     }
@@ -109,9 +121,16 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
 
   async function makeDefault(address: CustomerAddress) {
     setBusy(true);
+    setListError(false);
     try {
-      await saveMyAddress(address.id, { ...toForm(address), isDefault: true });
+      const result = await saveMyAddress(address.id, { ...toForm(address), isDefault: true });
+      if (!result.ok) {
+        setListError(true);
+        return;
+      }
       router.refresh();
+    } catch {
+      setListError(true);
     } finally {
       setBusy(false);
     }
@@ -119,6 +138,11 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
 
   return (
     <div className="space-y-6">
+      {listError ? (
+        <p role="alert" className="rounded-[var(--radius-md)] border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-small text-burgundy">
+          {t('addressActionError')}
+        </p>
+      ) : null}
       {addresses.length === 0 && editing === null ? (
         <div className="rounded-[var(--radius-lg)] border border-dashed border-rule bg-cream px-6 py-10 text-center">
           <svg viewBox="0 0 24 24" aria-hidden="true" className="mx-auto h-8 w-8 text-muted" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

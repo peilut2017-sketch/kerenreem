@@ -65,6 +65,7 @@ export function ReviewBlock({
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponBusy, setCouponBusy] = useState(false);
+  const [couponRemoving, setCouponRemoving] = useState(false);
   const [isGift, setIsGift] = useState(initial.isGift);
   const [giftRecipientName, setGiftRecipientName] = useState(initial.giftRecipientName);
   const [giftMessage, setGiftMessage] = useState(initial.giftMessage);
@@ -120,8 +121,19 @@ export function ReviewBlock({
                 </span>
                 <button
                   type="button"
-                  onClick={() => void onRemoveCoupon()}
-                  className="text-caption text-muted underline-offset-2 hover:text-burgundy hover:underline"
+                  disabled={couponRemoving}
+                  onClick={async () => {
+                    setCouponRemoving(true);
+                    try {
+                      await onRemoveCoupon();
+                    } catch {
+                      // [1.4] היה בלי טיפול שגיאה בכלל — כשל רשת נראה כלחיצה שלא עשתה כלום
+                      setCouponError(t('errServer'));
+                    } finally {
+                      setCouponRemoving(false);
+                    }
+                  }}
+                  className="text-caption text-muted underline-offset-2 hover:text-burgundy hover:underline disabled:opacity-50"
                 >
                   {t('couponRemove')}
                 </button>
@@ -166,6 +178,9 @@ export function ReviewBlock({
                       } else {
                         setCouponInput('');
                       }
+                    } catch {
+                      // [1.4] היה בלי catch — כשל רשת נשאר בלי שום הודעה למרות ש-couponBusy מתאפס
+                      setCouponError(t('errServer'));
                     } finally {
                       setCouponBusy(false);
                     }

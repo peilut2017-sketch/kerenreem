@@ -449,6 +449,8 @@
     "errServer": "Something went wrong. Try again or order by phone.",
     "errCouponExpired": "That coupon is no longer valid. Remove it and try again.",
     "errPaymentPage": "Your order was created, but opening the payment page failed. You can try again.",
+    "errBootstrap": "Loading checkout failed — check your internet connection and try again.",
+    "errRetry": "Try again",
     "redirectingToPayment": "Taking you to secure payment…",
     "resultProcessingTitle": "Processing your payment…",
     "resultProcessingBody": "Your order was received and we are waiting for payment confirmation. This page updates automatically.",
@@ -554,6 +556,7 @@
     "addressSetDefault": "This is my default address",
     "addressSave": "Save address",
     "addressSaveError": "Saving failed — make sure recipient, city, street and house number are filled in.",
+    "addressActionError": "The action failed — check your internet connection and try again.",
     "cancel": "Cancel",
     "settingsTitle": "Account settings",
     "settingsFullName": "Full name",
@@ -577,7 +580,10 @@
     "backHome": "Back to the home page",
     "genericTitle": "Something went wrong",
     "genericBody": "We could not load this content. Please refresh the page.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "offline": "No internet connection — cart, checkout and payment actions won't work until it's back.",
+    "backOnline": "Connection restored.",
+    "networkErrorGeneric": "Connection problem — check your internet connection and try again."
   },
   "hero": {
     "label": "Featured",

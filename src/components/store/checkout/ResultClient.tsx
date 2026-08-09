@@ -28,20 +28,33 @@ export function ResultClient({ outcome }: { outcome: string }) {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     async function poll() {
-      const result = await getResultState();
-      if (cancelled) return;
-      setState(result);
-      const confirmed = result.found && (outcome === 'created' || result.paymentState === 'paid');
-      if (confirmed && !cleared.current) {
-        cleared.current = true;
-        cart?.clear();
-      }
-      const pending = result.found && result.paymentState === 'pending' && outcome !== 'created';
-      if (pending && attempts.current < 20) {
-        attempts.current += 1;
-        timer = setTimeout(poll, 3000);
-      } else if (pending) {
-        setTimedOut(true);
+      try {
+        const result = await getResultState();
+        if (cancelled) return;
+        setState(result);
+        const confirmed = result.found && (outcome === 'created' || result.paymentState === 'paid');
+        if (confirmed && !cleared.current) {
+          cleared.current = true;
+          cart?.clear();
+        }
+        const pending = result.found && result.paymentState === 'pending' && outcome !== 'created';
+        if (pending && attempts.current < 20) {
+          attempts.current += 1;
+          timer = setTimeout(poll, 3000);
+        } else if (pending) {
+          setTimedOut(true);
+        }
+      } catch {
+        // [1.4] כשל רשת בקריאה הזו לא אמור לתקוע את העמוד על שלד טעינה
+        // נצחי (לא הייתה הגנה כלל) — ניסיון חוזר לפי אותו תקציב כמו
+        // "pending", ורק אחריו נופלים לתצוגת "לא ידוע" הקיימת ממילא.
+        if (cancelled) return;
+        if (attempts.current < 20) {
+          attempts.current += 1;
+          timer = setTimeout(poll, 3000);
+        } else {
+          setTimedOut(true);
+        }
       }
     }
     void poll();
@@ -54,6 +67,13 @@ export function ResultClient({ outcome }: { outcome: string }) {
   }, [outcome]);
 
   if (!state) {
+    // [1.4] אם לא הצלחנו אף פעם לקבל state (כשלי רשת חוזרים) — אחרי
+    // מיצוי הניסיונות עדיף תצוגת "לא ידוע" עם קישור למעקב, לא שלד נצחי
+    if (timedOut) {
+      return (
+        <Shell tone="neutral" title={t('resultUnknownTitle')} body={t('resultUnknownBody', { number: '—' })} t={t} />
+      );
+    }
     return (
       <div aria-hidden="true" className="mx-auto max-w-md space-y-4">
         <div className="h-8 animate-pulse rounded bg-cream-2" />

@@ -50,6 +50,7 @@ export function FulfillmentBlock({
   const [courierNotes, setCourierNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState(false);
 
   const selected = methods.find((m) => m.id === methodId) ?? null;
 
@@ -57,6 +58,7 @@ export function FulfillmentBlock({
     event.preventDefault();
     if (!selected) return;
     setBusy(true);
+    setFormError(false);
     try {
       const result = await onSubmit(
         {
@@ -74,6 +76,9 @@ export function FulfillmentBlock({
             )
           : {},
       );
+    } catch {
+      // [1.4] היה בלי catch — כשל רשת לא הציג שום הודעה, רק שחרר את הכפתור
+      setFormError(true);
     } finally {
       setBusy(false);
     }
@@ -214,6 +219,12 @@ export function FulfillmentBlock({
               }
             />
           </div>
+        ) : null}
+
+        {formError ? (
+          <p role="alert" className="text-caption text-burgundy">
+            {t('errServer')}
+          </p>
         ) : null}
 
         <button type="submit" disabled={busy || !selected} className="btn btn-solid">

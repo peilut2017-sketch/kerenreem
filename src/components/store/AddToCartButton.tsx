@@ -89,8 +89,14 @@ function BackInStockSignup({
       onSubmit={async (event) => {
         event.preventDefault();
         setState('busy');
-        const result = await subscribeBackInStock(bookId, email);
-        setState(result.ok ? 'done' : 'error');
+        try {
+          const result = await subscribeBackInStock(bookId, email);
+          setState(result.ok ? 'done' : 'error');
+        } catch {
+          // [1.4] היה בלי try/catch — כשל רשת השאיר את הכפתור נעול על
+          // 'busy' לצמיתות, בלי הודעה ובלי דרך לנסות שוב
+          setState('error');
+        }
       }}
       className={`flex flex-wrap items-center gap-2 ${className}`}
     >
