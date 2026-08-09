@@ -7,6 +7,8 @@ import { formatPrice } from '@/lib/commerce/pricing';
 import { OrderActionsPanel } from '@/components/admin/orders/OrderActionsPanel';
 import { OrderProcessStrip } from '@/components/admin/orders/OrderProcessStrip';
 import { PickingPanel } from '@/components/admin/orders/PickingPanel';
+import { ServiceRequestsPanel } from '@/components/admin/orders/ServiceRequestsPanel';
+import { PrintMenu, type PrintMenuItem } from '@/components/admin/print/PrintMenu';
 import {
   AXIS_LABELS,
   DOC_STATUS_LABELS,
@@ -41,6 +43,7 @@ const EVENT_LABELS: Record<string, string> = {
   note_added: 'הערה פנימית',
   email_sent: 'נשלח מייל',
   cancel_requested: 'הלקוח ביקש ביטול',
+  return_requested: 'נפתחה בקשת החזרה',
   cancelled: 'ההזמנה בוטלה',
   refund_issued: 'בוצע זיכוי',
   cancel_approved: 'אושר ביטול — ממתין לזיכוי',
@@ -79,7 +82,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   const detail = await getOrderDetail(id);
   if (!detail) notFound();
 
-  const { order, items, events, payments, documents, notifications } = detail;
+  const { order, items, events, payments, documents, notifications, serviceRequests } = detail;
   const isAdmin = hasPermission(session.profile.role, 'finance');
   // [1.4/1.4] המלקט (store_view) חייב לראות את פאנל הליקוט; רק 'store'
   // ומעלה עורכים את ההזמנה עצמה — ורק הם רואים PII וסכומים (ראו הערה
@@ -91,6 +94,28 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   const refundedTotal = payments
     .filter((p) => p.kind === 'refund' && p.status === 'succeeded')
     .reduce((sum, p) => sum + Number(p.amount), 0);
+
+  // [1.5] "כפתור הדפסה אחד לא מספיק" — כל מסמכי ההזמנה במקום אחד.
+  // הרשאה כמו שאר העמוד: מסמכים עם מחיר דורשים store (canSeeMoney),
+  // ליקוט/משלוח מספיקים ב-store_view (כמו canPick).
+  const printItems: PrintMenuItem[] = [];
+  if (canSeeMoney) {
+    printItems.push({ href: `/admin/orders/${order.id}/print/order-sheet`, label: 'דף הזמנה פנימי' });
+  }
+  if (canPick) {
+    printItems.push(
+      { href: `/admin/orders/${order.id}/print/picking-list`, label: 'רשימת ליקוט' },
+      { href: `/admin/orders/${order.id}/print/packing-slip`, label: 'תעודת משלוח' },
+    );
+    if (order.fulfillment_type === 'pickup') {
+      printItems.push({ href: `/admin/orders/${order.id}/print/pickup-label`, label: 'מדבקת איסוף עצמי' });
+    } else {
+      printItems.push({ href: `/admin/orders/${order.id}/print/shipping-label`, label: 'מדבקת משלוח' });
+    }
+    if (order.is_gift && order.gift_message) {
+      printItems.push({ href: `/admin/orders/${order.id}/print/gift-card`, label: 'הקדשה' });
+    }
+  }
 
   return (
     <>
@@ -107,6 +132,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         }`}
         action={{ href: '/admin/orders', label: 'כל ההזמנות', variant: 'quiet' }}
       />
+
+      {printItems.length > 0 ? (
+        <div className="-mt-6 mb-6 flex justify-end">
+          <PrintMenu items={printItems} documents={documents} />
+        </div>
+      ) : null}
 
       <OrderProcessStrip
         state={order.state}
@@ -353,11 +384,25 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 state: order.state,
                 paymentState: order.payment_state,
                 fulfillmentState: order.fulfillment_state,
+                documentState: order.document_state,
                 total: order.total,
                 refundable: succeededCharge ? Number(succeededCharge.amount) - refundedTotal : 0,
                 actualShippingCost: order.actual_shipping_cost,
               }}
               isAdmin={isAdmin}
+            />
+          ) : null}
+          {canEdit ? (
+            <ServiceRequestsPanel
+              orderId={order.id}
+              requests={serviceRequests}
+              items={items
+                .filter((item) => item.book_id)
+                .map((item) => ({
+                  bookId: item.book_id as string,
+                  title: item.title_snapshot ?? '',
+                  quantity: item.quantity,
+                }))}
             />
           ) : null}
           </div>

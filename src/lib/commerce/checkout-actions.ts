@@ -18,7 +18,7 @@ import { isValidIsraeliPhone, normalizePhone } from './guest-token';
 import { allowRequest, ipBucket } from './rate-limit';
 import { startPayment } from './payments';
 import { sendOrderEmail } from './notifications';
-import { recordOrderEvent } from './orders';
+import { openServiceRequest } from './service-requests';
 import { recordRedemption, validateCoupon, type CouponError } from './coupons';
 import { findBestPromotion } from './promotions';
 import { getCustomerSession, getMyAddresses } from './account';
@@ -745,8 +745,13 @@ export async function requestCancelFromResult(reason: string): Promise<ActionRes
 
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'server' };
-  await recordOrderEvent(service, session.order_id, 'cancel_requested', { type: 'customer' }, {
+  const result = await openServiceRequest(service, {
+    orderId: session.order_id,
+    kind: 'cancel',
     reason: reason.slice(0, 300),
+    requestedBy: 'customer',
+    actor: { type: 'customer' },
   });
+  if (!result.ok) return { ok: false, error: 'server' };
   return { ok: true };
 }

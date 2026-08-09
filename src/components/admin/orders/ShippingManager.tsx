@@ -141,10 +141,14 @@ export function ShippingManager({ methods }: { methods: ShippingMethod[] }) {
               <input id="sm-max-w" name="max_weight_grams" type="number" dir="ltr" min={0} defaultValue={editing?.max_weight_grams ?? ''} className="admin-field-input" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label htmlFor="sm-min-t" className="admin-field-label">סכום הזמנה מינ׳ (₪)</label>
               <input id="sm-min-t" name="min_total" type="number" dir="ltr" min={0} defaultValue={editing?.min_total != null ? Number(editing.min_total) : ''} className="admin-field-input" />
+            </div>
+            <div>
+              <label htmlFor="sm-max-t" className="admin-field-label">סכום הזמנה מקס׳ (₪)</label>
+              <input id="sm-max-t" name="max_total" type="number" dir="ltr" min={0} defaultValue={editing?.max_total != null ? Number(editing.max_total) : ''} className="admin-field-input" />
             </div>
             <div>
               <label htmlFor="sm-sort" className="admin-field-label">סדר תצוגה</label>

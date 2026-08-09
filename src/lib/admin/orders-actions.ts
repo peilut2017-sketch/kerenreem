@@ -11,11 +11,28 @@ import {
   transitionOrder,
   type StateAxis,
 } from '@/lib/commerce/orders';
-import { adjustStock, commitStock, releaseStock, reserveStock, transferStock } from '@/lib/commerce/inventory';
+import {
+  adjustStock,
+  commitStock,
+  releaseStock,
+  reserveStock,
+  transferStock,
+  uncommitStock,
+} from '@/lib/commerce/inventory';
 import { recordCreditNote } from '@/lib/commerce/documents';
+import {
+  openServiceRequest,
+  resolveOpenCancelRequests,
+  resolveServiceRequest,
+} from '@/lib/commerce/service-requests';
 import { sendOrderEmail, type EmailTemplate } from '@/lib/commerce/notifications';
 import { refundTransaction } from '@/lib/commerce/morning';
-import { createManualOrder } from '@/lib/commerce/manual-orders';
+import {
+  createManualOrder,
+  previewManualOrderTotals,
+  type ManualOrderFulfillment,
+  type ManualOrderPreview,
+} from '@/lib/commerce/manual-orders';
 import { startPayment } from '@/lib/commerce/payments';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
 import type { Order, ShippingAddress } from '@/lib/supabase/types';
@@ -107,6 +124,9 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
     });
     if (!result.ok) return { ok: false, error: result.error };
     await recordOrderEvent(service, orderId, 'cancel_approved', actor, { reason, awaiting: 'refund' });
+    // [1.5] הביטול אושר וכעת בטיפול — בקשת השירות (אם הייתה) והתג הישן
+    // כבר לא אמורים להישאר ב״ממתין״; זה בדיוק הבאג שבו התג לא מתנקה
+    await resolveOpenCancelRequests(service, orderId, session.userId);
     revalidateOrders(orderId);
     return { ok: true };
   }
@@ -114,6 +134,7 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
   // לא שולמה (או שכבר זוכתה במלואה): ביטול מיידי + טיפול מלאי לפי המצב
   const result = await transitionOrder(service, orderId, 'state', 'cancelled', actor, { reason });
   if (!result.ok) return { ok: false, error: result.error };
+  await resolveOpenCancelRequests(service, orderId, session.userId);
 
   const wasCommitted = path === 'already_refunded'; // המלאי הופחת בתשלום שקדם לזיכוי
   const notShipped = !['shipped', 'delivered', 'fulfilled', 'returned'].includes(
@@ -143,6 +164,54 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
 
   if (result.order) await sendOrderEmail(service, 'cancelled', result.order);
   revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.5] בקשת החזרה שהצוות פותח (טלפון/מייל — אין עדיין ערוץ עצמי ללקוח).
+ * לא מזכה ולא נוגעת במלאי בעצמה — רק פותחת את הבקשה; הזיכוי בפועל
+ * (אם מאושר) עדיין דרך refundOrder הרגיל, לאחר שהפריטים חזרו פיזית.
+ */
+export async function openReturnRequest(
+  orderId: string,
+  reason: string,
+  items: { bookId: string; title: string; quantity: number }[],
+): Promise<OrderActionResult> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה' };
+  if (items.length === 0) return { ok: false, error: 'יש לבחור לפחות פריט אחד להחזרה' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const result = await openServiceRequest(service, {
+    orderId,
+    kind: 'return',
+    reason,
+    requestedBy: 'staff',
+    items,
+    actor: { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/** [1.5] סגירת בקשת שירות (ביטול/החזרה) בלי לבטל את ההזמנה — למשל הלקוח חזר בו. */
+export async function closeServiceRequest(
+  requestId: string,
+  status: 'resolved' | 'declined',
+  note: string,
+): Promise<OrderActionResult> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const result = await resolveServiceRequest(service, requestId, status, note, session.userId);
+  if (!result.ok) return { ok: false, error: result.error };
+  if (result.orderId) revalidateOrders(result.orderId);
   return { ok: true };
 }
 
@@ -205,6 +274,53 @@ export async function addTracking(
     trackingNumber: input.trackingNumber,
     trackingUrl: input.trackingUrl ?? null,
     items: itemsForEmail,
+  });
+
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.5] ביטול סימון "נשלח" שבוצע בטעות (הזמנה/שליח לא נכונים): מחזיר את
+ * ההזמנה למצב "בהכנה" ומנקה את פרטי המעקב. לא נוגע במלאי — הכנת מלאי
+ * קורית בתשלום, לא במשלוח — ולכן בטוח גם אם ההזמנה שולמה. המייל "נשלח"
+ * שכבר יצא ללקוח אינו ניתן לביטול; זו הגבלה מוצגת ב-UI, לא כאן.
+ */
+export async function undoShipment(orderId: string, reason: string): Promise<OrderActionResult> {
+  const session = await assertPermission('store_view');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה — נשמרת בציר הזמן' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+  if (order.fulfillment_state !== 'shipped') {
+    return { ok: false, error: 'ניתן לבטל רק הזמנה שסומנה כ״נשלחה״ ועדיין לא נמסרה' };
+  }
+
+  const { data: updated, error: updateError } = await service
+    .from('orders')
+    .update({
+      fulfillment_state: 'preparing',
+      tracking_company: null,
+      tracking_number: null,
+      tracking_url: null,
+    })
+    .eq('id', orderId)
+    .eq('fulfillment_state', 'shipped')
+    .select('*')
+    .maybeSingle();
+  if (updateError) return { ok: false, error: updateError.message };
+  if (!updated) return { ok: false, error: 'המצב השתנה בינתיים — רעננו ונסו שוב' };
+
+  const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
+  await recordOrderEvent(service, orderId, 'status_changed', actor, {
+    axis: 'fulfillment_state',
+    from: 'shipped',
+    to: 'preparing',
+    undo: true,
+    reason,
   });
 
   revalidateOrders(orderId);
@@ -302,6 +418,89 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
       table_name: 'orders',
       record_id: orderId,
       context: 'סימון תשלום חיצוני',
+    });
+  }
+
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.5] ביטול סימון תשלום ידני שבוצע בטעות — היפוך סימטרי ל-markManualPayment:
+ * מבטל את רשומת התשלום הידני, משחרר את המלאי חזרה ל״שמור״ (commerce_uncommit_stock,
+ * לא release — ההזמנה עדיין פעילה) ומחזיר את שלושת הצירים. שני הצירים
+ * (payment_state: paid→pending, state: confirmed→pending) אינם מעברים
+ * חוקיים במכונת המצבים הרגילה בכוונה — זו תיקון-בדיעבד ייעודי, לא זרימה
+ * כללית, ולכן עוקף את transitionOrder ומתעד ידנית.
+ *
+ * מותר רק כשעדיין לא נשלח דבר וטרם הופק מסמך חשבונאי — אחרת יש לפעול
+ * דרך זיכוי (refundOrder), לא ביטול-בדיעבד של הסימון.
+ */
+export async function undoManualPayment(orderId: string, reason: string): Promise<OrderActionResult> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה — נשמרת בציר הזמן' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+
+  const { data: payment } = await service
+    .from('payments')
+    .select('id')
+    .eq('order_id', orderId)
+    .eq('provider', 'manual')
+    .eq('status', 'succeeded')
+    .maybeSingle();
+  if (!payment) {
+    return { ok: false, error: 'לא נמצא תשלום ידני לביטול — תשלום דרך מורנינג מבוטל בזיכוי' };
+  }
+  if (order.payment_state !== 'paid' || order.state !== 'confirmed') {
+    return { ok: false, error: 'ההזמנה כבר התקדמה למצב אחר — רעננו ובדקו' };
+  }
+  if (order.fulfillment_state !== 'unfulfilled') {
+    return { ok: false, error: 'ההזמנה כבר בהכנה/נשלחה — לביטול תשלום יש להשתמש בזיכוי' };
+  }
+  if (!['not_created', 'pending'].includes(order.document_state)) {
+    return { ok: false, error: 'כבר הופק מסמך חשבונאי — לביטול יש להשתמש בזיכוי ובמסמך זיכוי' };
+  }
+
+  const { data: items } = await service
+    .from('order_items')
+    .select('book_id, quantity, is_preorder')
+    .eq('order_id', orderId);
+  for (const item of items ?? []) {
+    if (!item.book_id || item.is_preorder) continue;
+    const result = await uncommitStock(service, item.book_id, item.quantity, orderId);
+    if (!result.ok && result.reason !== 'nothing_to_uncommit') {
+      return { ok: false, error: `שחרור מלאי נכשל: ${result.reason}` };
+    }
+  }
+
+  const { data: updated, error: updateError } = await service
+    .from('orders')
+    .update({ payment_state: 'pending', state: 'pending', document_state: 'not_created', paid_at: null })
+    .eq('id', orderId)
+    .eq('payment_state', 'paid')
+    .eq('state', 'confirmed')
+    .select('*')
+    .maybeSingle();
+  if (updateError) return { ok: false, error: updateError.message };
+  if (!updated) return { ok: false, error: 'המצב השתנה בינתיים — רעננו ונסו שוב' };
+
+  await service.from('payments').update({ status: 'cancelled' }).eq('id', payment.id);
+
+  const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
+  await recordOrderEvent(service, orderId, 'status_changed', actor, {
+    axis: 'payment_state', from: 'paid', to: 'pending', undo: true, reason,
+  });
+  await recordOrderEvent(service, orderId, 'status_changed', actor, {
+    axis: 'state', from: 'confirmed', to: 'pending', undo: true, reason,
+  });
+  if (order.document_state === 'pending') {
+    await recordOrderEvent(service, orderId, 'status_changed', actor, {
+      axis: 'document_state', from: 'pending', to: 'not_created', undo: true, reason,
     });
   }
 
@@ -663,6 +862,37 @@ export async function setActualShippingCost(
 }
 
 /**
+ * [1.5] אומדן חי לטופס ההזמנה הטלפונית (משלוח חינם מעל סף + קופון + מבצע
+ * אוטומטי) — אותו resolvePricing שמשמש את createManualOrder בפועל, כדי
+ * שמה שהנציג מקריא ללקוח בשיחה = מה שיירשם בהזמנה.
+ */
+export async function previewManualOrderTotalsAction(input: {
+  items: { bookId: string; quantity: number }[];
+  fulfillment: ManualOrderFulfillment;
+  couponCode: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+}): Promise<ManualOrderPreview> {
+  const session = await assertPermission('store');
+  if ('error' in session) {
+    return {
+      ok: false,
+      error: session.error,
+      subtotal: 0,
+      shippingTotal: 0,
+      discountTotal: 0,
+      taxTotal: 0,
+      total: 0,
+      freeShippingApplied: false,
+      couponValid: false,
+      couponError: null,
+      promotionName: null,
+    };
+  }
+  return previewManualOrderTotals({ ...input, locale: 'he' });
+}
+
+/**
  * הזמנה ידנית — ערוץ הטלפון (פרק 9.6): הצוות קולט את ההזמנה בשיחה.
  * מחירים מהקטלוג בלבד; מלאי נשמר; ללקוח נשלח מייל אישור עם קישור מעקב.
  */
@@ -671,7 +901,8 @@ export async function createManualOrderAction(input: {
   contact: { name: string; phone: string; email: string | null };
   fulfillment:
     | { type: 'pickup' }
-    | { type: 'shipping'; methodId: string; address: ShippingAddress };
+    | { type: 'shipping'; methodId: string; address: ShippingAddress; courierNotes?: string };
+  couponCode: string | null;
   note: string | null;
 }): Promise<OrderActionResult & { orderId?: string; orderNumber?: number }> {
   const session = await assertPermission('store');
@@ -737,6 +968,49 @@ export async function sendPaymentLink(orderId: string): Promise<OrderActionResul
 
   revalidateOrders(orderId);
   return { ok: true };
+}
+
+/**
+ * [1.5] גביית תשלום באשראי בטלפון: יוצר את אותו דף תשלום מאובטח של
+ * מורנינג כמו קישור המייל (sendPaymentLink), אך עם successUrl/failureUrl
+ * שחוזרים לעמוד ההזמנה בניהול במקום checkout/result — ה-UI טוען את הדף
+ * הזה בתוך iframe והנציג מקליד אליו את הפרטים שהלקוח מקריא בזמן השיחה,
+ * כך שהם מגיעים אל מורנינג בלבד ולעולם אינם עוברים דרך השרת שלנו. בניגוד
+ * לקישור המייל, אינה דורשת כתובת דוא״ל — בדיוק המקרה שבו "סימון תשלום
+ * חיצוני" היה עד כה המוצא היחיד. מקור האמת למעבר ל-paid נשאר ה-Webhook
+ * הקיים בלבד (webhook-processing.ts) — הפעולה הזו רק פותחת את דף התשלום.
+ */
+export async function startAdminCardPayment(
+  orderId: string,
+): Promise<{ ok: true; paymentUrl: string } | { ok: false; error: string }> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+  if (!['pending', 'failed'].includes(order.payment_state)) {
+    return { ok: false, error: `לא ניתן לגבות תשלום ממצב ${order.payment_state}` };
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  const result = await startPayment(order as Order, {
+    siteUrl,
+    successUrl: `${siteUrl}/admin/orders/${orderId}/payment-return?outcome=success`,
+    failureUrl: `${siteUrl}/admin/orders/${orderId}/payment-return?outcome=failure`,
+    actor: { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
+  });
+  if (!result.ok || !result.paymentUrl) {
+    return {
+      ok: false,
+      error:
+        result.error === 'not_configured'
+          ? 'מורנינג אינה מוגדרת (מפתחות API חסרים) — סמנו תשלום חיצוני במקום'
+          : `יצירת טופס התשלום נכשלה: ${result.error}`,
+    };
+  }
+  return { ok: true, paymentUrl: result.paymentUrl };
 }
 
 /**

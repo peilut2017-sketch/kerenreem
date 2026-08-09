@@ -3,7 +3,7 @@
 import { headers } from 'next/headers';
 import { createServiceClient } from '@/lib/supabase/service';
 import { hashGuestToken, guestTokenMatches } from './guest-token';
-import { recordOrderEvent } from './orders';
+import { openServiceRequest } from './service-requests';
 import { allowRequest, ipBucket } from './rate-limit';
 
 /**
@@ -55,14 +55,14 @@ export async function requestCancelByToken(
     return { ok: false, error: 'not_eligible' };
   }
 
-  await recordOrderEvent(service, order.id, 'cancel_requested', { type: 'customer' }, {
+  const result = await openServiceRequest(service, {
+    orderId: order.id,
+    kind: 'cancel',
     reason: reason.trim().slice(0, 300),
-    via: 'track_page',
+    requestedBy: 'customer',
+    actor: { type: 'customer' },
   });
-  await service
-    .from('orders')
-    .update({ tags: [...new Set([...(order.tags ?? []), 'cancel-requested'])] })
-    .eq('id', order.id);
+  if (!result.ok) return { ok: false, error: 'server' };
 
   return { ok: true };
 }

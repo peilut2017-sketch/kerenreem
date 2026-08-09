@@ -55,8 +55,8 @@ export default async function AdminDashboard({
           supabase
             .from('orders')
             .select('id', { count: 'exact', head: true })
-            .eq('payment_state', 'pending')
-            .eq('state', 'pending'),
+            .in('payment_state', ['pending', 'failed'])
+            .not('state', 'in', '(cancelled,closed)'),
         ),
         count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('fulfillment_state', 'preparing')),
         count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('state', 'cancel_pending_refund')),
@@ -124,18 +124,18 @@ export default async function AdminDashboard({
       const needsAttention = paidNoDoc + attentionTagged;
 
       financeStats.push(
-        { label: 'הזמנות היום', value: todayOrders.toLocaleString('he-IL'), href: '/admin/reports', icon: 'dashboard' },
+        { label: 'הזמנות היום', value: todayOrders.toLocaleString('he-IL'), href: '/admin/reports/sales', icon: 'dashboard' },
         {
           label: 'הכנסות היום',
           value: formatPrice(revenueToday, 'he', { alwaysAgorot: true }),
-          href: '/admin/reports',
+          href: '/admin/reports/sales',
           icon: 'finance',
         },
         { label: 'מלאי נמוך', value: lowStockCount.toLocaleString('he-IL'), href: '/admin/inventory', icon: 'inventory' },
         {
           label: 'דורש טיפול',
           value: needsAttention.toLocaleString('he-IL'),
-          href: '/admin/reports',
+          href: '/admin/reports/attention',
           icon: 'coupon',
         },
       );

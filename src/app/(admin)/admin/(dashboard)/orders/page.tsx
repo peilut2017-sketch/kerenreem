@@ -2,14 +2,7 @@ import Link from 'next/link';
 import { requirePermission } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { listOrders, SAVED_VIEWS, savedViewHref, type OrdersFilter } from '@/lib/admin/commerce-queries';
-import { formatPrice } from '@/lib/commerce/pricing';
-import {
-  DOCUMENT_STATE_LABELS,
-  ORDER_STATE_LABELS,
-  PAYMENT_STATE_LABELS,
-  FULFILLMENT_STATE_LABELS,
-  stateBadgeClass,
-} from '@/components/admin/orders/labels';
+import { OrdersTable } from '@/components/admin/orders/OrdersTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +43,10 @@ export default async function AdminOrdersPage({
       <AdminHeader
         title="הזמנות"
         description="כל ההזמנות מהאתר ומהטלפון. ארבעה צירי מצב לכל הזמנה: חיים, תשלום, אספקה ומסמך."
-        action={{ href: '/admin/orders/new', label: 'הזמנה טלפונית', icon: 'plus' }}
+        action={[
+          { href: '/admin/orders/print/pickup-report', label: 'דוח איסופים', variant: 'quiet' },
+          { href: '/admin/orders/new', label: 'הזמנה טלפונית', icon: 'plus' },
+        ]}
       />
 
       {/* תצוגות שמורות */}
@@ -84,53 +80,7 @@ export default async function AdminOrdersPage({
           אין הזמנות התואמות לסינון.
         </div>
       ) : (
-        <div className="admin-card admin-table-wrap">
-          <table className="admin-table w-full min-w-[56rem] text-small">
-            <thead>
-              <tr className="border-b border-rule text-start text-caption text-muted">
-                <th className="px-4 py-3 text-start">#</th>
-                <th className="px-4 py-3 text-start">לקוח</th>
-                <th className="px-4 py-3 text-start">תאריך</th>
-                <th className="px-4 py-3 text-start">סכום</th>
-                <th className="px-4 py-3 text-start">הזמנה</th>
-                <th className="px-4 py-3 text-start">תשלום</th>
-                <th className="px-4 py-3 text-start">אספקה</th>
-                <th className="px-4 py-3 text-start">מסמך</th>
-                <th className="px-4 py-3 text-start">ערוץ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id} className="border-b border-rule/60 transition-colors hover:bg-cream-2/50">
-                  <td className="px-4 py-3 font-semibold tabular-nums">
-                    <Link href={`/admin/orders/${order.id}`} className="text-[var(--admin-accent)] hover:underline">
-                      {order.order_number}
-                    </Link>
-                    {order.is_gift ? <span className="ms-1.5" title="הזמנת מתנה">🎁</span> : null}
-                    {order.tags?.includes('amount-mismatch') ? (
-                      <span className="ms-1.5" title="פער סכומים — דורש טיפול">⚠️</span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div>{order.contact_name ?? '—'}</div>
-                    <div dir="ltr" className="text-caption text-muted">{order.contact_phone}</div>
-                  </td>
-                  <td className="px-4 py-3 text-muted">
-                    {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Jerusalem' }).format(new Date(order.created_at))}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums">{formatPrice(order.total, 'he', { alwaysAgorot: true })}</td>
-                  <td className="px-4 py-3"><Badge value={order.state} labels={ORDER_STATE_LABELS} /></td>
-                  <td className="px-4 py-3"><Badge value={order.payment_state} labels={PAYMENT_STATE_LABELS} /></td>
-                  <td className="px-4 py-3"><Badge value={order.fulfillment_state} labels={FULFILLMENT_STATE_LABELS} /></td>
-                  <td className="px-4 py-3 text-caption text-muted">{DOCUMENT_STATE_LABELS[order.document_state] ?? order.document_state}</td>
-                  <td className="px-4 py-3 text-caption text-muted">
-                    {order.channel === 'web' ? 'אתר' : order.channel === 'phone' ? 'טלפון' : 'ידני'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <OrdersTable orders={orders} />
       )}
 
       {!error && (total == null || total > pageSize || page > 1) ? (
@@ -171,11 +121,5 @@ function ViewChip({ href, label, active }: { href: string; label: string; active
     >
       {label}
     </Link>
-  );
-}
-
-function Badge({ value, labels }: { value: string; labels: Record<string, string> }) {
-  return (
-    <span className={`admin-badge ${stateBadgeClass(value)}`}>{labels[value] ?? value}</span>
   );
 }

@@ -13,7 +13,10 @@ import {
   resendOrderEmail,
   setActualShippingCost,
   staffTransitionOrder,
+  undoManualPayment,
+  undoShipment,
 } from '@/lib/admin/orders-actions';
+import { CardPaymentDrawer } from './CardPaymentDrawer';
 import {
   FULFILLMENT_STATE_TRANSITIONS,
   ORDER_STATE_TRANSITIONS,
@@ -35,6 +38,7 @@ export function OrderActionsPanel({
     state: OrderState;
     paymentState: string;
     fulfillmentState: FulfillmentState;
+    documentState: string;
     total: number;
     refundable: number;
     actualShippingCost?: number | null;
@@ -43,7 +47,7 @@ export function OrderActionsPanel({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  const [message, setMessage] = useState<{ text: string; ok: boolean; undo?: () => void } | null>(null);
   const [note, setNote] = useState('');
   const [tracking, setTracking] = useState({ company: '', trackingNumber: '', trackingUrl: '' });
   const [refundAmount, setRefundAmount] = useState('');
@@ -56,16 +60,32 @@ export function OrderActionsPanel({
     order.actualShippingCost != null ? String(order.actualShippingCost) : '',
   );
 
-  function run(action: () => Promise<{ ok: boolean; error?: string }>, confirmText?: string) {
+  // [1.5] "הודעה אחרי כל פעולה — בוטל, לחצו לשחזור": run() מקבל בנוסף
+  // פעולת-ביטול אופציונלית שמוצגת צמודה להודעת ההצלחה. משתמש רק בפעולות
+  // שיש להן היפוך אמיתי ובטוח (בדוק/מתועד בשרת) — לא כל פעולה הפיכה.
+  function run(
+    action: () => Promise<{ ok: boolean; error?: string }>,
+    confirmText?: string,
+    undoAction?: () => void,
+  ) {
     if (confirmText && !window.confirm(confirmText)) return;
     startTransition(async () => {
       const result = await action();
       setMessage(
         result.ok
-          ? { text: 'בוצע.', ok: true }
+          ? { text: 'בוצע.', ok: true, undo: undoAction }
           : { text: result.error ?? 'הפעולה נכשלה', ok: false },
       );
     });
+  }
+
+  function promptAndUndo(
+    promptText: string,
+    action: (reason: string) => Promise<{ ok: boolean; error?: string }>,
+  ) {
+    const reason = window.prompt(promptText);
+    if (reason === null) return;
+    run(() => action(reason.trim() || 'ללא סיבה'));
   }
 
   // ביטול אינו מוצע כמעבר רגיל — יש לו זרימה משלו (תרשים 13 המתוקן)
@@ -86,15 +106,65 @@ export function OrderActionsPanel({
         {message ? (
           <p
             role="status"
-            className={`mb-3 rounded-[var(--radius-sm)] px-3 py-2 text-caption ${
+            className={`mb-3 flex flex-wrap items-center gap-x-2 rounded-[var(--radius-sm)] px-3 py-2 text-caption ${
               message.ok
                 ? 'bg-[var(--admin-success-soft)] text-[var(--admin-success)]'
                 : 'bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]'
             }`}
           >
-            {message.ok ? '✓ ' : '⚠ '}
-            {message.text}
+            <span>
+              {message.ok ? '✓ ' : '⚠ '}
+              {message.text}
+            </span>
+            {message.undo ? (
+              <button
+                type="button"
+                onClick={message.undo}
+                className="font-semibold underline decoration-dotted"
+              >
+                לחצו לביטול
+              </button>
+            ) : null}
           </p>
+        ) : null}
+
+        {/* [1.5] ביטול פעולה שבוצעה בטעות — לא מעבר-סטטוס כללי, רק שני
+            התיקונים הנפוצים שאין להם דרך חזרה במכונת המצבים הרגילה */}
+        {isAdmin &&
+        order.paymentState === 'paid' &&
+        order.fulfillmentState === 'unfulfilled' &&
+        ['not_created', 'pending'].includes(order.documentState) ? (
+          <div className="mb-4 rounded-[var(--radius-sm)] border border-dashed border-[var(--admin-border)] px-3 py-2.5">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                promptAndUndo('סיבת ביטול סימון התשלום? (לתיעוד בציר הזמן)', (reason) =>
+                  undoManualPayment(order.id, reason),
+                )
+              }
+              className="text-caption font-semibold text-muted underline decoration-dotted hover:text-[var(--admin-danger)]"
+            >
+              ↩ בטלתי בטעות — ביטול סימון תשלום ידני
+            </button>
+          </div>
+        ) : null}
+        {order.fulfillmentState === 'shipped' ? (
+          <div className="mb-4 rounded-[var(--radius-sm)] border border-dashed border-[var(--admin-border)] px-3 py-2.5">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                promptAndUndo(
+                  'סיבת ביטול סימון המשלוח? שימו לב: מייל "נשלח" שכבר יצא ללקוח לא יבוטל.',
+                  (reason) => undoShipment(order.id, reason),
+                )
+              }
+              className="text-caption font-semibold text-muted underline decoration-dotted hover:text-[var(--admin-danger)]"
+            >
+              ↩ סומן בטעות — ביטול סימון משלוח
+            </button>
+          </div>
         ) : null}
 
         {/* מעברי ציר ההזמנה */}
@@ -185,12 +255,19 @@ export function OrderActionsPanel({
               type="button"
               disabled={pending || !tracking.company || !tracking.trackingNumber}
               onClick={() =>
-                run(() =>
-                  addTracking(order.id, {
-                    company: tracking.company,
-                    trackingNumber: tracking.trackingNumber,
-                    trackingUrl: tracking.trackingUrl || undefined,
-                  }),
+                run(
+                  () =>
+                    addTracking(order.id, {
+                      company: tracking.company,
+                      trackingNumber: tracking.trackingNumber,
+                      trackingUrl: tracking.trackingUrl || undefined,
+                    }),
+                  undefined,
+                  () =>
+                    promptAndUndo(
+                      'סיבת ביטול סימון המשלוח? שימו לב: מייל "נשלח" שכבר יצא ללקוח לא יבוטל.',
+                      (reason) => undoShipment(order.id, reason),
+                    ),
                 )
               }
               className="admin-btn admin-btn-solid"
@@ -200,10 +277,11 @@ export function OrderActionsPanel({
           </div>
         ) : null}
 
-        {/* גבייה על הזמנה ממתינה: קישור תשלום ללקוח + סימון תשלום חיצוני */}
+        {/* גבייה על הזמנה ממתינה: תשלום באשראי מוטמע + קישור תשלום ללקוח + סימון תשלום חיצוני */}
         {['pending', 'failed'].includes(order.paymentState) &&
         !['cancelled', 'closed'].includes(order.state) ? (
           <div className="mb-4 flex flex-wrap gap-2 border-t border-rule pt-3">
+            {isAdmin ? <CardPaymentDrawer orderId={order.id} /> : null}
             <button
               type="button"
               disabled={pending}
@@ -213,7 +291,7 @@ export function OrderActionsPanel({
                   'לשלוח ללקוח מייל עם קישור לתשלום מאובטח במורנינג?',
                 )
               }
-              className="admin-btn admin-btn-solid"
+              className="admin-btn admin-btn-quiet"
             >
               שליחת קישור תשלום במייל
             </button>
@@ -225,6 +303,10 @@ export function OrderActionsPanel({
                   run(
                     () => markManualPayment(order.id),
                     'לסמן שהתשלום התקבל מחוץ לאתר (מזומן/העברה)? הפעולה מתועדת ב-audit.',
+                    () =>
+                      promptAndUndo('סיבת ביטול סימון התשלום? (לתיעוד בציר הזמן)', (reason) =>
+                        undoManualPayment(order.id, reason),
+                      ),
                   )
                 }
                 className="admin-btn admin-btn-quiet"
