@@ -21,10 +21,18 @@ export type AdminPermission =
   /** ניהול צוות — הזמנה, תפקידים, השבתה (מנהל-על בלבד) */
   | 'users';
 
+/**
+ * [1.7] נשמר כמו שהוא לתאימות אחורה — עדיין בשימוש בקוד קיים רב מדי כדי
+ * להחליף בבת אחת (requirePermission/hasPermission). מוחלף בהדרגה, מסך-מסך,
+ * ב-requireScreenPermission (screens.ts + auth.ts). store_manager מקבל כאן
+ * את אותה תמונה בדיוק כמו manager פחות costs/users — לשם עקביות בלבד; ברגע
+ * שמסך מסוים עבר ל-requireScreenPermission, הערך כאן כבר לא קובע לגביו.
+ */
 const ROLE_PERMISSIONS: Record<UserRole, ReadonlySet<AdminPermission>> = {
   admin: new Set(['content', 'store', 'store_view', 'finance', 'costs', 'users']),
   manager: new Set(['content', 'store', 'store_view', 'finance', 'costs']),
   editor: new Set(['content']),
+  store_manager: new Set(['store', 'store_view', 'finance']),
   seller: new Set(['store', 'store_view']),
   picker: new Set(['store_view']),
   viewer: new Set([]),
@@ -37,21 +45,30 @@ export function hasPermission(role: UserRole, permission: AdminPermission): bool
 /** תוויות התפקידים בעברית — מקור יחיד למסכי הצוות ולבחירת תפקיד. */
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'מנהל־על',
-  manager: 'מנהל',
-  editor: 'עורך תוכן',
-  seller: 'מוכרן',
-  picker: 'מלקט',
+  manager: 'מנהל ראשי',
+  editor: 'ניהול תוכן',
+  store_manager: 'ניהול חנות',
+  seller: 'ניהול חנות · מוכרן',
+  picker: 'ניהול חנות · מלקט',
   viewer: 'צפייה בלבד',
 };
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   admin: 'גישה מלאה לכל המערכת, כולל ניהול הצוות',
-  manager: 'כל המערכת מלבד ניהול משתמשים',
-  editor: 'תוכן בלבד — ללא צפייה או עריכה במערכת החנות',
-  seller: 'מערכת החנות — הזמנות, מלאי והזמנות ידניות; ללא תוכן',
-  picker: 'ליקוט בלבד — צפייה בהזמנות ששולמו ועדכון סטטוס אספקה',
+  manager: 'כל ההגדרות, לא כולל הוספת משתמשים',
+  editor: 'ניהול תוכן — ספרים, מחברים, קטגוריות, סדרות, תגיות ושאר עמודי האתר; ללא גישה לחנות',
+  store_manager: 'כל מערכת החנות — הזמנות, מלאי, משלוחים, קופונים, מחירי מבצע ודוחות; ללא תוכן',
+  seller: 'תת-דרגה בתוך ניהול חנות — הזמנות, מלאי והזמנות ידניות; ללא כספים/דוחות',
+  picker: 'תת-דרגה בתוך ניהול חנות — ליקוט בלבד, צפייה בהזמנות ששולמו ועדכון סטטוס אספקה',
   viewer: 'צפייה בתוכן בלבד (תפקיד היסטורי)',
 };
 
 /** התפקידים המוצעים בהוספת איש צוות — לפי סדר היקף ההרשאה. */
-export const ASSIGNABLE_ROLES: UserRole[] = ['admin', 'manager', 'editor', 'seller', 'picker'];
+export const ASSIGNABLE_ROLES: UserRole[] = [
+  'admin',
+  'manager',
+  'editor',
+  'store_manager',
+  'seller',
+  'picker',
+];

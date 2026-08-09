@@ -15,14 +15,15 @@ const text = (formData: FormData, key: string) => String(formData.get(key) ?? ''
 
 /**
  * שמירת הגדרות האתר. שורה יחידה (id=1), ולכן זו תמיד פעולת update.
- * מוגבל ל-admin: כאן נמצא דגל הפעלת החנות ופרטי הארגון המופיעים במסמכים
- * המשפטיים.
+ * [1.7] הורד מ-admin ל-manager: זהות ארגון היא הגדרה, לא ניהול משתמשים —
+ * "מנהל ראשי" מוגדר כ"גישה לכל ההגדרות, לא כולל הוספת משתמשים" (screens.ts,
+ * org-settings אינו ב-ADMIN_ONLY_SCREENS).
  */
 export async function saveSettings(
   _prev: SettingsState,
   formData: FormData,
 ): Promise<SettingsState> {
-  const session = await assertRole('admin');
+  const session = await assertRole('manager');
   if ('error' in session) return { status: 'error', message: session.error };
 
   const supabase = await createClient();
@@ -92,7 +93,8 @@ export async function saveStoreSettings(
   _prev: StoreSettingsState,
   formData: FormData,
 ): Promise<StoreSettingsState> {
-  const session = await assertRole('admin');
+  // [1.7] הורד מ-admin ל-manager — ראו הערה ב-saveSettings למעלה.
+  const session = await assertRole('manager');
   if ('error' in session) return { status: 'error', message: session.error };
 
   const supabase = await createClient();
@@ -150,7 +152,8 @@ async function mergeExtra(
  * שפורסם, או הצהרה טיפוגרפית) גם אם יש באנרים מפורסמים.
  */
 export async function saveBannersEnabled(enabled: boolean): Promise<ActionResult> {
-  const session = await assertRole('admin');
+  // [1.7] הורד מ-admin ל-manager — ראו הערה ב-saveSettings למעלה.
+  const session = await assertRole('manager');
   if ('error' in session) return session;
 
   const supabase = await createClient();

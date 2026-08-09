@@ -7,7 +7,11 @@ import { SettingsForm } from '@/components/admin/SettingsForm';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminSettingsPage() {
-  await requireRole('admin');
+  // [1.7] admin → manager: "מנהל ראשי" מוגדר כ"כל ההגדרות, לא כולל הוספת
+  // משתמשים" — ראו saveSettings/saveStoreSettings/saveBannersEnabled ב-
+  // settings-actions.ts, שירדו לאותה דרגה, וscreens.ts (org-settings אינו
+  // ב-ADMIN_ONLY_SCREENS).
+  await requireRole('manager');
   const settings = await getSettings();
 
   return (

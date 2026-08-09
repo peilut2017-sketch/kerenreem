@@ -93,7 +93,7 @@ const ITEMS: NavEntry[] = [
     ],
   },
   { type: 'link', href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
-  { type: 'link', href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'admin' },
+  { type: 'link', href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'manager' },
   { type: 'link', href: '/admin/audit-log', label: 'יומן ביקורת', icon: 'list', minRole: 'admin' },
   { type: 'link', href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
 ];
@@ -102,6 +102,7 @@ const RANK: Record<UserRole, number> = {
   viewer: 0,
   picker: 1,
   seller: 2,
+  store_manager: 2,
   editor: 3,
   manager: 4,
   admin: 5,
@@ -109,11 +110,11 @@ const RANK: Record<UserRole, number> = {
 
 /**
  * perm בלבד ⇒ ההרשאה מכריעה. minRole בלבד ⇒ הדירוג מכריע, אך תפקידי
- * החנות (מוכרן/מלקט) מוחרגים — דירוגם קיים רק לחסימת עמודי תוכן בשרת,
- * לא כזכות תוכן. שניהם ⇒ תפקידי חנות דרך ההרשאה, השאר דרך הדירוג.
+ * החנות (מוכרן/מלקט/ניהול חנות) מוחרגים — דירוגם קיים רק לחסימת עמודי
+ * תוכן בשרת, לא כזכות תוכן. שניהם ⇒ תפקידי חנות דרך ההרשאה, השאר דרך הדירוג.
  */
 function canSee(role: UserRole, access: NavAccess): boolean {
-  const storeRole = role === 'seller' || role === 'picker';
+  const storeRole = role === 'seller' || role === 'picker' || role === 'store_manager';
   if (access.perm && !access.minRole) return hasPermission(role, access.perm);
   if (access.perm && access.minRole) {
     return storeRole ? hasPermission(role, access.perm) : RANK[role] >= RANK[access.minRole];
