@@ -15,6 +15,7 @@ import { getEventBySlug, getEventSlugs } from '@/lib/data';
 import { buildEventGalleryIndex, extractEventStages } from '@/lib/event-gallery';
 import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
+import { toMediaUrl } from '@/lib/image-src';
 import { routing } from '@/i18n/routing';
 
 /**
@@ -46,13 +47,15 @@ export async function generateMetadata({
   if (!event) return {};
 
   const title = localized(event, 'title', locale);
+  // [1.7] תמונת ה-OG דרך ה-CDN — נמשכת ישירות בידי סורקי הרשתות.
+  const ogImage = event.cover_image_url ? toMediaUrl(event.cover_image_url) : null;
   return {
     title,
     description: htmlToPlainText(localized(event, 'body', locale), 160) || title,
     openGraph: {
       title,
       type: 'article',
-      images: event.cover_image_url ? [{ url: event.cover_image_url, alt: title }] : undefined,
+      images: ogImage ? [{ url: ogImage, alt: title }] : undefined,
     },
   };
 }

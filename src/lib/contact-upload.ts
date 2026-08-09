@@ -51,7 +51,10 @@ export async function uploadContactAttachment(file: File): Promise<ContactAttach
 
   const path = randomPath(file.name);
   const { error } = await supabase.storage.from('contact-attachments').upload(path, file, {
-    cacheControl: '3600',
+    // [1.7] יום שלם — הקובץ עצמו קבוע (שם אקראי, לא נדרס), אז אין טעם
+    // ב-TTL קצר. ה-bucket פרטי ולכן אינו עובר דרך ה-CDN, אבל כותרת
+    // Cache-Control ארוכה עדיין חוסכת הורדות חוזרות בצד הדפדפן של הצוות.
+    cacheControl: '86400',
     upsert: false,
   });
   if (error) throw new Error(error.message);

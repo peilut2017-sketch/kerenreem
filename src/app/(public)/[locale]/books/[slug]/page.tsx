@@ -28,6 +28,7 @@ import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
+import { toMediaUrl } from '@/lib/image-src';
 import { routing } from '@/i18n/routing';
 
 /**
@@ -63,7 +64,10 @@ export async function generateMetadata({
   const subtitle = localizedOrNull(book, 'subtitle', locale);
   const description =
     htmlToPlainText(localized(book, 'description', locale), 160) || subtitle || title;
-  const ogImage = book.og_image_url ?? book.cover_image_url;
+  // [1.7] גם תמונת ה-OG עוברת דרך ה-CDN — סורקי הרשתות החברתיות מושכים
+  // אותה ישירות (לא דרך next/image), אז זו עוד נקודת Egress מ-Supabase.
+  const ogImageRaw = book.og_image_url ?? book.cover_image_url;
+  const ogImage = ogImageRaw ? toMediaUrl(ogImageRaw) : ogImageRaw;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
   const localePrefix = locale === routing.defaultLocale ? '' : `/${locale}`;

@@ -30,21 +30,60 @@ const SUPABASE_HOST = (() => {
   }
 })();
 
+/**
+ * [1.7] דומיין CDN אופציונלי (Cloudflare) שמוצב לפני אחסון הפרויקט, כדי
+ * לצמצם תעבורת Egress מ-Supabase: כשמוגדר NEXT_PUBLIC_CDN_URL, כל כתובת
+ * אחסון ציבורית משוכתבת בזמן רינדור לדומיין הזה (ראו toMediaUrl). במסד
+ * ממשיכה להישמר הכתובת הקנונית של Supabase — כך החלפת CDN עתידית היא
+ * שינוי משתנה סביבה, לא עדכון של אלפי שורות (אותו עיקרון שכבר מתועד
+ * ב-ImageField: "כך אפשר להחליף ספק אחסון בעתיד בלי לגעת בסכימה").
+ * ה-CDN חייב להעביר את הנתיב כמו-שהוא לאותו נתיב ב-Supabase.
+ */
+const CDN_HOST = (() => {
+  const url = process.env.NEXT_PUBLIC_CDN_URL;
+  if (!url) return null;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+})();
+
 /** נתיב האחסון הציבורי — אותו דפוס בדיוק שמוגדר ב-next.config.ts. */
 const PUBLIC_STORAGE_PREFIX = '/storage/v1/object/public/';
 
-/** כתובת מאחסון הפרויקט — היחידה שגם next/image וגם ה-CSP מתירים. */
+/** כתובת מאחסון הפרויקט (ישירה או דרך ה-CDN) — היחידה שגם next/image וגם ה-CSP מתירים. */
 export function isProjectStorageUrl(src: string): boolean {
   if (!SUPABASE_HOST) return false;
   try {
     const url = new URL(src);
     return (
       url.protocol === 'https:' &&
-      url.hostname === SUPABASE_HOST &&
+      (url.hostname === SUPABASE_HOST || (CDN_HOST !== null && url.hostname === CDN_HOST)) &&
       url.pathname.startsWith(PUBLIC_STORAGE_PREFIX)
     );
   } catch {
     return false;
+  }
+}
+
+/**
+ * שכתוב כתובת מדיה לדומיין ה-CDN — נקודת המעבר המרכזית והיחידה.
+ *
+ * משכתב אך ורק כתובות אחסון *ציבוריות* של הפרויקט עצמו: קישורים חתומים
+ * (bucket פרטי כמו contact-attachments) חייבים להישאר על הדומיין המקורי —
+ * החתימה נבדקת שם; כתובות זרות נשארות כמות שהן. בלי NEXT_PUBLIC_CDN_URL
+ * הפונקציה היא no-op מוחלט, כך שסביבת פיתוח ממשיכה לעבוד בלי שום הגדרה.
+ */
+export function toMediaUrl(src: string): string {
+  if (!CDN_HOST || !SUPABASE_HOST) return src;
+  try {
+    const url = new URL(src);
+    if (url.hostname !== SUPABASE_HOST || !url.pathname.startsWith(PUBLIC_STORAGE_PREFIX)) return src;
+    url.hostname = CDN_HOST;
+    return url.toString();
+  } catch {
+    return src;
   }
 }
 
