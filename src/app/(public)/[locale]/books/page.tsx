@@ -1,14 +1,8 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Catalogue } from '@/components/books/Catalogue';
-import {
-  getAuthors,
-  getAttributes,
-  getBooks,
-  getCategories,
-  getSiteSettings,
-  getTags,
-} from '@/lib/data';
+import { getAuthors, getAttributes, getBooks, getCategories, getTags } from '@/lib/data';
+import { getCommerceFlags } from '@/lib/commerce/settings';
 import type { SortKey } from '@/lib/book-search';
 
 /**
@@ -47,13 +41,13 @@ export default async function BooksPage({
   setRequestLocale(locale);
 
   const t = await getTranslations('books');
-  const [books, categories, authors, tags, attributes, settings] = await Promise.all([
+  const [books, categories, authors, tags, attributes, flags] = await Promise.all([
     getBooks(),
     getCategories(),
     getAuthors(),
     getTags(),
     getAttributes(),
-    getSiteSettings(),
+    getCommerceFlags(),
   ]);
 
   // רק מחברים שיש להם ספר, ורק קטגוריות שיש בהן ספר: מסנן שמוביל תמיד
@@ -82,7 +76,7 @@ export default async function BooksPage({
         tags={usedTags}
         attributes={attributes}
         locale={locale}
-        storeEnabled={settings.store_enabled}
+        storeEnabled={flags.showPrices}
         initial={{
           query: query.q ?? '',
           category: query.category ?? '',

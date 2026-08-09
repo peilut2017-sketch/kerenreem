@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/Container';
-import { getSiteSettings } from '@/lib/data';
+import { getCommerceFlags } from '@/lib/commerce/settings';
 import { FavouritesClient } from '@/components/store/FavouritesClient';
 
 /**
@@ -29,7 +29,7 @@ export default async function FavouritesPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('store');
-  const settings = await getSiteSettings();
+  const flags = await getCommerceFlags();
 
   return (
     <Container className="py-12 lg:py-16">
@@ -41,7 +41,7 @@ export default async function FavouritesPage({
         <p className="mx-auto mt-3 max-w-lg text-lead text-muted">{t('favouritesIntro')}</p>
       </header>
       <div className="mt-10">
-        <FavouritesClient locale={locale} storeEnabled={Boolean(settings?.store_enabled)} />
+        <FavouritesClient locale={locale} storeEnabled={flags.showPrices} />
       </div>
     </Container>
   );

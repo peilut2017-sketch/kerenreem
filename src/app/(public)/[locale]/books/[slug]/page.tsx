@@ -19,7 +19,8 @@ import { StickyNav } from '@/components/book-page/StickyNav';
 import { SummaryCard } from '@/components/book-page/SummaryCard';
 import { TableOfContents } from '@/components/book-page/TableOfContents';
 import { ViewTracker } from '@/components/book-page/ViewTracker';
-import { getAuthorBySlug, getBookBySlug, getBookConnections, getBookSlugs, getSiteSettings } from '@/lib/data';
+import { getAuthorBySlug, getBookBySlug, getBookConnections, getBookSlugs } from '@/lib/data';
+import { getCommerceFlags } from '@/lib/commerce/settings';
 import { getCoverPalette } from '@/lib/cover-colors';
 import { getBookAvailability } from '@/lib/books/availability';
 import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
@@ -114,9 +115,9 @@ export default async function BookPage({
   // וביוגרפיה) היה מציג אדם אחר לגמרי ממי שמופיע ב-Hero.
   const authorDisplay = resolveBookAuthor(book, locale);
 
-  const [connections, settings, author, extractedPalette] = await Promise.all([
+  const [connections, flags, author, extractedPalette] = await Promise.all([
     getBookConnections(book),
-    getSiteSettings(),
+    getCommerceFlags(),
     book.author && authorDisplay?.href ? getAuthorBySlug(book.author.slug) : Promise.resolve(null),
     // אין טעם לחלץ צבע מהכריכה כשכבר הוגדרו גוונים ידנית בניהול —
     // חיסכון בעבודת sharp/k-means שהתוצאה שלה ממילא לא תוצג.
@@ -209,7 +210,7 @@ export default async function BookPage({
     hasConnections ? { id: 'book-connections', label: t('navConnections') } : null,
   ].filter((section): section is { id: string; label: string } => section !== null);
 
-  const availability = getBookAvailability(book, settings.store_enabled);
+  const availability = getBookAvailability(book, flags.showPrices);
   const showBuy = availability !== 'catalog_only';
   const effectivePrice = showBuy ? getEffectivePrice(book, locale) : null;
   const formattedPrice = effectivePrice ? formatPrice(effectivePrice.amount, locale) : null;
