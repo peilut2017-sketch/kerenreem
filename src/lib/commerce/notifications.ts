@@ -17,6 +17,7 @@ import { formatPrice } from './pricing';
 
 export type EmailTemplate =
   | 'order_confirmation'
+  | 'order_updated'
   | 'payment_received'
   | 'payment_failed'
   | 'document_ready'
@@ -62,6 +63,8 @@ export function renderEmail(
     refundAmount?: number;
     /** [1.2] קישור תשלום מורנינג — להזמנה טלפונית (פרק 9.6) */
     paymentUrl?: string | null;
+    /** [1.3] סיבת עדכון ההזמנה — מוצגת ללקוח במייל order_updated */
+    updateReason?: string | null;
   } = {},
 ): RenderedEmail {
   const n = order.order_number;
@@ -82,6 +85,15 @@ export function renderEmail(
         }<p>סה״כ לתשלום: <strong>${total}</strong></p>${payLink}${
           extra.promisedDateLabel ? `<p>אספקה משוערת: ${extra.promisedDateLabel}</p>` : ''
         }${track}${FOOTER}`,
+      };
+    case 'order_updated':
+      return {
+        subject: `עדכון בהזמנה ${n} — מכון קרן רא״ם`,
+        html: `${orderHeader(order)}<p>הזמנה <strong>${n}</strong> עודכנה על ידי הצוות.</p>${
+          extra.updateReason ? `<p>הסיבה: ${escapeHtml(extra.updateReason)}</p>` : ''
+        }${
+          extra.items ? orderLinesTable(extra.items) : ''
+        }<p>הסכום המעודכן לתשלום: <strong>${total}</strong></p>${payLink}${track}${FOOTER}`,
       };
     case 'payment_received':
       return {
@@ -110,6 +122,8 @@ export function renderEmail(
       return {
         subject: `ההזמנה בדרך אליך — הזמנה ${n}`,
         html: `${orderHeader(order)}<p>הזמנה <strong>${n}</strong> נמסרה לשליח.</p>${
+          extra.items ? orderLinesTable(extra.items) : ''
+        }${
           extra.trackingNumber
             ? `<p>מספר מעקב: <strong dir="ltr">${escapeHtml(extra.trackingNumber)}</strong>${
                 extra.trackingUrl ? ` · <a href="${extra.trackingUrl}">מעקב אצל חברת המשלוחים</a>` : ''

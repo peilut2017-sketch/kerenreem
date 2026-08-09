@@ -2,7 +2,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { hashGuestToken } from './guest-token';
-import type { Customer, Order, SavedBook } from '@/lib/supabase/types';
+import type { Customer, CustomerAddress, Order, SavedBook } from '@/lib/supabase/types';
 
 /**
  * שכבת חשבון הלקוח (פרק 4 במסמך האב). לקוח = משתמש auth עם שורת
@@ -147,6 +147,18 @@ export async function getMyOrderByNumber(orderNumber: number): Promise<Order | n
     .eq('order_number', orderNumber)
     .maybeSingle();
   return (data as Order | null) ?? null;
+}
+
+/** [1.3] פנקס הכתובות — דרך ה-RLS (customer_addresses_owner). */
+export async function getMyAddresses(): Promise<CustomerAddress[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from('customer_addresses')
+    .select('*')
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: false });
+  return (data ?? []) as CustomerAddress[];
 }
 
 export async function getMySavedBooks(): Promise<SavedBook[]> {

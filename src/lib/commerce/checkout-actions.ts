@@ -21,6 +21,7 @@ import { sendOrderEmail } from './notifications';
 import { recordOrderEvent } from './orders';
 import { recordRedemption, validateCoupon, type CouponError } from './coupons';
 import { findBestPromotion } from './promotions';
+import { getCustomerSession, getMyAddresses } from './account';
 
 /**
  * פעולות ה-Checkout (תרשימים 4–7). העיקרון: הדפדפן שולח כוונות; כל
@@ -186,6 +187,42 @@ export async function startCheckout(
 
   const settings = await getStoreSettings();
   const promoResult = await findBestPromotion(cart);
+
+  // [1.3] לקוח מחובר: הפרטים וכתובת ברירת המחדל מהחשבון ממלאים את הטופס
+  // מראש (פרק 4.6) — רק שדות שה-session עוד לא מילא; הלקוח יכול לשנות הכול.
+  let contactName = session.contact_name;
+  let contactPhone = session.contact_phone;
+  let contactEmail = session.contact_email;
+  let fulfillment = session.fulfillment;
+  const customerSession = await getCustomerSession();
+  if (customerSession?.customer) {
+    const customer = customerSession.customer;
+    contactName = contactName ?? customer.full_name;
+    // הטלפון הזמני ("pending:") של חשבון בלי הזמנת מקור אינו טלפון אמיתי
+    if (!contactPhone && !customer.phone.startsWith('pending:')) contactPhone = customer.phone;
+    contactEmail = contactEmail ?? customer.email ?? customerSession.email;
+    if (!fulfillment?.address?.city) {
+      const addresses = await getMyAddresses();
+      const preferred = addresses.find((a) => a.is_default) ?? addresses[0];
+      if (preferred) {
+        fulfillment = {
+          ...fulfillment,
+          address: {
+            recipient_name: preferred.recipient_name,
+            phone: preferred.phone ?? contactPhone ?? '',
+            city: preferred.city,
+            street: preferred.street,
+            house_number: preferred.house_number,
+            entrance: preferred.entrance ?? undefined,
+            floor: preferred.floor ?? undefined,
+            apartment: preferred.apartment ?? undefined,
+            zip: preferred.zip ?? undefined,
+          },
+        };
+      }
+    }
+  }
+
   return {
     ok: true,
     enabled: true,
@@ -194,10 +231,10 @@ export async function startCheckout(
     couponsEnabled: flags.couponsEnabled,
     sessionId: session.id,
     session: {
-      contact_name: session.contact_name,
-      contact_phone: session.contact_phone,
-      contact_email: session.contact_email,
-      fulfillment: session.fulfillment,
+      contact_name: contactName,
+      contact_phone: contactPhone,
+      contact_email: contactEmail,
+      fulfillment,
       is_gift: session.is_gift,
       gift_recipient_name: session.gift_recipient_name,
       gift_message: session.gift_message,

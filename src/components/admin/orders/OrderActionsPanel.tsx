@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   addOrderNote,
   addTracking,
   cancelOrder,
+  deleteOrder,
   markManualPayment,
   sendPaymentLink,
   refundOrder,
@@ -39,6 +41,7 @@ export function OrderActionsPanel({
   };
   isAdmin: boolean;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -251,6 +254,31 @@ export function OrderActionsPanel({
               className="admin-btn admin-btn-danger"
             >
               ביצוע זיכוי
+            </button>
+          </div>
+        ) : null}
+
+        {/* [1.3] מחיקת הזמנה — רק ללא תשלום/מסמך; בלתי הפיכה, אישור כפול */}
+        {isAdmin && !['paid', 'partially_refunded', 'refunded'].includes(order.paymentState) ? (
+          <div className="mb-4 border-t border-rule pt-3">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (!window.confirm('למחוק את ההזמנה לצמיתות? הפעולה בלתי הפיכה.')) return;
+                if (!window.confirm('אישור אחרון: ההזמנה, פריטיה וההיסטוריה שלה יימחקו סופית.')) return;
+                startTransition(async () => {
+                  const result = await deleteOrder(order.id);
+                  if (result.ok) {
+                    router.push('/admin/orders');
+                  } else {
+                    setMessage(result.error ?? 'המחיקה נכשלה');
+                  }
+                });
+              }}
+              className="admin-btn admin-btn-danger w-full"
+            >
+              מחיקת ההזמנה לצמיתות
             </button>
           </div>
         ) : null}

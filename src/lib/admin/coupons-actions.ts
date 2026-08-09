@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { assertPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 /**
  * ניהול קופונים (פרק 12): יצירה, הפעלה/כיבוי. admin בלבד — נאכף גם
@@ -54,6 +55,8 @@ export async function createCoupon(
     ends_at: endsAtRaw ? new Date(`${endsAtRaw}T23:59:59`).toISOString() : null,
     combinable_with_sale: formData.get('combinable_with_sale') === 'on',
     combinable_with_coupons: formData.get('combinable_with_coupons') === 'on',
+    min_quantity: (() => { const raw = String(formData.get('min_quantity') ?? '').trim(); return raw === '' ? null : Number(raw); })(),
+    restricted_contact: String(formData.get('restricted_contact') ?? '').trim().toLowerCase() || null,
     active: true,
     created_by: session.userId,
   });
@@ -87,4 +90,130 @@ export async function setCouponActive(couponId: string, active: boolean): Promis
     new_values: { active },
   });
   revalidatePath('/admin/coupons');
+}
+
+/** [1.3] עדכון קופון קיים — אותם שדות כמו ביצירה. */
+export async function updateCoupon(
+  couponId: string,
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const num = (name: string) => {
+    const raw = String(formData.get(name) ?? '').trim();
+    return raw === '' ? null : Number(raw);
+  };
+  const patch = {
+    kind: String(formData.get('kind') ?? 'percent'),
+    value: num('value') ?? 0,
+    min_total: num('min_total'),
+    min_quantity: num('min_quantity'),
+    max_uses: num('max_uses'),
+    max_uses_per_customer: num('max_uses_per_customer') ?? 1,
+    starts_at: String(formData.get('starts_at') ?? '').trim() || null,
+    ends_at: String(formData.get('ends_at') ?? '').trim() || null,
+    combinable_with_sale: formData.get('combinable_with_sale') === 'on',
+    combinable_with_coupons: formData.get('combinable_with_coupons') === 'on',
+    restricted_contact: String(formData.get('restricted_contact') ?? '').trim().toLowerCase() || null,
+  };
+  const { error } = await service.from('coupons').update(patch).eq('id', couponId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin/coupons');
+  return { ok: true };
+}
+
+/**
+ * [1.3] מחיקת קופון: בלי מימושים — נמחק; עם מימושים — מושבת בלבד
+ * (ההיסטוריה החשבונאית נשמרת, unique ההזמנות מפנה אליו).
+ */
+export async function deleteCoupon(couponId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { count } = await service
+    .from('coupon_redemptions')
+    .select('id', { count: 'exact', head: true })
+    .eq('coupon_id', couponId);
+  if ((count ?? 0) > 0) {
+    await service.from('coupons').update({ active: false }).eq('id', couponId);
+    revalidatePath('/admin/coupons');
+    return { ok: true, error: 'לקופון מימושים — הושבת במקום להימחק (ההיסטוריה נשמרת)' };
+  }
+  const { error } = await service.from('coupons').delete().eq('id', couponId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin/coupons');
+  return { ok: true };
+}
+
+/** [1.3] מבצע אוטומטי — יצירה/עדכון (upsert לפי id ריק/מלא). */
+export async function savePromotion(
+  promotionId: string | null,
+  input: {
+    name: string;
+    kind: 'percent' | 'fixed';
+    value: number;
+    scopeAll: boolean;
+    categoryIds: string[];
+    bookIds: string[];
+    excludeBookIds: string[];
+    minTotal: number | null;
+    minQuantity: number | null;
+    combinableWithCoupon: boolean;
+    startsAt: string | null;
+    endsAt: string | null;
+    active: boolean;
+  },
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!input.name.trim()) return { ok: false, error: 'שם המבצע חסר' };
+  if (!(input.value > 0)) return { ok: false, error: 'ערך ההנחה חייב להיות חיובי' };
+  if (input.kind === 'percent' && input.value > 100) return { ok: false, error: 'אחוז מעל 100' };
+  if (!input.scopeAll && input.categoryIds.length === 0 && input.bookIds.length === 0) {
+    return { ok: false, error: 'בחרו תחולה: כל האתר, קטגוריות או ספרים' };
+  }
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const row = {
+    name: input.name.trim().slice(0, 120),
+    kind: input.kind,
+    value: input.value,
+    scope: input.scopeAll
+      ? { all: true, exclude_book_ids: input.excludeBookIds }
+      : {
+          category_ids: input.categoryIds,
+          book_ids: input.bookIds,
+          exclude_book_ids: input.excludeBookIds,
+        },
+    min_total: input.minTotal,
+    min_quantity: input.minQuantity,
+    combinable_with_coupon: input.combinableWithCoupon,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt,
+    active: input.active,
+    created_by: session.userId,
+  };
+  const { error } = promotionId
+    ? await service.from('promotions').update(row).eq('id', promotionId)
+    : await service.from('promotions').insert(row);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin/coupons');
+  return { ok: true };
+}
+
+export async function deletePromotion(promotionId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+  const { error } = await service.from('promotions').delete().eq('id', promotionId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin/coupons');
+  return { ok: true };
 }

@@ -1,4 +1,6 @@
 'use client';
+import { AddressAutocomplete } from '../AddressAutocomplete';
+import { searchCities, searchStreets } from '@/lib/commerce/address-actions';
 
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -171,7 +173,7 @@ export function FulfillmentBlock({
                 label={t('city')}
                 error={errors.city}
                 input={
-                  <input id="addr-city" type="text" autoComplete="shipping address-level2" required value={address.city ?? ''} onChange={set('city')} aria-invalid={errors.city ? true : undefined} className={inputCls} />
+                  <AddressAutocomplete id="addr-city" autoComplete="shipping address-level2" required value={address.city ?? ''} onChange={(next) => setAddress((v) => ({ ...v, city: next }))} fetcher={searchCities} invalid={Boolean(errors.city)} className={inputCls} />
                 }
               />
               <Field
@@ -179,7 +181,7 @@ export function FulfillmentBlock({
                 label={t('street')}
                 error={errors.street}
                 input={
-                  <input id="addr-street" type="text" autoComplete="shipping address-line1" required value={address.street ?? ''} onChange={set('street')} aria-invalid={errors.street ? true : undefined} className={inputCls} />
+                  <AddressAutocomplete id="addr-street" autoComplete="shipping address-line1" required value={address.street ?? ''} onChange={(next) => setAddress((v) => ({ ...v, street: next }))} fetcher={(q) => searchStreets(address.city ?? '', q)} invalid={Boolean(errors.street)} className={inputCls} />
                 }
               />
               <Field
