@@ -106,8 +106,8 @@ export const REPORTS: ReportDefinition[] = [
     family: 'catalog_inventory',
     title: 'תנועות מלאי',
     blurb: 'Ledger מלא: קליטה, מכירה, ביטול, החזרה, נזק, ספירה ותיקון ידני — מי ביצע ומתי.',
-    priority: 'later',
-    href: null,
+    priority: 'important',
+    href: '/admin/reports/inventory-moves',
   },
   {
     id: 'catalog_quality',

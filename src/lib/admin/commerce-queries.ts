@@ -2,7 +2,11 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import type {
   CommerceDocument,
+  ConsentEvent,
+  Customer,
+  CustomerAddress,
   InventoryLevel,
+  InventoryMoveType,
   NotificationLogEntry,
   Order,
   OrderEvent,
@@ -285,4 +289,249 @@ export async function listInventory(): Promise<InventoryRow[]> {
         .sort((a, b) => a.locationName.localeCompare(b.locationName, 'he')),
     };
   });
+}
+
+export interface CustomerOrderRow {
+  id: string;
+  orderNumber: number;
+  total: number;
+  donationAmount: number;
+  paymentState: string;
+  state: string;
+  fulfillmentState: string;
+  createdAt: string;
+}
+
+export interface CustomerDetail {
+  key: string;
+  customer: Customer | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  orders: CustomerOrderRow[];
+  addresses: CustomerAddress[];
+  consents: ConsentEvent[];
+  error: boolean;
+}
+
+const CUSTOMER_ORDER_SELECT =
+  'id, order_number, contact_name, contact_phone, contact_email, total, donation_amount, payment_state, state, fulfillment_state, created_at';
+
+function emptyCustomerDetail(key: string, error = false): CustomerDetail {
+  return {
+    key,
+    customer: null,
+    contactName: null,
+    contactPhone: null,
+    contactEmail: null,
+    orders: [],
+    addresses: [],
+    consents: [],
+    error,
+  };
+}
+
+/**
+ * [1.6] עמוד לקוח (ביקורת ג.25/ט.3) — "מפתח" הזהות הוא טלפון/מייל, כמו
+ * ברשימת הלקוחות (contact_phone ?? contact_email), לא customers.id: רוב
+ * הלקוחות הם אורחים בלי רשומת customers כלל. שתי שאילתות .eq() נפרדות
+ * (טלפון ומייל) וממוזגות בזיכרון — לא .or() עם קלט מה-URL, כדי לא לבנות
+ * ביטוי סינון PostgREST מפסיק/סוגר גולמי ולא-מטוהר (אותו עיקרון כמו
+ * חיפוש ההזמנות החופשי ב-listOrders).
+ *
+ * ההסכמות (consent_events) הן פער רגולטורי מתועד: נשלפות גם לפי טלפון/
+ * מייל (קיימות גם ללקוח-אורח בלי customer_id) וגם לפי customer_id
+ * (ללקוח רשום) — וממוזגות, כי אירוע יכול היה להירשם באיזו מהדרכים.
+ */
+export async function getCustomerDetail(key: string): Promise<CustomerDetail> {
+  if (!key) return emptyCustomerDetail(key, true);
+  const supabase = await createClient();
+  if (!supabase) return emptyCustomerDetail(key, true);
+
+  const [byPhone, byEmail] = await Promise.all([
+    supabase.from('orders').select(CUSTOMER_ORDER_SELECT).eq('contact_phone', key).order('created_at', { ascending: false }).limit(300),
+    supabase.from('orders').select(CUSTOMER_ORDER_SELECT).eq('contact_email', key).order('created_at', { ascending: false }).limit(300),
+  ]);
+  if (byPhone.error || byEmail.error) {
+    console.error('[admin:customer] orders', byPhone.error?.message ?? byEmail.error?.message);
+    return emptyCustomerDetail(key, true);
+  }
+
+  const orderMap = new Map<string, NonNullable<typeof byPhone.data>[number]>();
+  for (const row of [...(byPhone.data ?? []), ...(byEmail.data ?? [])]) orderMap.set(row.id, row);
+  const orderRows = [...orderMap.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+  const contactPhone = orderRows.find((o) => o.contact_phone)?.contact_phone ?? (key.includes('@') ? null : key);
+  const contactEmail = orderRows.find((o) => o.contact_email)?.contact_email ?? (key.includes('@') ? key : null);
+  const contactName = orderRows.find((o) => o.contact_name)?.contact_name ?? null;
+
+  const [customerRes, consentsByPhoneRes, consentsByEmailRes] = await Promise.all([
+    contactPhone ? supabase.from('customers').select('*').eq('phone', contactPhone).maybeSingle() : Promise.resolve({ data: null }),
+    contactPhone
+      ? supabase.from('consent_events').select('*').eq('phone', contactPhone).order('created_at', { ascending: false }).limit(100)
+      : Promise.resolve({ data: [] }),
+    contactEmail
+      ? supabase.from('consent_events').select('*').eq('email', contactEmail).order('created_at', { ascending: false }).limit(100)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const customer = (customerRes.data as Customer | null) ?? null;
+
+  const [consentsByCustomerIdRes, addressesRes] = await Promise.all([
+    customer
+      ? supabase.from('consent_events').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false }).limit(100)
+      : Promise.resolve({ data: [] }),
+    customer
+      ? supabase.from('customer_addresses').select('*').eq('customer_id', customer.id).order('is_default', { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const consentMap = new Map<string, ConsentEvent>();
+  for (const row of [
+    ...((consentsByPhoneRes.data ?? []) as ConsentEvent[]),
+    ...((consentsByEmailRes.data ?? []) as ConsentEvent[]),
+    ...((consentsByCustomerIdRes.data ?? []) as ConsentEvent[]),
+  ]) {
+    consentMap.set(row.id, row);
+  }
+  const consents = [...consentMap.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+  return {
+    key,
+    customer,
+    contactName,
+    contactPhone,
+    contactEmail,
+    orders: orderRows.map((o) => ({
+      id: o.id,
+      orderNumber: o.order_number,
+      total: Number(o.total),
+      donationAmount: Number(o.donation_amount ?? 0),
+      paymentState: o.payment_state,
+      state: o.state,
+      fulfillmentState: o.fulfillment_state,
+      createdAt: o.created_at,
+    })),
+    addresses: (addressesRes.data ?? []) as CustomerAddress[],
+    consents,
+    error: false,
+  };
+}
+
+export const INVENTORY_MOVE_TYPE_LABELS: Record<InventoryMoveType, string> = {
+  receive: 'קליטת מלאי',
+  sale: 'מכירה',
+  cancel_restock: 'שחרור מביטול (לא נשלח)',
+  return_restock: 'החזרה פיזית למלאי',
+  damage: 'נזק',
+  manual_adjust: 'תיקון ידני',
+  transfer_in: 'הועבר פנימה (בין מחסנים)',
+  transfer_out: 'הועבר החוצה (בין מחסנים)',
+  count: 'ספירת מלאי',
+  reserve: 'שריון להזמנה',
+  release: 'שחרור שריון',
+};
+
+export interface InventoryMoveRow {
+  id: string;
+  bookId: string;
+  bookTitle: string;
+  locationName: string;
+  moveType: InventoryMoveType;
+  quantityDelta: number;
+  onHandBefore: number;
+  onHandAfter: number;
+  reason: string | null;
+  orderId: string | null;
+  actorType: string;
+  actorName: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface InventoryMovesFilter {
+  bookId?: string;
+  moveType?: string;
+  page?: string;
+}
+
+const INVENTORY_MOVES_PAGE_SIZE = 50;
+
+export interface InventoryMovesResult {
+  rows: InventoryMoveRow[];
+  total: number | null;
+  page: number;
+  pageSize: number;
+  error: boolean;
+}
+
+/**
+ * [1.6] היסטוריית תנועות מלאי (ביקורת ג.12/ט.6) — inventory_moves הוא
+ * ledger מלא (append-only, on_hand_before/after על כל שורה) בלי צרכן
+ * UI כלשהו. מסך קריאה-בלבד; מזהי ספר/מיקום/יוצר נפתרים בשאילתה שנייה
+ * (אותו דפוס כמו getAttentionReport/getBookEngagementReport) ולא embed.
+ */
+export async function listInventoryMoves(filter: InventoryMovesFilter): Promise<InventoryMovesResult> {
+  const page = Math.max(1, Math.floor(Number(filter.page) || 1));
+  const pageSize = INVENTORY_MOVES_PAGE_SIZE;
+  const empty = (error: boolean): InventoryMovesResult => ({ rows: [], total: error ? null : 0, page, pageSize, error });
+
+  const supabase = await createClient();
+  if (!supabase) return empty(true);
+
+  let query = supabase
+    .from('inventory_moves')
+    .select(
+      'id, book_id, location_id, move_type, quantity_delta, on_hand_before, on_hand_after, reason, order_id, actor_type, actor_id, note, created_at',
+      { count: 'exact' },
+    )
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
+
+  if (filter.bookId) query = query.eq('book_id', filter.bookId);
+  if (filter.moveType) query = query.eq('move_type', filter.moveType);
+
+  const { data, error, count } = await query;
+  if (error) {
+    console.error('[admin:inventory-moves] list', error.message);
+    return empty(true);
+  }
+
+  const rows = data ?? [];
+  const bookIds = [...new Set(rows.map((r) => r.book_id))];
+  const locationIds = [...new Set(rows.map((r) => r.location_id))];
+  const actorIds = [...new Set(rows.map((r) => r.actor_id).filter((id): id is string => Boolean(id)))];
+
+  const [booksRes, locationsRes, profilesRes] = await Promise.all([
+    bookIds.length > 0 ? supabase.from('books').select('id, title_he').in('id', bookIds) : Promise.resolve({ data: [] }),
+    locationIds.length > 0 ? supabase.from('stock_locations').select('id, name').in('id', locationIds) : Promise.resolve({ data: [] }),
+    actorIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', actorIds) : Promise.resolve({ data: [] }),
+  ]);
+
+  const titleByBookId = new Map((booksRes.data ?? []).map((b) => [b.id, b.title_he]));
+  const nameByLocationId = new Map((locationsRes.data ?? []).map((l) => [l.id, l.name]));
+  const nameByActorId = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name ?? '—']));
+
+  return {
+    rows: rows.map((row) => ({
+      id: row.id,
+      bookId: row.book_id,
+      bookTitle: titleByBookId.get(row.book_id) ?? 'ספר שנמחק',
+      locationName: nameByLocationId.get(row.location_id) ?? '—',
+      moveType: row.move_type as InventoryMoveType,
+      quantityDelta: row.quantity_delta,
+      onHandBefore: row.on_hand_before,
+      onHandAfter: row.on_hand_after,
+      reason: row.reason,
+      orderId: row.order_id,
+      actorType: row.actor_type,
+      actorName: row.actor_id ? (nameByActorId.get(row.actor_id) ?? null) : null,
+      note: row.note,
+      createdAt: row.created_at,
+    })),
+    total: count ?? null,
+    page,
+    pageSize,
+    error: false,
+  };
 }

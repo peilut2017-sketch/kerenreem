@@ -755,6 +755,18 @@ export interface CustomerAddress {
   updated_at: string;
 }
 
+export interface ConsentEvent {
+  id: string;
+  customer_id: string | null;
+  email: string | null;
+  phone: string | null;
+  kind: 'marketing_email' | 'channel_sms' | 'channel_whatsapp' | 'terms';
+  granted: boolean;
+  source: 'checkout' | 'account' | 'thank_you' | 'unsubscribe_link' | 'staff';
+  order_id: string | null;
+  created_at: string;
+}
+
 export interface SavedBook {
   customer_id: string;
   book_id: string;
