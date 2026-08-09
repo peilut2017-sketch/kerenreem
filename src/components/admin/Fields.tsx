@@ -187,24 +187,29 @@ export function CheckboxField({
   label,
   hint,
   defaultChecked,
+  disabled,
 }: {
   name: string;
   label: string;
   hint?: string;
   defaultChecked?: boolean;
+  disabled?: boolean;
 }) {
   const id = useId();
   return (
     <div>
       <label
         htmlFor={id}
-        className="flex cursor-pointer items-start gap-3 rounded-[var(--admin-radius-btn)] border border-transparent px-1 py-1 text-small text-ink-soft transition-colors hover:bg-cream-2"
+        className={`flex items-start gap-3 rounded-[var(--admin-radius-btn)] border border-transparent px-1 py-1 text-small text-ink-soft transition-colors ${
+          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-cream-2'
+        }`}
       >
         <input
           id={id}
           name={name}
           type="checkbox"
           defaultChecked={defaultChecked}
+          disabled={disabled}
           aria-describedby={hint ? `${id}-hint` : undefined}
           className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--admin-accent)]"
         />

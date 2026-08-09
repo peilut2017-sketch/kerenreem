@@ -15,6 +15,9 @@ import { BackToTop } from '@/components/BackToTop';
 import { AnalyticsBeacon } from '@/components/AnalyticsBeacon';
 import { GoogleAnalytics } from '@/components/GoogleAnalytics';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
+import { ChromeGate } from '@/components/ChromeGate';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { CheckoutHeader } from '@/components/store/checkout/CheckoutHeader';
 import { A11Y_INIT_SCRIPT } from '@/lib/a11y-preferences';
 import '../../globals.css';
 
@@ -87,15 +90,28 @@ export default async function PublicLayout({
             <a href="#main" className="skip-link">
               {t('skipToContent')}
             </a>
-            <SiteHeader settings={settings} />
-            <main id="main" className="flex-1">
+            {/* [1.4] "אין שום התייחסות ל-offline" (ביקורת המימוש, פער 23) —
+                רצועה גלובלית, לא רק בקופה: ניתוק פוגע בסל ובמועדפים לא
+                פחות מבתשלום עצמו. */}
+            <OfflineBanner />
+            {/* [1.4] הקופה מקבלת כותרת רזה בלי ניווט מלא/פוטר/באנר עוגיות/
+                וידג'ט נגישות (ביקורת המימוש ב.17) — הבחירה בפועל ב-ChromeGate,
+                לפי הנתיב הנוכחי בצד הלקוח. */}
+            <ChromeGate
+              header={<SiteHeader settings={settings} />}
+              checkoutHeader={<CheckoutHeader />}
+              footer={
+                <>
+                  <SiteFooter settings={settings} locale={locale} />
+                  <AccessibilityWidget />
+                  <BackToTop />
+                  <CookieConsentBanner />
+                </>
+              }
+            >
               {children}
-            </main>
-            <SiteFooter settings={settings} locale={locale} />
-            <AccessibilityWidget />
-            <BackToTop />
+            </ChromeGate>
             <AnalyticsBeacon />
-            <CookieConsentBanner />
             <MiniCart />
           </CartProvider>
         </NextIntlClientProvider>

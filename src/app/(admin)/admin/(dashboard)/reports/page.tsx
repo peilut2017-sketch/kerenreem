@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { requirePermission } from '@/lib/admin/auth';
 import { hasPermission } from '@/lib/admin/permissions';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+import { isMorningConfigured } from '@/lib/commerce/morning';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { StatTile } from '@/components/admin/analytics/StatTile';
 import { BarList } from '@/components/admin/analytics/BarList';
@@ -35,7 +37,12 @@ export default async function AdminReportsPage({
     return <AdminHeader title="דוחות" description="אין חיבור למסד." />;
   }
 
-  const [ordersRes, paymentsRes, itemsRes, sessionsRes] = await Promise.all([
+  // [1.4] webhook_events ו-reconciliation_runs — דרך שירות, לא ה-RLS
+  // הרגיל: webhook_events_admin_read דורש is_admin(), בעוד העמוד הזה
+  // פתוח מ-finance (manager כולל) — אחרת manager שאינו super-admin
+  // תמיד רואה "0 כשלים" גם כשיש, כי ה-RLS פשוט חוסם את השורות.
+  const service = createServiceClient();
+  const [ordersRes, paymentsRes, itemsRes, sessionsRes, webhookFailuresRes, lastReconRes, outstandingRes] = await Promise.all([
     supabase.from('orders').select('*').gte('created_at', since.toISOString()).limit(2000),
     supabase.from('payments').select('*').gte('created_at', since.toISOString()).limit(4000),
     supabase
@@ -47,11 +54,32 @@ export default async function AdminReportsPage({
       .select('status')
       .gte('created_at', since.toISOString())
       .limit(4000),
+    service
+      ? service
+          .from('webhook_events')
+          .select('id', { count: 'exact', head: true })
+          .in('processing_status', ['failed', 'invalid_signature'])
+          .gte('received_at', since.toISOString())
+      : Promise.resolve({ count: 0 }),
+    service
+      ? service.from('reconciliation_runs').select('*').order('ran_at', { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+    // [1.4] "דורש טיפול" הן בעיות פתוחות כרגע, לא פעילות בטווח הנבחר —
+    // חריג בן 40 יום נעלם בשקט כשמסתכלים על 30 יום (ג.33 בביקורת),
+    // ודווקא חריגים ישנים הם אלה שנשכחים. לכן ללא הגבלת תאריך.
+    supabase
+      .from('orders')
+      .select('id, payment_state, document_state, tags')
+      .limit(5000),
   ]);
 
   const orders = ordersRes.data ?? [];
   const payments = paymentsRes.data ?? [];
   const sessions = sessionsRes.data ?? [];
+  const webhookFailureCount = webhookFailuresRes.count ?? 0;
+  const lastRecon = lastReconRes.data;
+  const morningConfigured = isMorningConfigured();
+  const outstandingOrders = outstandingRes.data ?? [];
 
   const paidOrders = orders.filter((order) =>
     ['paid', 'partially_refunded', 'refunded'].includes(order.payment_state),
@@ -101,14 +129,15 @@ export default async function AdminReportsPage({
     .slice(0, 8)
     .map(([label, value]) => ({ label, value }));
 
-  // התאמות: שולם בלי מסמך + פערי סכומים
-  const paidNoDoc = orders.filter(
+  // התאמות: שולם בלי מסמך + פערי סכומים — מ-outstandingOrders (ללא חלון
+  // תאריכים; אלה בעיות פתוחות עכשיו, לא פעילות בטווח שנבחר לדוח)
+  const paidNoDoc = outstandingOrders.filter(
     (order) =>
       order.payment_state === 'paid' &&
       ['not_created', 'pending', 'failed'].includes(order.document_state),
   );
-  const mismatches = orders.filter((order) => (order.tags ?? []).includes('amount-mismatch'));
-  const cancelRequests = orders.filter((order) => (order.tags ?? []).includes('cancel-requested'));
+  const mismatches = outstandingOrders.filter((order) => (order.tags ?? []).includes('amount-mismatch'));
+  const cancelRequests = outstandingOrders.filter((order) => (order.tags ?? []).includes('cancel-requested'));
 
   // נטישה (פרק 15.3 באפיון)
   const funnel = {
@@ -154,7 +183,7 @@ export default async function AdminReportsPage({
     (sum, order) => sum + Number(order.actual_shipping_cost ?? 0),
     0,
   );
-  const reconcileMismatches = orders.filter((order) =>
+  const reconcileMismatches = outstandingOrders.filter((order) =>
     (order.tags ?? []).includes('reconcile-mismatch'),
   );
 
@@ -220,6 +249,11 @@ export default async function AdminReportsPage({
 
         <section className="admin-card px-5 py-4">
           <h2 className="mb-3 text-small font-bold text-ink">התאמות — דורש טיפול</h2>
+          {!morningConfigured ? (
+            <p role="status" className="mb-3 rounded-[var(--radius-sm)] bg-[var(--admin-warning-soft)] px-3 py-2.5 text-caption text-[var(--admin-warning)]">
+              ⚠ מורנינג אינה מוגדרת (מפתחות API חסרים) — ההתאמה היומית לא רצה. &ldquo;הכול תקין&rdquo; למטה אינו אמין.
+            </p>
+          ) : null}
           <ul className="space-y-2 text-small">
             <ReconRow
               label="תשלום התקבל ללא מסמך חשבונאי"
@@ -237,6 +271,11 @@ export default async function AdminReportsPage({
               href="/admin/orders?view=attention"
             />
             <ReconRow
+              label="כשלי Webhook (חתימה/עיבוד)"
+              count={webhookFailureCount}
+              href="/admin/reports/webhooks"
+            />
+            <ReconRow
               label="בקשות ביטול פתוחות"
               count={cancelRequests.length}
               href="/admin/orders?view=cancel_requests"
@@ -248,6 +287,13 @@ export default async function AdminReportsPage({
               </li>
             ) : null}
           </ul>
+          <p className="mt-3 border-t border-rule pt-2.5 text-caption text-muted">
+            {lastRecon
+              ? `התאמה יומית אחרונה: ${new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Jerusalem' }).format(new Date(lastRecon.ran_at))}${
+                  lastRecon.skipped ? ' — דולגה (מורנינג לא מוגדרת)' : ` — נבדקו ${lastRecon.checked}, ${lastRecon.mismatched} פערים`
+                }`
+              : 'ההתאמה היומית טרם רצה מעולם.'}
+          </p>
         </section>
 
         <section className="admin-card px-5 py-4">

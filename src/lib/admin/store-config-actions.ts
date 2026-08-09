@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { assertPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
+import { isMorningConfigured } from '@/lib/commerce/morning';
 
 /**
  * שמירת הגדרות החנות (store_settings, שורה יחידה) — הדגלים השכבתיים
@@ -50,6 +51,16 @@ export async function saveStoreConfig(
   const patch: Record<string, unknown> = {};
   for (const flag of FLAG_FIELDS) {
     patch[flag] = formData.get(flag) === 'on';
+  }
+
+  // [1.4] "סליקה פעילה" חייבת לשקף מציאות: בלי מפתחות מורנינג בסביבה
+  // אסור לשמור אותה כ-true, גם אם מישהו שלח את השדה ישירות מעקף ה-UI
+  // (שבו הצ׳קבוקס מנוטרל). אקספרס תלוי בסליקה ולכן כבוי איתה יחד.
+  let flagsClamped = false;
+  if (patch.payments_enabled === true && !isMorningConfigured()) {
+    patch.payments_enabled = false;
+    patch.express_checkout_enabled = false;
+    flagsClamped = true;
   }
 
   patch.free_shipping_threshold = numberField(formData, 'free_shipping_threshold');
@@ -100,5 +111,10 @@ export async function saveStoreConfig(
   revalidatePath('/[locale]/books', 'page');
   revalidatePath('/[locale]/cart', 'page');
   revalidatePath('/[locale]', 'layout');
-  return { status: 'saved' };
+  return {
+    status: 'saved',
+    message: flagsClamped
+      ? 'שאר ההגדרות נשמרו, אך "סליקה במורנינג" נכבתה: אין מפתחות API מוגדרים בסביבה.'
+      : undefined,
+  };
 }

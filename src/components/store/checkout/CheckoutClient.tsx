@@ -37,11 +37,13 @@ export function CheckoutClient() {
   const router = useRouter();
   const cart = useCart();
   const [bootstrap, setBootstrap] = useState<CheckoutBootstrap | null>(null);
+  const [bootstrapError, setBootstrapError] = useState(false);
   const [openBlock, setOpenBlock] = useState<BlockId>('contact');
   const [contactDone, setContactDone] = useState(false);
   const [fulfillmentDone, setFulfillmentDone] = useState(false);
   const [method, setMethod] = useState<MethodOption | null>(null);
   const [placing, setPlacing] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [wallet, setWallet] = useState<'bit' | 'apple_pay' | 'google_pay' | null>(null);
@@ -51,13 +53,22 @@ export function CheckoutClient() {
     freeShipping: boolean;
   } | null>(null);
   const started = useRef(false);
+  const redirectingRef = useRef(false);
 
   const items = cart?.items ?? [];
 
-  useEffect(() => {
-    if (started.current || !cart || items.length === 0) return;
-    started.current = true;
-    void (async () => {
+  /**
+   * [1.4] לפני התיקון הפונקציה הזו רצה בלי try/catch בכלל: כשל רשת אמיתי
+   * ב-startCheckout (לא כשל עסקי — {ok:false} כבר מטופל כראוי, אלא throw
+   * כמו ניתוק) השאיר את bootstrap===null לנצח, ו-started.current שכבר
+   * הפך ל-true חסם כל ניסיון חוזר — שלד טעינה נצחי בלי דרך לצאת ממנו.
+   * עכשיו הכשל נתפס, מוצג מסך שגיאה עם "ניסיון נוסף" שקורא לפונקציה
+   * הזו שוב ישירות (בלי דרך started.current, ששייך רק לניסיון האוטומטי).
+   */
+  const runBootstrap = useCallback(async () => {
+    if (!cart || items.length === 0) return;
+    setBootstrapError(false);
+    try {
       const result = await startCheckout(items, locale);
       setBootstrap(result);
       if (result.session) {
@@ -83,24 +94,37 @@ export function CheckoutClient() {
       }
       const codeToApply = sessionCoupon ?? storedCoupon;
       if (result.ok && codeToApply) {
-        const applied = await applyCoupon(codeToApply);
-        if (applied.ok && applied.code) {
-          setCoupon({
-            code: applied.code,
-            discountAmount: applied.discountAmount ?? 0,
-            freeShipping: applied.freeShipping ?? false,
-          });
+        try {
+          const applied = await applyCoupon(codeToApply);
+          if (applied.ok && applied.code) {
+            setCoupon({
+              code: applied.code,
+              discountAmount: applied.discountAmount ?? 0,
+              freeShipping: applied.freeShipping ?? false,
+            });
+          }
+        } catch {
+          // קופון שלא נטען לא אמור לחסום את כל תהליך הקופה — ניתן עדיין
+          // להזין אותו ידנית בבלוק הסקירה
         }
       }
       void recordCommerceEvent('checkout_started', {
         sessionKey: cart.sessionKey,
         locale,
         meta: { items: items.length },
-      });
-    })();
+      }).catch(() => {});
+    } catch {
+      setBootstrapError(true);
+    }
     // items נבדק בכניסה בלבד — ה-session כבר מחזיק את הצילום
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, locale]);
+
+  useEffect(() => {
+    if (started.current || !cart || items.length === 0) return;
+    started.current = true;
+    void runBootstrap();
+  }, [cart, items.length, runBootstrap]);
 
   const submitContact = useCallback(
     async (values: ContactValues) => {
@@ -108,7 +132,7 @@ export function CheckoutClient() {
       if (result.ok) {
         setContactDone(true);
         setOpenBlock('fulfillment');
-        void recordCommerceEvent('contact_submitted', { sessionKey: cart?.sessionKey ?? '', locale });
+        void recordCommerceEvent('contact_submitted', { sessionKey: cart?.sessionKey ?? '', locale }).catch(() => {});
       }
       return result;
     },
@@ -125,7 +149,7 @@ export function CheckoutClient() {
         void recordCommerceEvent(selected.isPickup ? 'pickup_selected' : 'shipping_selected', {
           sessionKey: cart?.sessionKey ?? '',
           locale,
-        });
+        }).catch(() => {});
       }
       return result;
     },
@@ -151,7 +175,7 @@ export function CheckoutClient() {
         freeShipping: result.freeShipping ?? false,
       });
       setServerTotal(null);
-      void recordCommerceEvent('coupon_applied', { sessionKey: cart?.sessionKey ?? '', locale });
+      void recordCommerceEvent('coupon_applied', { sessionKey: cart?.sessionKey ?? '', locale }).catch(() => {});
     }
     return result;
   }, [cart?.sessionKey, locale]);
@@ -173,12 +197,15 @@ export function CheckoutClient() {
           setPlaceError(extrasResult.fieldErrors?.terms ? t('errTerms') : t('errServer'));
           return;
         }
-        void recordCommerceEvent('payment_started', { sessionKey: cart?.sessionKey ?? '', locale });
+        void recordCommerceEvent('payment_started', { sessionKey: cart?.sessionKey ?? '', locale }).catch(() => {});
         const result = await placeOrder({ displayedTotal: serverTotal ?? displayedTotal });
         if (!result.ok) {
           if (result.error === 'total_changed' && result.serverTotal != null) {
             setServerTotal(result.serverTotal);
             setPlaceError(t('errTotalChanged', { total: formatPrice(result.serverTotal, locale) }));
+          } else if (result.error === 'total_changed') {
+            // הקופון פג בין הסקירה לתשלום — אין סכום שרת חדש להציג, רק לבקש רענון
+            setPlaceError(t('errCouponExpired'));
           } else if (result.error === 'insufficient_stock') {
             setPlaceError(t('errInsufficientStock'));
           } else if (result.error === 'unavailable') {
@@ -192,18 +219,42 @@ export function CheckoutClient() {
           }
           return;
         }
-        cart?.clear();
+        // הסל נשאר עד שהתשלום מאושר בפועל (ResultClient) — כשל/נטישה בדף
+        // הסליקה חוזרים ל-/checkout עם אותה עגלה, אותה session ואפשרות
+        // ניסיון חוזר, במקום "הסל ריק בינתיים".
         if (result.mode === 'redirect_to_payment' && result.redirectUrl) {
+          redirectingRef.current = true;
+          setRedirecting(true);
           window.location.assign(result.redirectUrl);
           return;
         }
+        if (result.error === 'payment_error') {
+          // ההזמנה נוצרה אך פתיחת דף התשלום נכשלה — לא הצלחה, ניסיון חוזר זמין
+          setPlaceError(t('errPaymentPage'));
+          return;
+        }
         router.push('/checkout/result?outcome=created');
+      } catch {
+        // [1.4] כשל רשת אמיתי (throw, לא {ok:false}) היה משאיר את הכפתור
+        // חוזר לפעיל בלי שום הודעה — הלקוח לא יודע אם ההזמנה בוצעה או לא
+        setPlaceError(t('errServer'));
       } finally {
-        setPlacing(false);
+        // בזמן ניווט אמיתי אל דף התשלום אין לשחרר את הכפתור — הוא ייעלם
+        // מהמסך תוך רגע, ו"חוזר לפעיל" שקרי בטעות ניתן ללחיצה כפולה
+        if (!redirectingRef.current) setPlacing(false);
       }
     },
     [placing, displayedTotal, serverTotal, cart, router, t, locale],
   );
+
+  if (redirecting) {
+    return (
+      <div role="status" aria-live="polite" className="mx-auto flex max-w-md flex-col items-center gap-4 py-24 text-center">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-burgundy border-t-transparent motion-reduce:animate-none" />
+        <p className="text-lead text-ink">{t('redirectingToPayment')}</p>
+      </div>
+    );
+  }
 
   if (!cart?.enabled) {
     return <p className="py-16 text-center text-muted">{t('disabled')}</p>;
@@ -215,6 +266,23 @@ export function CheckoutClient() {
         <Link href="/books" className="btn btn-quiet">
           {t('cartEmptyCta')}
         </Link>
+      </div>
+    );
+  }
+  if (bootstrapError) {
+    return (
+      <div role="alert" className="mx-auto flex max-w-md flex-col items-center gap-4 py-16 text-center">
+        <p className="text-lead text-muted">{t('errBootstrap')}</p>
+        <button
+          type="button"
+          onClick={() => {
+            started.current = true;
+            void runBootstrap();
+          }}
+          className="btn btn-solid"
+        >
+          {t('errRetry')}
+        </button>
       </div>
     );
   }

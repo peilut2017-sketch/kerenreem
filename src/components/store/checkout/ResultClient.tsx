@@ -4,32 +4,57 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { getResultState, type ResultState } from '@/lib/commerce/checkout-actions';
+import { useCart } from '../CartProvider';
 
 /**
  * מצב התוצאה בפועל: נקרא מהשרת ומרוענן כל 3 שניות עד דקה כשעדיין
  * pending (תרשים 19). כל אחד ממצבי פרק 7.5 מקבל מסך משלו; בשום נתיב
  * אין חיוב כפול — ניסיון חוזר ממחזר את אותה הזמנה.
+ *
+ * הסל מתרוקן *כאן בלבד*, ורק כשההזמנה אכן אושרה — לא ב-Checkout מיד
+ * אחרי היצירה. כך כשל/נטישה בדף הסליקה משאירים את הסל שלם ואת אפשרות
+ * "ניסיון תשלום חוזר" זמינה (סבב 1.4, קריטי-1).
  */
 export function ResultClient({ outcome }: { outcome: string }) {
   const t = useTranslations('store');
+  const cart = useCart();
   const [state, setState] = useState<ResultState | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const attempts = useRef(0);
+  const cleared = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     async function poll() {
-      const result = await getResultState();
-      if (cancelled) return;
-      setState(result);
-      const pending = result.found && result.paymentState === 'pending' && outcome !== 'created';
-      if (pending && attempts.current < 20) {
-        attempts.current += 1;
-        timer = setTimeout(poll, 3000);
-      } else if (pending) {
-        setTimedOut(true);
+      try {
+        const result = await getResultState();
+        if (cancelled) return;
+        setState(result);
+        const confirmed = result.found && (outcome === 'created' || result.paymentState === 'paid');
+        if (confirmed && !cleared.current) {
+          cleared.current = true;
+          cart?.clear();
+        }
+        const pending = result.found && result.paymentState === 'pending' && outcome !== 'created';
+        if (pending && attempts.current < 20) {
+          attempts.current += 1;
+          timer = setTimeout(poll, 3000);
+        } else if (pending) {
+          setTimedOut(true);
+        }
+      } catch {
+        // [1.4] כשל רשת בקריאה הזו לא אמור לתקוע את העמוד על שלד טעינה
+        // נצחי (לא הייתה הגנה כלל) — ניסיון חוזר לפי אותו תקציב כמו
+        // "pending", ורק אחריו נופלים לתצוגת "לא ידוע" הקיימת ממילא.
+        if (cancelled) return;
+        if (attempts.current < 20) {
+          attempts.current += 1;
+          timer = setTimeout(poll, 3000);
+        } else {
+          setTimedOut(true);
+        }
       }
     }
     void poll();
@@ -37,9 +62,18 @@ export function ResultClient({ outcome }: { outcome: string }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
+    // cart נגזר מ-context יציב; אין לרוץ שוב כשהוא מתחלף בזמן הריקון עצמו
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcome]);
 
   if (!state) {
+    // [1.4] אם לא הצלחנו אף פעם לקבל state (כשלי רשת חוזרים) — אחרי
+    // מיצוי הניסיונות עדיף תצוגת "לא ידוע" עם קישור למעקב, לא שלד נצחי
+    if (timedOut) {
+      return (
+        <Shell tone="neutral" title={t('resultUnknownTitle')} body={t('resultUnknownBody', { number: '—' })} t={t} />
+      );
+    }
     return (
       <div aria-hidden="true" className="mx-auto max-w-md space-y-4">
         <div className="h-8 animate-pulse rounded bg-cream-2" />

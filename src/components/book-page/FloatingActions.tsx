@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
 import { useCart } from '../store/CartProvider';
+import { AddToCartButton } from '../store/AddToCartButton';
+import type { BookAvailability } from '@/lib/supabase/types';
 
 /**
  * סרגל רכישה דביק — מופיע רק כשיש בכלל מה לקנות.
@@ -25,12 +27,20 @@ export function FloatingActions({
   title,
   price,
   showBuy,
+  availability,
 }: {
   bookId: string;
   title: string;
   /** מחיר מעוצב מראש — הרכיב אינו מעצב מטבע בעצמו. */
   price: string | null;
   showBuy: boolean;
+  /**
+   * [1.4] בעבר הכפתור כאן קרא cart.add() ישירות בלי לדעת זמינות בכלל —
+   * ספר שאזל קיבל כפתור "הוספה לסל" פעיל, האימות בשרת דחה אותו אחר כך
+   * בשקט (removedReason: 'out_of_stock'), והלקוח גילה בעגלה שהספר נעלם.
+   * עכשיו זה אותו <AddToCartButton> שמטפל נכון בארבעת מצבי הזמינות.
+   */
+  availability: BookAvailability;
 }) {
   const t = useTranslations('books');
   const cart = useCart();
@@ -95,17 +105,25 @@ export function FloatingActions({
           <span className="font-serif text-small text-cream">{price}</span>
         </p>
       ) : null}
-      <button
-        type="button"
-        onClick={() => {
-          // כשהעגלה פעילה — הוספה ישירה; אחרת גלילה לגוש הרכישה שב-Hero
-          if (cart?.enabled) cart.add(bookId, title);
-          else document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' });
-        }}
-        className="rounded-[var(--radius-md)] bg-gold px-4 py-2.5 text-small text-navy transition-colors hover:bg-gold-bright"
-      >
-        {t('addToCart')}
-      </button>
+      {cart?.enabled ? (
+        <AddToCartButton
+          bookId={bookId}
+          title={title}
+          availability={availability}
+          variant="solid"
+          className="w-full justify-center text-center"
+        />
+      ) : (
+        // העגלה כבויה כדגל — אין מה להוסיף; גלילה לגוש הרכישה האמיתי ב-Hero
+        // (הוא זה שמטפל נכון בזמינות כשהעגלה כבויה, לא משוכפל כאן)
+        <button
+          type="button"
+          onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' })}
+          className="rounded-[var(--radius-md)] bg-gold px-4 py-2.5 text-small text-navy transition-colors hover:bg-gold-bright"
+        >
+          {t('addToCart')}
+        </button>
+      )}
       <button
         type="button"
         aria-pressed={isFavourite}

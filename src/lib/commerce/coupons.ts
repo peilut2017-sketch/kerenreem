@@ -59,17 +59,23 @@ export interface CouponResult {
 
 const NO_COUPON: CouponResult = { ok: false, discountAmount: 0, freeShipping: false };
 
-/** שורות העגלה שהקופון חל עליהן — מחריג ספרים מוחרגים ומבצעים לא-ניתנים-לשילוב. */
+/**
+ * שורות העגלה שהקופון חל עליהן — מחריג ספרים מוחרגים ומבצעים
+ * לא-ניתנים-לשילוב. [1.4] תחולה לפי ספרים ו/או קטגוריות (כמו
+ * findBestPromotion): בלי book_ids/category_ids מוגדרים — כל העגלה;
+ * עם הגדרה — שורה זכאית אם היא בספרים המפורשים *או* בקטגוריה המפורשת.
+ */
 function eligibleAmount(cart: ValidatedCart, coupon: CouponRow): number {
   const applies = coupon.applies_to ?? {};
+  const hasScope = Boolean(applies.book_ids?.length) || Boolean(applies.category_ids?.length);
   const lines = cart.lines.filter((line) => {
     if (line.removedReason !== null) return false;
     if (applies.exclude_book_ids?.includes(line.bookId)) return false;
-    if (applies.book_ids && applies.book_ids.length > 0 && !applies.book_ids.includes(line.bookId)) {
-      return false;
-    }
     if (line.onSale && !coupon.combinable_with_sale) return false;
-    return true;
+    if (!hasScope) return true;
+    const inBooks = applies.book_ids?.includes(line.bookId) ?? false;
+    const inCategory = Boolean(line.categoryId) && (applies.category_ids?.includes(line.categoryId as string) ?? false);
+    return inBooks || inCategory;
   });
   return round2(lines.reduce((sum, line) => sum + line.lineTotal, 0));
 }

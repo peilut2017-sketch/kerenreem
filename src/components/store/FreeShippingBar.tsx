@@ -26,7 +26,7 @@ export function FreeShippingBar({ view }: { view: CartViewModel }) {
       void recordCommerceEvent('free_shipping_progress_shown', {
         sessionKey: cart.sessionKey,
         locale,
-      });
+      }).catch(() => {});
     }
   }, [threshold, cart, locale]);
 

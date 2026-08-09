@@ -10,7 +10,11 @@ export interface ManualOrderBook {
   id: string;
   title: string;
   sku: string | null;
+  /** [1.4] המחיר בתוקף עכשיו — מחיר מבצע כשיש (getEffectivePrice), לא price הגולמי */
   price: number | null;
+  /** המחיר הרגיל, רק כשהספר במבצע — לצוות, כדי להקריא ללקוח "יש לך מבצע" ולא לזייף */
+  originalPrice: number | null;
+  saleName: string | null;
   available: number | null;
 }
 
@@ -115,7 +119,7 @@ export function ManualOrderForm({
           <div className="relative">
             <AdminIcon
               name="search"
-              className="pointer-events-none absolute inset-inline-start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+              className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
             />
             <input
               type="search"
@@ -133,8 +137,18 @@ export function ManualOrderForm({
                       onClick={() => addItem(book.id)}
                       className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-start text-small hover:bg-[var(--admin-accent-soft)]"
                     >
-                      <span className="min-w-0 truncate text-ink">{book.title}</span>
+                      <span className="min-w-0 truncate text-ink">
+                        {book.title}
+                        {book.originalPrice != null ? (
+                          <span className="ms-1.5 rounded-[var(--radius-pill)] bg-[var(--admin-warning-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--admin-warning)]">
+                            מבצע
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="shrink-0 text-caption text-muted tabular-nums">
+                        {book.originalPrice != null ? (
+                          <span className="me-1 line-through">{book.originalPrice.toFixed(2)} ₪</span>
+                        ) : null}
                         {book.price?.toFixed(2)} ₪
                         {book.available != null ? ` · במלאי ${book.available}` : ''}
                       </span>
@@ -154,7 +168,14 @@ export function ManualOrderForm({
                 if (!book) return null;
                 return (
                   <li key={item.bookId} className="flex items-center gap-3 py-2.5 text-small">
-                    <span className="min-w-0 flex-1 truncate text-ink">{book.title}</span>
+                    <span className="min-w-0 flex-1 truncate text-ink">
+                      {book.title}
+                      {book.originalPrice != null ? (
+                        <span className="ms-1.5 rounded-[var(--radius-pill)] bg-[var(--admin-warning-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--admin-warning)]">
+                          מבצע
+                        </span>
+                      ) : null}
+                    </span>
                     <input
                       type="number"
                       dir="ltr"
@@ -173,7 +194,12 @@ export function ManualOrderForm({
                       }
                       className="admin-field-input w-20 py-1.5 text-center"
                     />
-                    <span className="w-24 text-end tabular-nums text-ink">
+                    <span className="w-28 text-end tabular-nums text-ink">
+                      {book.originalPrice != null ? (
+                        <span className="block text-caption leading-tight text-muted line-through">
+                          {(book.originalPrice * item.quantity).toFixed(2)} ₪
+                        </span>
+                      ) : null}
                       {((book.price ?? 0) * item.quantity).toFixed(2)} ₪
                     </span>
                     <button

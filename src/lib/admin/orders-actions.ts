@@ -11,11 +11,13 @@ import {
   transitionOrder,
   type StateAxis,
 } from '@/lib/commerce/orders';
-import { adjustStock, releaseStock, reserveStock, transferStock } from '@/lib/commerce/inventory';
+import { adjustStock, commitStock, releaseStock, reserveStock, transferStock } from '@/lib/commerce/inventory';
+import { recordCreditNote } from '@/lib/commerce/documents';
 import { sendOrderEmail, type EmailTemplate } from '@/lib/commerce/notifications';
 import { refundTransaction } from '@/lib/commerce/morning';
 import { createManualOrder } from '@/lib/commerce/manual-orders';
 import { startPayment } from '@/lib/commerce/payments';
+import { formatPromisedDate } from '@/lib/commerce/delivery-date';
 import type { Order, ShippingAddress } from '@/lib/supabase/types';
 
 /**
@@ -144,7 +146,12 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
   return { ok: true };
 }
 
-/** הוספת מספר מעקב — נשמר בציר הזמן + מייל "נשלח" עם המעקב. */
+/**
+ * הוספת מספר מעקב — נשמר על ההזמנה עצמה (לא רק בציר הזמן, כדי שיהיה
+ * ניתן להציג ולחפש), ורק *אחרי* מעבר מוצלח ל-shipped נרשם האירוע
+ * ונשלח המייל. [1.4] לפני התיקון הפונקציה החזירה {ok:true} גם כשהמעבר
+ * נכשל (למשל הזמנה שכבר נשלחה) — הצוות ראה "בוצע" בזמן שדבר לא קרה.
+ */
 export async function addTracking(
   orderId: string,
   input: { company: string; trackingNumber: string; trackingUrl?: string },
@@ -153,6 +160,23 @@ export async function addTracking(
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const transition = await transitionOrder(service, orderId, 'fulfillment_state', 'shipped', {
+    type: 'staff',
+    id: session.userId,
+  });
+  if (!transition.ok || !transition.order) {
+    return { ok: false, error: transition.error ?? 'לא ניתן לסמן את ההזמנה כנשלחה מהמצב הנוכחי' };
+  }
+
+  await service
+    .from('orders')
+    .update({
+      tracking_company: input.company.trim().slice(0, 80) || null,
+      tracking_number: input.trackingNumber.trim().slice(0, 80),
+      tracking_url: input.trackingUrl?.trim().slice(0, 500) || null,
+    })
+    .eq('id', orderId);
 
   await recordOrderEvent(service, orderId, 'tracking_added', {
     type: 'staff',
@@ -164,30 +188,25 @@ export async function addTracking(
     tracking_url: input.trackingUrl ?? null,
   });
 
-  const transition = await transitionOrder(service, orderId, 'fulfillment_state', 'shipped', {
-    type: 'staff',
-    id: session.userId,
+  // [1.3] פירוט מה שנשלח בפועל: אם סומן ליקוט חלקי — לפי picked_quantity
+  const { data: shippedItems } = await service
+    .from('order_items')
+    .select('title_snapshot, quantity, picked_quantity, line_total, unit_price')
+    .eq('order_id', orderId);
+  const anyPicked = (shippedItems ?? []).some((item) => item.picked_quantity != null);
+  const itemsForEmail = (shippedItems ?? [])
+    .map((item) => ({
+      title: item.title_snapshot ?? '',
+      quantity: anyPicked ? (item.picked_quantity ?? 0) : item.quantity,
+      lineTotal: Number(item.line_total ?? Number(item.unit_price) * item.quantity),
+    }))
+    .filter((item) => item.quantity > 0);
+  await sendOrderEmail(service, 'shipped', transition.order, {
+    trackingNumber: input.trackingNumber,
+    trackingUrl: input.trackingUrl ?? null,
+    items: itemsForEmail,
   });
-  if (transition.ok && transition.order) {
-    // [1.3] פירוט מה שנשלח בפועל: אם סומן ליקוט חלקי — לפי picked_quantity
-    const { data: shippedItems } = await service
-      .from('order_items')
-      .select('title_snapshot, quantity, picked_quantity, line_total, unit_price')
-      .eq('order_id', orderId);
-    const anyPicked = (shippedItems ?? []).some((item) => item.picked_quantity != null);
-    const itemsForEmail = (shippedItems ?? [])
-      .map((item) => ({
-        title: item.title_snapshot ?? '',
-        quantity: anyPicked ? (item.picked_quantity ?? 0) : item.quantity,
-        lineTotal: Number(item.line_total ?? Number(item.unit_price) * item.quantity),
-      }))
-      .filter((item) => item.quantity > 0);
-    await sendOrderEmail(service, 'shipped', transition.order, {
-      trackingNumber: input.trackingNumber,
-      trackingUrl: input.trackingUrl ?? null,
-      items: itemsForEmail,
-    });
-  }
+
   revalidateOrders(orderId);
   return { ok: true };
 }
@@ -251,6 +270,30 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
     id: session.userId,
   });
 
+  // [1.4] תשלום ידני חייב לעבור את אותו נתיב מלאי כמו תשלום מקוון —
+  // אחרת reserved לעולם לא משתחרר ו-on_hand לא יורד, וביטול מאוחר יותר
+  // מוסיף למלאי עותקים שמעולם לא הופחתו ממנו (ניפוח מלאי). אידמפוטנטי
+  // כמו commitStock בנתיב ה-Webhook — לא יזיק אם ירוץ פעמיים.
+  const { data: manualItems } = await service
+    .from('order_items')
+    .select('book_id, quantity, is_preorder')
+    .eq('order_id', orderId);
+  for (const item of manualItems ?? []) {
+    if (!item.book_id || item.is_preorder) continue;
+    await commitStock(service, item.book_id, item.quantity, orderId);
+  }
+  await transitionOrder(service, orderId, 'document_state', 'pending', {
+    type: 'staff',
+    id: session.userId,
+  });
+
+  const promisedLabel = order.promised_delivery_date
+    ? formatPromisedDate(new Date(order.promised_delivery_date), order.locale)
+    : null;
+  await sendOrderEmail(service, 'payment_received', { ...order, payment_state: 'paid' } as Order, {
+    promisedDateLabel: promisedLabel,
+  });
+
   const supabase = await createClient();
   if (supabase) {
     await supabase.from('audit_log').insert({
@@ -269,11 +312,18 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
 /**
  * זיכוי דרך מורנינג (תרשים 15): admin בלבד, תקרת הזיכוי נאכפת גם במסד
  * (טריגר enforce_refund_cap). אישור כפול נעשה ב-UI; כאן ההגנה האחרונה.
+ *
+ * [1.4] אידמפוטנטיות אמיתית: המפתח נגזר מ-idempotencyToken שהלקוח מייצר
+ * פעם אחת לכל ניסיון זיכוי (לא Date.now(), שהיה מייצר מפתח חדש בכל
+ * שליחה — כלומר שתי לחיצות = שני זיכויים בפועל, כי uq_payments_idempotency
+ * אף פעם לא נתקל באותו ערך פעמיים). לחיצה כפולה עם אותו טוקן פוגעת
+ * ב-23505 ומוחזרת כ"כבר בוצע" בלי לחייב את מורנינג פעם שנייה.
  */
 export async function refundOrder(
   orderId: string,
   amount: number,
   reason: string,
+  idempotencyToken?: string,
 ): Promise<OrderActionResult> {
   const session = await assertPermission('finance');
   if ('error' in session) return { ok: false, error: session.error };
@@ -293,7 +343,8 @@ export async function refundOrder(
     .maybeSingle();
   if (!charge) return { ok: false, error: 'לא נמצא חיוב שהצליח לזכות' };
 
-  const { data: refundRow, error: insertError } = await service
+  const idempotencyKey = `refund:${orderId}:${idempotencyToken ?? `notoken:${Date.now()}`}`;
+  const { data: insertedRow, error: insertError } = await service
     .from('payments')
     .insert({
       order_id: orderId,
@@ -304,14 +355,32 @@ export async function refundOrder(
       amount,
       currency: charge.currency,
       status: 'initiated',
-      idempotency_key: `refund:${orderId}:${Date.now()}`,
+      idempotency_key: idempotencyKey,
     })
     .select('*')
     .maybeSingle();
+
+  const refundRow = insertedRow;
   if (insertError || !refundRow) {
+    if (insertError?.code === '23505') {
+      const { data: existing } = await service
+        .from('payments')
+        .select('*')
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle();
+      if (existing?.status === 'succeeded') {
+        // אותו ניסיון זיכוי בדיוק כבר הצליח — לא לחייב/לזכות שוב
+        return { ok: true };
+      }
+      return {
+        ok: false,
+        error: 'בקשת הזיכוי הזו כבר בטיפול או נכשלה — רעננו את העמוד ונסו שוב',
+      };
+    }
     return { ok: false, error: insertError?.message ?? 'יצירת הזיכוי נכשלה (חריגה מהתקרה?)' };
   }
 
+  let morningDocumentId: string | null = null;
   if (charge.provider === 'morning' && charge.morning_transaction_id) {
     const morningResult = await refundTransaction({
       transactionId: charge.morning_transaction_id,
@@ -325,6 +394,7 @@ export async function refundOrder(
         .eq('id', refundRow.id);
       return { ok: false, error: `מורנינג דחתה את הזיכוי: ${morningResult.error}` };
     }
+    morningDocumentId = morningResult.data.documentId;
   }
 
   await service.from('payments').update({ status: 'succeeded' }).eq('id', refundRow.id);
@@ -351,6 +421,18 @@ export async function refundOrder(
     );
     await recordOrderEvent(service, orderId, 'refund_issued', actor, { amount, reason });
     await sendOrderEmail(service, 'refunded', orderRow as Order, { refundAmount: amount });
+
+    // [1.4] מסמך זיכוי: לפני התיקון ה-documentId שחוזר ממורנינג נזרק
+    // ו-document_state לא הגיע ל-credited לעולם. document_state עובר
+    // ל-credited רק בזיכוי *מלא* (המסמך המקורי עדיין תקף בזיכוי חלקי).
+    await recordCreditNote(service, orderRow as Order, {
+      morningDocId: morningDocumentId,
+      amount,
+      paymentId: refundRow.id,
+    });
+    if (fullyRefunded) {
+      await transitionOrder(service, orderId, 'document_state', 'credited', actor);
+    }
 
     // [1.1] השלמת ביטול שהמתין לזיכוי (תרשים 13): רק זיכוי *מלא* מעביר
     // ל-cancelled. פריטים שלא נשלחו משוחררים מהשמירה מיידית; פריטים

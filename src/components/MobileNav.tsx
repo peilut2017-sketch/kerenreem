@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { Link, usePathname } from '@/i18n/navigation';
 import { LocaleSwitch } from './LocaleSwitch';
+import { SearchDialog } from './SearchDialog';
 
 /**
  * תפריט למסכים צרים. נפתח כלוח מלא, נסגר ב-Escape או בניווט, ומחזיר את
@@ -22,8 +23,10 @@ export function MobileNav({
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const router = useRouter();
-  const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  // מפתח שמתקדם בכל פתיחה — מרכיב מחדש את SearchDialog עם state נקי,
+  // כמו ב-SearchLauncher.
+  const [searchInstance, setSearchInstance] = useState(0);
 
   // התפריט פתוח רק עבור העמוד שממנו נפתח. ניווט משנה את pathname ולכן
   // סוגר אותו מאליו — בלי useEffect שמאפס state אחרי הרינדור.
@@ -89,28 +92,24 @@ export function MobileNav({
         }`}
       >
         <div className="mx-auto w-full max-w-[82rem] px-5 py-6 sm:px-6">
-          <form
-            role="search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const q = query.trim();
-              router.push(q ? `/books?q=${encodeURIComponent(q)}` : '/books');
+          {/* [1.4] היה שדה שרק ניווט ל-/books?q=… בלי אף תוצאה חיה — עותק
+              שלישי של אותה בעיה (ראו SearchLauncher/SearchDialog). עכשיו
+              כפתור שפותח את אותו דיאלוג חיפוש עם תוצאות חיות ממשיות. */}
+          <button
+            type="button"
+            onClick={() => {
               setOpenedFor(null);
+              setSearchInstance((n) => n + 1);
+              setSearchOpen(true);
             }}
-            className="mb-5"
+            className="field-input mb-5 flex w-full items-center gap-2 text-start text-muted"
           >
-            <label htmlFor="mobile-search" className="sr-only">
-              {searchLabel}
-            </label>
-            <input
-              id="mobile-search"
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={searchLabel}
-              className="field-input"
-            />
-          </form>
+            <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
+              <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.6" />
+              <path d="m13.5 13.5 3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            {searchLabel}
+          </button>
 
           <nav aria-label={openLabel}>
             <ul className="space-y-1">
@@ -138,6 +137,8 @@ export function MobileNav({
           </div>
         </div>
       </div>
+
+      <SearchDialog key={searchInstance} open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

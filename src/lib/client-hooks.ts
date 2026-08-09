@@ -28,6 +28,30 @@ export function useReducedMotion(): boolean {
   );
 }
 
+function subscribeOnline(callback: () => void) {
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
+}
+
+/**
+ * [1.4] "אין שום התייחסות ל-offline — navigator.onLine מופיע 0 פעמים
+ * בקוד" (ביקורת המימוש, פער 23). navigator.onLine הוא רק ניתוק ודאי
+ * (Wi-Fi/מטוס) ולא ערובה לחיבור תקין — הוא לא מחליף try/catch על
+ * קריאות בפועל, רק נותן ללקוח שבאמת מנותק סיבה ברורה במקום שלד שקט.
+ * בשרת מניחים מחובר, כמו ברירת המחדל בדפדפן.
+ */
+export function useOnlineStatus(): boolean {
+  return useSyncExternalStore(
+    subscribeOnline,
+    () => navigator.onLine,
+    () => true,
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 
 /** מטמון לכל מפתח, כדי שכל הצרכנים יראו את אותו ערך ובלי לפענח JSON בכל רינדור. */
