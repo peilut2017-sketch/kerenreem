@@ -12,6 +12,7 @@ import { FloatingActions } from '@/components/book-page/FloatingActions';
 import { Gallery } from '@/components/book-page/Gallery';
 import { BookFlipViewer } from '@/components/book-page/BookFlipViewer';
 import { BookSampleViewer } from '@/components/book-page/BookSampleViewer';
+import { KnowledgeSpace } from '@/components/book-page/KnowledgeSpace';
 import { QuoteCards } from '@/components/book-page/QuoteCards';
 import { SeriesTimeline } from '@/components/book-page/SeriesTimeline';
 import { SpecGrid, type SpecItem } from '@/components/book-page/SpecGrid';
@@ -199,11 +200,18 @@ export default async function BookPage({
     connections.sameCategory.length > 0 ||
     connections.sameTags.length > 0;
 
+  // [1.6] "מרחב ידע" (ט.17) — תגיות נושא עם הסבר (description_he),
+  // בלי תגיות מערכת ("חדש"/"נבחר", ראו SmartTag.tsx)
+  const hasKnowledgeSpace = (book.tags ?? []).some(
+    (tag) => tag.slug !== 'new' && tag.slug !== 'bestseller' && tag.description_he,
+  );
+
   const sections = [
     { id: 'book-hero', label: t('navOverview') },
     description ? { id: 'book-summary', label: t('navSummary') } : null,
     previewPages.length > 0 || showInlineSample ? { id: 'book-sample', label: t('readSample') } : null,
     book.toc && book.toc.length > 0 ? { id: 'book-toc', label: t('navToc') } : null,
+    hasKnowledgeSpace ? { id: 'book-knowledge', label: t('navKnowledge') } : null,
     book.images && book.images.length > 0 ? { id: 'book-gallery', label: t('navGallery') } : null,
     author ? { id: 'book-author', label: t('navAuthor') } : null,
     book.series ? { id: 'book-series', label: t('navSeries') } : null,
@@ -397,6 +405,10 @@ export default async function BookPage({
         {book.quotes.length > 0 ? <QuoteCards quotes={book.quotes} t={t} /> : null}
 
         {book.toc && book.toc.length > 0 ? <TableOfContents entries={book.toc} /> : null}
+
+        {hasKnowledgeSpace ? (
+          <KnowledgeSpace tags={book.tags ?? []} locale={locale} title={t('navKnowledge')} />
+        ) : null}
 
         {book.images && book.images.length > 0 ? (
           <Gallery images={book.images} title={title} t={tValues} />

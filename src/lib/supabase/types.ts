@@ -829,6 +829,17 @@ export interface CheckoutSessionRecord {
 
 export type ShippingMethodKind = 'pickup' | 'flat' | 'by_weight' | 'by_total' | 'free_over';
 
+/** [1.6] אזור משלוח (ט.16) — כולל/מוציא רשימת ערים; shipping_methods.zone_id מפנה לכאן */
+export interface ShippingZone {
+  id: string;
+  name: string;
+  kind: 'include' | 'exclude';
+  cities: string[];
+  notes: string | null;
+  active: boolean;
+  created_at: string;
+}
+
 export interface ShippingMethod {
   id: string;
   slug: string;

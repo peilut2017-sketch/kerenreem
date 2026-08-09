@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 /**
@@ -27,6 +27,18 @@ export function BlockShell({
   children: ReactNode;
 }) {
   const t = useTranslations('store');
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // [1.6] העברת מיקוד בין בלוקים (ח.7): כשבלוק נפתח — גלילה חלקה אליו
+  // ומיקוד השדה הראשון בתוכו, כדי שלא יהיה צריך לגלול/ללחוץ ידנית.
+  useEffect(() => {
+    if (!open) return;
+    const node = contentRef.current;
+    if (!node) return;
+    node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    node.querySelector<HTMLElement>('input, select, textarea, button')?.focus({ preventScroll: true });
+  }, [open]);
+
   return (
     <section
       aria-labelledby={`checkout-block-${index}`}
@@ -39,7 +51,7 @@ export function BlockShell({
           <span
             aria-hidden="true"
             className={`flex h-7 w-7 items-center justify-center rounded-[var(--radius-pill)] text-small ${
-              done ? 'bg-gold text-navy' : 'bg-cream-2 text-ink-soft'
+              done ? 'bg-gold text-navy' : open ? 'bg-gold/20 text-burgundy ring-2 ring-gold' : 'bg-cream-2 text-ink-soft'
             }`}
           >
             {done ? '✓' : index}
@@ -58,7 +70,11 @@ export function BlockShell({
       </div>
 
       {!open && done && summary ? <div className="mt-2 text-small text-muted">{summary}</div> : null}
-      {open ? <div className="mt-5">{children}</div> : null}
+      {open ? (
+        <div ref={contentRef} className="mt-5 scroll-mt-24">
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }

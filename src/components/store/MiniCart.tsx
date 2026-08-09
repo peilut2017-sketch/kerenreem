@@ -93,8 +93,12 @@ export function MiniCart() {
         </div>
       ) : (
         <ul className="space-y-5">
-          {lines.map((line) => (
-            <li key={line.bookId} className="flex gap-3">
+          {lines.map((line, index) => (
+            <li
+              key={line.bookId}
+              className="flex gap-3 animate-[cart-row-in_260ms_var(--ease-spring)_backwards]"
+              style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
+            >
               <div className="w-14 shrink-0">
                 <BookCover src={line.coverImageUrl} title={line.title} alt="" sizes="56px" />
               </div>
@@ -106,6 +110,7 @@ export function MiniCart() {
                 >
                   {line.title}
                 </Link>
+                {line.author ? <p className="text-caption text-muted">{line.author}</p> : null}
                 {line.removedReason ? (
                   <p className="mt-1 text-caption text-burgundy">
                     {line.removedReason === 'out_of_stock' ? t('outOfStockLine') : t('unavailableLine')}

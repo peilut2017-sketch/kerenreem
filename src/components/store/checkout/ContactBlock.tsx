@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { BlockShell } from './BlockShell';
 import type { ActionResult } from '@/lib/commerce/checkout-actions';
 
 /**
  * בלוק 1 — זיהוי (פרק 7.1): טלפון תחילה, שם, מייל חובה עם ההסבר.
- * המשך כאורח הוא ברירת המחדל; אין שום מסך הרשמה בנתיב התשלום.
+ * המשך כאורח הוא ברירת המחדל; אין שום מסך הרשמה בנתיב התשלום. [1.6]
+ * קישור "יש לי חשבון" (ח.6) — שורה שקטה, לא חוסמת: לא הפניה כפויה
+ * ולא שדה נוסף לאורח שמתעלם ממנה, רק קיצור דרך למי שכבר יש לו חשבון.
  */
 
 export interface ContactValues {
@@ -75,6 +78,12 @@ export function ContactBlock({
       summary={done ? `${initial.name || values.name} · ${values.phone || initial.phone}` : undefined}
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <p className="text-caption text-muted">
+          {t('checkoutHaveAccount')}{' '}
+          <Link href="/account/login" className="text-burgundy underline-offset-2 hover:underline">
+            {t('checkoutSignIn')}
+          </Link>
+        </p>
         <Field
           id="checkout-phone"
           label={t('phone')}

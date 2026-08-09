@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/commerce/pricing';
 import { useCart } from './CartProvider';
 import { FreeShippingBar } from './FreeShippingBar';
 import { QuantityStepper } from './MiniCart';
+import { useLocalList } from '@/lib/client-hooks';
 
 /**
  * גוף עמוד העגלה (פרק 6.4) — רענון 1.1: שורות ככרטיסים קלים, קופון כבר
@@ -20,6 +21,7 @@ export function CartPageClient() {
   const locale = useLocale();
   const router = useRouter();
   const cart = useCart();
+  const favourites = useLocalList('kr:favourites');
 
   if (!cart?.enabled) {
     return <p className="py-16 text-center text-muted">{t('disabled')}</p>;
@@ -64,10 +66,14 @@ export function CartPageClient() {
             <ul className="space-y-1">
               {changes.map((change) => (
                 <li key={`${change.bookId}-${change.kind}`}>
-                  {change.kind === 'price'
-                    ? t('priceChangedNote', { title: change.title })
-                    : change.kind === 'quantity'
-                      ? `${change.title}: ${t('quantityAdjusted')}`
+                  {change.kind === 'price' && change.previousPrice != null && change.newPrice != null
+                    ? t('priceChangedNoteAmounts', {
+                        title: change.title,
+                        oldPrice: formatPrice(change.previousPrice, locale),
+                        newPrice: formatPrice(change.newPrice, locale),
+                      })
+                    : change.kind === 'quantity' && change.availableQuantity != null
+                      ? t('quantityAdjustedAmounts', { title: change.title, available: change.availableQuantity })
                       : `${change.title}: ${t('unavailableLine')}`}
                 </li>
               ))}
@@ -86,12 +92,15 @@ export function CartPageClient() {
               </Link>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <Link
-                    href={`/books/${line.slug}`}
-                    className="font-serif text-[1.0625rem] leading-snug text-ink hover:text-burgundy"
-                  >
-                    {line.title}
-                  </Link>
+                  <span className="min-w-0">
+                    <Link
+                      href={`/books/${line.slug}`}
+                      className="font-serif text-[1.0625rem] leading-snug text-ink hover:text-burgundy"
+                    >
+                      {line.title}
+                    </Link>
+                    {line.author ? <span className="block text-caption text-muted">{line.author}</span> : null}
+                  </span>
                   {line.removedReason === null ? (
                     <span className="inline-flex items-baseline gap-2 text-ink tabular-nums">
                       {line.onSale && line.originalUnitPrice != null ? (
@@ -124,17 +133,31 @@ export function CartPageClient() {
                     {line.isPreorder ? (
                       <span className="text-caption text-muted">{t('statusPendingPayment')}</span>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={() => cart.remove(line.bookId)}
-                      aria-label={`${t('remove')} — ${line.title}`}
-                      className="ms-auto inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1.5 text-caption text-muted transition-colors hover:bg-burgundy/10 hover:text-burgundy"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                        <path d="M4.5 6.5h15M8 6.5V5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5v1.5M6.5 6.5 7.3 19a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12.5" />
-                      </svg>
-                      {t('remove')}
-                    </button>
+                    <span className="ms-auto flex items-center gap-1">
+                      {!favourites.has(line.bookId) ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            favourites.toggle(line.bookId);
+                            cart.remove(line.bookId);
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1.5 text-caption text-muted transition-colors hover:bg-gold/10 hover:text-burgundy"
+                        >
+                          {t('saveForLater')}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => cart.remove(line.bookId)}
+                        aria-label={`${t('remove')} — ${line.title}`}
+                        className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1.5 text-caption text-muted transition-colors hover:bg-burgundy/10 hover:text-burgundy"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                          <path d="M4.5 6.5h15M8 6.5V5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5v1.5M6.5 6.5 7.3 19a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12.5" />
+                        </svg>
+                        {t('remove')}
+                      </button>
+                    </span>
                   </div>
                 )}
               </div>

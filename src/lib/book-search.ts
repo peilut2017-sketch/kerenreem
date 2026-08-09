@@ -109,6 +109,8 @@ export interface Filters {
   tags: string[];
   attributeValues: string[];
   languages: string[];
+  /** [1.6] מסנן סדרה (ח.17) — multi-select כמו authors, גם אם רוב הספרים בסדרה אחת */
+  series: string[];
   yearFrom: number | null;
   yearTo: number | null;
   multiVolume: boolean;
@@ -126,6 +128,7 @@ export const EMPTY_FILTERS: Filters = {
   tags: [],
   attributeValues: [],
   languages: [],
+  series: [],
   yearFrom: null,
   yearTo: null,
   multiVolume: false,
@@ -142,6 +145,7 @@ export function countActiveFilters(filters: Filters): number {
     filters.tags.length +
     filters.attributeValues.length +
     filters.languages.length +
+    filters.series.length +
     (filters.yearFrom !== null || filters.yearTo !== null ? 1 : 0) +
     (filters.multiVolume ? 1 : 0) +
     (filters.withSample ? 1 : 0) +
@@ -166,6 +170,7 @@ export function applyFilters(
     if (filters.category && book.category?.slug !== filters.category) return false;
     if (filters.authors.length && !filters.authors.includes(book.author?.slug ?? '')) return false;
     if (filters.bindings.length && !filters.bindings.includes(book.binding ?? '')) return false;
+    if (filters.series.length && !filters.series.includes(book.series?.slug ?? '')) return false;
 
     // כל תגית שנבחרה חייבת להימצא: בחירת "שבת" ו"הלכה" מבקשת ספרים
     // ששייכים לשניהם, לא לאחד מהם. איחוד היה מרחיב את התוצאה בכל לחיצה

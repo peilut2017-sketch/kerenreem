@@ -30,6 +30,12 @@ export interface TrackedOrder {
     | 'created_at'
     | 'locale'
     | 'user_id'
+    // [1.6] כתובת ומספר מעקב (ח.13) — כבר נשלפים ב-select('*') למטה, רק
+    // חסרים מהטיפוס המצומצם; המרחב חסר בטבלה בלבד, לא בשאילתה
+    | 'shipping_address'
+    | 'tracking_company'
+    | 'tracking_number'
+    | 'tracking_url'
   >;
   items: Pick<OrderItem, 'title_snapshot' | 'quantity' | 'unit_price' | 'line_total'>[];
   statusKey: string;

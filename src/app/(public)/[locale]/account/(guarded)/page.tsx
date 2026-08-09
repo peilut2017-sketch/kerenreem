@@ -6,6 +6,7 @@ import {
   ensureCustomerRecord,
   getCustomerSession,
   getMyDocuments,
+  getMyOrderCovers,
   getMyOrders,
   getMySavedBooks,
 } from '@/lib/commerce/account';
@@ -15,6 +16,7 @@ import { getBooksByIds } from '@/lib/data';
 import { AccountClientSection } from '@/components/store/account/AccountClientSection';
 import { AccountTabs } from '@/components/store/account/AccountTabs';
 import { BookCardGrid } from '@/components/books/BookCardGrid';
+import { BookCover } from '@/components/BookCover';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +65,8 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
     timeZone: 'Asia/Jerusalem',
   });
   const ordersPreview = orders.slice(0, 5);
+  // [1.6] כריכות לכרטיסי ההזמנות (ח.15) — רק עבור התצוגה המקדימה המוצגת בפועל
+  const orderCovers = await getMyOrderCovers(ordersPreview.map((order) => order.id));
 
   return (
     <>
@@ -133,29 +137,42 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
               ) : (
                 <>
                   <ul className="divide-y divide-rule rounded-[var(--radius-lg)] border border-rule bg-cream shadow-[var(--shadow-soft)]">
-                    {ordersPreview.map((order) => (
-                      <li key={order.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                        <span>
-                          <Link
-                            href={`/account/orders/${order.order_number}`}
-                            className="font-semibold text-ink tabular-nums underline-offset-2 hover:text-burgundy hover:underline"
-                          >
-                            {t('trackOrderNumber', { number: order.order_number })}
-                          </Link>
-                          <span className="ms-3 text-caption text-muted">
-                            {dateFormatter.format(new Date(order.created_at))}
+                    {ordersPreview.map((order) => {
+                      const cover = orderCovers[order.id];
+                      return (
+                        <li key={order.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                          <span className="flex items-center gap-3">
+                            <span className="w-10 shrink-0">
+                              <BookCover src={cover?.coverImageUrl ?? null} title="" alt="" sizes="40px" />
+                            </span>
+                            <span>
+                              <Link
+                                href={`/account/orders/${order.order_number}`}
+                                className="font-semibold text-ink tabular-nums underline-offset-2 hover:text-burgundy hover:underline"
+                              >
+                                {t('trackOrderNumber', { number: order.order_number })}
+                              </Link>
+                              <span className="ms-3 text-caption text-muted">
+                                {dateFormatter.format(new Date(order.created_at))}
+                              </span>
+                              {cover && cover.itemCount > 1 ? (
+                                <span className="ms-2 text-caption text-muted">
+                                  {t('accountOrderMoreItems', { count: cover.itemCount - 1 })}
+                                </span>
+                              ) : null}
+                            </span>
                           </span>
-                        </span>
-                        <span className="flex items-center gap-4">
-                          <span className="rounded-[var(--radius-pill)] bg-cream-2 px-3 py-1 text-caption text-ink-soft">
-                            {t(customerStatusKey(order) as 'statusReceived')}
+                          <span className="flex items-center gap-4">
+                            <span className="rounded-[var(--radius-pill)] bg-cream-2 px-3 py-1 text-caption text-ink-soft">
+                              {t(customerStatusKey(order) as 'statusReceived')}
+                            </span>
+                            <span className="font-serif text-ink tabular-nums">
+                              {formatPrice(order.total, locale, { alwaysAgorot: true })}
+                            </span>
                           </span>
-                          <span className="font-serif text-ink tabular-nums">
-                            {formatPrice(order.total, locale, { alwaysAgorot: true })}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                   {orders.length > ordersPreview.length ? (
                     <p className="mt-4 text-center">

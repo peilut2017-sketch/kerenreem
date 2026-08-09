@@ -138,6 +138,51 @@ export async function getMyOrders(): Promise<Order[]> {
   return (data ?? []) as Order[];
 }
 
+export interface OrderCoverInfo {
+  coverImageUrl: string | null;
+  itemCount: number;
+}
+
+/**
+ * [1.6] כריכה ראשונה + מספר פריטים לכל הזמנה (ח.15) — לכרטיסי ההזמנות
+ * באזור האישי, שהיו שורות טקסט בלבד. שני שלבים (order_items ואז books),
+ * לא PostgREST embed — אותו עיקרון כמו שאר השאילתאות הכפולות במסמך הזה.
+ */
+export async function getMyOrderCovers(orderIds: string[]): Promise<Record<string, OrderCoverInfo>> {
+  const supabase = await createClient();
+  if (!supabase || orderIds.length === 0) return {};
+
+  const { data: items } = await supabase
+    .from('order_items')
+    .select('order_id, book_id')
+    .in('order_id', orderIds)
+    .order('id', { ascending: true });
+  const rows = (items ?? []) as { order_id: string; book_id: string | null }[];
+  if (rows.length === 0) return {};
+
+  const bookIds = [...new Set(rows.map((row) => row.book_id).filter((id): id is string => id != null))];
+  const { data: books } =
+    bookIds.length > 0
+      ? await supabase.from('books').select('id, cover_image_url').in('id', bookIds)
+      : { data: [] };
+  const coverById = new Map(
+    ((books ?? []) as { id: string; cover_image_url: string | null }[]).map((b) => [b.id, b.cover_image_url]),
+  );
+
+  const result: Record<string, OrderCoverInfo> = {};
+  for (const row of rows) {
+    const cover = row.book_id ? (coverById.get(row.book_id) ?? null) : null;
+    const existing = result[row.order_id];
+    if (!existing) {
+      result[row.order_id] = { coverImageUrl: cover, itemCount: 1 };
+    } else {
+      existing.itemCount += 1;
+      if (!existing.coverImageUrl && cover) existing.coverImageUrl = cover;
+    }
+  }
+  return result;
+}
+
 export async function getMyOrderByNumber(orderNumber: number): Promise<Order | null> {
   const supabase = await createClient();
   if (!supabase) return null;

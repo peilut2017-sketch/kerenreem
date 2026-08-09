@@ -6,7 +6,9 @@ import { Drawer } from '../Drawer';
 import { localized } from '@/lib/localized';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { countActiveFilters, type Filters } from '@/lib/book-search';
-import type { Author, AttributeWithValues, Tag } from '@/lib/supabase/types';
+import type { Author, AttributeWithValues, Series, Tag } from '@/lib/supabase/types';
+
+type SeriesOption = Pick<Series, 'id' | 'slug' | 'name_he' | 'name_en'>;
 
 /**
  * מגירת הסינון.
@@ -22,6 +24,7 @@ export function FilterDrawer({
   authors,
   bindings,
   tags,
+  series,
   attributes,
   languages,
   years,
@@ -34,6 +37,7 @@ export function FilterDrawer({
   authors: Author[];
   bindings: string[];
   tags: Tag[];
+  series: SeriesOption[];
   attributes: AttributeWithValues[];
   languages: { code: string; label: string }[];
   years: { min: number; max: number } | null;
@@ -101,6 +105,7 @@ export function FilterDrawer({
                     authors: [],
                     bindings: [],
                     tags: [],
+                    series: [],
                     attributeValues: [],
                     languages: [],
                     yearFrom: null,
@@ -172,6 +177,19 @@ export function FilterDrawer({
                   );
                 })}
               </div>
+            </Group>
+          ) : null}
+
+          {series.length > 0 ? (
+            <Group title={t('filterSeries')}>
+              {series.map((item) => (
+                <Check
+                  key={item.id}
+                  label={localized(item, 'name', locale)}
+                  checked={filters.series.includes(item.slug)}
+                  onChange={() => set('series', toggleIn(filters.series, item.slug))}
+                />
+              ))}
             </Group>
           ) : null}
 

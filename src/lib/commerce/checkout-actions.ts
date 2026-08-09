@@ -31,6 +31,8 @@ import { getCustomerSession, getMyAddresses } from './account';
 
 const SESSION_COOKIE = 'kr-checkout';
 const SESSION_TTL_DAYS = 7;
+/** [1.6] טוקן המעקב הגולמי — לעולם לא נשמר במסד; עוגייה קצרת-חיים מעבירה אותו לעמוד התודה (ח.12) */
+const TRACK_TOKEN_COOKIE = 'kr-track-token';
 
 async function readSessionId(): Promise<string | null> {
   const store = await cookies();
@@ -88,11 +90,15 @@ export interface CheckoutBootstrap {
   installments: { minTotal: number; max: number } | null;
   supportPhone: string | null;
   pickup: { address: Record<string, string>; hours: string | null } | null;
+  /** [1.6] שיעור מע"מ להצגה בסיכום (ח.10) — 0 כש-vat_mode אינו included, כמו ב-computeTotals */
+  vatRate: number;
 }
 
 async function buildMethodOptions(
   cart: ValidatedCart,
   locale: string,
+  /** [1.6] אכיפת אזור משלוח (ט.16) — undefined כשעדיין אין כתובת ידועה */
+  city?: string | null,
 ): Promise<MethodOption[]> {
   const settings = await getStoreSettings();
   const available = await getAvailableMethods(
@@ -102,6 +108,7 @@ async function buildMethodOptions(
       freeShippingEligible: cart.freeShippingEligible,
     },
     settings,
+    city,
   );
   return available.map(({ method, price }: AvailableMethod) => {
     const promised = getPromisedDate({
@@ -146,6 +153,7 @@ export async function startCheckout(
     installments: null,
     supportPhone: null,
     pickup: null,
+    vatRate: 0,
   };
   if (!flags.checkoutEnabled) return disabled;
 
@@ -263,7 +271,9 @@ export async function startCheckout(
           combinableWithCoupon: promoResult.promotion.combinable_with_coupon,
         }
       : null,
-    methods: await buildMethodOptions(cart, locale),
+    // [1.6] אם כבר יש כתובת ידועה (session שחזר, או ברירת מחדל מהחשבון
+    // שמולאה למעלה) — הרשימה כבר מסוננת לאזור מההתחלה, לא רק ב-placeOrder
+    methods: await buildMethodOptions(cart, locale, fulfillment?.address?.city),
     installments:
       settings.installments_min_total <= cart.subtotal
         ? { minTotal: settings.installments_min_total, max: settings.installments_max }
@@ -272,6 +282,7 @@ export async function startCheckout(
     pickup: settings.pickup_enabled
       ? { address: settings.pickup_address, hours: settings.pickup_hours }
       : null,
+    vatRate: settings.vat_mode === 'included' ? settings.vat_rate : 0,
   };
 }
 
@@ -476,7 +487,10 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   if (cart.totalQuantity === 0) return { ok: false, error: 'unavailable' };
 
   const settings = await getStoreSettings();
-  const methods = await buildMethodOptions(cart, session.locale);
+  // [1.6] אכיפת אזור משלוח בפועל (ט.16): הכתובת שהלקוח אישר בבלוק 2 —
+  // אם השיטה שנבחרה משויכת לאזור שלא כולל את העיר הזו, היא לא תימצא
+  // ברשימה כאן, וההזמנה תיעצר עם error:'fulfillment' בדיוק כמו שיטה שבוטלה
+  const methods = await buildMethodOptions(cart, session.locale, fulfillment.address?.city);
   const method = methods.find((m) => m.id === fulfillment.method_id);
   if (!method) return { ok: false, error: 'fulfillment' };
 
@@ -556,6 +570,21 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   const trackUrl = created.guestToken
     ? `${siteUrl}/orders/track/${created.guestToken}`
     : undefined;
+
+  // [1.6] קישור מעקב בעמוד התודה (ח.12, ביקורת ב.23) — הטוקן הגולמי לעולם
+  // אינו נשמר במסד (רק ה-hash שלו), כך שעמוד /checkout/result לא יכול
+  // לשחזר אותו משם. עוגיית httpOnly קצרת-חיים, כמו kr-checkout, מעבירה
+  // אותו הלאה בלי לחשוף אותו ב-URL/היסטוריה — לא ב-query string.
+  if (created.guestToken) {
+    const store = await cookies();
+    store.set(TRACK_TOKEN_COOKIE, created.guestToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 15 * 60,
+    });
+  }
 
   if (service && coupon && session.contact_phone) {
     await recordRedemption(service, {
@@ -699,6 +728,8 @@ export interface ResultState {
   promisedDateLabel?: string | null;
   supportPhone?: string | null;
   accountsEnabled?: boolean;
+  /** [1.6] קישור מעקב אורח (ח.12) — מהעוגייה הקצרה, לא מהמסד (רק ה-hash נשמר שם) */
+  trackToken?: string | null;
 }
 
 /**
@@ -722,6 +753,7 @@ export async function getResultState(): Promise<ResultState> {
 
   const settings = await getStoreSettings();
   const flags = await getCommerceFlags();
+  const store = await cookies();
   return {
     found: true,
     orderNumber: order.order_number,
@@ -733,6 +765,7 @@ export async function getResultState(): Promise<ResultState> {
       : null,
     supportPhone: settings.support_phone,
     accountsEnabled: flags.accountsEnabled,
+    trackToken: store.get(TRACK_TOKEN_COOKIE)?.value ?? null,
   };
 }
 

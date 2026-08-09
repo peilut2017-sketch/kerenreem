@@ -30,10 +30,13 @@ export async function generateMetadata({
 
 const STEP_ORDER = ['stepOrdered', 'stepPaid', 'stepPreparing', 'stepShipped', 'stepDelivered'];
 
-function stepsFor(statusKey: string, isPickup: boolean): { key: string; reached: boolean }[] {
+/** [1.6] "done" ≠ "current" (ח.14) — השלב הנוכחי עוד לא הושלם, רק החל */
+type StepState = 'done' | 'current' | 'upcoming';
+
+function stepsFor(statusKey: string, isPickup: boolean): { key: string; state: StepState }[] {
   const shippedKey = isPickup ? 'stepPickup' : 'stepShipped';
   const sequence = STEP_ORDER.map((key) => (key === 'stepShipped' ? shippedKey : key));
-  const reachedIndex =
+  const currentIndex =
     statusKey === 'statusPendingPayment' || statusKey === 'statusPaymentFailed'
       ? 0
       : statusKey === 'statusReceived'
@@ -45,7 +48,10 @@ function stepsFor(statusKey: string, isPickup: boolean): { key: string; reached:
             : statusKey === 'statusDelivered'
               ? 4
               : 1;
-  return sequence.map((key, index) => ({ key, reached: index <= reachedIndex }));
+  return sequence.map((key, index) => ({
+    key,
+    state: index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'upcoming',
+  }));
 }
 
 export default async function TrackOrderPage({
@@ -102,20 +108,26 @@ export default async function TrackOrderPage({
               <span className="flex flex-col items-center gap-1.5 text-center">
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-caption font-bold ${
-                    step.reached ? 'bg-gold text-navy' : 'bg-cream-2 text-muted'
+                    step.state === 'done'
+                      ? 'bg-gold text-navy'
+                      : step.state === 'current'
+                        ? 'bg-gold/20 text-burgundy ring-2 ring-gold'
+                        : 'bg-cream-2 text-muted'
                   }`}
                   aria-hidden="true"
                 >
-                  {step.reached ? '✓' : index + 1}
+                  {step.state === 'done' ? '✓' : step.state === 'current' ? '●' : index + 1}
                 </span>
-                <span className={`text-caption ${step.reached ? 'text-ink' : 'text-muted'}`}>
+                <span
+                  className={`text-caption ${step.state === 'upcoming' ? 'text-muted' : 'text-ink'} ${step.state === 'current' ? 'font-semibold' : ''}`}
+                >
                   {t(step.key as 'stepOrdered')}
                 </span>
               </span>
               {index < steps.length - 1 ? (
                 <span
                   aria-hidden="true"
-                  className={`mx-1 h-0.5 flex-1 rounded ${step.reached ? 'bg-gold' : 'bg-cream-2'}`}
+                  className={`mx-1 h-0.5 flex-1 rounded ${step.state === 'done' ? 'bg-gold' : 'bg-cream-2'}`}
                 />
               ) : null}
             </li>
@@ -173,6 +185,45 @@ export default async function TrackOrderPage({
           </p>
         ) : null}
       </section>
+
+      {/* [1.6] כתובת ומספר מעקב (ח.13) — היו קיימים במסד, לא מוצגים כלל בעמוד */}
+      {!isPickup && order.shipping_address ? (
+        <section className="mt-6 rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-6 shadow-[var(--shadow-soft)]">
+          <h2 className="font-serif text-h3 text-ink">{t('trackAddressTitle')}</h2>
+          <address className="mt-3 space-y-0.5 not-italic text-small text-ink-soft">
+            <p className="text-ink">{order.shipping_address.recipient_name}</p>
+            <p>
+              {order.shipping_address.street} {order.shipping_address.house_number}
+              {order.shipping_address.entrance ? `/${order.shipping_address.entrance}` : ''}
+              {order.shipping_address.floor ? `, ${t('floor')} ${order.shipping_address.floor}` : ''}
+              {order.shipping_address.apartment ? `, ${t('apartment')} ${order.shipping_address.apartment}` : ''}
+            </p>
+            <p>
+              {order.shipping_address.city}
+              {order.shipping_address.zip ? ` ${order.shipping_address.zip}` : ''}
+            </p>
+          </address>
+          {order.tracking_number ? (
+            <p className="mt-4 border-t border-rule pt-3 text-small text-ink-soft">
+              {t('trackTrackingNumber', { number: order.tracking_number })}
+              {order.tracking_company ? ` · ${order.tracking_company}` : ''}
+              {order.tracking_url ? (
+                <>
+                  {' · '}
+                  <a
+                    href={order.tracking_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-burgundy underline underline-offset-2"
+                  >
+                    {t('trackCarrierLink')}
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {cancelEligible ? <TrackCancelRequest token={token} /> : null}
 

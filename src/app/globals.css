@@ -721,3 +721,11 @@ html[data-a11y-motion='off'] .group:hover .icon-chip { transform: none !importan
 @media (prefers-reduced-motion: reduce) {
   .animate-\[fav_320ms_var\(--ease-spring\)\] { animation: none; }
 }
+
+/* --------------------------------------------------------------------------
+   מיני-סל — הופעת שורות מדורגת (ח.1)
+   -------------------------------------------------------------------------- */
+@keyframes cart-row-in {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}

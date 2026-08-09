@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react';
 import { saveShippingMethod, type ShippingFormState } from '@/lib/admin/shipping-actions';
 import { SubmitButton } from '../SubmitButton';
-import type { ShippingMethod } from '@/lib/supabase/types';
+import type { ShippingMethod, ShippingZone } from '@/lib/supabase/types';
 
 const KIND_LABELS: Record<string, string> = {
   pickup: 'איסוף עצמי',
@@ -14,7 +14,7 @@ const KIND_LABELS: Record<string, string> = {
 };
 
 /** רשימת השיטות + טופס עריכה/יצירה אחד. הכל בעמוד — בלי ניווט משנה. */
-export function ShippingManager({ methods }: { methods: ShippingMethod[] }) {
+export function ShippingManager({ methods, zones }: { methods: ShippingMethod[]; zones: ShippingZone[] }) {
   const [selected, setSelected] = useState<ShippingMethod | null>(null);
   const [creating, setCreating] = useState(false);
   const [state, formAction] = useActionState<ShippingFormState, FormData>(saveShippingMethod, {
@@ -22,11 +22,13 @@ export function ShippingManager({ methods }: { methods: ShippingMethod[] }) {
   });
 
   const editing = creating ? null : selected;
+  const zoneName = (zoneId: string | null) =>
+    zoneId ? (zones.find((zone) => zone.id === zoneId)?.name ?? 'אזור שנמחק') : 'כל הארץ';
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_24rem]">
       <div className="admin-card admin-table-wrap">
-        <table className="admin-table w-full min-w-[38rem] text-small">
+        <table className="admin-table w-full min-w-[42rem] text-small">
           <thead>
             <tr className="border-b border-rule text-caption text-muted">
               <th className="px-4 py-3 text-start">שיטה</th>
@@ -34,6 +36,7 @@ export function ShippingManager({ methods }: { methods: ShippingMethod[] }) {
               <th className="px-4 py-3 text-start">מחיר</th>
               <th className="px-4 py-3 text-start">ימי עסקים</th>
               <th className="px-4 py-3 text-start">חינם מעל</th>
+              <th className="px-4 py-3 text-start">אזור</th>
               <th className="px-4 py-3 text-start">מצב</th>
               <th className="px-4 py-3 text-start" />
             </tr>
@@ -48,6 +51,7 @@ export function ShippingManager({ methods }: { methods: ShippingMethod[] }) {
                 <td className="px-4 py-2.5 tabular-nums">
                   {method.free_over != null ? `${Number(method.free_over)} ₪` : '—'}
                 </td>
+                <td className="px-4 py-2.5 text-muted">{zoneName(method.zone_id)}</td>
                 <td className="px-4 py-2.5">
                   <span className={`admin-badge ${method.active ? 'admin-badge-success' : 'admin-badge-neutral'}`}>
                     {method.active ? 'פעילה' : 'כבויה'}
@@ -154,6 +158,20 @@ export function ShippingManager({ methods }: { methods: ShippingMethod[] }) {
               <label htmlFor="sm-sort" className="admin-field-label">סדר תצוגה</label>
               <input id="sm-sort" name="sort_order" type="number" dir="ltr" defaultValue={editing?.sort_order ?? 0} className="admin-field-input" />
             </div>
+          </div>
+          <div>
+            <label htmlFor="sm-zone" className="admin-field-label">אזור משלוח</label>
+            <select id="sm-zone" name="zone_id" defaultValue={editing?.zone_id ?? ''} className="admin-field-input">
+              <option value="">כל הארץ (בלי הגבלת אזור)</option>
+              {zones.map((zone) => (
+                <option key={zone.id} value={zone.id}>
+                  {zone.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-caption text-muted">
+              ללא בחירה — השיטה זמינה לכל עיר. שיוך לאזור מסנן אותה בקופה לפי עיר היעד.
+            </p>
           </div>
           <label className="flex items-center gap-2 text-small text-ink-soft">
             <input type="checkbox" name="active" defaultChecked={editing?.active ?? true} className="h-4 w-4" />

@@ -10,6 +10,7 @@ import { BookListRow } from './BookListRow';
 import { BooksHero } from './BooksHero';
 import { useLocalList } from '@/lib/client-hooks';
 import { localized } from '@/lib/localized';
+import { formatPrice } from '@/lib/commerce/pricing';
 import {
   applyFilters,
   searchCorpus,
@@ -24,8 +25,11 @@ import type {
   Author,
   BookWithRelations,
   Category,
+  Series,
   Tag,
 } from '@/lib/supabase/types';
+
+type SeriesOption = Pick<Series, 'id' | 'slug' | 'name_he' | 'name_en'>;
 
 /** שמות השפות לתצוגה. הרשימה סגורה וזהה לזו שבטופס הניהול. */
 /** קוד שפה → מפתח תרגום. שם השפה עצמו מתורגם, אחרת מבקר אנגלי רואה "עברית". */
@@ -180,6 +184,16 @@ export function Catalogue({
     [books],
   );
 
+  // [1.6] מסנן סדרה (ח.17) — רק סדרות שיש להן כרגע ספר מפורסם בקטלוג,
+  // אותו עיקרון בדיוק כמו bindings/languages למעלה
+  const seriesOptions = useMemo(() => {
+    const map = new Map<string, SeriesOption>();
+    for (const book of books) {
+      if (book.series) map.set(book.series.slug, book.series);
+    }
+    return [...map.values()];
+  }, [books]);
+
   const years = useMemo(() => {
     const list = books
       .map((book) => book.publication_year_ce)
@@ -252,6 +266,7 @@ export function Catalogue({
             authors={authors}
             bindings={bindings}
             tags={tags}
+            series={seriesOptions}
             attributes={attributes}
             languages={languages}
             years={years}
@@ -260,6 +275,17 @@ export function Catalogue({
             maxPrice={maxPrice}
           />
         }
+      />
+
+      <ActiveFilterChips
+        filters={filters}
+        authors={authors}
+        tags={tags}
+        seriesOptions={seriesOptions}
+        attributes={attributes}
+        languages={languages}
+        locale={locale}
+        onChange={changeFilters}
       />
 
       {shown.length > 0 ? (
@@ -354,6 +380,155 @@ function Chip({
         {label}
       </button>
     </li>
+  );
+}
+
+/**
+ * [1.6] שבבי מסנן פעילים (ח.17) — לעומת תג הספירה על כפתור הסינון,
+ * כל שבב כאן ניתן להסרה עצמאית בלי לפתוח את המגירה מחדש. לא כולל את
+ * קטגוריית-העל (הצ'יפים למעלה) ואת query — לשניהם כבר יש דרך משלהם
+ * להתאפס (בחירת "הכול", ניקוי שדה החיפוש).
+ */
+function ActiveFilterChips({
+  filters,
+  authors,
+  tags,
+  seriesOptions,
+  attributes,
+  languages,
+  locale,
+  onChange,
+}: {
+  filters: Filters;
+  authors: Author[];
+  tags: Tag[];
+  seriesOptions: SeriesOption[];
+  attributes: AttributeWithValues[];
+  languages: { code: string; label: string }[];
+  locale: string;
+  onChange: (next: Filters) => void;
+}) {
+  const t = useTranslations('books');
+  const chips: { key: string; label: string; onRemove: () => void }[] = [];
+
+  for (const slug of filters.authors) {
+    const author = authors.find((a) => a.slug === slug);
+    if (!author) continue;
+    chips.push({
+      key: `author-${slug}`,
+      label: localized(author, 'name', locale),
+      onRemove: () => onChange({ ...filters, authors: filters.authors.filter((s) => s !== slug) }),
+    });
+  }
+  for (const slug of filters.tags) {
+    const tag = tags.find((item) => item.slug === slug);
+    if (!tag) continue;
+    chips.push({
+      key: `tag-${slug}`,
+      label: localized(tag, 'name', locale),
+      onRemove: () => onChange({ ...filters, tags: filters.tags.filter((s) => s !== slug) }),
+    });
+  }
+  for (const slug of filters.series) {
+    const item = seriesOptions.find((option) => option.slug === slug);
+    if (!item) continue;
+    chips.push({
+      key: `series-${slug}`,
+      label: localized(item, 'name', locale),
+      onRemove: () => onChange({ ...filters, series: filters.series.filter((s) => s !== slug) }),
+    });
+  }
+  for (const id of filters.attributeValues) {
+    const value = attributes.flatMap((attribute) => attribute.values).find((v) => v.id === id);
+    if (!value) continue;
+    chips.push({
+      key: `attr-${id}`,
+      label: localized(value, 'name', locale),
+      onRemove: () =>
+        onChange({ ...filters, attributeValues: filters.attributeValues.filter((v) => v !== id) }),
+    });
+  }
+  for (const code of filters.languages) {
+    const language = languages.find((item) => item.code === code);
+    chips.push({
+      key: `lang-${code}`,
+      label: language?.label ?? code,
+      onRemove: () => onChange({ ...filters, languages: filters.languages.filter((c) => c !== code) }),
+    });
+  }
+  for (const binding of filters.bindings) {
+    chips.push({
+      key: `binding-${binding}`,
+      label: binding,
+      onRemove: () => onChange({ ...filters, bindings: filters.bindings.filter((b) => b !== binding) }),
+    });
+  }
+  if (filters.yearFrom !== null || filters.yearTo !== null) {
+    chips.push({
+      key: 'year',
+      label:
+        filters.yearFrom !== null && filters.yearTo !== null
+          ? `${filters.yearFrom}–${filters.yearTo}`
+          : String(filters.yearFrom ?? filters.yearTo),
+      onRemove: () => onChange({ ...filters, yearFrom: null, yearTo: null }),
+    });
+  }
+  if (filters.priceMax !== null) {
+    chips.push({
+      key: 'price',
+      label: `${t('filterPriceUpTo')} ${formatPrice(filters.priceMax, locale)}`,
+      onRemove: () => onChange({ ...filters, priceMax: null }),
+    });
+  }
+  if (filters.multiVolume) {
+    chips.push({ key: 'multi', label: t('filterMultiVolume'), onRemove: () => onChange({ ...filters, multiVolume: false }) });
+  }
+  if (filters.withSample) {
+    chips.push({ key: 'sample', label: t('filterWithSample'), onRemove: () => onChange({ ...filters, withSample: false }) });
+  }
+  if (filters.purchasableOnly) {
+    chips.push({
+      key: 'purchasable',
+      label: t('filterPurchasable'),
+      onRemove: () => onChange({ ...filters, purchasableOnly: false }),
+    });
+  }
+  if (filters.favouritesOnly) {
+    chips.push({
+      key: 'favourites',
+      label: t('filterFavourites'),
+      onRemove: () => onChange({ ...filters, favouritesOnly: false }),
+    });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <ul className="mb-6 flex flex-wrap items-center gap-2" aria-label={t('filterActiveChips')}>
+      {chips.map((chip) => (
+        <li key={chip.key}>
+          <button
+            type="button"
+            onClick={chip.onRemove}
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border border-burgundy/25 bg-burgundy/[0.06] px-3 py-1.5 text-caption text-burgundy transition-colors hover:bg-burgundy/15"
+          >
+            {chip.label}
+            <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <path d="m4 4 8 8M12 4l-8 8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </li>
+      ))}
+      <li>
+        <button
+          type="button"
+          onClick={() => onChange({ ...EMPTY_FILTERS, query: filters.query, category: filters.category })}
+          className="text-caption text-muted underline underline-offset-2 hover:text-burgundy"
+        >
+          {t('filterClear')}
+        </button>
+      </li>
+    </ul>
   );
 }
 
