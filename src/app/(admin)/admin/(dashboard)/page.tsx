@@ -55,8 +55,8 @@ export default async function AdminDashboard({
           supabase
             .from('orders')
             .select('id', { count: 'exact', head: true })
-            .eq('payment_state', 'pending')
-            .eq('state', 'pending'),
+            .in('payment_state', ['pending', 'failed'])
+            .not('state', 'in', '(cancelled,closed)'),
         ),
         count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('fulfillment_state', 'preparing')),
         count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('state', 'cancel_pending_refund')),

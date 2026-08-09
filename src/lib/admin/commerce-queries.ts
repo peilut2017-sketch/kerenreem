@@ -43,14 +43,22 @@ export interface OrdersListResult {
  * התצוגות השמורות (פרק 9.3) — שם ← תנאי סינון.
  * [1.4] לכל תצוגה יש עכשיו מפתח view משלה (גם כשהסינון האמיתי הוא
  * state/payment/fulfillment) — listOrders מתעלם ממנו בשקט כשאינו אחד
- * משלושת הערכים שהוא מטפל בהם במיוחד, אבל הוא הופך את זיהוי "התצוגה
+ * מהערכים שהוא מטפל בהם במיוחד, אבל הוא הופך את זיהוי "התצוגה
  * הפעילה" להשוואה ישירה אחת במקום התאמה חלקית לפי state+payment בלבד
  * (ששכחה את ציר האספקה — צ'יפ "בהכנה" נדלק גם ב-fulfillment=shipped)
  * ומבטלת את הצורך ב"הסרת המפתח כשהתצוגה כבר פעילה", שגרמה ללחיצה על
  * צ'יפ פעיל לבטל את הסימון שלו בלי לבטל את הסינון עצמו.
+ *
+ * [1.5] pending_payment עבר מ-payment=pending+state=pending (AND כפול)
+ * ל-view ייעודי: הזמנה שסטטוס ה-state שלה קודם ידנית ל-confirmed לפני
+ * שהתשלום בפועל התקבל (מותר במכונת המצבים — pending→confirmed הוא
+ * מעבר חוקי בציר ה-state לבדו) הייתה נעלמת מ"ממתינות לתשלום" למרות
+ * שהיא עדיין לא שולמה. ההגדרה הנכונה: payment_state עדיין לא שולם,
+ * וההזמנה לא סגורה/מבוטלת — בדיוק התנאי שכבר קובע מתי מוצגות פעולות
+ * הגבייה בעמוד ההזמנה עצמו (OrderActionsPanel).
  */
 export const SAVED_VIEWS: Record<string, { label: string; filter: OrdersFilter }> = {
-  pending_payment: { label: 'ממתינות לתשלום', filter: { view: 'pending_payment', payment: 'pending', state: 'pending' } },
+  pending_payment: { label: 'ממתינות לתשלום', filter: { view: 'pending_payment' } },
   new: { label: 'חדשות לטיפול', filter: { view: 'new', state: 'confirmed' } },
   preparing: { label: 'בהכנה', filter: { view: 'preparing', fulfillment: 'preparing' } },
   ready_pickup: { label: 'ממתינות לאיסוף', filter: { view: 'ready_pickup', fulfillment: 'ready_for_pickup' } },
@@ -98,6 +106,9 @@ export async function listOrders(filter: OrdersFilter): Promise<OrdersListResult
   if (filter.state) query = query.eq('state', filter.state);
   if (filter.payment) query = query.eq('payment_state', filter.payment);
   if (filter.fulfillment) query = query.eq('fulfillment_state', filter.fulfillment);
+  if (filter.view === 'pending_payment') {
+    query = query.in('payment_state', ['pending', 'failed']).not('state', 'in', '(cancelled,closed)');
+  }
   if (filter.view === 'doc_missing') {
     query = query.eq('payment_state', 'paid').in('document_state', ['not_created', 'pending', 'failed']);
   }

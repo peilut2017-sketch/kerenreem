@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
  * העיצוב). הגדרות הארגון (יצירת קשר, רשתות, לוגו) נשארות ב-/admin/settings.
  */
 export default async function BooksSettingsPage() {
-  await requirePermission('finance');
+  const session = await requirePermission('finance');
+  const isAdmin = session.profile.role === 'admin';
   const [settings, storeSettings, books] = await Promise.all([
     getSettings(),
     getStoreSettings(),
@@ -39,7 +40,7 @@ export default async function BooksSettingsPage() {
 
       {settings ? (
         <div className="space-y-10">
-          <StoreSettingsForm settings={settings} />
+          <StoreSettingsForm settings={settings} isAdmin={isAdmin} />
 
           <div className="border-t border-rule pt-8">
             <h2 className="mb-1 font-serif text-h3 text-ink">הגדרות החנות</h2>
