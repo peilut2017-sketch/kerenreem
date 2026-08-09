@@ -1,29 +1,46 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { inviteStaffMember, revokeStaffAccess } from '@/lib/admin/team-actions';
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, ASSIGNABLE_ROLES } from '@/lib/admin/permissions';
+import type { ScreenOverrideRow } from '@/lib/admin/queries';
+import type { ScreenKey } from '@/lib/admin/screens';
 import { RoleSelect } from './RoleSelect';
+import { ScreenPermissionsPanel } from './ScreenPermissionsPanel';
 import { AdminIcon } from './AdminIcons';
 import { AdminCell, AdminRow, AdminTable } from './AdminList';
 import type { Profile, UserRole } from '@/lib/supabase/types';
 
 /**
  * מסך ניהול הצוות (מסך 15 במפרט המסכים): הזמנה במייל + סיסמה ראשונית,
- * טבלת חברי הצוות עם שינוי תפקיד והסרת גישה. כשספק המייל אינו מוגדר,
- * הסיסמה הראשונית מוצגת פעם אחת למנהל — למסירה ידנית.
+ * טבלת חברי הצוות עם שינוי תפקיד, הרשאה מותאמת אישית פר-מסך (מודל 1.7,
+ * screens.ts) והסרת גישה. כשספק המייל אינו מוגדר, הסיסמה הראשונית מוצגת
+ * פעם אחת למנהל — למסירה ידנית.
  */
 export function TeamManager({
   profiles,
   currentUserId,
+  overrides,
 }: {
   profiles: Profile[];
   currentUserId: string;
+  overrides: ScreenOverrideRow[];
 }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<UserRole>('seller');
+  const [permissionsOpenFor, setPermissionsOpenFor] = useState<string | null>(null);
+
+  const overridesByUser = useMemo(() => {
+    const map = new Map<string, Map<ScreenKey, { view: boolean; edit: boolean }>>();
+    for (const row of overrides) {
+      const userMap = map.get(row.user_id) ?? new Map();
+      userMap.set(row.screen_key as ScreenKey, { view: row.can_view, edit: row.can_edit });
+      map.set(row.user_id, userMap);
+    }
+    return map;
+  }, [overrides]);
   const [result, setResult] = useState<{
     kind: 'success' | 'error';
     message: string;
@@ -193,6 +210,15 @@ export function TeamManager({
                 )}
               </AdminCell>
               <AdminCell className="text-end">
+                <button
+                  type="button"
+                  onClick={() => setPermissionsOpenFor((v) => (v === profile.id ? null : profile.id))}
+                  aria-expanded={permissionsOpenFor === profile.id}
+                  className="me-2 inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-caption text-muted transition-colors hover:bg-cream-2 hover:text-ink"
+                >
+                  <AdminIcon name="settings" className="h-3.5 w-3.5" />
+                  הרשאות{overridesByUser.has(profile.id) ? ' (מותאם)' : ''}
+                </button>
                 {!isSelf ? (
                   confirmRevoke === profile.id ? (
                     <span className="inline-flex items-center gap-2">
@@ -237,6 +263,26 @@ export function TeamManager({
           );
         })}
       </AdminTable>
+
+      {permissionsOpenFor
+        ? (() => {
+            const profile = profiles.find((p) => p.id === permissionsOpenFor);
+            if (!profile) return null;
+            return (
+              <div className="admin-card">
+                <h3 className="mb-1 text-small font-bold text-ink">
+                  הרשאות מותאמות אישית — {profile.full_name || 'משתמש'}
+                </h3>
+                <ScreenPermissionsPanel
+                  userId={profile.id}
+                  role={profile.role}
+                  hasCustom={overridesByUser.has(profile.id)}
+                  overrides={overridesByUser.get(profile.id) ?? new Map()}
+                />
+              </div>
+            );
+          })()
+        : null}
     </div>
   );
 }
