@@ -107,6 +107,16 @@ export function ServiceRequestsPanel({
               {req.resolution_note ? (
                 <p className="mt-1 text-caption text-muted">הערת טיפול: {req.resolution_note}</p>
               ) : null}
+              {req.kind === 'return' ? (
+                <a
+                  href={`/admin/orders/${orderId}/print/return-form/${req.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-caption text-[var(--admin-accent)] underline"
+                >
+                  הדפסת טופס החזרה
+                </a>
+              ) : null}
               {req.status === 'open' || req.status === 'in_progress' ? (
                 <div className="mt-2 flex gap-2">
                   <button

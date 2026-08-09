@@ -70,6 +70,13 @@ export function OrdersTable({ orders }: { orders: Order[] }) {
             >
               {selected.size} דפי הזמנה
             </Link>
+            <Link
+              href={`/admin/orders/print/delivery-report?ids=${idsParam}`}
+              className="admin-btn admin-btn-quiet"
+              target="_blank"
+            >
+              דוח מסירה לשליח
+            </Link>
           </div>
           <button type="button" onClick={() => setSelected(new Set())} className="ms-auto text-caption text-muted underline">
             ביטול בחירה
