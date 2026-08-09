@@ -7,7 +7,9 @@ import { BookCover } from '../BookCover';
 import { localized } from '@/lib/localized';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { resolveBookBadge } from '@/lib/books/badge';
+import { getBookAvailability } from '@/lib/books/availability';
 import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
+import { AddToCartButton } from '@/components/store/AddToCartButton';
 import type { BookWithRelations } from '@/lib/supabase/types';
 
 /**
@@ -39,6 +41,7 @@ export function BookCard({
   const categoryName = book.category ? localized(book.category, 'name', locale) : null;
   const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
   const price = storeEnabled ? getEffectivePrice(book, locale) : null;
+  const availability = getBookAvailability(book, storeEnabled);
 
   return (
     <article className="card card-interactive group relative flex h-full flex-col focus-within:ring-2 focus-within:ring-gold/50">
@@ -84,20 +87,41 @@ export function BookCard({
 
         {author ? <p className="mt-1.5 text-small text-muted">{author.name}</p> : null}
 
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
-          {categoryName ? (
-            <span className="rounded-[var(--radius-pill)] bg-cream-2 px-2.5 py-1 text-caption text-ink-soft">
-              {categoryName}
-            </span>
-          ) : null}
+        <div className="mt-auto pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {categoryName ? (
+              <span className="rounded-[var(--radius-pill)] bg-cream-2 px-2.5 py-1 text-caption text-ink-soft">
+                {categoryName}
+              </span>
+            ) : null}
 
-          {price ? (
-            <span className="ms-auto inline-flex items-baseline gap-1.5 font-serif text-[1.05rem] text-ink tabular-nums">
-              {price.onSale && price.originalAmount != null ? (
-                <s className="text-caption text-muted">{formatPrice(price.originalAmount, locale)}</s>
+            {price ? (
+              <span className="ms-auto inline-flex items-baseline gap-1.5 font-serif text-[1.05rem] text-ink tabular-nums">
+                {price.onSale && price.originalAmount != null ? (
+                  <s className="text-caption text-muted">{formatPrice(price.originalAmount, locale)}</s>
+                ) : null}
+                {formatPrice(price.amount, locale)}
+              </span>
+            ) : null}
+          </div>
+
+          {/* [1.4] כרטיס קטלוג בלי זמינות ובלי דרך לקנות אינו כרטיס חנות —
+              ראו ביקורת המימוש ב.8/ב.6. z-20 מעל שכבת הקישור הפרוש על
+              הכרטיס (after:absolute after:inset-0 למעלה), אחרת הלחיצה
+              על "הוספה לסל" פותחת את עמוד הספר במקום להוסיף. */}
+          {availability !== 'catalog_only' ? (
+            <div className="relative z-20 mt-3 flex items-center justify-between gap-2">
+              {availability === 'out_of_stock' ? (
+                <span className="text-caption font-semibold text-burgundy">{t('outOfStock')}</span>
               ) : null}
-              {formatPrice(price.amount, locale)}
-            </span>
+              <AddToCartButton
+                bookId={book.id}
+                title={title}
+                availability={availability}
+                variant="quiet"
+                className="ms-auto shrink-0 !px-3 !py-1.5 text-caption"
+              />
+            </div>
           ) : null}
         </div>
       </div>
@@ -125,7 +149,9 @@ function FavouriteButton({
       className={`glass absolute end-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-[var(--radius-pill)] transition-[opacity,transform,color] duration-300 ease-[var(--ease-spring)] hover:scale-110 focus-visible:opacity-100 motion-reduce:transition-none ${
         isFavourite
           ? 'text-burgundy opacity-100'
-          : 'text-ink-soft opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+          : /* [1.4] בנייד אין hover — הכפתור היה בלתי נראה לחלוטין (opacity-0
+               תמיד). גלוי כברירת מחדל, ומתגלה ב-hover רק מ-sm ומעלה. */
+            'text-ink-soft opacity-100 sm:opacity-0 sm:group-hover:opacity-100 group-focus-within:opacity-100'
       }`}
     >
       <FavouriteIcon active={isFavourite} animate />

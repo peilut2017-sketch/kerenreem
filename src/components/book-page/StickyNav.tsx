@@ -173,7 +173,10 @@ export function StickyNav({
             onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
             className="hidden shrink-0 items-center gap-1.5 rounded-[var(--radius-pill)] bg-navy px-4 py-2 text-caption text-cream transition-colors hover:bg-navy-2 sm:inline-flex"
           >
-            {t('addToCart')} · {price}
+            {/* [1.4] הכפתור רק גולל לגוש הרכישה — לא מוסיף כלום; הכיתוב
+                אמר בעבר "הוספה לסל" למרות זאת (ראו FloatingActions לתיקון
+                המקביל בכפתור שכן מוסיף בפועל). */}
+            {t('goToPurchase')} · {price}
           </button>
         ) : null}
       </div>

@@ -441,7 +441,13 @@ export default async function BookPage({
         />
       </Container>
 
-      <FloatingActions bookId={book.id} title={title} price={formattedPrice} showBuy={showBuy} />
+      <FloatingActions
+        bookId={book.id}
+        title={title}
+        price={formattedPrice}
+        showBuy={showBuy}
+        availability={availability}
+      />
     </>
   );
 }
