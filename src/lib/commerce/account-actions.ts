@@ -204,6 +204,8 @@ export interface AddressInput {
   floor: string;
   apartment: string;
   zip: string;
+  /** [1.5] הערה לשליח שנשמרת עם הכתובת — ממלאת מראש את בלוק האספקה ב-Checkout */
+  courierNotes: string;
   isDefault: boolean;
 }
 
@@ -231,6 +233,7 @@ export async function saveMyAddress(
     floor: input.floor.trim().slice(0, 20) || null,
     apartment: input.apartment.trim().slice(0, 20) || null,
     zip: input.zip.trim().slice(0, 12) || null,
+    courier_notes: input.courierNotes.trim().slice(0, 300) || null,
     is_default: input.isDefault,
   };
   if (input.isDefault) {

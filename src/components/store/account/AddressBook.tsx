@@ -29,6 +29,7 @@ const EMPTY: AddressInput = {
   floor: '',
   apartment: '',
   zip: '',
+  courierNotes: '',
   isDefault: false,
 };
 
@@ -44,6 +45,7 @@ function toForm(address: CustomerAddress): AddressInput {
     floor: address.floor ?? '',
     apartment: address.apartment ?? '',
     zip: address.zip ?? '',
+    courierNotes: address.courier_notes ?? '',
     isDefault: address.is_default,
   };
 }
@@ -186,6 +188,9 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
                     {address.phone}
                   </p>
                 ) : null}
+                {address.courier_notes ? (
+                  <p className="mt-1 text-caption text-muted">{t('courierNotes')}: {address.courier_notes}</p>
+                ) : null}
               </div>
               <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-rule/70 pt-3">
                 <button
@@ -308,6 +313,13 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
             <FieldRow id="ab-apartment" label={t('apartment')} input={<input id="ab-apartment" type="text" inputMode="numeric" value={form.apartment} onChange={(e) => set('apartment', e.target.value)} className={inputCls} />} />
             <FieldRow id="ab-zip" label={t('zip')} input={<input id="ab-zip" type="text" dir="ltr" inputMode="numeric" autoComplete="postal-code" value={form.zip} onChange={(e) => set('zip', e.target.value)} className={inputCls} />} />
           </div>
+          <FieldRow
+            id="ab-courier-notes"
+            label={t('courierNotes')}
+            input={
+              <input id="ab-courier-notes" type="text" value={form.courierNotes} onChange={(e) => set('courierNotes', e.target.value)} className={inputCls} />
+            }
+          />
           <label className="flex items-center gap-2 text-small text-ink">
             <input
               type="checkbox"
