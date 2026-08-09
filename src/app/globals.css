@@ -25,27 +25,36 @@
 @custom-variant on-dark (&:where(.on-dark, .on-dark *));
 
 @theme {
+  /* ==========================================================================
+     [1.7] רענון פלטה — קונספט "נייר, אורן ופליז" (מודרני-מתון)
+     החלפנו את הנייבי/זהב/בורדו הפורמליים בפלטה חמה ואורגנית: אורן עמוק
+     כגוון המוביל (אֵץ חיים — טבעי, מכובד ומרענן), פליז חם כאקסנט (במקום
+     הזהב הבוהק), וחֵמר/טרקוטה כאקסנט משני (במקום הבורדו). שמות המשתנים
+     נשמרו כתפקידים סמנטיים (navy=הגוון הכהה המוביל, gold=אקסנט חם,
+     burgundy=אקסנט משני) כדי שכל האתר יתעדכן ממקום אחד בלי לגעת במאות
+     רכיבים. הניגודיות נבדקה מול הרקע הקרם.
+     ========================================================================== */
   /* --- דיו ונייר --- */
-  --color-ink: #14120e;
-  --color-ink-soft: #423b30;
-  --color-muted: #6b6455;
-  --color-cream: #fbf9f5;
-  --color-cream-2: #f5f1ea;
-  --color-cream-3: #ece5d8;
+  --color-ink: #191b16;
+  --color-ink-soft: #3d403a;
+  --color-muted: #6a6d61;
+  --color-cream: #faf8f2;
+  --color-cream-2: #f2efe5;
+  --color-cream-3: #e7e2d3;
 
   /* --- קווי שיער --- */
-  --color-rule: #e0d8c6;
-  --color-rule-strong: #c8bb9c;
+  --color-rule: #ddd8c7;
+  --color-rule-strong: #c2bca5;
 
-  /* --- צבעי המכון --- */
-  --color-navy: #0b1520;
-  --color-navy-2: #14243a;
-  --color-navy-3: #24405f;
-  --color-gold: #c8a868;
-  --color-gold-bright: #ddc08d;
-  --color-gold-deep: #8a6820;
-  --color-burgundy: #6b1f26;
-  --color-burgundy-deep: #4b1418;
+  /* --- צבעי המכון (תפקידים סמנטיים, ראו הערה למעלה) --- */
+  --color-navy: #11261d;        /* אורן עמוק — משטחים כהים, כותרת תחתונה */
+  --color-navy-2: #1c3a2c;
+  --color-navy-3: #315a45;      /* אורן בהיר יותר — אקסנטים/קישורים על רקע בהיר */
+  --color-gold: #bf9450;        /* פליז חם */
+  --color-gold-bright: #d8b273;
+  --color-gold-deep: #866224;   /* פליז כהה — טקסט-אקסנט על רקע בהיר */
+  --color-burgundy: #9a4630;    /* חֵמר/טרקוטה עמוק — אקסנט משני */
+  --color-burgundy-deep: #6f3020;
 
   /* --- טיפוגרפיה --- */
   --font-serif: var(--font-frank), 'Frank Ruhl Libre', 'David Libre', Georgia, serif;
@@ -74,10 +83,10 @@
   --radius-xl: 2rem;       /* 32px — משטחים גדולים */
   --radius-pill: 999px;    /* כפתורים */
 
-  /* --- צללים: רכים ורב-שכבתיים, לעולם לא כבדים --- */
-  --shadow-soft: 0 1px 2px rgb(11 21 32 / 0.04), 0 10px 28px -14px rgb(11 21 32 / 0.12);
-  --shadow-lift: 0 2px 6px rgb(11 21 32 / 0.05), 0 26px 52px -22px rgb(11 21 32 / 0.20);
-  --shadow-float: 0 1px 2px rgb(11 21 32 / 0.05), 0 16px 40px -18px rgb(11 21 32 / 0.16);
+  /* --- צללים: רכים ורב-שכבתיים, לעולם לא כבדים (גוון האורן, לא שחור) --- */
+  --shadow-soft: 0 1px 2px rgb(17 38 29 / 0.04), 0 10px 28px -14px rgb(17 38 29 / 0.12);
+  --shadow-lift: 0 2px 6px rgb(17 38 29 / 0.05), 0 26px 52px -22px rgb(17 38 29 / 0.20);
+  --shadow-float: 0 1px 2px rgb(17 38 29 / 0.05), 0 16px 40px -18px rgb(17 38 29 / 0.16);
 
   /* --- תנועה: קפיץ בלי קפיצה. תאוצה יוצאת, בלי overshoot --- */
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);

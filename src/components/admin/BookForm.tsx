@@ -279,14 +279,14 @@ export function BookForm({
                           name="accent_primary"
                           label="גוון ראשי"
                           dir="ltr"
-                          placeholder="#c8a868"
+                          placeholder="#bf9450"
                           defaultValue={book?.accent_primary}
                         />
                         <TextField
                           name="accent_secondary"
                           label="גוון משני"
                           dir="ltr"
-                          placeholder="#0b1520"
+                          placeholder="#11261d"
                           defaultValue={book?.accent_secondary}
                         />
                       </div>
