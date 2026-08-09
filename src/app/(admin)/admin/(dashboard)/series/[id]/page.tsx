@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { requireRole, hasRole } from '@/lib/admin/auth';
+import { screenAccess, requireScreenPermission } from '@/lib/admin/auth';
 import { getSeries, countBooksBySeries } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { SeriesForm } from '@/components/admin/SeriesForm';
@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function EditSeriesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await requireRole('viewer');
+  const session = await requireScreenPermission('series', 'view');
+  const canWrite = (await screenAccess(session, 'series')).edit;
   const [series, counts] = await Promise.all([getSeries(id), countBooksBySeries()]);
   if (!series) notFound();
 
@@ -18,7 +19,7 @@ export default async function EditSeriesPage({ params }: { params: Promise<{ id:
       <SeriesForm
         series={series}
         bookCount={counts.get(series.id) ?? 0}
-        canWrite={hasRole(session.profile.role, 'editor')}
+        canWrite={canWrite}
       />
     </>
   );

@@ -201,7 +201,12 @@ const getScreenOverrides = cache(async (userId: string): Promise<Map<ScreenKey, 
   return map;
 });
 
-async function screenAccess(session: AdminSession, screen: ScreenKey): Promise<ScreenAccess> {
+/**
+ * חשיפה ציבורית של בדיקת ההרשאה, בלי redirect — לעמודי צפייה שצריכים
+ * להחליט האם להציג טופס לעריכה או תצוגה בלבד (כמו hasRole(role,'editor')
+ * הישן), לא רק לחסום גישה מלאה.
+ */
+export async function screenAccess(session: AdminSession, screen: ScreenKey): Promise<ScreenAccess> {
   if (ADMIN_ONLY_SCREENS.has(screen)) {
     const allowed = session.profile.role === 'admin';
     return { view: allowed, edit: allowed };

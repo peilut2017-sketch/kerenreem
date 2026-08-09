@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { getSettings, listBooks } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { ShelfBooksPicker } from '@/components/admin/ShelfBooksPicker';
@@ -7,14 +7,14 @@ export const dynamic = 'force-dynamic';
 
 /**
  * [1.7] הועבר לכאן, מקבוצת "ספרים", מ-/admin/books/settings (קבוצת
- * "חנות", גדור finance): בחירת הספרים למדף בעמוד הבית היא החלטת תוכן —
- * אין לה שום קשר לכסף/משלוח/תשלומים — ומגדרת מנעה מעורך תוכן (הרשאת
- * content, לא finance) לגעת בה כלל, גם לצפייה. גדור כמו שאר עמודי
- * הקבוצה (requireRole('viewer')); השמירה בפועל כבר גדורה assertRole('editor')
- * ב-saveShelfBooks (settings-actions.ts) — לא השתנה.
+ * "חנות", הייתה גדורה finance): בחירת הספרים למדף בעמוד הבית היא החלטת
+ * תוכן — אין לה שום קשר לכסף/משלוח/תשלומים. גדור עכשיו במסך ייעודי
+ * משלו (homepage-shelf, screens.ts) — צפייה ועריכה נבדקות שתיהן דרך
+ * requireScreenPermission/assertScreenPermission (ראו saveShelfBooks
+ * ב-settings-actions.ts), לא דרך editor הגלובלי.
  */
 export default async function HomepageShelfPage() {
-  await requireRole('viewer');
+  await requireScreenPermission('homepage-shelf', 'view');
   const [settings, books] = await Promise.all([getSettings(), listBooks()]);
 
   // extra יכול להיות null בפועל גם כשהעמודה במסד not null default '{}'.

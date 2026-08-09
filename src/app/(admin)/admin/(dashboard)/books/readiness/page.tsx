@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { listBookIdsWithTags, listBooks, type BookRow } from '@/lib/admin/queries';
 import { computeCompletion, type CompletionItem } from '@/lib/completion';
 import { AdminHeader } from '@/components/admin/AdminList';
@@ -56,7 +56,7 @@ const columns: AdminRecordColumn<ReadinessRow>[] = [
  * עם צבירה לפי סוג חוסר וקישור ישיר לכל ספר.
  */
 export default async function BooksReadinessPage() {
-  await requireRole('viewer');
+  await requireScreenPermission('books-readiness', 'view');
   const [books, bookIdsWithTags] = await Promise.all([listBooks(), listBookIdsWithTags()]);
   const tagSet = new Set(bookIdsWithTags);
 

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { requireRole, hasRole } from '@/lib/admin/auth';
+import { screenAccess, requireScreenPermission } from '@/lib/admin/auth';
 import { getEvent, getEventBlocks } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { EventForm } from '@/components/admin/EventForm';
@@ -8,14 +8,15 @@ import { EventBlocksEditor } from '@/components/admin/EventBlocksEditor';
 export const dynamic = 'force-dynamic';
 
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
-  const [{ id }, session] = await Promise.all([params, requireRole('viewer')]);
+  const [{ id }, session] = await Promise.all([params, requireScreenPermission('events', 'view')]);
+  const canWrite = (await screenAccess(session, 'events')).edit;
   const [event, blocks] = await Promise.all([getEvent(id), getEventBlocks(id)]);
   if (!event) notFound();
 
   return (
     <>
       <AdminHeader title={event.title_he} />
-      <EventForm event={event} canWrite={hasRole(session.profile.role, 'editor')} />
+      <EventForm event={event} canWrite={canWrite} />
 
       {/* מחוץ לטופס הראשי בכוונה: טבלה נפרדת עם שמירה משלה (ראו
           saveEventBlocks) — בתוך אותו <form> היה הופך Enter בתוך textarea

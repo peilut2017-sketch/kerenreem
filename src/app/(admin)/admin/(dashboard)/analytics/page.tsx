@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { getAnalyticsSummary } from '@/lib/admin/analytics-queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { AdminIcon } from '@/components/admin/AdminIcons';
@@ -38,7 +38,7 @@ export default async function AdminAnalyticsPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  await requireRole('editor');
+  await requireScreenPermission('analytics', 'view');
   const { days: daysParam } = await searchParams;
   const days = RANGE_OPTIONS.some((option) => String(option.days) === daysParam) ? Number(daysParam) : 30;
 

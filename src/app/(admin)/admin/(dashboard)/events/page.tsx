@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { listEventsAdmin } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -8,7 +8,7 @@ import { formatDate, parseDateOnly } from '@/lib/hebrew-date';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminEventsPage() {
-  await requireRole('viewer');
+  await requireScreenPermission('events', 'view');
   const events = await listEventsAdmin();
 
   return (

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { requireRole, hasRole } from '@/lib/admin/auth';
+import { screenAccess, requireScreenPermission } from '@/lib/admin/auth';
 import { getTag, countBooksByTag } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { TagForm } from '@/components/admin/TagForm';
@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function EditTagPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await requireRole('viewer');
+  const session = await requireScreenPermission('tags', 'view');
+  const canWrite = (await screenAccess(session, 'tags')).edit;
   const [tag, counts] = await Promise.all([getTag(id), countBooksByTag()]);
   if (!tag) notFound();
 
@@ -18,7 +19,7 @@ export default async function EditTagPage({ params }: { params: Promise<{ id: st
       <TagForm
         tag={tag}
         bookCount={counts.get(tag.id) ?? 0}
-        canWrite={hasRole(session.profile.role, 'editor')}
+        canWrite={canWrite}
       />
     </>
   );

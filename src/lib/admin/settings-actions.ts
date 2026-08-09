@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { assertRole } from './auth';
+import { assertRole, assertScreenPermission } from './auth';
 import type { ActionResult } from './actions';
 import type { UserRole } from '@/lib/supabase/types';
 
@@ -180,7 +180,8 @@ export async function saveBannersEnabled(enabled: boolean): Promise<ActionResult
  * (הכותרים האחרונים, ראו getBooksByIds/getRecentBooks ב-data.ts).
  */
 export async function saveShelfBooks(bookIds: string[]): Promise<ActionResult> {
-  const session = await assertRole('editor');
+  // [1.7] editor → הרשאה גרגרית על מסך homepage-shelf עצמו.
+  const session = await assertScreenPermission('homepage-shelf', 'edit');
   if ('error' in session) return session;
 
   const supabase = await createClient();
