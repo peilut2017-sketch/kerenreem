@@ -11,7 +11,14 @@ import {
   transitionOrder,
   type StateAxis,
 } from '@/lib/commerce/orders';
-import { adjustStock, commitStock, releaseStock, reserveStock, transferStock } from '@/lib/commerce/inventory';
+import {
+  adjustStock,
+  commitStock,
+  releaseStock,
+  reserveStock,
+  transferStock,
+  uncommitStock,
+} from '@/lib/commerce/inventory';
 import { recordCreditNote } from '@/lib/commerce/documents';
 import { sendOrderEmail, type EmailTemplate } from '@/lib/commerce/notifications';
 import { refundTransaction } from '@/lib/commerce/morning';
@@ -216,6 +223,53 @@ export async function addTracking(
   return { ok: true };
 }
 
+/**
+ * [1.5] ביטול סימון "נשלח" שבוצע בטעות (הזמנה/שליח לא נכונים): מחזיר את
+ * ההזמנה למצב "בהכנה" ומנקה את פרטי המעקב. לא נוגע במלאי — הכנת מלאי
+ * קורית בתשלום, לא במשלוח — ולכן בטוח גם אם ההזמנה שולמה. המייל "נשלח"
+ * שכבר יצא ללקוח אינו ניתן לביטול; זו הגבלה מוצגת ב-UI, לא כאן.
+ */
+export async function undoShipment(orderId: string, reason: string): Promise<OrderActionResult> {
+  const session = await assertPermission('store_view');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה — נשמרת בציר הזמן' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+  if (order.fulfillment_state !== 'shipped') {
+    return { ok: false, error: 'ניתן לבטל רק הזמנה שסומנה כ״נשלחה״ ועדיין לא נמסרה' };
+  }
+
+  const { data: updated, error: updateError } = await service
+    .from('orders')
+    .update({
+      fulfillment_state: 'preparing',
+      tracking_company: null,
+      tracking_number: null,
+      tracking_url: null,
+    })
+    .eq('id', orderId)
+    .eq('fulfillment_state', 'shipped')
+    .select('*')
+    .maybeSingle();
+  if (updateError) return { ok: false, error: updateError.message };
+  if (!updated) return { ok: false, error: 'המצב השתנה בינתיים — רעננו ונסו שוב' };
+
+  const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
+  await recordOrderEvent(service, orderId, 'status_changed', actor, {
+    axis: 'fulfillment_state',
+    from: 'shipped',
+    to: 'preparing',
+    undo: true,
+    reason,
+  });
+
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
 /** הערה פנימית — נשמרת בציר הזמן (order_events), לא על ההזמנה. */
 export async function addOrderNote(orderId: string, note: string): Promise<OrderActionResult> {
   const session = await assertPermission('store_view');
@@ -307,6 +361,89 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
       table_name: 'orders',
       record_id: orderId,
       context: 'סימון תשלום חיצוני',
+    });
+  }
+
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.5] ביטול סימון תשלום ידני שבוצע בטעות — היפוך סימטרי ל-markManualPayment:
+ * מבטל את רשומת התשלום הידני, משחרר את המלאי חזרה ל״שמור״ (commerce_uncommit_stock,
+ * לא release — ההזמנה עדיין פעילה) ומחזיר את שלושת הצירים. שני הצירים
+ * (payment_state: paid→pending, state: confirmed→pending) אינם מעברים
+ * חוקיים במכונת המצבים הרגילה בכוונה — זו תיקון-בדיעבד ייעודי, לא זרימה
+ * כללית, ולכן עוקף את transitionOrder ומתעד ידנית.
+ *
+ * מותר רק כשעדיין לא נשלח דבר וטרם הופק מסמך חשבונאי — אחרת יש לפעול
+ * דרך זיכוי (refundOrder), לא ביטול-בדיעבד של הסימון.
+ */
+export async function undoManualPayment(orderId: string, reason: string): Promise<OrderActionResult> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה — נשמרת בציר הזמן' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+
+  const { data: payment } = await service
+    .from('payments')
+    .select('id')
+    .eq('order_id', orderId)
+    .eq('provider', 'manual')
+    .eq('status', 'succeeded')
+    .maybeSingle();
+  if (!payment) {
+    return { ok: false, error: 'לא נמצא תשלום ידני לביטול — תשלום דרך מורנינג מבוטל בזיכוי' };
+  }
+  if (order.payment_state !== 'paid' || order.state !== 'confirmed') {
+    return { ok: false, error: 'ההזמנה כבר התקדמה למצב אחר — רעננו ובדקו' };
+  }
+  if (order.fulfillment_state !== 'unfulfilled') {
+    return { ok: false, error: 'ההזמנה כבר בהכנה/נשלחה — לביטול תשלום יש להשתמש בזיכוי' };
+  }
+  if (!['not_created', 'pending'].includes(order.document_state)) {
+    return { ok: false, error: 'כבר הופק מסמך חשבונאי — לביטול יש להשתמש בזיכוי ובמסמך זיכוי' };
+  }
+
+  const { data: items } = await service
+    .from('order_items')
+    .select('book_id, quantity, is_preorder')
+    .eq('order_id', orderId);
+  for (const item of items ?? []) {
+    if (!item.book_id || item.is_preorder) continue;
+    const result = await uncommitStock(service, item.book_id, item.quantity, orderId);
+    if (!result.ok && result.reason !== 'nothing_to_uncommit') {
+      return { ok: false, error: `שחרור מלאי נכשל: ${result.reason}` };
+    }
+  }
+
+  const { data: updated, error: updateError } = await service
+    .from('orders')
+    .update({ payment_state: 'pending', state: 'pending', document_state: 'not_created', paid_at: null })
+    .eq('id', orderId)
+    .eq('payment_state', 'paid')
+    .eq('state', 'confirmed')
+    .select('*')
+    .maybeSingle();
+  if (updateError) return { ok: false, error: updateError.message };
+  if (!updated) return { ok: false, error: 'המצב השתנה בינתיים — רעננו ונסו שוב' };
+
+  await service.from('payments').update({ status: 'cancelled' }).eq('id', payment.id);
+
+  const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
+  await recordOrderEvent(service, orderId, 'status_changed', actor, {
+    axis: 'payment_state', from: 'paid', to: 'pending', undo: true, reason,
+  });
+  await recordOrderEvent(service, orderId, 'status_changed', actor, {
+    axis: 'state', from: 'confirmed', to: 'pending', undo: true, reason,
+  });
+  if (order.document_state === 'pending') {
+    await recordOrderEvent(service, orderId, 'status_changed', actor, {
+      axis: 'document_state', from: 'pending', to: 'not_created', undo: true, reason,
     });
   }
 

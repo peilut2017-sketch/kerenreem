@@ -353,6 +353,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 state: order.state,
                 paymentState: order.payment_state,
                 fulfillmentState: order.fulfillment_state,
+                documentState: order.document_state,
                 total: order.total,
                 refundable: succeededCharge ? Number(succeededCharge.amount) - refundedTotal : 0,
                 actualShippingCost: order.actual_shipping_cost,

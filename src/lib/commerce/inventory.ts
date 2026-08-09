@@ -26,7 +26,11 @@ export interface StockOpResult {
 
 async function callStockFn(
   service: SupabaseClient,
-  fn: 'commerce_reserve_stock' | 'commerce_commit_stock' | 'commerce_release_stock',
+  fn:
+    | 'commerce_reserve_stock'
+    | 'commerce_commit_stock'
+    | 'commerce_release_stock'
+    | 'commerce_uncommit_stock',
   bookId: string,
   qty: number,
   orderId: string,
@@ -58,6 +62,15 @@ export function commitStock(service: SupabaseClient, bookId: string, qty: number
 
 export function releaseStock(service: SupabaseClient, bookId: string, qty: number, orderId: string) {
   return callStockFn(service, 'commerce_release_stock', bookId, qty, orderId);
+}
+
+/**
+ * [1.5] היפוך commitStock — לביטול סימון תשלום ידני שבוצע בטעות (לא
+ * לביטול הזמנה: שם המלאי חוזר ל-on_hand חופשי, כאן הוא חוזר ל-reserved
+ * כי ההזמנה עדיין פעילה, רק שהתשלום חזר להיות לא-סופי).
+ */
+export function uncommitStock(service: SupabaseClient, bookId: string, qty: number, orderId: string) {
+  return callStockFn(service, 'commerce_uncommit_stock', bookId, qty, orderId);
 }
 
 /** תנועה ידנית: קליטה, החזרה למלאי, נזק, תיקון, ספירה. לעולם לא set ישיר. */
