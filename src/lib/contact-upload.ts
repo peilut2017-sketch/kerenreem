@@ -25,10 +25,11 @@ const ALLOWED_TYPES = new Set([
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
 ]);
 
 export const CONTACT_ATTACHMENTS_ACCEPT =
-  'image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  'image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain';
 
 function randomPath(originalName: string): string {
   const extension = originalName.includes('.') ? originalName.split('.').pop()!.toLowerCase() : 'bin';
