@@ -170,6 +170,18 @@ export async function startCheckout(
         express_wallet: express?.wallet ?? null,
         locale,
       });
+    } else if (existing?.status === 'converted' && existing.order_id) {
+      // הזמנה כבר נוצרה מה-session הזה (idempotency_key). כל עוד היא טרם
+      // שולמה — ממשיכים על אותה session כדי ש-placeOrder יזהה session.order_id
+      // ויפיק קישור תשלום חדש דרך resumeExistingOrder, במקום ליצור session
+      // חדשה בלי order_id (שהייתה שוברת את מסלול "ניסיון תשלום חוזר").
+      const service = createServiceClient();
+      const { data: existingOrder } = service
+        ? await service.from('orders').select('payment_state').eq('id', existing.order_id).maybeSingle()
+        : { data: null };
+      if (existingOrder && existingOrder.payment_state !== 'paid') {
+        session = existing;
+      }
     }
   }
   if (!session) {
@@ -592,6 +604,24 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
     if (consentError) console.error('[commerce:checkout] consent', consentError.message);
   }
 
+  // תשלום נפתח *לפני* שליחת מייל האישור, כדי שהקישור לתשלום (payLink) יהיה
+  // בתוך המייל הראשון שהלקוח מקבל — לקוח שנכשל/נטש בדף הסליקה חוזר לשלם
+  // מהמייל בלי לחפש את האתר מחדש (סבב 1.4, קריטי-2).
+  const flags = await getCommerceFlags();
+  let paymentUrl: string | null = null;
+  let paymentFailed = false;
+  if (flags.paymentsEnabled) {
+    const payment = await startPayment(created.order, {
+      wallet: session.express_wallet,
+      siteUrl,
+    });
+    if (payment.ok && payment.paymentUrl) {
+      paymentUrl = payment.paymentUrl;
+    } else {
+      paymentFailed = true;
+    }
+  }
+
   if (service) {
     await sendOrderEmail(service, 'order_confirmation', created.order, {
       items: cart.lines
@@ -599,10 +629,10 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
         .map((line) => ({ title: line.title, quantity: line.quantity, lineTotal: line.lineTotal })),
       trackUrl,
       promisedDateLabel: method.promisedDateLabel,
+      paymentUrl,
     });
   }
 
-  const flags = await getCommerceFlags();
   if (!flags.paymentsEnabled) {
     // שלב 3 בתוכנית: הזמנה בלי גבייה מקוונת — הצוות גובה טלפונית
     return {
@@ -613,11 +643,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
     };
   }
 
-  const payment = await startPayment(created.order, {
-    wallet: session.express_wallet,
-    siteUrl,
-  });
-  if (!payment.ok || !payment.paymentUrl) {
+  if (paymentFailed || !paymentUrl) {
     return {
       ok: true,
       mode: 'created_no_payment',
@@ -629,7 +655,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   return {
     ok: true,
     mode: 'redirect_to_payment',
-    redirectUrl: payment.paymentUrl,
+    redirectUrl: paymentUrl,
     orderNumber: created.order.order_number,
     orderId: created.order.id,
   };

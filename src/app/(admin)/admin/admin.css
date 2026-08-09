@@ -120,6 +120,7 @@
   }
   .admin-badge-success { background: var(--admin-success-soft); color: var(--admin-success); }
   .admin-badge-warning { background: var(--admin-warning-soft); color: var(--admin-warning); }
+  .admin-badge-danger { background: var(--admin-danger-soft); color: var(--admin-danger); }
   .admin-badge-neutral { background: var(--color-cream-3); color: var(--color-muted); }
   .admin-badge-accent { background: var(--admin-accent-soft); color: var(--admin-accent); }
   /* גרסה אינטראקטיבית של התג — משמשת PublishToggle. הבסיס (.admin-badge)
@@ -183,11 +184,15 @@
     margin-block-start: 0.35rem;
   }
 
-  /* --- טבלה: משטח לבן, כותרת שקטה בלי uppercase, שורות נושמות --- */
+  /* --- טבלה: משטח לבן, כותרת שקטה בלי uppercase, שורות נושמות ---
+     [1.4] overflow: hidden (בלי ציר X) חתך טבלאות רחבות ממסך צר בלי שום
+     דרך להגיע לתוכן שנחתך — 5 מתוך 7 הצרכנים לא הוסיפו overflow-x-auto
+     בעצמם. עכשיו זה בבסיס המחלקה, כדי שאף צרכן עתידי לא יפול לאותו באג. */
   .admin-table-wrap {
     border: 1px solid var(--admin-border);
     border-radius: 1rem;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     background: var(--admin-surface);
   }
   .admin-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }

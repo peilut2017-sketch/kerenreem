@@ -1,5 +1,5 @@
 import { requireRole } from '@/lib/admin/auth';
-import { listBookIdsWithTags, listBooks } from '@/lib/admin/queries';
+import { listBookIdsWithTags, listBooks, listCategoriesAdmin } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { BooksDataGrid } from '@/components/admin/BooksDataGrid';
 
@@ -7,7 +7,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminBooksPage() {
   await requireRole('viewer');
-  const [books, bookIdsWithTags] = await Promise.all([listBooks(), listBookIdsWithTags()]);
+  const [books, bookIdsWithTags, categories] = await Promise.all([
+    listBooks(),
+    listBookIdsWithTags(),
+    listCategoriesAdmin(),
+  ]);
 
   return (
     <>
@@ -21,7 +25,11 @@ export default async function AdminBooksPage() {
       />
 
       {/* Set אינו נשלח כפי שהוא לרכיב לקוח — ההמרה למערך כאן, לא שם */}
-      <BooksDataGrid books={books} bookIdsWithTags={[...bookIdsWithTags]} />
+      <BooksDataGrid
+        books={books}
+        bookIdsWithTags={[...bookIdsWithTags]}
+        categories={categories.map((c) => ({ id: c.id, name: c.name_he }))}
+      />
     </>
   );
 }

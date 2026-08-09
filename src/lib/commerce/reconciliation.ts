@@ -20,6 +20,27 @@ export interface ReconciliationSummary {
   skipped: 'not_configured' | null;
 }
 
+/**
+ * [1.4] שמירת תוצאת ההרצה ב-reconciliation_runs (migration 39) — בלי זה
+ * אין "מתי רצה לאחרונה", ואם המפתחות חסרים ההתאמה פשוט לא רצה וה-UI
+ * (שמסתמך על "אין תגי mismatch" בלבד) היה מראה "הכול תקין" בטעות.
+ * נשמר גם כשההתאמה דולגה — כדי שדוח ה-UI יבחין בין "בדקנו, הכול תואם"
+ * ל"לא בדקנו בכלל".
+ */
+async function persistRun(
+  service: ReturnType<typeof createServiceClient>,
+  summary: ReconciliationSummary,
+): Promise<void> {
+  if (!service) return;
+  await service.from('reconciliation_runs').insert({
+    checked: summary.checked,
+    matched: summary.matched,
+    mismatched: summary.mismatched,
+    unreachable: summary.unreachable,
+    skipped: summary.skipped,
+  });
+}
+
 export async function reconcileRecentPayments(days = 3): Promise<ReconciliationSummary> {
   const summary: ReconciliationSummary = {
     checked: 0,
@@ -30,6 +51,7 @@ export async function reconcileRecentPayments(days = 3): Promise<ReconciliationS
   };
   if (!isMorningConfigured()) {
     summary.skipped = 'not_configured';
+    await persistRun(createServiceClient(), summary);
     return summary;
   }
   const service = createServiceClient();
@@ -84,5 +106,6 @@ export async function reconcileRecentPayments(days = 3): Promise<ReconciliationS
       .eq('id', payment.order_id);
   }
 
+  await persistRun(service, summary);
   return summary;
 }

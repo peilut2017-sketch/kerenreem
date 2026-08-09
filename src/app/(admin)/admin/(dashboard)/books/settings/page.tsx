@@ -1,6 +1,7 @@
 import { requirePermission } from '@/lib/admin/auth';
 import { getSettings, listBooks } from '@/lib/admin/queries';
 import { getStoreSettings } from '@/lib/commerce/settings';
+import { isMorningConfigured } from '@/lib/commerce/morning';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { StoreSettingsForm } from '@/components/admin/StoreSettingsForm';
 import { StoreConfigForm } from '@/components/admin/StoreConfigForm';
@@ -46,7 +47,7 @@ export default async function BooksSettingsPage() {
               דגלים שכבתיים, משלוח חינם, תשלומים, מסמך חשבונאי, זמני הכנה ואיסוף עצמי — לפי
               מסמכי האפיון תחת docs/commerce.
             </p>
-            <StoreConfigForm settings={storeSettings} />
+            <StoreConfigForm settings={storeSettings} morningConfigured={isMorningConfigured()} />
           </div>
 
           <div className="border-t border-rule pt-8">

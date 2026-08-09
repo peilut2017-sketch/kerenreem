@@ -11,10 +11,20 @@ import type { StoreSettings } from '@/lib/supabase/types';
  * שתחתיה פעילות — נאכף בקוד הצריכה) והתצורה הכספית/תפעולית.
  * מתג-העל "חנות פעילה" נשאר בטופס הנפרד שמעל — בכוונה.
  */
-export function StoreConfigForm({ settings }: { settings: StoreSettings }) {
+export function StoreConfigForm({
+  settings,
+  morningConfigured,
+}: {
+  settings: StoreSettings;
+  /** [1.4] isMorningConfigured() בשרת — אין UI צרכן אחד עד עכשיו, והממשק
+   * דיווח "סליקה פעילה" גם כשאין מפתחות בסביבה (הפעולה עצמה נאכפת ב-
+   * saveStoreConfig, כאן רק משקפים את המצב באמת לפני שהמנהל מנסה). */
+  morningConfigured: boolean;
+}) {
   const [state, formAction] = useActionState<StoreConfigState, FormData>(saveStoreConfig, {
     status: 'idle',
   });
+  const paymentsLies = settings.payments_enabled && !morningConfigured;
 
   return (
     <form action={formAction} className="space-y-8">
@@ -23,6 +33,15 @@ export function StoreConfigForm({ settings }: { settings: StoreSettings }) {
         icon="store"
         description="כל שכבה נשענת על שמתחתיה: עגלה מחייבת מחירים, קופה מחייבת עגלה, סליקה מחייבת קופה. אפשר להעלות שכבה לאוויר בשקט ולבדוק לפני שפותחים את הבאה."
       >
+        {!morningConfigured ? (
+          <p
+            role="status"
+            className="mb-3 rounded-[var(--radius-sm)] bg-[var(--admin-warning-soft)] px-3 py-2.5 text-caption text-[var(--admin-warning)]"
+          >
+            ⚠ מורנינג אינה מחוברת (מפתחות API חסרים בסביבה) — לא ניתן להפעיל סליקה כרגע.
+            {paymentsLies ? ' הדגל מסומן פעיל במסד למרות זאת; השמירה הבאה תכבה אותו אוטומטית.' : ''}
+          </p>
+        ) : null}
         <div className="grid gap-2 sm:grid-cols-2">
           <CheckboxField name="show_prices" label="הצגת מחירים" defaultChecked={settings.show_prices} />
           <CheckboxField name="cart_enabled" label="עגלה ו-Mini Cart" defaultChecked={settings.cart_enabled} />
@@ -30,13 +49,19 @@ export function StoreConfigForm({ settings }: { settings: StoreSettings }) {
           <CheckboxField
             name="payments_enabled"
             label="סליקה במורנינג"
-            defaultChecked={settings.payments_enabled}
-            hint="אין להפעיל לפני השלמת אימותי ה-Sandbox ותנאי הפתיחה שבאפיון."
+            defaultChecked={settings.payments_enabled && morningConfigured}
+            disabled={!morningConfigured}
+            hint={
+              morningConfigured
+                ? 'אין להפעיל לפני השלמת אימותי ה-Sandbox ותנאי הפתיחה שבאפיון.'
+                : 'חסום: אין מפתחות מורנינג בסביבה (MORNING_API_KEY_ID / MORNING_API_SECRET).'
+            }
           />
           <CheckboxField
             name="express_checkout_enabled"
             label="מסלול אקספרס (ביט / ארנקים)"
-            defaultChecked={settings.express_checkout_enabled}
+            defaultChecked={settings.express_checkout_enabled && morningConfigured}
+            disabled={!morningConfigured}
             hint="רק אחרי שאימות 9.3.1 — קביעת אמצעי מראש ב-API — הוכרע."
           />
           <CheckboxField name="accounts_enabled" label="חשבונות לקוח" defaultChecked={settings.accounts_enabled} />
@@ -167,8 +192,8 @@ export function StoreConfigForm({ settings }: { settings: StoreSettings }) {
       <div className="flex items-center gap-3">
         <SubmitButton pendingLabel="שומר…">שמירת הגדרות החנות</SubmitButton>
         {state.status === 'saved' ? (
-          <span role="status" className="text-small text-ink-soft">
-            ההגדרות נשמרו.
+          <span role="status" className={`text-small ${state.message ? 'text-[var(--admin-warning)]' : 'text-ink-soft'}`}>
+            {state.message ?? 'ההגדרות נשמרו.'}
           </span>
         ) : null}
         {state.status === 'error' ? (

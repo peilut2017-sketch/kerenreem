@@ -42,10 +42,16 @@ export default async function AdminCouponsPage() {
       minTotal: row.min_total != null ? Number(row.min_total) : null,
       endsAt: row.ends_at,
       maxUses: row.max_uses,
+      maxUsesPerCustomer: row.max_uses_per_customer ?? 1,
       active: row.active,
       uses: counts.get(row.id) ?? 0,
       minQuantity: row.min_quantity != null ? Number(row.min_quantity) : null,
       restrictedContact: row.restricted_contact,
+      combinableWithSale: Boolean(row.combinable_with_sale),
+      combinableWithCoupons: Boolean(row.combinable_with_coupons),
+      categoryIds: row.applies_to?.category_ids ?? [],
+      bookIds: row.applies_to?.book_ids ?? [],
+      excludeBookIds: row.applies_to?.exclude_book_ids ?? [],
     }));
   }
 
@@ -55,7 +61,7 @@ export default async function AdminCouponsPage() {
         title="קופונים"
         description="אחוז, סכום קבוע או משלוח חינם. האימות תמיד בצד השרת; ההצגה ללקוחות כפופה לדגל הקופונים בהגדרות החנות."
       />
-      <CouponsManager coupons={coupons} />
+      <CouponsManager coupons={coupons} categories={categories} books={books} />
       <PromotionsManager promotions={promotions} categories={categories} books={books} />
     </>
   );

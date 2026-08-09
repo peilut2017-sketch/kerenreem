@@ -570,6 +570,10 @@ export interface Order {
   /** [1.3] המבצע האוטומטי שהוחל (צילום) */
   promotion_id: string | null;
   promotion_name_snapshot: string | null;
+  /** [1.4] מספר מעקב — על ההזמנה עצמה, לא רק בציר הזמן */
+  tracking_company: string | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -636,6 +640,17 @@ export interface OrderEvent {
   actor_id: string | null;
   actor_label: string | null;
   created_at: string;
+}
+
+/** [1.4] תוצאת ריצת התאמה יומית מול מורנינג — reconciliation_runs */
+export interface ReconciliationRun {
+  id: string;
+  ran_at: string;
+  checked: number;
+  matched: number;
+  mismatched: number;
+  unreachable: number;
+  skipped: string | null;
 }
 
 export interface Payment {

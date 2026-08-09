@@ -56,6 +56,60 @@ export async function recordDocument(
   await transitionOrder(service, order.id, 'document_state', 'created', MORNING_ACTOR);
 }
 
+/**
+ * [1.4] מסמך זיכוי: לפני התיקון ה-documentId שחוזר מ-refundTransaction
+ * נזרק, ו-document_state אף פעם לא הגיע ל-credited. שורת מסמך אחת
+ * לכל הזמנה (כמו uq_documents_live_per_order) — זיכוי חלקי נוסף על
+ * אותה הזמנה מצטבר לאותה שורה במקום להתנגש בה.
+ */
+export async function recordCreditNote(
+  service: SupabaseClient,
+  order: Order,
+  input: { morningDocId: string | null; amount: number; paymentId: string },
+): Promise<void> {
+  const { data: existing } = await service
+    .from('documents')
+    .select('id, amount, morning_doc_id')
+    .eq('order_id', order.id)
+    .eq('doc_type', 'credit_note')
+    .eq('status', 'created')
+    .maybeSingle();
+
+  if (existing) {
+    const patch: Record<string, unknown> = {
+      amount: Number(existing.amount) + input.amount,
+      payment_id: input.paymentId,
+      updated_at: new Date().toISOString(),
+    };
+    if (!existing.morning_doc_id && input.morningDocId) patch.morning_doc_id = input.morningDocId;
+    await service.from('documents').update(patch).eq('id', existing.id);
+  } else {
+    const { error } = await service.from('documents').insert({
+      order_id: order.id,
+      payment_id: input.paymentId,
+      provider: 'morning',
+      morning_doc_id: input.morningDocId,
+      doc_type: 'credit_note',
+      issued_at: new Date().toISOString(),
+      amount: input.amount,
+      currency: order.currency,
+      status: 'created',
+      attempts: 1,
+      last_attempt_at: new Date().toISOString(),
+      idempotency_key: `order:${order.id}:credit_note`,
+    });
+    if (error && error.code !== '23505') {
+      console.error('[commerce:documents] credit note', error.message);
+      return;
+    }
+  }
+
+  await recordOrderEvent(service, order.id, 'document_created', MORNING_ACTOR, {
+    doc_type: 'credit_note',
+    amount: input.amount,
+  });
+}
+
 export async function markDocumentFailed(
   service: SupabaseClient,
   order: Order,

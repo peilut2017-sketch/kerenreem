@@ -47,7 +47,7 @@ export function PickingPanel({
   const [discount, setDiscount] = useState(staffDiscount > 0 ? String(staffDiscount) : '');
   const [discountReason, setDiscountReason] = useState('');
   const [tab, setTab] = useState<'pick' | 'edit'>('pick');
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
 
   const allPicked = items.every(
@@ -82,7 +82,17 @@ export function PickingPanel({
       </div>
 
       {message ? (
-        <p role="status" className="mb-3 rounded-[8px] bg-cream-2 px-3 py-2 text-caption text-ink">{message}</p>
+        <p
+          role="status"
+          className={`mb-3 rounded-[8px] px-3 py-2 text-caption ${
+            message.ok
+              ? 'bg-[var(--admin-success-soft)] text-[var(--admin-success)]'
+              : 'bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]'
+          }`}
+        >
+          {message.ok ? '✓ ' : '⚠ '}
+          {message.text}
+        </p>
       ) : null}
 
       {tab === 'pick' ? (
@@ -158,10 +168,13 @@ export function PickingPanel({
                 );
                 setMessage(
                   result.ok
-                    ? allPicked
-                      ? 'הליקוט נשמר — הכל לוקט. אפשר לסמן נארזה/נשלחה בפעולות.'
-                      : 'הליקוט נשמר (חלקי). אפשר להמשיך לאריזה — מייל המשלוח יפרט מה נשלח.'
-                    : (result.error ?? 'השמירה נכשלה'),
+                    ? {
+                        text: allPicked
+                          ? 'הליקוט נשמר — הכל לוקט. אפשר לסמן נארזה/נשלחה בפעולות.'
+                          : 'הליקוט נשמר (חלקי). אפשר להמשיך לאריזה — מייל המשלוח יפרט מה נשלח.',
+                        ok: true,
+                      }
+                    : { text: result.error ?? 'השמירה נכשלה', ok: false },
                 );
               })
             }
@@ -213,7 +226,11 @@ export function PickingPanel({
                       })),
                       editReason,
                     );
-                    setMessage(result.ok ? 'ההזמנה עודכנה ונשלח מייל ללקוח.' : (result.error ?? 'העריכה נכשלה'));
+                    setMessage(
+                      result.ok
+                        ? { text: 'ההזמנה עודכנה ונשלח מייל ללקוח.', ok: true }
+                        : { text: result.error ?? 'העריכה נכשלה', ok: false },
+                    );
                   })
                 }
                 className="admin-btn admin-btn-solid w-full"
@@ -248,7 +265,11 @@ export function PickingPanel({
                     onClick={() =>
                       startTransition(async () => {
                         const result = await setStaffDiscount(orderId, Number(discount || 0), discountReason);
-                        setMessage(result.ok ? 'ההנחה נשמרה והחשבון עודכן.' : (result.error ?? 'נכשל'));
+                        setMessage(
+                          result.ok
+                            ? { text: 'ההנחה נשמרה והחשבון עודכן.', ok: true }
+                            : { text: result.error ?? 'נכשל', ok: false },
+                        );
                       })
                     }
                     className="admin-btn admin-btn-quiet"

@@ -42,6 +42,7 @@ export function CheckoutClient() {
   const [fulfillmentDone, setFulfillmentDone] = useState(false);
   const [method, setMethod] = useState<MethodOption | null>(null);
   const [placing, setPlacing] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [wallet, setWallet] = useState<'bit' | 'apple_pay' | 'google_pay' | null>(null);
@@ -51,6 +52,7 @@ export function CheckoutClient() {
     freeShipping: boolean;
   } | null>(null);
   const started = useRef(false);
+  const redirectingRef = useRef(false);
 
   const items = cart?.items ?? [];
 
@@ -179,6 +181,9 @@ export function CheckoutClient() {
           if (result.error === 'total_changed' && result.serverTotal != null) {
             setServerTotal(result.serverTotal);
             setPlaceError(t('errTotalChanged', { total: formatPrice(result.serverTotal, locale) }));
+          } else if (result.error === 'total_changed') {
+            // הקופון פג בין הסקירה לתשלום — אין סכום שרת חדש להציג, רק לבקש רענון
+            setPlaceError(t('errCouponExpired'));
           } else if (result.error === 'insufficient_stock') {
             setPlaceError(t('errInsufficientStock'));
           } else if (result.error === 'unavailable') {
@@ -192,18 +197,38 @@ export function CheckoutClient() {
           }
           return;
         }
-        cart?.clear();
+        // הסל נשאר עד שהתשלום מאושר בפועל (ResultClient) — כשל/נטישה בדף
+        // הסליקה חוזרים ל-/checkout עם אותה עגלה, אותה session ואפשרות
+        // ניסיון חוזר, במקום "הסל ריק בינתיים".
         if (result.mode === 'redirect_to_payment' && result.redirectUrl) {
+          redirectingRef.current = true;
+          setRedirecting(true);
           window.location.assign(result.redirectUrl);
+          return;
+        }
+        if (result.error === 'payment_error') {
+          // ההזמנה נוצרה אך פתיחת דף התשלום נכשלה — לא הצלחה, ניסיון חוזר זמין
+          setPlaceError(t('errPaymentPage'));
           return;
         }
         router.push('/checkout/result?outcome=created');
       } finally {
-        setPlacing(false);
+        // בזמן ניווט אמיתי אל דף התשלום אין לשחרר את הכפתור — הוא ייעלם
+        // מהמסך תוך רגע, ו"חוזר לפעיל" שקרי בטעות ניתן ללחיצה כפולה
+        if (!redirectingRef.current) setPlacing(false);
       }
     },
     [placing, displayedTotal, serverTotal, cart, router, t, locale],
   );
+
+  if (redirecting) {
+    return (
+      <div role="status" aria-live="polite" className="mx-auto flex max-w-md flex-col items-center gap-4 py-24 text-center">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-burgundy border-t-transparent motion-reduce:animate-none" />
+        <p className="text-lead text-ink">{t('redirectingToPayment')}</p>
+      </div>
+    );
+  }
 
   if (!cart?.enabled) {
     return <p className="py-16 text-center text-muted">{t('disabled')}</p>;

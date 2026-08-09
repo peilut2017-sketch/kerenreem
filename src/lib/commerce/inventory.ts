@@ -126,11 +126,17 @@ export async function transferStock(
 }
 
 /**
- * [1.3] תיקון סנכרון טופס הספר: books.stock_quantity הוא מטמון נגזר —
+ * [1.3/1.4] תיקון סנכרון טופס הספר: books.stock_quantity הוא מטמון נגזר —
  * כתיבה ישירה אליו נדרסת בטריגר וה-ledger עיוור לה. במקום זה, הערך
  * שהוזן בטופס מיושם כתנועת "ספירה" (count) על מיקום ברירת המחדל: הפרש
  * מול המלאי הפיזי הקיים, דרך הפונקציה האטומית — המטמון וה-ledger
- * נשארים עקביים, וההיסטוריה מלאה.
+ * נשארים עקביים, וההיסטוריה מלאה. (הערך המוצג בטופס עצמו חייב להיות
+ * on_hand אמיתי ולא הזמין — ראו book-form-data.ts.)
+ *
+ * ספר עם מלאי בכמה מחסנים: אין דרך לדעת מאיזה מחסן להוסיף/להוריד
+ * מטופס יחיד בלי בחירת מיקום, ולכן לא זוקפים את ההפרש בשקט למחסן
+ * הראשי (זה היה מייצר פילוח שגוי בין מחסנים) — מסרבים ומפנים למסך
+ * המלאי, שם יש בחירת מיקום מפורשת.
  */
 export async function reconcileBookStockFromForm(
   bookId: string,
@@ -144,9 +150,11 @@ export async function reconcileBookStockFromForm(
     .from('inventory_levels')
     .select('on_hand')
     .eq('book_id', bookId);
-  const current = (levels ?? []).reduce((sum, level) => sum + level.on_hand, 0);
+  const rows = levels ?? [];
+  const current = rows.reduce((sum, level) => sum + level.on_hand, 0);
   const delta = targetOnHand - current;
   if (delta === 0) return { ok: true, reason: 'unchanged', onHand: current };
+  if (rows.length > 1) return { ok: false, reason: 'multi_location', onHand: current };
 
   return adjustStock(service, {
     bookId,

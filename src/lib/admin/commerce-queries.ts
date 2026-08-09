@@ -22,25 +22,77 @@ export interface OrdersFilter {
   payment?: string;
   fulfillment?: string;
   view?: string;
+  /** [1.4] עימוד — מחרוזת (מגיע מ-searchParams), 1 = עמוד ראשון */
+  page?: string;
 }
 
-/** התצוגות השמורות (פרק 9.3) — שם ← תנאי סינון. */
-export const SAVED_VIEWS: Record<string, { label: string; filter: Partial<OrdersFilter> }> = {
-  pending_payment: { label: 'ממתינות לתשלום', filter: { payment: 'pending' } },
-  new: { label: 'חדשות לטיפול', filter: { state: 'confirmed' } },
-  preparing: { label: 'בהכנה', filter: { fulfillment: 'preparing' } },
-  ready_pickup: { label: 'ממתינות לאיסוף', filter: { fulfillment: 'ready_for_pickup' } },
-  shipped: { label: 'נשלחו', filter: { fulfillment: 'shipped' } },
+export const ORDERS_PAGE_SIZE = 50;
+
+export interface OrdersListResult {
+  orders: Order[];
+  /** סה״כ תואמים לסינון, לצורך "עמוד X מתוך Y" — null אם נכשלה הספירה */
+  total: number | null;
+  page: number;
+  pageSize: number;
+  /** [1.4] כשל DB היה נבלע ל-[] וזהה חזותית ל"אין תוצאות" — עכשיו מדווח בנפרד */
+  error: boolean;
+}
+
+/**
+ * התצוגות השמורות (פרק 9.3) — שם ← תנאי סינון.
+ * [1.4] לכל תצוגה יש עכשיו מפתח view משלה (גם כשהסינון האמיתי הוא
+ * state/payment/fulfillment) — listOrders מתעלם ממנו בשקט כשאינו אחד
+ * משלושת הערכים שהוא מטפל בהם במיוחד, אבל הוא הופך את זיהוי "התצוגה
+ * הפעילה" להשוואה ישירה אחת במקום התאמה חלקית לפי state+payment בלבד
+ * (ששכחה את ציר האספקה — צ'יפ "בהכנה" נדלק גם ב-fulfillment=shipped)
+ * ומבטלת את הצורך ב"הסרת המפתח כשהתצוגה כבר פעילה", שגרמה ללחיצה על
+ * צ'יפ פעיל לבטל את הסימון שלו בלי לבטל את הסינון עצמו.
+ */
+export const SAVED_VIEWS: Record<string, { label: string; filter: OrdersFilter }> = {
+  pending_payment: { label: 'ממתינות לתשלום', filter: { view: 'pending_payment', payment: 'pending', state: 'pending' } },
+  new: { label: 'חדשות לטיפול', filter: { view: 'new', state: 'confirmed' } },
+  preparing: { label: 'בהכנה', filter: { view: 'preparing', fulfillment: 'preparing' } },
+  ready_pickup: { label: 'ממתינות לאיסוף', filter: { view: 'ready_pickup', fulfillment: 'ready_for_pickup' } },
+  shipped: { label: 'נשלחו', filter: { view: 'shipped', fulfillment: 'shipped' } },
   doc_missing: { label: 'תשלום ללא מסמך', filter: { view: 'doc_missing' } },
   cancel_requests: { label: 'בקשות ביטול', filter: { view: 'cancel_requests' } },
   attention: { label: 'דורשות טיפול', filter: { view: 'attention' } },
 };
 
-export async function listOrders(filter: OrdersFilter): Promise<Order[]> {
-  const supabase = await createClient();
-  if (!supabase) return [];
+/** [1.4] בונה קישור מלא לתצוגה שמורה — מקור יחיד, נצרך גם ברשימה וגם בדשבורד. */
+export function savedViewHref(key: keyof typeof SAVED_VIEWS): string {
+  const view = SAVED_VIEWS[key];
+  if (!view) return '/admin/orders';
+  const params = new URLSearchParams();
+  if (view.filter.q) params.set('q', view.filter.q);
+  if (view.filter.state) params.set('state', view.filter.state);
+  if (view.filter.payment) params.set('payment', view.filter.payment);
+  if (view.filter.fulfillment) params.set('fulfillment', view.filter.fulfillment);
+  if (view.filter.view) params.set('view', view.filter.view);
+  const qs = params.toString();
+  return qs ? `/admin/orders?${qs}` : '/admin/orders';
+}
 
-  let query = supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100);
+/**
+ * [1.4] שני תיקונים על הגרסה הקודמת:
+ *  - עימוד אמיתי (range + count) במקום limit(100) קשיח בלי שום סימון
+ *    שהרשימה נחתכה — חנות פעילה הייתה מאבדת הזמנות מהמסך בלי שאיש ידע.
+ *  - כשל DB מדווח כ-error:true ולא כ-[] — לפני כן כשל מסד ורשימה ריקה
+ *    מסינון נראו בדיוק אותו דבר ("אין הזמנות התואמות לסינון").
+ */
+export async function listOrders(filter: OrdersFilter): Promise<OrdersListResult> {
+  const page = Math.max(1, Math.floor(Number(filter.page) || 1));
+  const pageSize = ORDERS_PAGE_SIZE;
+  const empty = (error: boolean): OrdersListResult => ({ orders: [], total: error ? null : 0, page, pageSize, error });
+
+  const supabase = await createClient();
+  if (!supabase) return empty(true);
+
+  let query = supabase
+    .from('orders')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (filter.state) query = query.eq('state', filter.state);
   if (filter.payment) query = query.eq('payment_state', filter.payment);
@@ -59,19 +111,28 @@ export async function listOrders(filter: OrdersFilter): Promise<Order[]> {
   if (filter.q) {
     const q = filter.q.trim();
     const asNumber = Number(q);
-    query = Number.isInteger(asNumber) && asNumber > 0
-      ? query.eq('order_number', asNumber)
-      : query.or(
-          `contact_name.ilike.%${q}%,contact_email.ilike.%${q}%,contact_phone.ilike.%${q}%`,
-        );
+    if (Number.isInteger(asNumber) && asNumber > 0) {
+      query = query.eq('order_number', asNumber);
+    } else {
+      // [1.4] q הגולמי היה משורשר ישירות לתוך מחרוזת ה-.or() של PostgREST:
+      // פסיק/סוגריים בקלט פירקו את הביטוי לתנאי סינון נוספים. ה-RLS עדיין
+      // מגן על השורות, אבל זה קלט לא-מסונן שנכנס לשפת שאילתה. פסיקים
+      // וסוגריים מוסרים (אין להם משמעות בחיפוש חופשי), ותווי הכללה של
+      // ILIKE (%،_) נבלמים כדי שלא ישנו את דפוס ההתאמה.
+      const safe = q.replace(/[,()]/g, ' ').replace(/[%_\\]/g, (c) => `\\${c}`).trim();
+      const pattern = `%${safe}%`;
+      query = query.or(
+        `contact_name.ilike.${pattern},contact_email.ilike.${pattern},contact_phone.ilike.${pattern}`,
+      );
+    }
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     console.error('[admin:orders] list', error.message);
-    return [];
+    return empty(true);
   }
-  return (data ?? []) as Order[];
+  return { orders: (data ?? []) as Order[], total: count ?? null, page, pageSize, error: false };
 }
 
 export interface OrderDetail {
@@ -95,7 +156,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
   if (error || !order) return null;
 
   const [items, events, payments, documents, notifications] = await Promise.all([
-    supabase.from('order_items').select('*').eq('order_id', orderId),
+    supabase.from('order_items').select('*').eq('order_id', orderId).order('created_at'),
     supabase.from('order_events').select('*').eq('order_id', orderId).order('created_at'),
     supabase.from('payments').select('*').eq('order_id', orderId).order('created_at'),
     supabase.from('documents').select('*').eq('order_id', orderId).order('created_at'),

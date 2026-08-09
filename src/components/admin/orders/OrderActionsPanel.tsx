@@ -43,11 +43,15 @@ export function OrderActionsPanel({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [note, setNote] = useState('');
   const [tracking, setTracking] = useState({ company: '', trackingNumber: '', trackingUrl: '' });
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
+  // [1.4] טוקן יציב לניסיון הזיכוי הנוכחי — מתחדש רק אחרי שהניסיון
+  // הסתיים (הצליח/נכשל), כדי שלחיצה כפולה על אותו ניסיון תיחסם
+  // באידמפוטנטיות בשרת במקום ליצור שני זיכויים.
+  const [refundToken, setRefundToken] = useState(() => crypto.randomUUID());
   const [actualShipping, setActualShipping] = useState(
     order.actualShippingCost != null ? String(order.actualShippingCost) : '',
   );
@@ -56,7 +60,11 @@ export function OrderActionsPanel({
     if (confirmText && !window.confirm(confirmText)) return;
     startTransition(async () => {
       const result = await action();
-      setMessage(result.ok ? 'בוצע.' : result.error ?? 'הפעולה נכשלה');
+      setMessage(
+        result.ok
+          ? { text: 'בוצע.', ok: true }
+          : { text: result.error ?? 'הפעולה נכשלה', ok: false },
+      );
     });
   }
 
@@ -76,8 +84,16 @@ export function OrderActionsPanel({
         <h2 className="mb-3 text-small font-bold text-ink">פעולות</h2>
 
         {message ? (
-          <p role="status" className="mb-3 rounded-[var(--radius-sm)] bg-cream-2 px-3 py-2 text-caption text-ink">
-            {message}
+          <p
+            role="status"
+            className={`mb-3 rounded-[var(--radius-sm)] px-3 py-2 text-caption ${
+              message.ok
+                ? 'bg-[var(--admin-success-soft)] text-[var(--admin-success)]'
+                : 'bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]'
+            }`}
+          >
+            {message.ok ? '✓ ' : '⚠ '}
+            {message.text}
           </p>
         ) : null}
 
@@ -245,12 +261,21 @@ export function OrderActionsPanel({
             <button
               type="button"
               disabled={pending || !refundAmount || !refundReason}
-              onClick={() =>
-                run(
-                  () => refundOrder(order.id, Number(refundAmount), refundReason),
-                  `לבצע זיכוי של ${refundAmount} ₪ דרך מורנינג? פעולה בלתי הפיכה.`,
-                )
-              }
+              onClick={() => {
+                if (!window.confirm(`לבצע זיכוי של ${refundAmount} ₪ דרך מורנינג? פעולה בלתי הפיכה.`)) return;
+                const token = refundToken;
+                startTransition(async () => {
+                  const result = await refundOrder(order.id, Number(refundAmount), refundReason, token);
+                  setMessage(
+                    result.ok
+                      ? { text: 'בוצע.', ok: true }
+                      : { text: result.error ?? 'הפעולה נכשלה', ok: false },
+                  );
+                  // ניסיון חדש (בין אם קודם הצליח ובין אם נכשל) מקבל טוקן
+                  // חדש — כך שהאידמפוטנטיות חוסמת רק כפילות של אותו ניסיון
+                  setRefundToken(crypto.randomUUID());
+                });
+              }}
               className="admin-btn admin-btn-danger"
             >
               ביצוע זיכוי
@@ -272,7 +297,7 @@ export function OrderActionsPanel({
                   if (result.ok) {
                     router.push('/admin/orders');
                   } else {
-                    setMessage(result.error ?? 'המחיקה נכשלה');
+                    setMessage({ text: result.error ?? 'המחיקה נכשלה', ok: false });
                   }
                 });
               }}

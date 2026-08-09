@@ -6,17 +6,33 @@ import { bulkUpdateBooks } from '@/lib/admin/actions';
 import type { BookRow } from '@/lib/admin/queries';
 import { computeCompletion } from '@/lib/completion';
 import { useLocalList } from '@/lib/client-hooks';
+import { formatPrice } from '@/lib/commerce/pricing';
 import { AdminIcon } from './AdminIcons';
 import { CompletionBadge } from './CompletionBadge';
 import { RowActions } from './RowActions';
 import { Spinner } from './SubmitButton';
 import type { BookRelations } from '@/lib/supabase/types';
 
-type ColumnId = 'catalogue_number' | 'author' | 'year' | 'completion' | 'updated';
+type ColumnId =
+  | 'catalogue_number'
+  | 'author'
+  | 'year'
+  | 'completion'
+  | 'updated'
+  | 'sku'
+  | 'category'
+  | 'price'
+  | 'stock'
+  | 'purchasable';
 
 const TOGGLEABLE: { id: ColumnId; label: string }[] = [
   { id: 'catalogue_number', label: '#' },
   { id: 'author', label: 'מחבר' },
+  { id: 'category', label: 'קטגוריה' },
+  { id: 'sku', label: 'מק״ט' },
+  { id: 'price', label: 'מחיר' },
+  { id: 'stock', label: 'מלאי וזמינות' },
+  { id: 'purchasable', label: 'ניתן לרכישה' },
   { id: 'year', label: 'שנה' },
   { id: 'completion', label: 'השלמה' },
   { id: 'updated', label: 'עודכן' },
@@ -27,6 +43,46 @@ function formatDate(value: string): string {
     new Date(value),
   );
 }
+
+/** [1.4] מבצע פעיל = יש מחיר מבצע והתאריך הנוכחי בתוך החלון (אם הוגדר). */
+function isSaleActive(book: BookRow): boolean {
+  if (book.sale_price == null) return false;
+  const now = Date.now();
+  if (book.sale_starts_at && new Date(book.sale_starts_at).getTime() > now) return false;
+  if (book.sale_ends_at && new Date(book.sale_ends_at).getTime() < now) return false;
+  return true;
+}
+
+type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock' | 'preorder' | 'unmanaged';
+
+function stockStatus(book: BookRow): StockStatus {
+  if (book.preorder_enabled) return 'preorder';
+  if (!book.is_stock_managed) return 'unmanaged';
+  const qty = book.stock_quantity ?? 0;
+  if (qty <= 0) return 'out_of_stock';
+  if (qty <= (book.low_stock_threshold ?? 2)) return 'low_stock';
+  return 'in_stock';
+}
+
+const STOCK_STATUS_LABEL: Record<StockStatus, string> = {
+  in_stock: 'במלאי',
+  low_stock: 'מלאי נמוך',
+  out_of_stock: 'אזל',
+  preorder: 'הזמנה מוקדמת',
+  unmanaged: 'לא מנוהל',
+};
+
+const STOCK_STATUS_BADGE: Record<StockStatus, string> = {
+  in_stock: 'admin-badge-success',
+  low_stock: 'admin-badge-warning',
+  out_of_stock: 'admin-badge-danger',
+  preorder: 'admin-badge-accent',
+  unmanaged: 'admin-badge-neutral',
+};
+
+type PublishFilter = 'all' | 'published' | 'draft';
+type PurchasableFilter = 'all' | 'yes' | 'no';
+type StockFilter = 'all' | 'out_of_stock' | 'low_stock' | 'no_price';
 
 type SortKey = ColumnId | 'title';
 type SortState = { key: SortKey; direction: 'asc' | 'desc' } | null;
@@ -48,9 +104,11 @@ interface Row {
 export function BooksDataGrid({
   books,
   bookIdsWithTags,
+  categories,
 }: {
   books: BookRow[];
   bookIdsWithTags: string[];
+  categories: { id: string; name: string }[];
 }) {
   const hiddenColumns = useLocalList('admin-books-hidden-columns');
   const [query, setQuery] = useState('');
@@ -58,6 +116,10 @@ export function BooksDataGrid({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsRef = useRef<HTMLDivElement>(null);
+  const [publishFilter, setPublishFilter] = useState<PublishFilter>('all');
+  const [purchasableFilter, setPurchasableFilter] = useState<PurchasableFilter>('all');
+  const [stockFilter, setStockFilter] = useState<StockFilter>('all');
+  const categoryName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
 
   useEffect(() => {
     if (!columnsOpen) return;
@@ -85,22 +147,31 @@ export function BooksDataGrid({
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return rows;
     return rows.filter(({ book }) => {
-      const haystack = [
-        book.title_he,
-        book.subtitle_he,
-        book.author_name_he,
-        book.author?.name_he,
-        book.sku,
-        String(book.catalogue_number),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(needle);
+      if (needle) {
+        const haystack = [
+          book.title_he,
+          book.subtitle_he,
+          book.author_name_he,
+          book.author?.name_he,
+          book.sku,
+          String(book.catalogue_number),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      if (publishFilter === 'published' && !book.is_published) return false;
+      if (publishFilter === 'draft' && book.is_published) return false;
+      if (purchasableFilter === 'yes' && !book.is_purchasable) return false;
+      if (purchasableFilter === 'no' && book.is_purchasable) return false;
+      if (stockFilter === 'out_of_stock' && stockStatus(book) !== 'out_of_stock') return false;
+      if (stockFilter === 'low_stock' && stockStatus(book) !== 'low_stock') return false;
+      if (stockFilter === 'no_price' && book.price != null) return false;
+      return true;
     });
-  }, [rows, query]);
+  }, [rows, query, publishFilter, purchasableFilter, stockFilter]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
@@ -126,11 +197,27 @@ export function BooksDataGrid({
           return factor * (a.completionPercent - b.completionPercent);
         case 'updated':
           return factor * a.book.updated_at.localeCompare(b.book.updated_at);
+        case 'sku':
+          return factor * (a.book.sku ?? '').localeCompare(b.book.sku ?? '', 'he');
+        case 'category':
+          return (
+            factor *
+            (categoryName.get(a.book.category_id ?? '') ?? '').localeCompare(
+              categoryName.get(b.book.category_id ?? '') ?? '',
+              'he',
+            )
+          );
+        case 'price':
+          return factor * ((a.book.price ?? -1) - (b.book.price ?? -1));
+        case 'stock':
+          return factor * ((a.book.stock_quantity ?? 0) - (b.book.stock_quantity ?? 0));
+        case 'purchasable':
+          return factor * (Number(a.book.is_purchasable) - Number(b.book.is_purchasable));
         default:
           return 0;
       }
     });
-  }, [filtered, sort]);
+  }, [filtered, sort, categoryName]);
 
   const visibleIds = useMemo(() => sorted.map((row) => row.book.id), [sorted]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
@@ -231,10 +318,60 @@ export function BooksDataGrid({
         </div>
       </div>
 
+      {/* [1.4] מסננים — לפני התיקון לא היה ולו מסנן אחד; זו בדיוק הדרך
+          לתפעל חנות (למצוא ספרים בלי מחיר, שאזלו, או שלא מתפרסמים). */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <select
+          value={publishFilter}
+          onChange={(e) => setPublishFilter(e.target.value as PublishFilter)}
+          aria-label="סינון לפי פרסום"
+          className="admin-field-input w-auto py-1.5"
+        >
+          <option value="all">כל הסטטוסים</option>
+          <option value="published">מפורסמים</option>
+          <option value="draft">טיוטות</option>
+        </select>
+        <select
+          value={purchasableFilter}
+          onChange={(e) => setPurchasableFilter(e.target.value as PurchasableFilter)}
+          aria-label="סינון לפי ניתן לרכישה"
+          className="admin-field-input w-auto py-1.5"
+        >
+          <option value="all">ניתן לרכישה — הכל</option>
+          <option value="yes">ניתן לרכישה</option>
+          <option value="no">לא ניתן לרכישה</option>
+        </select>
+        <select
+          value={stockFilter}
+          onChange={(e) => setStockFilter(e.target.value as StockFilter)}
+          aria-label="סינון לפי מלאי ומחיר"
+          className="admin-field-input w-auto py-1.5"
+        >
+          <option value="all">מלאי — הכל</option>
+          <option value="out_of_stock">אזל מהמלאי</option>
+          <option value="low_stock">מלאי נמוך</option>
+          <option value="no_price">ללא מחיר</option>
+        </select>
+        {publishFilter !== 'all' || purchasableFilter !== 'all' || stockFilter !== 'all' ? (
+          <button
+            type="button"
+            onClick={() => {
+              setPublishFilter('all');
+              setPurchasableFilter('all');
+              setStockFilter('all');
+            }}
+            className="admin-btn admin-btn-ghost"
+          >
+            <AdminIcon name="x" className="h-4 w-4" />
+            איפוס מסננים
+          </button>
+        ) : null}
+      </div>
+
       {selected.size > 0 ? <BulkActionBar selected={selected} onDone={() => setSelected(new Set())} /> : null}
 
       <div className="admin-table-wrap overflow-x-auto">
-        <table className="admin-table min-w-[36rem]">
+        <table className="admin-table min-w-[64rem]">
           <thead>
             <tr>
               <th scope="col">
@@ -247,12 +384,28 @@ export function BooksDataGrid({
                   className="h-4 w-4 accent-[var(--admin-accent)]"
                 />
               </th>
+              <th scope="col" aria-label="כריכה" />
               {shown('catalogue_number') ? (
                 <SortableHeader label="#" active={sortIndicator('catalogue_number')} onClick={() => toggleSort('catalogue_number')} />
               ) : null}
               <SortableHeader label="שם הספר" active={sortIndicator('title')} onClick={() => toggleSort('title')} />
               {shown('author') ? (
                 <SortableHeader label="מחבר" active={sortIndicator('author')} onClick={() => toggleSort('author')} />
+              ) : null}
+              {shown('category') ? (
+                <SortableHeader label="קטגוריה" active={sortIndicator('category')} onClick={() => toggleSort('category')} />
+              ) : null}
+              {shown('sku') ? (
+                <SortableHeader label="מק״ט" active={sortIndicator('sku')} onClick={() => toggleSort('sku')} />
+              ) : null}
+              {shown('price') ? (
+                <SortableHeader label="מחיר" active={sortIndicator('price')} onClick={() => toggleSort('price')} />
+              ) : null}
+              {shown('stock') ? (
+                <SortableHeader label="מלאי וזמינות" active={sortIndicator('stock')} onClick={() => toggleSort('stock')} />
+              ) : null}
+              {shown('purchasable') ? (
+                <SortableHeader label="ניתן לרכישה" active={sortIndicator('purchasable')} onClick={() => toggleSort('purchasable')} />
               ) : null}
               {shown('year') ? (
                 <SortableHeader label="שנה" active={sortIndicator('year')} onClick={() => toggleSort('year')} />
@@ -267,7 +420,10 @@ export function BooksDataGrid({
             </tr>
           </thead>
           <tbody>
-            {sorted.map(({ book, relations }) => (
+            {sorted.map(({ book, relations }) => {
+              const status = stockStatus(book);
+              const onSale = isSaleActive(book);
+              return (
               <tr key={book.id}>
                 <td>
                   <input
@@ -277,6 +433,20 @@ export function BooksDataGrid({
                     aria-label={`בחירת ${book.title_he}`}
                     className="h-4 w-4 accent-[var(--admin-accent)]"
                   />
+                </td>
+                <td>
+                  {book.cover_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- תמונונת קטנה בטבלה; אין צורך באופטימיזציית next/image
+                    <img
+                      src={book.cover_image_url}
+                      alt=""
+                      className="h-10 w-8 rounded-[4px] border border-rule object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-8 items-center justify-center rounded-[4px] bg-cream-2 text-muted">
+                      <AdminIcon name="books" className="h-4 w-4" />
+                    </span>
+                  )}
                 </td>
                 {shown('catalogue_number') ? (
                   <td className="text-muted tabular-nums">{book.catalogue_number}</td>
@@ -291,6 +461,44 @@ export function BooksDataGrid({
                 </td>
                 {shown('author') ? (
                   <td className="text-muted">{book.author_name_he ?? book.author?.name_he ?? '—'}</td>
+                ) : null}
+                {shown('category') ? (
+                  <td className="text-muted">{categoryName.get(book.category_id ?? '') ?? '—'}</td>
+                ) : null}
+                {shown('sku') ? (
+                  <td dir="ltr" className="text-start text-caption text-muted">{book.sku ?? '—'}</td>
+                ) : null}
+                {shown('price') ? (
+                  <td className="tabular-nums">
+                    {book.price == null ? (
+                      <span className="text-[var(--admin-danger)]">ללא מחיר</span>
+                    ) : onSale ? (
+                      <>
+                        <span className="text-caption text-muted line-through">
+                          {formatPrice(book.price, 'he')}
+                        </span>{' '}
+                        {formatPrice(book.sale_price as number, 'he')}
+                      </>
+                    ) : (
+                      formatPrice(book.price, 'he')
+                    )}
+                  </td>
+                ) : null}
+                {shown('stock') ? (
+                  <td>
+                    <span className={`admin-badge ${STOCK_STATUS_BADGE[status]}`}>
+                      {status === 'in_stock' || status === 'low_stock'
+                        ? `${book.stock_quantity ?? 0} · ${STOCK_STATUS_LABEL[status]}`
+                        : STOCK_STATUS_LABEL[status]}
+                    </span>
+                  </td>
+                ) : null}
+                {shown('purchasable') ? (
+                  <td>
+                    <span className={`admin-badge ${book.is_purchasable ? 'admin-badge-success' : 'admin-badge-neutral'}`}>
+                      {book.is_purchasable ? 'כן' : 'לא'}
+                    </span>
+                  </td>
                 ) : null}
                 {shown('year') ? (
                   <td className="text-muted">
@@ -317,7 +525,8 @@ export function BooksDataGrid({
                   />
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {sorted.length === 0 ? (
@@ -339,8 +548,9 @@ function SortableHeader({
   active: string | null;
   onClick: () => void;
 }) {
+  const ariaSort = active === '↑' ? 'ascending' : active === '↓' ? 'descending' : 'none';
   return (
-    <th scope="col">
+    <th scope="col" aria-sort={ariaSort}>
       <button type="button" onClick={onClick} className="inline-flex items-center gap-1 hover:text-ink">
         {label}
         <span aria-hidden="true">{active ?? ''}</span>

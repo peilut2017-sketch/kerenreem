@@ -330,10 +330,11 @@ export async function saveEntity(
     if (entityKey === 'books' && stockTarget != null && result.data?.id) {
       const sync = await reconcileBookStockFromForm(result.data.id, stockTarget, session.userId);
       if (!sync.ok && sync.reason !== 'not_configured') {
-        return {
-          status: 'error',
-          message: `הספר נשמר אך עדכון המלאי נכשל: ${sync.reason}. עדכנו במסך המלאי.`,
-        };
+        const message =
+          sync.reason === 'multi_location'
+            ? 'הספר נשמר, אך המלאי לא עודכן: לספר הזה מלאי בכמה מחסנים — עדכנו כמות דרך מסך המלאי, שם ניתן לבחור מיקום.'
+            : `הספר נשמר אך עדכון המלאי נכשל: ${sync.reason}. עדכנו במסך המלאי.`;
+        return { status: 'error', message };
       }
     }
 

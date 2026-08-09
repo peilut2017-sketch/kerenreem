@@ -57,6 +57,7 @@ export function BookForm({
   previewPages,
   storeEnabled,
   canWrite,
+  stockOnHand,
 }: {
   book: Book | null;
   authors: Author[];
@@ -72,6 +73,8 @@ export function BookForm({
   /** קובע רק אם שדות המסחר מוצגים באתר הציבורי — בטופס הם ערוכים תמיד. */
   storeEnabled: boolean;
   canWrite: boolean;
+  /** [1.4] on_hand אמיתי מכל המחסנים — לא book.stock_quantity (המטמון הזמין). */
+  stockOnHand: number | null;
 }) {
   const languages = book?.languages ?? ['he'];
   const completion = book ? computeCompletion(book, relations) : null;
@@ -664,9 +667,9 @@ export function BookForm({
                           dir="ltr"
                           min={0}
                           step={1}
-                          defaultValue={book?.stock_quantity}
+                          defaultValue={stockOnHand ?? book?.stock_quantity ?? undefined}
                           error={errors.stock_quantity}
-                          hint="ריק = 0. השינוי נרשם כתנועת ספירה ב-ledger המלאי; פירוט פר מחסן והעברות — במסך מלאי ומחסנים. עלות ליחידה — בפאנל שבתחתית העמוד."
+                          hint="ריק = 0. זהו המלאי הפיזי בפועל — כולל עותקים ששמורים כרגע להזמנות. השינוי נרשם כתנועת ספירה ב-ledger המלאי; פירוט פר מחסן והעברות — במסך מלאי ומחסנים. עלות ליחידה — בפאנל שבתחתית העמוד."
                         />
                         <TextField
                           name="weight_grams"

@@ -119,7 +119,7 @@ export function InventoryTable({
           <div className="relative">
             <AdminIcon
               name="search"
-              className="pointer-events-none absolute inset-inline-start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+              className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
             />
             <input
               type="search"
