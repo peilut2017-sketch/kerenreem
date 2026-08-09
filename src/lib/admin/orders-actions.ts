@@ -15,7 +15,12 @@ import { adjustStock, commitStock, releaseStock, reserveStock, transferStock } f
 import { recordCreditNote } from '@/lib/commerce/documents';
 import { sendOrderEmail, type EmailTemplate } from '@/lib/commerce/notifications';
 import { refundTransaction } from '@/lib/commerce/morning';
-import { createManualOrder } from '@/lib/commerce/manual-orders';
+import {
+  createManualOrder,
+  previewManualOrderTotals,
+  type ManualOrderFulfillment,
+  type ManualOrderPreview,
+} from '@/lib/commerce/manual-orders';
 import { startPayment } from '@/lib/commerce/payments';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
 import type { Order, ShippingAddress } from '@/lib/supabase/types';
@@ -663,6 +668,37 @@ export async function setActualShippingCost(
 }
 
 /**
+ * [1.5] אומדן חי לטופס ההזמנה הטלפונית (משלוח חינם מעל סף + קופון + מבצע
+ * אוטומטי) — אותו resolvePricing שמשמש את createManualOrder בפועל, כדי
+ * שמה שהנציג מקריא ללקוח בשיחה = מה שיירשם בהזמנה.
+ */
+export async function previewManualOrderTotalsAction(input: {
+  items: { bookId: string; quantity: number }[];
+  fulfillment: ManualOrderFulfillment;
+  couponCode: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+}): Promise<ManualOrderPreview> {
+  const session = await assertPermission('store');
+  if ('error' in session) {
+    return {
+      ok: false,
+      error: session.error,
+      subtotal: 0,
+      shippingTotal: 0,
+      discountTotal: 0,
+      taxTotal: 0,
+      total: 0,
+      freeShippingApplied: false,
+      couponValid: false,
+      couponError: null,
+      promotionName: null,
+    };
+  }
+  return previewManualOrderTotals({ ...input, locale: 'he' });
+}
+
+/**
  * הזמנה ידנית — ערוץ הטלפון (פרק 9.6): הצוות קולט את ההזמנה בשיחה.
  * מחירים מהקטלוג בלבד; מלאי נשמר; ללקוח נשלח מייל אישור עם קישור מעקב.
  */
@@ -671,7 +707,8 @@ export async function createManualOrderAction(input: {
   contact: { name: string; phone: string; email: string | null };
   fulfillment:
     | { type: 'pickup' }
-    | { type: 'shipping'; methodId: string; address: ShippingAddress };
+    | { type: 'shipping'; methodId: string; address: ShippingAddress; courierNotes?: string };
+  couponCode: string | null;
   note: string | null;
 }): Promise<OrderActionResult & { orderId?: string; orderNumber?: number }> {
   const session = await assertPermission('store');

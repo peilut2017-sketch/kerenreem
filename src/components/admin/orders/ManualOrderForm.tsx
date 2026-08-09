@@ -1,10 +1,47 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createManualOrderAction } from '@/lib/admin/orders-actions';
+import { createManualOrderAction, previewManualOrderTotalsAction } from '@/lib/admin/orders-actions';
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import type { ShippingAddress } from '@/lib/supabase/types';
+
+const COUPON_ERROR_TEXT: Record<string, string> = {
+  invalid: 'הקוד אינו מוכר או שאינו בתוקף',
+  used_up: 'הקופון מוצה',
+  not_applicable: 'הקופון אינו חל על הפריטים שבסל',
+  not_combinable: 'לא ניתן לצרף את הקופון לקופון שכבר הוחל — קופון אחד להזמנה',
+  min_total: 'הקופון תקף מסכום גבוה יותר',
+};
+
+interface Preview {
+  loading: boolean;
+  /** true אחרי שהשרת ענה לפחות פעם אחת — עד אז אין להציג "0.00 ₪" מטעה */
+  ready: boolean;
+  subtotal: number;
+  shippingTotal: number;
+  discountTotal: number;
+  total: number;
+  freeShippingApplied: boolean;
+  couponValid: boolean;
+  couponError: string | null;
+  promotionName: string | null;
+  serverError: string | null;
+}
+
+const IDLE_PREVIEW: Preview = {
+  loading: false,
+  ready: false,
+  subtotal: 0,
+  shippingTotal: 0,
+  discountTotal: 0,
+  total: 0,
+  freeShippingApplied: false,
+  couponValid: false,
+  couponError: null,
+  promotionName: null,
+  serverError: null,
+};
 
 export interface ManualOrderBook {
   id: string;
@@ -43,6 +80,8 @@ export function ManualOrderForm({
   const [fulfillmentType, setFulfillmentType] = useState<'pickup' | 'shipping'>('pickup');
   const [methodId, setMethodId] = useState(methods[0]?.id ?? '');
   const [address, setAddress] = useState({ city: '', street: '', house_number: '' });
+  const [courierNotes, setCourierNotes] = useState('');
+  const [couponCode, setCouponCode] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -56,12 +95,51 @@ export function ManualOrderForm({
       .slice(0, 8);
   }, [books, query]);
 
-  const subtotal = items.reduce(
+  // [1.5] "משלוח חינם לא מחושב, אי אפשר להזין קופון" — אומדן חי מהשרת
+  // (previewManualOrderTotalsAction, אותו resolvePricing כמו ביצירה
+  // בפועל) במקום חשבון קליינט-בלבד שהתעלם מסף המשלוח החינם ומקופון.
+  const [preview, setPreview] = useState<Preview>(IDLE_PREVIEW);
+  const requestId = useRef(0);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    const id = ++requestId.current;
+    const timer = setTimeout(() => {
+      setPreview((p) => ({ ...p, loading: true }));
+      previewManualOrderTotalsAction({
+        items,
+        fulfillment:
+          fulfillmentType === 'pickup' ? { type: 'pickup' } : { type: 'shipping', methodId },
+        couponCode: couponCode.trim() || null,
+        contactPhone: contact.phone.trim() || null,
+        contactEmail: contact.email.trim() || null,
+      }).then((result) => {
+        if (requestId.current !== id) return;
+        setPreview({
+          loading: false,
+          ready: true,
+          subtotal: result.subtotal,
+          shippingTotal: result.shippingTotal,
+          discountTotal: result.discountTotal,
+          total: result.total,
+          freeShippingApplied: result.freeShippingApplied,
+          couponValid: result.couponValid,
+          couponError: result.couponError,
+          promotionName: result.promotionName,
+          serverError: result.ok ? null : (result.error ?? 'חישוב הסכום נכשל'),
+        });
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [items, fulfillmentType, methodId, couponCode, contact.phone, contact.email]);
+
+  const showPreview = items.length > 0;
+  // תצוגה מיידית לשורת הפריטים (מהקטלוג בצד הלקוח, כבר כולל מבצע) — לא
+  // ממתינה לעגול-התור מהשרת; משלוח/הנחה/סה״כ תמיד מהשרת בלבד (preview.ready).
+  const clientSubtotal = items.reduce(
     (sum, item) => sum + (bookById.get(item.bookId)?.price ?? 0) * item.quantity,
     0,
   );
-  const shippingEstimate =
-    fulfillmentType === 'pickup' ? 0 : (methods.find((m) => m.id === methodId)?.price ?? 0);
 
   function addItem(bookId: string) {
     setItems((current) => {
@@ -99,7 +177,9 @@ export function ManualOrderForm({
                   street: address.street,
                   house_number: address.house_number,
                 } as ShippingAddress,
+                courierNotes: courierNotes.trim() || undefined,
               },
+        couponCode: preview.couponValid ? couponCode.trim() || null : null,
         note: note.trim() || null,
       });
       if (!result.ok || !result.orderId) {
@@ -285,6 +365,16 @@ export function ManualOrderForm({
                   <input aria-label="מספר בית" dir="ltr" value={address.house_number} onChange={(e) => setAddress((v) => ({ ...v, house_number: e.target.value }))} className="admin-field-input w-20" />
                 </div>
               </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="mo-courier-notes" className="admin-field-label">הערה לשליח (תודפס גם על מדבקת המשלוח)</label>
+                <input
+                  id="mo-courier-notes"
+                  value={courierNotes}
+                  onChange={(e) => setCourierNotes(e.target.value)}
+                  placeholder="למשל: קוד כניסה, קומה בלי מעלית, להשאיר אצל השכן…"
+                  className="admin-field-input"
+                />
+              </div>
             </div>
           ) : null}
           <div className="mt-4">
@@ -296,23 +386,67 @@ export function ManualOrderForm({
 
       {/* סיכום */}
       <aside className="admin-card px-5 py-4 xl:sticky xl:top-6">
-        <h2 className="mb-3 text-small font-bold text-ink">סיכום (אומדן — הסכום המחייב מהשרת)</h2>
+        <h2 className="mb-3 text-small font-bold text-ink">סיכום (הסכום מחושב בשרת — לא הקלדה)</h2>
+
+        <div className="mb-3">
+          <label htmlFor="mo-coupon" className="admin-field-label">קוד קופון</label>
+          <input
+            id="mo-coupon"
+            dir="ltr"
+            value={couponCode}
+            onChange={(e) => setCouponCode(e.target.value)}
+            placeholder="אופציונלי"
+            className="admin-field-input text-end"
+            style={{ textTransform: 'uppercase' }}
+          />
+          {couponCode.trim() && !preview.loading ? (
+            preview.couponValid ? (
+              <p className="mt-1 text-caption text-[var(--admin-success)]">✓ הקופון תקף ומוחל בסכום למטה</p>
+            ) : preview.couponError ? (
+              <p className="mt-1 text-caption text-[var(--admin-danger)]">
+                {COUPON_ERROR_TEXT[preview.couponError] ?? 'הקופון אינו תקף'}
+              </p>
+            ) : null
+          ) : null}
+        </div>
+
         <dl className="space-y-2 text-small text-ink-soft">
           <div className="flex justify-between">
             <dt>פריטים ({items.reduce((s, i) => s + i.quantity, 0)})</dt>
-            <dd className="tabular-nums text-ink">{subtotal.toFixed(2)} ₪</dd>
+            <dd className="tabular-nums text-ink">{clientSubtotal.toFixed(2)} ₪</dd>
           </div>
+          {preview.ready && preview.discountTotal > 0 ? (
+            <div className="flex justify-between text-[var(--admin-success)]">
+              <dt>הנחה{preview.promotionName ? ` — ${preview.promotionName}` : ''}</dt>
+              <dd className="tabular-nums">−{preview.discountTotal.toFixed(2)} ₪</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <dt>משלוח</dt>
             <dd className="tabular-nums text-ink">
-              {fulfillmentType === 'pickup' ? 'איסוף — ללא' : `${shippingEstimate.toFixed(2)} ₪`}
+              {fulfillmentType === 'pickup' ? (
+                'איסוף — ללא'
+              ) : !preview.ready ? (
+                <span className="text-muted">מחשב…</span>
+              ) : preview.shippingTotal === 0 ? (
+                <span className="text-[var(--admin-success)]">חינם{preview.freeShippingApplied ? ' (מעל סף)' : ''}</span>
+              ) : (
+                `${preview.shippingTotal.toFixed(2)} ₪`
+              )}
             </dd>
           </div>
           <div className="flex justify-between border-t border-[var(--admin-border)] pt-2 font-semibold text-ink">
-            <dt>סה״כ משוער</dt>
-            <dd className="tabular-nums">{(subtotal + shippingEstimate).toFixed(2)} ₪</dd>
+            <dt>סה״כ לגבייה{preview.loading ? ' (מעדכן…)' : ''}</dt>
+            <dd className="tabular-nums">
+              {!showPreview || preview.ready ? `${preview.total.toFixed(2)} ₪` : 'מחשב…'}
+            </dd>
           </div>
         </dl>
+        {preview.serverError ? (
+          <p role="alert" className="mt-3 rounded-[8px] bg-[var(--admin-danger-soft)] px-3 py-2 text-caption text-[var(--admin-danger)]">
+            {preview.serverError}
+          </p>
+        ) : null}
         {error ? (
           <p role="alert" className="mt-3 rounded-[8px] bg-[var(--admin-danger-soft)] px-3 py-2 text-caption text-[var(--admin-danger)]">
             {error}
@@ -320,7 +454,14 @@ export function ManualOrderForm({
         ) : null}
         <button
           type="button"
-          disabled={pending || items.length === 0 || !contact.name.trim() || !contact.phone.trim()}
+          disabled={
+            pending ||
+            items.length === 0 ||
+            !contact.name.trim() ||
+            !contact.phone.trim() ||
+            preview.loading ||
+            !preview.ready
+          }
           onClick={submit}
           className="admin-btn admin-btn-solid mt-4 w-full"
         >
