@@ -12,6 +12,7 @@ import { FloatingActions } from '@/components/book-page/FloatingActions';
 import { Gallery } from '@/components/book-page/Gallery';
 import { BookFlipViewer } from '@/components/book-page/BookFlipViewer';
 import { BookSampleViewer } from '@/components/book-page/BookSampleViewer';
+import { KnowledgeSpace } from '@/components/book-page/KnowledgeSpace';
 import { QuoteCards } from '@/components/book-page/QuoteCards';
 import { SeriesTimeline } from '@/components/book-page/SeriesTimeline';
 import { SpecGrid, type SpecItem } from '@/components/book-page/SpecGrid';
@@ -19,7 +20,8 @@ import { StickyNav } from '@/components/book-page/StickyNav';
 import { SummaryCard } from '@/components/book-page/SummaryCard';
 import { TableOfContents } from '@/components/book-page/TableOfContents';
 import { ViewTracker } from '@/components/book-page/ViewTracker';
-import { getAuthorBySlug, getBookBySlug, getBookConnections, getBookSlugs, getSiteSettings } from '@/lib/data';
+import { getAuthorBySlug, getBookBySlug, getBookConnections, getBookSlugs } from '@/lib/data';
+import { getCommerceFlags } from '@/lib/commerce/settings';
 import { getCoverPalette } from '@/lib/cover-colors';
 import { getBookAvailability } from '@/lib/books/availability';
 import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
@@ -114,9 +116,9 @@ export default async function BookPage({
   // וביוגרפיה) היה מציג אדם אחר לגמרי ממי שמופיע ב-Hero.
   const authorDisplay = resolveBookAuthor(book, locale);
 
-  const [connections, settings, author, extractedPalette] = await Promise.all([
+  const [connections, flags, author, extractedPalette] = await Promise.all([
     getBookConnections(book),
-    getSiteSettings(),
+    getCommerceFlags(),
     book.author && authorDisplay?.href ? getAuthorBySlug(book.author.slug) : Promise.resolve(null),
     // אין טעם לחלץ צבע מהכריכה כשכבר הוגדרו גוונים ידנית בניהול —
     // חיסכון בעבודת sharp/k-means שהתוצאה שלה ממילא לא תוצג.
@@ -198,18 +200,25 @@ export default async function BookPage({
     connections.sameCategory.length > 0 ||
     connections.sameTags.length > 0;
 
+  // [1.6] "מרחב ידע" (ט.17) — תגיות נושא עם הסבר (description_he),
+  // בלי תגיות מערכת ("חדש"/"נבחר", ראו SmartTag.tsx)
+  const hasKnowledgeSpace = (book.tags ?? []).some(
+    (tag) => tag.slug !== 'new' && tag.slug !== 'bestseller' && tag.description_he,
+  );
+
   const sections = [
     { id: 'book-hero', label: t('navOverview') },
     description ? { id: 'book-summary', label: t('navSummary') } : null,
     previewPages.length > 0 || showInlineSample ? { id: 'book-sample', label: t('readSample') } : null,
     book.toc && book.toc.length > 0 ? { id: 'book-toc', label: t('navToc') } : null,
+    hasKnowledgeSpace ? { id: 'book-knowledge', label: t('navKnowledge') } : null,
     book.images && book.images.length > 0 ? { id: 'book-gallery', label: t('navGallery') } : null,
     author ? { id: 'book-author', label: t('navAuthor') } : null,
     book.series ? { id: 'book-series', label: t('navSeries') } : null,
     hasConnections ? { id: 'book-connections', label: t('navConnections') } : null,
   ].filter((section): section is { id: string; label: string } => section !== null);
 
-  const availability = getBookAvailability(book, settings.store_enabled);
+  const availability = getBookAvailability(book, flags.showPrices);
   const showBuy = availability !== 'catalog_only';
   const effectivePrice = showBuy ? getEffectivePrice(book, locale) : null;
   const formattedPrice = effectivePrice ? formatPrice(effectivePrice.amount, locale) : null;
@@ -396,6 +405,10 @@ export default async function BookPage({
         {book.quotes.length > 0 ? <QuoteCards quotes={book.quotes} t={t} /> : null}
 
         {book.toc && book.toc.length > 0 ? <TableOfContents entries={book.toc} /> : null}
+
+        {hasKnowledgeSpace ? (
+          <KnowledgeSpace tags={book.tags ?? []} locale={locale} title={t('navKnowledge')} />
+        ) : null}
 
         {book.images && book.images.length > 0 ? (
           <Gallery images={book.images} title={title} t={tValues} />

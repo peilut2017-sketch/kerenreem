@@ -33,6 +33,7 @@ export function ReviewBlock({
   onRemoveCoupon,
   installments,
   supportPhone,
+  total,
   initial,
   placing,
   placeError,
@@ -48,6 +49,8 @@ export function ReviewBlock({
   onRemoveCoupon: () => Promise<void>;
   installments: { minTotal: number; max: number } | null;
   supportPhone: string | null;
+  /** [1.6] הסכום המחייב הנוכחי — לתצוגה על כפתור התשלום עצמו (ח.9) */
+  total: number;
   initial: {
     isGift: boolean;
     giftRecipientName: string;
@@ -62,6 +65,7 @@ export function ReviewBlock({
 }) {
   const t = useTranslations('store');
   const locale = useLocale();
+  const [couponOpen, setCouponOpen] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponBusy, setCouponBusy] = useState(false);
@@ -138,6 +142,14 @@ export function ReviewBlock({
                   {t('couponRemove')}
                 </button>
               </p>
+            ) : !couponOpen && !couponError ? (
+              <button
+                type="button"
+                onClick={() => setCouponOpen(true)}
+                className="text-small text-muted underline-offset-2 hover:text-burgundy hover:underline"
+              >
+                {t('couponHave')}
+              </button>
             ) : (
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex-1 min-w-40">
@@ -302,7 +314,11 @@ export function ReviewBlock({
         ) : null}
 
         <button type="submit" disabled={placing} className="btn btn-solid w-full sm:w-auto">
-          {placing ? t('processingOrder') : paymentsEnabled ? t('payButton') : t('submitNoPayment')}
+          {placing
+            ? t('processingOrder')
+            : paymentsEnabled
+              ? t('payButtonAmount', { amount: formatPrice(total, locale) })
+              : t('submitNoPaymentAmount', { amount: formatPrice(total, locale) })}
         </button>
 
         {/* חבילת האמון */}

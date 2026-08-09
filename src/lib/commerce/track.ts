@@ -1,7 +1,7 @@
 import 'server-only';
 import type { Order, OrderItem } from '@/lib/supabase/types';
 import { createServiceClient } from '@/lib/supabase/service';
-import { guestTokenMatches, hashGuestToken } from './guest-token';
+import { generateGuestToken, guestTokenMatches, hashGuestToken, normalizePhone } from './guest-token';
 import { customerStatusKey } from './orders';
 
 /**
@@ -30,6 +30,12 @@ export interface TrackedOrder {
     | 'created_at'
     | 'locale'
     | 'user_id'
+    // [1.6] כתובת ומספר מעקב (ח.13) — כבר נשלפים ב-select('*') למטה, רק
+    // חסרים מהטיפוס המצומצם; המרחב חסר בטבלה בלבד, לא בשאילתה
+    | 'shipping_address'
+    | 'tracking_company'
+    | 'tracking_number'
+    | 'tracking_url'
   >;
   items: Pick<OrderItem, 'title_snapshot' | 'quantity' | 'unit_price' | 'line_total'>[];
   statusKey: string;
@@ -81,4 +87,45 @@ export async function getTrackedOrder(token: string): Promise<TrackedOrder | nul
     statusKey: customerStatusKey(order),
     documentUrl,
   };
+}
+
+/**
+ * [1.6] "מצא את ההזמנה שלי" לאורח (ט.19, ביקורת ב.24: "אין מסך 'הזנת
+ * מספר הזמנה + טלפון'"). הטוקן הגולמי לא משוחזר לעולם — רק ה-hash שלו
+ * נשמר (guest-token.ts) — לכן מונפק טוקן *חדש*, באותו תוקף 90 יום כמו
+ * ביצירת ההזמנה (checkout.ts). אי-התאמה או הזמנה שלא נמצאה — null אחיד,
+ * בלי לגלות איזה מהשניים היה שגוי.
+ */
+export async function findAndReissueGuestToken(
+  orderNumber: number,
+  contact: string,
+): Promise<string | null> {
+  const service = createServiceClient();
+  if (!service) return null;
+
+  const { data: order } = await service
+    .from('orders')
+    .select('id, contact_email, contact_phone, guest_token_revoked')
+    .eq('order_number', orderNumber)
+    .maybeSingle();
+  if (!order || order.guest_token_revoked) return null;
+
+  const trimmed = contact.trim();
+  const matches = trimmed.includes('@')
+    ? (order.contact_email ?? '').toLowerCase() === trimmed.toLowerCase()
+    : Boolean(order.contact_phone) && order.contact_phone === normalizePhone(trimmed);
+  if (!matches) return null;
+
+  const { token, hash } = generateGuestToken();
+  const guestExpiry = new Date();
+  guestExpiry.setDate(guestExpiry.getDate() + 90);
+  const { error } = await service
+    .from('orders')
+    .update({ guest_token_hash: hash, guest_token_expires_at: guestExpiry.toISOString(), guest_token_revoked: false })
+    .eq('id', order.id);
+  if (error) {
+    console.error('[commerce:track] reissue token', error.message);
+    return null;
+  }
+  return token;
 }

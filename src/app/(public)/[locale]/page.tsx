@@ -22,6 +22,7 @@ import {
   getRecentBooks,
   getSiteSettings,
 } from '@/lib/data';
+import { getCommerceFlags } from '@/lib/commerce/settings';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { getSpineLook } from '@/lib/cover-colors';
@@ -45,7 +46,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   setRequestLocale(locale);
 
   const t = await getTranslations();
-  const [banners, books, activities, events, about, home, settings, mostViewedBooks] = await Promise.all([
+  const [banners, books, activities, events, about, home, settings, flags, mostViewedBooks] = await Promise.all([
     getBanners(),
     getRecentBooks(10),
     getActivities(),
@@ -53,6 +54,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     getPageBySlug('about'),
     getPageBySlug('home'),
     getSiteSettings(),
+    getCommerceFlags(),
     getMostViewedBooks(4),
   ]);
 
@@ -198,7 +200,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           <BookShelf books={shelfBooks} label={t('home.shelfLabel')} />
 
           <div className="mx-auto mt-12 w-full max-w-[82rem] px-5 sm:px-8">
-            <MostViewedRow books={mostViewedBooks} locale={locale} storeEnabled={settings.store_enabled} />
+            <MostViewedRow books={mostViewedBooks} locale={locale} storeEnabled={flags.showPrices} />
 
             <p className="mt-10 text-center">
               <Link href="/books" className="link-more">

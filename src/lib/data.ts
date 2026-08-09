@@ -78,6 +78,19 @@ const BOOK_SELECT = `
 `;
 
 /**
+ * [1.6] שכבה נוספת מעל BOOK_SELECT: הסדרה, למסנן סדרה בקטלוג (ח.17) —
+ * לפני כן series נשלף רק ב-BOOK_DETAIL_SELECT (עמוד ספר בודד), כך
+ * שרשימת הקטלוג לא יכלה לסנן/להציג לפיו כלל. אותו נימוק כמו שאר שכבות
+ * ה-fallback כאן: books_series_id_fkey כבר קיים ב-10_book_page_stage_c.sql,
+ * אבל שכבה נפרדת (ולא תוספת ל-BOOK_SELECT עצמו) שומרת נפילה חלקה למסד
+ * שטרם הריץ את המיגרציה הזאת.
+ */
+const BOOK_SELECT_WITH_SERIES = `
+  ${BOOK_SELECT},
+  series:series!books_series_id_fkey ( id, slug, name_he, name_en )
+`;
+
+/**
  * שליפה מלאה, רק לעמוד הספר הבודד: מוסיפה סדרה, גלריה, תוכן עניינים
  * והסבר לתגית — שדות ששלב ג׳ (10_book_page_stage_c.sql) הוסיף, ושרשימות
  * וכרטיסים לא צריכים (join מיותר בכל טעינת קטלוג של מאות ספרים).
@@ -241,6 +254,7 @@ export async function getBooks(): Promise<BookWithRelations[]> {
     (select) =>
       supabase.from('books').select(select).eq('is_published', true).order('title_he', { ascending: true }),
     'getBooks',
+    [BOOK_SELECT_WITH_SERIES, BOOK_SELECT, BOOK_BASE_SELECT],
   );
 }
 

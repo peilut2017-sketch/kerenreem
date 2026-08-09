@@ -25,6 +25,8 @@ import { recordCommerceEvent } from '@/lib/commerce/events-actions';
 const CART_KEY = 'kr:cart';
 const SESSION_KEY = 'kr:session';
 const COUPON_KEY = 'kr:coupon';
+/** [1.6] "המחיר האחרון שהוצג" — נשמר מקומית כדי לזהות שינוי מחיר גם בין ביקורים (ח.4), לא רק בתוך אותו session */
+const PRICE_KEY = 'kr:cart-prices';
 
 export interface CartContextValue {
   enabled: boolean;
@@ -77,6 +79,7 @@ export function CartProvider({
 }) {
   const t = useTranslations('store');
   const { map, set, clear: clearEntry } = useLocalMap(CART_KEY);
+  const { map: lastSeenPrices, set: setLastSeenPrice } = useLocalMap(PRICE_KEY);
   const { value: couponCode, set: setCouponValue, clear: clearCouponValue } = useLocalValue(COUPON_KEY);
   const [view, setView] = useState<CartViewModel | null>(null);
   const [loading, setLoading] = useState(false);
@@ -106,11 +109,21 @@ export function CartProvider({
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const previousPrices = Object.fromEntries(
-          (view?.cart.lines ?? []).map((line) => [line.bookId, line.unitPrice]),
-        );
+        // [1.6] "המחיר שהוצג" נקרא מ-localStorage (PRICE_KEY), לא מ-view
+        // בזיכרון: view מתאפס בכל רענון עמוד, כך ששינוי שקרה בין ביקורים
+        // (ח.4) היה נבלע בשקט בטעינה הראשונה. localStorage שורד רענון.
+        const previousPrices: Record<string, number> = {};
+        for (const item of items) {
+          const raw = lastSeenPrices[item.bookId];
+          if (raw != null) previousPrices[item.bookId] = Number(raw);
+        }
         const next = await getCartView(items, locale, previousPrices, couponCode);
-        if (requestId.current === id) setView(next);
+        if (requestId.current === id) {
+          setView(next);
+          for (const line of next.cart.lines) {
+            if (line.removedReason === null) setLastSeenPrice(line.bookId, String(line.unitPrice));
+          }
+        }
       } catch {
         /* כשל רשת — הסכום הישן נשאר מוצג; הניסיון הבא יעדכן */
       } finally {
@@ -118,7 +131,8 @@ export function CartProvider({
       }
     }, 250);
     return () => clearTimeout(timer);
-    // view מכוון להיעדר: הוא משמש רק כמקור "המחיר שהוצג" להשוואה
+    // lastSeenPrices/setLastSeenPrice מכוונים להיעדר: אותו עיקרון כמו view
+    // קודם לכן — משמשים רק כמקור השוואה, קריאה טרייה בכל הרצה בפועל
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, items, locale, couponCode]);
 
@@ -135,6 +149,10 @@ export function CartProvider({
       const current = Number(map[bookId]) || 0;
       set(bookId, String(Math.min(current + 1, 99)));
       showToast(t('addedToCart', { title }));
+      // [1.6] פתיחת המיני-סל בהוספה (ח.2) — לצד ה-toast, לא במקומו: ה-toast
+      // מכריז לקורא מסך מה נוסף בבירור; פתיחת המגירה נותנת גם מבט מיידי
+      // על העגלה כולה בלי קליק נוסף.
+      setMiniCartOpen(true);
       void recordCommerceEvent('product_added_to_cart', { sessionKey, bookId, locale }).catch(() => {});
     },
     [map, set, showToast, t, sessionKey, locale],

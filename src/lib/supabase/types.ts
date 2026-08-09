@@ -755,6 +755,18 @@ export interface CustomerAddress {
   updated_at: string;
 }
 
+export interface ConsentEvent {
+  id: string;
+  customer_id: string | null;
+  email: string | null;
+  phone: string | null;
+  kind: 'marketing_email' | 'channel_sms' | 'channel_whatsapp' | 'terms';
+  granted: boolean;
+  source: 'checkout' | 'account' | 'thank_you' | 'unsubscribe_link' | 'staff';
+  order_id: string | null;
+  created_at: string;
+}
+
 export interface SavedBook {
   customer_id: string;
   book_id: string;
@@ -816,6 +828,17 @@ export interface CheckoutSessionRecord {
 }
 
 export type ShippingMethodKind = 'pickup' | 'flat' | 'by_weight' | 'by_total' | 'free_over';
+
+/** [1.6] אזור משלוח (ט.16) — כולל/מוציא רשימת ערים; shipping_methods.zone_id מפנה לכאן */
+export interface ShippingZone {
+  id: string;
+  name: string;
+  kind: 'include' | 'exclude';
+  cities: string[];
+  notes: string | null;
+  active: boolean;
+  created_at: string;
+}
 
 export interface ShippingMethod {
   id: string;

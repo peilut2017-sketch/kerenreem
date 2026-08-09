@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
-import { formatPrice } from '@/lib/commerce/pricing';
+import { BookCover } from '../../BookCover';
+import { formatPrice, round2 } from '@/lib/commerce/pricing';
 import {
   applyCoupon,
   placeOrder,
@@ -54,6 +55,8 @@ export function CheckoutClient() {
   } | null>(null);
   const started = useRef(false);
   const redirectingRef = useRef(false);
+  // [1.6] סיכום מתקפל במובייל (ח.11) — פתוח תמיד מ-lg ומעלה, ללא תלות ב-state הזה
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
 
   const items = cart?.items ?? [];
 
@@ -165,6 +168,11 @@ export function CheckoutClient() {
     (bootstrap?.cart?.subtotal ?? 0) + shippingShown - (coupon?.discountAmount ?? 0) - promoDiscount,
     0,
   );
+  const totalToShow = serverTotal ?? displayedTotal;
+  // [1.6] שורת מע"מ בסיכום (ח.10) — אינפורמטיבי בלבד: המחיר המוצג כבר כולל
+  // אותו (vat_mode=included), אותו נוסחה בדיוק כמו computeTotals בשרת
+  const vatRate = bootstrap?.vatRate ?? 0;
+  const vatAmount = vatRate > 0 ? round2((totalToShow * vatRate) / (100 + vatRate)) : 0;
 
   const handleApplyCoupon = useCallback(async (code: string) => {
     const result = await applyCoupon(code);
@@ -356,6 +364,7 @@ export function CheckoutClient() {
           onRemoveCoupon={handleRemoveCoupon}
           installments={bootstrap.installments}
           supportPhone={bootstrap.supportPhone}
+          total={totalToShow}
           initial={{
             isGift: bootstrap.session?.is_gift ?? false,
             giftRecipientName: bootstrap.session?.gift_recipient_name ?? '',
@@ -370,60 +379,92 @@ export function CheckoutClient() {
         />
       </div>
 
-      {/* סיכום דביק; במובייל יורד מתחת לבלוקים */}
+      {/* סיכום דביק; במובייל יורד מתחת לבלוקים ומתקפל (ח.11) */}
       <aside className="order-first lg:order-none lg:sticky lg:top-28 rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-5 shadow-[var(--shadow-soft)]">
-        <h2 className="font-serif text-h3 text-ink">{t('summaryTitle')}</h2>
-        <ul className="mt-3 space-y-2 text-small text-ink-soft">
-          {summary.lines
-            .filter((line) => line.removedReason === null)
-            .map((line) => (
-              <li key={line.bookId} className="flex justify-between gap-3">
-                <span className="line-clamp-1">
-                  {line.title} ×{line.quantity}
-                </span>
-                <span className="tabular-nums">{formatPrice(line.lineTotal, locale)}</span>
-              </li>
-            ))}
-        </ul>
-        <dl className="mt-4 space-y-2 border-t border-rule pt-3 text-small">
-          <div className="flex justify-between text-ink-soft">
-            <dt>{t('subtotal')}</dt>
-            <dd className="tabular-nums">{formatPrice(summary.subtotal, locale)}</dd>
-          </div>
-          <div className="flex justify-between text-ink-soft">
-            <dt>{t('shipping')}</dt>
-            <dd className="tabular-nums">
-              {method ? (shippingShown === 0 ? t('free') : formatPrice(shippingShown, locale)) : '—'}
-            </dd>
-          </div>
-          {coupon && coupon.discountAmount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setSummaryExpanded((v) => !v)}
+          aria-expanded={summaryExpanded}
+          aria-controls="checkout-summary-details"
+          className="flex w-full items-center justify-between gap-3 lg:pointer-events-none lg:cursor-default"
+        >
+          <h2 className="font-serif text-h3 text-ink">{t('summaryTitle')}</h2>
+          <span className="flex items-center gap-2 lg:hidden">
+            <strong className="font-serif text-h3 tabular-nums text-ink">
+              {formatPrice(totalToShow, locale)}
+            </strong>
+            <svg
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+              className={`h-4 w-4 text-muted transition-transform duration-200 ${summaryExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            >
+              <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </button>
+
+        <div id="checkout-summary-details" className={`${summaryExpanded ? 'block' : 'hidden'} lg:block`}>
+          <ul className="mt-3 space-y-2 text-small text-ink-soft">
+            {summary.lines
+              .filter((line) => line.removedReason === null)
+              .map((line) => (
+                <li key={line.bookId} className="flex items-center gap-3">
+                  <div className="w-10 shrink-0">
+                    <BookCover src={line.coverImageUrl} title={line.title} alt="" sizes="40px" />
+                  </div>
+                  <span className="line-clamp-1 flex-1">
+                    {line.title} ×{line.quantity}
+                  </span>
+                  <span className="tabular-nums">{formatPrice(line.lineTotal, locale)}</span>
+                </li>
+              ))}
+          </ul>
+          <dl className="mt-4 space-y-2 border-t border-rule pt-3 text-small">
             <div className="flex justify-between text-ink-soft">
-              <dt>
-                {t('discount')} · <span dir="ltr">{coupon.code}</span>
-              </dt>
-              <dd className="tabular-nums">− {formatPrice(coupon.discountAmount, locale)}</dd>
+              <dt>{t('subtotal')}</dt>
+              <dd className="tabular-nums">{formatPrice(summary.subtotal, locale)}</dd>
             </div>
-          ) : null}
-          {promoDiscount > 0 && promo ? (
-            <div className="flex justify-between text-gold-deep">
-              <dt>
-                {t('promotionLabel')} · {promo.name}
-              </dt>
-              <dd className="tabular-nums">− {formatPrice(promoDiscount, locale)}</dd>
+            <div className="flex justify-between text-ink-soft">
+              <dt>{t('shipping')}</dt>
+              <dd className="tabular-nums">
+                {method ? (shippingShown === 0 ? t('free') : formatPrice(shippingShown, locale)) : '—'}
+              </dd>
             </div>
+            {coupon && coupon.discountAmount > 0 ? (
+              <div className="flex justify-between text-ink-soft">
+                <dt>
+                  {t('discount')} · <span dir="ltr">{coupon.code}</span>
+                </dt>
+                <dd className="tabular-nums">− {formatPrice(coupon.discountAmount, locale)}</dd>
+              </div>
+            ) : null}
+            {promoDiscount > 0 && promo ? (
+              <div className="flex justify-between text-gold-deep">
+                <dt>
+                  {t('promotionLabel')} · {promo.name}
+                </dt>
+                <dd className="tabular-nums">− {formatPrice(promoDiscount, locale)}</dd>
+              </div>
+            ) : null}
+            <div className="flex justify-between border-t border-rule pt-2 text-ink">
+              <dt className="font-semibold">{t('total')}</dt>
+              <dd className="font-serif text-h3 tabular-nums">{formatPrice(totalToShow, locale)}</dd>
+            </div>
+          </dl>
+          {vatAmount > 0 ? (
+            <p className="mt-1.5 text-caption text-muted">
+              {t('vatIncluded', { amount: formatPrice(vatAmount, locale) })}
+            </p>
           ) : null}
-          <div className="flex justify-between border-t border-rule pt-2 text-ink">
-            <dt className="font-semibold">{t('total')}</dt>
-            <dd className="font-serif text-h3 tabular-nums">
-              {formatPrice(serverTotal ?? displayedTotal, locale)}
-            </dd>
-          </div>
-        </dl>
-        {method ? (
-          <p className="mt-3 text-caption text-muted">
-            {t('deliveryEstimate', { date: method.promisedDateLabel })}
-          </p>
-        ) : null}
+          {method ? (
+            <p className="mt-3 text-caption text-muted">
+              {t('deliveryEstimate', { date: method.promisedDateLabel })}
+            </p>
+          ) : null}
+        </div>
       </aside>
     </div>
   );

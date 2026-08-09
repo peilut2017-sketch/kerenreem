@@ -24,6 +24,8 @@ export interface ValidatedCartLine {
   bookId: string;
   slug: string;
   title: string;
+  /** [1.6] שם המחבר — לתצוגה בשורת העגלה (ח.5); שדה ישיר על books, בלי join */
+  author: string | null;
   coverImageUrl: string | null;
   /** הכמות אחרי התאמה למלאי (אם הופחתה — adjusted=true) */
   quantity: number;
@@ -51,13 +53,25 @@ export interface ValidatedCart {
   totalQuantity: number;
   totalWeightGrams: number;
   freeShippingEligible: boolean;
-  /** שינויים שהתגלו באימות — להצגה מפורשת, לעולם לא עדכון שקט */
-  changes: { bookId: string; title: string; kind: 'price' | 'quantity' | 'unavailable' }[];
+  /**
+   * שינויים שהתגלו באימות — להצגה מפורשת, לעולם לא עדכון שקט. [1.6]
+   * previousPrice/newPrice ו-requestedQuantity/availableQuantity (ח.3):
+   * ההודעה חייבת לכלול מספרים אמיתיים ("מ-89 ל-79"), לא רק "המחיר השתנה".
+   */
+  changes: {
+    bookId: string;
+    title: string;
+    kind: 'price' | 'quantity' | 'unavailable';
+    previousPrice?: number;
+    newPrice?: number;
+    requestedQuantity?: number;
+    availableQuantity?: number;
+  }[];
   maxPrepDays: number;
 }
 
 const CART_BOOK_COLUMNS =
-  'id, slug, title_he, title_en, category_id, cover_image_url, price, sale_price, sale_starts_at, sale_ends_at, sale_name_he, sale_name_en, currency, stock_quantity, is_purchasable, is_published, preorder_enabled, weight_grams, free_shipping_eligible, is_stock_managed, prep_days_override';
+  'id, slug, title_he, title_en, author_name_he, author_name_en, category_id, cover_image_url, price, sale_price, sale_starts_at, sale_ends_at, sale_name_he, sale_name_en, currency, stock_quantity, is_purchasable, is_published, preorder_enabled, weight_grams, free_shipping_eligible, is_stock_managed, prep_days_override';
 
 /**
  * אימות עגלה מלא מול המסד. previousPrices — המחירים שהוצגו ללקוח
@@ -107,11 +121,12 @@ export async function validateCart(
     if (!book) continue; // ספר שנמחק/בוטל פרסומו — נעלם מהעגלה עם הודעת unavailable
 
     const title = locale === 'en' && book.title_en ? book.title_en : book.title_he;
+    const author = locale === 'en' && book.author_name_en ? book.author_name_en : book.author_name_he;
     const availability = getBookAvailability(book, flags.storeEnabled);
     const price = getEffectivePrice(book, locale);
 
     if (availability === 'catalog_only' || price == null) {
-      lines.push(buildRemovedLine(book, title, item.quantity, 'not_purchasable'));
+      lines.push(buildRemovedLine(book, title, author, item.quantity, 'not_purchasable'));
       changes.push({ bookId: book.id, title, kind: 'unavailable' });
       continue;
     }
@@ -120,18 +135,32 @@ export async function validateCart(
     const available = managed ? Math.max(book.stock_quantity ?? 0, 0) : null;
 
     if (managed && (available ?? 0) <= 0) {
-      lines.push(buildRemovedLine(book, title, item.quantity, 'out_of_stock'));
+      lines.push(buildRemovedLine(book, title, author, item.quantity, 'out_of_stock'));
       changes.push({ bookId: book.id, title, kind: 'unavailable' });
       continue;
     }
 
     const quantity = managed ? Math.min(item.quantity, available!) : item.quantity;
     const adjusted = quantity !== item.quantity;
-    if (adjusted) changes.push({ bookId: book.id, title, kind: 'quantity' });
+    if (adjusted) {
+      changes.push({
+        bookId: book.id,
+        title,
+        kind: 'quantity',
+        requestedQuantity: item.quantity,
+        availableQuantity: available ?? 0,
+      });
+    }
 
     const previous = previousPrices?.[book.id];
     if (previous != null && round2(previous) !== price.amount) {
-      changes.push({ bookId: book.id, title, kind: 'price' });
+      changes.push({
+        bookId: book.id,
+        title,
+        kind: 'price',
+        previousPrice: round2(previous),
+        newPrice: price.amount,
+      });
     }
 
     maxPrepDays = Math.max(maxPrepDays, book.prep_days_override ?? 0);
@@ -139,6 +168,7 @@ export async function validateCart(
       bookId: book.id,
       slug: book.slug,
       title,
+      author,
       coverImageUrl: book.cover_image_url,
       quantity,
       requestedQuantity: item.quantity,
@@ -172,6 +202,7 @@ export async function validateCart(
 function buildRemovedLine(
   book: Book,
   title: string,
+  author: string | null,
   requested: number,
   reason: 'not_purchasable' | 'out_of_stock',
 ): ValidatedCartLine {
@@ -179,6 +210,7 @@ function buildRemovedLine(
     bookId: book.id,
     slug: book.slug,
     title,
+    author,
     coverImageUrl: book.cover_image_url,
     quantity: 0,
     requestedQuantity: requested,

@@ -3,10 +3,11 @@ import { Img as Image } from '@/components/Img';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/Container';
-import { BookGrid } from '@/components/BookGrid';
+import { BookCardGrid } from '@/components/books/BookCardGrid';
 import { RichText } from '@/components/RichText';
 import { SectionHeading } from '@/components/SectionHeading';
 import { getAuthorBySlug, getAuthorSlugs, getBooksByAuthor } from '@/lib/data';
+import { getCommerceFlags } from '@/lib/commerce/settings';
 import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
@@ -58,7 +59,7 @@ export default async function AuthorPage({
   if (!author) notFound();
 
   const t = await getTranslations('authors');
-  const books = await getBooksByAuthor(author.id);
+  const [books, flags] = await Promise.all([getBooksByAuthor(author.id), getCommerceFlags()]);
   const name = localized(author, 'name', locale);
   const years =
     author.birth_year || author.death_year
@@ -119,7 +120,7 @@ export default async function AuthorPage({
       {books.length > 0 ? (
         <section className="mt-16">
           <SectionHeading title={t('booksHeading')} />
-          <BookGrid books={books} locale={locale} />
+          <BookCardGrid books={books} locale={locale} storeEnabled={flags.showPrices} />
         </section>
       ) : null}
     </Container>

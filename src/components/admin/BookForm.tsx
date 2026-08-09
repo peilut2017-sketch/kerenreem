@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { EntityForm } from './EntityForm';
 import { BookFormTabs } from './BookFormTabs';
 import { CheckboxField, FieldSet, TextAreaField, TextField } from './Fields';
@@ -7,6 +8,7 @@ import { ImageField } from './ImageField';
 import { BookImagesEditor } from './BookImagesEditor';
 import { BookTocEditor } from './BookTocEditor';
 import { BookPreviewGenerator } from './books/BookPreviewGenerator';
+import { BookStorePreview } from './books/BookStorePreview';
 import { QuickAddSelect } from './QuickAddSelect';
 import { RepeatableTextField } from './RepeatableTextField';
 import { RichTextEditor } from './RichTextEditor';
@@ -639,115 +641,44 @@ export function BookForm({
                   errors.price || errors.sale_price || errors.stock_quantity || errors.weight_grams || errors.low_stock_threshold,
                 ),
                 content: (
-                  <>
+                  <BookStorePreview
+                    coverUrl={book?.cover_image_url}
+                    title={book?.title_he ?? ''}
+                    storeEnabled={storeEnabled}
+                    initial={{
+                      price: book?.price ?? null,
+                      salePrice: book?.sale_price ?? null,
+                      saleStartsAt: book?.sale_starts_at?.slice(0, 10) ?? null,
+                      saleEndsAt: book?.sale_ends_at?.slice(0, 10) ?? null,
+                      saleName: book?.sale_name_he ?? null,
+                      isPurchasable: book?.is_purchasable ?? false,
+                      preorderEnabled: book?.preorder_enabled ?? false,
+                      preorderReleaseDate: book?.preorder_release_date ?? null,
+                      stockQuantity: stockOnHand ?? book?.stock_quantity ?? 0,
+                      prepDaysOverride: book?.prep_days_override ?? null,
+                    }}
+                  >
                     <FieldSet
-                      legend="מסחר"
-                      icon="store"
+                      legend="מחיר"
+                      icon="finance"
                       description={
                         storeEnabled
-                          ? 'המחירים מוצגים באתר בש״ח וכוללים מע״מ.'
+                          ? 'המחיר מוצג באתר בש״ח וכולל מע״מ.'
                           : 'החנות עדיין כבויה באתר — אפשר להכין את הנתונים מראש, הם ייחשפו כשהיא תופעל.'
                       }
                     >
-                      <div className="grid gap-5 sm:grid-cols-3">
-                        <TextField
-                          name="price"
-                          label="מחיר"
-                          type="number"
-                          dir="ltr"
-                          min={0}
-                          step={0.5}
-                          defaultValue={book?.price}
-                          error={errors.price}
-                        />
-                        <TextField
-                          name="stock_quantity"
-                          label="מלאי פיזי (סה״כ בכל המחסנים)"
-                          type="number"
-                          dir="ltr"
-                          min={0}
-                          step={1}
-                          defaultValue={stockOnHand ?? book?.stock_quantity ?? undefined}
-                          error={errors.stock_quantity}
-                          hint="ריק = 0. זהו המלאי הפיזי בפועל — כולל עותקים ששמורים כרגע להזמנות. השינוי נרשם כתנועת ספירה ב-ledger המלאי; פירוט פר מחסן והעברות — במסך מלאי ומחסנים. עלות ליחידה — בפאנל שבתחתית העמוד."
-                        />
-                        <TextField
-                          name="weight_grams"
-                          label="משקל (גרם)"
-                          type="number"
-                          dir="ltr"
-                          min={0}
-                          step={1}
-                          defaultValue={book?.weight_grams}
-                          error={errors.weight_grams}
-                          hint="משמש לחישוב משלוח."
-                        />
-                      </div>
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <TextField
-                          name="stock_location"
-                          label="מיקום מדף (בתוך המחסן)"
-                          defaultValue={book?.stock_location}
-                          hint="מיקום המלאי הפיזי, למשל ״מדף A3״ — לצוות בלבד, לא מוצג באתר."
-                        />
-                        <TextField
-                          name="physical_size"
-                          label="גודל"
-                          defaultValue={book?.physical_size}
-                          hint="מידות הספר, למשל 17x24 ס״מ."
-                        />
-                      </div>
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <TextField
-                          name="barcode"
-                          label="ברקוד"
-                          dir="ltr"
-                          defaultValue={book?.barcode}
-                          hint="ברקוד נפרד ממסת״ב וממק״ט, אם קיים."
-                        />
-                        <TextField
-                          name="low_stock_threshold"
-                          label="סף מלאי נמוך לספר"
-                          type="number"
-                          dir="ltr"
-                          min={0}
-                          step={1}
-                          defaultValue={book?.low_stock_threshold}
-                          error={errors.low_stock_threshold}
-                          hint="ריק = הסף הכללי שבהגדרות החנות."
-                        />
-                      </div>
-                      <CheckboxField
-                        name="is_purchasable"
-                        label="ניתן לרכישה באתר"
-                        defaultChecked={book?.is_purchasable ?? false}
-                        hint="מחייב מחיר. בלי מחיר — השמירה תיעצר."
-                      />
-                      <CheckboxField
-                        name="is_stock_managed"
-                        label="מלאי מנוהל"
-                        defaultChecked={book?.is_stock_managed ?? true}
-                        hint="ביטול = מלאי בלתי מוגבל: אין שמירה ואין הפחתה במכירה."
-                      />
-                      <CheckboxField
-                        name="free_shipping_eligible"
-                        label="נספר לסף משלוח חינם"
-                        defaultChecked={book?.free_shipping_eligible ?? true}
-                      />
-                      <CheckboxField
-                        name="preorder_enabled"
-                        label="הזמנה מראש (בקרוב)"
-                        defaultChecked={book?.preorder_enabled ?? false}
-                        hint="מציג תג 'בקרוב' ומאפשר הזמנה מראש גם ללא מלאי."
-                      />
                       <TextField
-                        name="preorder_release_date"
-                        label="תאריך יציאה משוער"
-                        type="date"
+                        name="price"
+                        label="מחיר"
+                        type="number"
                         dir="ltr"
-                        defaultValue={book?.preorder_release_date ?? undefined}
+                        min={0}
+                        step={0.5}
+                        defaultValue={book?.price}
+                        error={errors.price}
                       />
                     </FieldSet>
+
                     <FieldSet
                       legend="מבצע"
                       icon="store"
@@ -786,7 +717,128 @@ export function BookForm({
                         hint="מוצג ליד המחיר, למשל ״מבצע השקה״. רשות."
                       />
                     </FieldSet>
-                  </>
+
+                    <FieldSet legend="מלאי" icon="inventory">
+                      {book ? (
+                        <div>
+                          <span className="admin-field-label">מלאי פיזי (סה״כ בכל המחסנים)</span>
+                          <div className="mt-1 flex flex-wrap items-center gap-3 rounded-[var(--admin-radius-btn)] border border-rule bg-cream-2 px-3 py-2.5">
+                            <span className="font-serif text-h3 tabular-nums text-ink">
+                              {(stockOnHand ?? book.stock_quantity ?? 0).toLocaleString('he-IL')}
+                            </span>
+                            <Link href="/admin/inventory" className="admin-btn admin-btn-quiet ms-auto">
+                              עדכון במסך המלאי ←
+                            </Link>
+                          </div>
+                          <span className="admin-field-hint">
+                            מלאי מתעדכן רק דרך מסך המלאי מכאן ואילך — כדי לשמור סיבה, מיקום פר-מחסן ותיעוד מדויק
+                            לכל שינוי בפועל. עלות ליחידה — בפאנל שבתחתית העמוד.
+                          </span>
+                        </div>
+                      ) : (
+                        <TextField
+                          name="stock_quantity"
+                          label="מלאי פתיחה"
+                          type="number"
+                          dir="ltr"
+                          min={0}
+                          step={1}
+                          error={errors.stock_quantity}
+                          hint="כמות המלאי בהקמת הספר. ריק = 0. עדכוני מלאי מכאן ואילך — במסך המלאי בלבד."
+                        />
+                      )}
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <TextField
+                          name="low_stock_threshold"
+                          label="סף מלאי נמוך לספר"
+                          type="number"
+                          dir="ltr"
+                          min={0}
+                          step={1}
+                          defaultValue={book?.low_stock_threshold}
+                          error={errors.low_stock_threshold}
+                          hint="ריק = הסף הכללי שבהגדרות החנות."
+                        />
+                        <TextField
+                          name="stock_location"
+                          label="מיקום מדף (בתוך המחסן)"
+                          defaultValue={book?.stock_location}
+                          hint="מיקום המלאי הפיזי, למשל ״מדף A3״ — לצוות בלבד, לא מוצג באתר."
+                        />
+                      </div>
+                      <CheckboxField
+                        name="is_stock_managed"
+                        label="מלאי מנוהל"
+                        defaultChecked={book?.is_stock_managed ?? true}
+                        hint="ביטול = מלאי בלתי מוגבל: אין שמירה ואין הפחתה במכירה."
+                      />
+                    </FieldSet>
+
+                    <FieldSet legend="משלוח" icon="shipping">
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <TextField
+                          name="weight_grams"
+                          label="משקל (גרם)"
+                          type="number"
+                          dir="ltr"
+                          min={0}
+                          step={1}
+                          defaultValue={book?.weight_grams}
+                          error={errors.weight_grams}
+                          hint="משמש לחישוב משלוח."
+                        />
+                        <TextField
+                          name="physical_size"
+                          label="גודל"
+                          defaultValue={book?.physical_size}
+                          hint="מידות הספר, למשל 17x24 ס״מ."
+                        />
+                      </div>
+                      <CheckboxField
+                        name="free_shipping_eligible"
+                        label="נספר לסף משלוח חינם"
+                        defaultChecked={book?.free_shipping_eligible ?? true}
+                      />
+                    </FieldSet>
+
+                    <FieldSet legend="רכישה" icon="store">
+                      <CheckboxField
+                        name="is_purchasable"
+                        label="ניתן לרכישה באתר"
+                        defaultChecked={book?.is_purchasable ?? false}
+                        hint="מחייב מחיר. בלי מחיר — השמירה תיעצר."
+                      />
+                    </FieldSet>
+
+                    <FieldSet
+                      legend="הזמנה מראש"
+                      icon="events"
+                      description="מציג תג 'בקרוב' ומאפשר הזמנה מראש גם ללא מלאי."
+                    >
+                      <CheckboxField
+                        name="preorder_enabled"
+                        label="הזמנה מראש (בקרוב)"
+                        defaultChecked={book?.preorder_enabled ?? false}
+                      />
+                      <TextField
+                        name="preorder_release_date"
+                        label="תאריך יציאה משוער"
+                        type="date"
+                        dir="ltr"
+                        defaultValue={book?.preorder_release_date ?? undefined}
+                      />
+                    </FieldSet>
+
+                    <FieldSet legend="זיהוי" icon="tags">
+                      <TextField
+                        name="barcode"
+                        label="ברקוד"
+                        dir="ltr"
+                        defaultValue={book?.barcode}
+                        hint="ברקוד נפרד ממסת״ב וממק״ט, אם קיים."
+                      />
+                    </FieldSet>
+                  </BookStorePreview>
                 ),
               },
               {

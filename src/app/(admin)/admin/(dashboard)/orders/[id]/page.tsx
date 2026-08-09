@@ -388,6 +388,14 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 total: order.total,
                 refundable: succeededCharge ? Number(succeededCharge.amount) - refundedTotal : 0,
                 actualShippingCost: order.actual_shipping_cost,
+                items: items.map((item) => ({
+                  key: item.id,
+                  title: item.title_snapshot ?? 'ספר',
+                  quantity: item.quantity,
+                  lineTotal: item.line_total ?? item.unit_price * item.quantity,
+                })),
+                shippingTotal: order.shipping_total,
+                isPickup: order.fulfillment_type === 'pickup',
               }}
               isAdmin={isAdmin}
             />

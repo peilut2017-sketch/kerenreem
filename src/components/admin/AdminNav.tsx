@@ -70,6 +70,7 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/inventory', label: 'מלאי ומחסנים', icon: 'inventory', perm: 'store_view' },
       { href: '/admin/shipping', label: 'שיטות אספקה', icon: 'shipping', perm: 'finance' },
       { href: '/admin/coupons', label: 'קופונים', icon: 'coupon', perm: 'finance' },
+      { href: '/admin/books/sale-prices', label: 'מחירי מבצע', icon: 'coupon', perm: 'finance' },
       { href: '/admin/reports', label: 'דוחות ורווחיות', icon: 'finance', perm: 'finance' },
       { href: '/admin/books/settings', label: 'הגדרות חנות', icon: 'settings', perm: 'finance' },
     ],
@@ -92,6 +93,7 @@ const ITEMS: NavEntry[] = [
   },
   { type: 'link', href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
   { type: 'link', href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'admin' },
+  { type: 'link', href: '/admin/audit-log', label: 'יומן ביקורת', icon: 'list', minRole: 'admin' },
   { type: 'link', href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
 ];
 

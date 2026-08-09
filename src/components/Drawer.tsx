@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+/** [1.6] משך מעבר הפתיחה/סגירה — משותף לכל הוריאנטים (ח.1, ח.2). */
+const TRANSITION_MS = 200;
 
 /**
  * מגירה צפה — הפאנל עצמו, בלי הכפתור שפותח אותו.
@@ -47,11 +50,29 @@ export function Drawer({
    * 'center' — דיאלוג ממורכז בעמוד, לתוכן גדול יותר כמו טופס ספר שלם:
    * הצפה מקצה המסך אינה מתאימה לטופס ארוך עם לשוניות, בעוד מרכז העמוד
    * נותן לו את מלוא תשומת הלב, כפי שדיאלוג עריכה מרכזי מצופה להיראות.
+   * 'bottom' — עולה מתחתית המסך, לבחירות קצרות במובייל (ח.18): הכיוון
+   * האנכי אינו תלוי RTL/LTR, בניגוד להחלקה אופקית מהצד.
    */
-  variant?: 'side' | 'center';
+  variant?: 'side' | 'center' | 'bottom';
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  // [1.6] מעבר פתיחה/סגירה (ח.1): הפאנל נשאר מורכב זמן קצר אחרי open=false
+  // כדי שהאנימציה תספיק לרוץ — בלי זה הסגירה "קופצת" בלי מעבר בכלל.
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(false);
+
+  // פתיחה/סגירה מזוהות במהלך הרינדור עצמו (כמו seenPathname ב-AdminNav.tsx),
+  // לא בתוך אפקט — קריאת setState סינכרונית באפקט עלולה לגרום לרינדור
+  // מפל (react-hooks/set-state-in-effect); זהו הדפוס הבטוח של React
+  // ל"גזירת state ממאפיין שהשתנה". סגירה מקבלת visible=false כבר בפריים
+  // הזה (בלי לחכות לאפקט) — מתחילה את מעבר הסגירה מוקדם יותר, לא מאוחר.
+  if (open && !mounted) {
+    setMounted(true);
+  }
+  if (!open && visible) {
+    setVisible(false);
+  }
 
   // עדכון הפניה בתוך אפקט ולא בגוף הרינדור: כתיבה ל-ref בזמן רינדור
   // אינה בטוחה (React עשוי לקרוא את הרכיב יותר מפעם אחת לפני שהוא
@@ -61,6 +82,16 @@ export function Drawer({
   useEffect(() => {
     onCloseRef.current = onClose;
   });
+
+  useEffect(() => {
+    if (open) {
+      // פריים נפרד כדי שהמעבר יתחיל ממצב סגור אמיתי בדפדפן, לא יתמזג עם ה-mount עצמו
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    const timeout = setTimeout(() => setMounted(false), TRANSITION_MS);
+    return () => clearTimeout(timeout);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -100,19 +131,23 @@ export function Drawer({
     };
   }, [open, returnFocusTo]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   const centered = variant === 'center';
+  const bottom = variant === 'bottom';
+  const panelMotion = bottom
+    ? `transition-transform duration-200 ease-[var(--ease-spring)] ${visible ? 'translate-y-0' : 'translate-y-full'}`
+    : `transition-[opacity,transform] duration-200 ease-[var(--ease-spring)] ${visible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`;
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex ${centered ? 'items-center justify-center p-4' : 'justify-end'}`}
+      className={`fixed inset-0 z-50 flex ${bottom ? 'items-end justify-center' : centered ? 'items-center justify-center p-4' : 'justify-end'}`}
     >
       <button
         type="button"
         aria-label={closeLabel}
         onClick={onClose}
-        className="absolute inset-0 bg-navy/40 backdrop-blur-sm"
+        className={`absolute inset-0 bg-navy/40 backdrop-blur-sm transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
       />
 
       <div
@@ -120,9 +155,11 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`glass relative flex w-full ${widthClassName} flex-col overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] ${
-          centered ? 'max-h-[88vh]' : 'm-3'
-        }`}
+        className={`glass relative flex w-full ${widthClassName} flex-col overflow-hidden ${
+          bottom ? 'rounded-t-[var(--radius-xl)]' : 'rounded-[var(--radius-xl)]'
+        } shadow-[var(--shadow-float)] ${
+          centered ? 'max-h-[88vh]' : bottom ? 'max-h-[85vh]' : 'm-3'
+        } ${panelMotion}`}
       >
         <div className="flex items-center justify-between border-b border-rule px-6 py-4">
           <h2 id={titleId} className="font-serif text-h3 text-ink">

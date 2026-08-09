@@ -9,7 +9,6 @@ import {
   deleteOrder,
   markManualPayment,
   sendPaymentLink,
-  refundOrder,
   resendOrderEmail,
   setActualShippingCost,
   staffTransitionOrder,
@@ -17,12 +16,34 @@ import {
   undoShipment,
 } from '@/lib/admin/orders-actions';
 import { CardPaymentDrawer } from './CardPaymentDrawer';
+import { RefundDialog, type RefundableItem } from './RefundDialog';
 import {
   FULFILLMENT_STATE_TRANSITIONS,
   ORDER_STATE_TRANSITIONS,
 } from '@/lib/commerce/state-machines';
 import { FULFILLMENT_STATE_LABELS, ORDER_STATE_LABELS } from './labels';
 import type { FulfillmentState, OrderState } from '@/lib/supabase/types';
+
+/**
+ * [1.6] פעולה ראשית תלויית-מצב (ביקורת ג.20/י.4): לא "קיר כפתורים
+ * שווי-משקל" עם תוויות שם-עצם ("בהכנה", "מוכן לאיסוף") אלא פועל בודד,
+ * מנוסח כפעולה, לצעד הבא הברור ביותר. שני מצבי האספקה שיש להם צעד הבא
+ * חד-משמעי (unfulfilled, ready_for_pickup — לכל אחד יעד מעברים יחיד
+ * במכונת המצבים) מקבלים כפתור ראשי; preparing תלוי בשיטת האספקה: איסוף
+ * עצמי ⇐ "מוכן לאיסוף" ראשי, משלוח ⇐ אין כפתור מצב כללי כי הצעד הבא
+ * האמיתי הוא מילוי טופס המסירה לשליח למטה (שכבר מעוצב כפעולה ראשית).
+ */
+function primaryFulfillmentAction(
+  fulfillmentState: FulfillmentState,
+  isPickup: boolean,
+): { label: string; target: FulfillmentState } | null {
+  if (fulfillmentState === 'unfulfilled') return { label: 'התחלת הכנה', target: 'preparing' };
+  if (fulfillmentState === 'preparing' && isPickup) {
+    return { label: 'מוכן לאיסוף — עדכון ומייל ללקוח', target: 'ready_for_pickup' };
+  }
+  if (fulfillmentState === 'ready_for_pickup') return { label: 'נאסף על ידי הלקוח', target: 'fulfilled' };
+  return null;
+}
 
 /**
  * לוח הפעולות בעמוד ההזמנה: רק מעברים חוקיים מהמצב הנוכחי מוצעים;
@@ -42,6 +63,9 @@ export function OrderActionsPanel({
     total: number;
     refundable: number;
     actualShippingCost?: number | null;
+    items: RefundableItem[];
+    shippingTotal: number;
+    isPickup: boolean;
   };
   isAdmin: boolean;
 }) {
@@ -50,12 +74,6 @@ export function OrderActionsPanel({
   const [message, setMessage] = useState<{ text: string; ok: boolean; undo?: () => void } | null>(null);
   const [note, setNote] = useState('');
   const [tracking, setTracking] = useState({ company: '', trackingNumber: '', trackingUrl: '' });
-  const [refundAmount, setRefundAmount] = useState('');
-  const [refundReason, setRefundReason] = useState('');
-  // [1.4] טוקן יציב לניסיון הזיכוי הנוכחי — מתחדש רק אחרי שהניסיון
-  // הסתיים (הצליח/נכשל), כדי שלחיצה כפולה על אותו ניסיון תיחסם
-  // באידמפוטנטיות בשרת במקום ליצור שני זיכויים.
-  const [refundToken, setRefundToken] = useState(() => crypto.randomUUID());
   const [actualShipping, setActualShipping] = useState(
     order.actualShippingCost != null ? String(order.actualShippingCost) : '',
   );
@@ -94,8 +112,13 @@ export function OrderActionsPanel({
   );
   const paidNeedsRefund = ['paid', 'partially_refunded'].includes(order.paymentState);
   const awaitingRefund = order.state === 'cancel_pending_refund';
+  const primaryFulfillment = primaryFulfillmentAction(order.fulfillmentState, order.isPickup);
   const fulfillmentTargets = (FULFILLMENT_STATE_TRANSITIONS[order.fulfillmentState] ?? []).filter(
-    (target) => target !== 'partially_fulfilled' && target !== 'shipped',
+    (target) =>
+      target !== 'partially_fulfilled' &&
+      target !== 'shipped' &&
+      target !== primaryFulfillment?.target &&
+      (order.isPickup || target !== 'ready_for_pickup'),
   );
 
   return (
@@ -207,7 +230,17 @@ export function OrderActionsPanel({
           </p>
         ) : null}
 
-        {/* מעברי ציר האספקה */}
+        {/* מעברי ציר האספקה: פעולה ראשית תלוית-מצב, ומתחתיה מעברי משנה שקטים */}
+        {primaryFulfillment ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => staffTransitionOrder(order.id, 'fulfillment_state', primaryFulfillment.target))}
+            className="admin-btn admin-btn-solid mb-3 w-full sm:w-auto"
+          >
+            {primaryFulfillment.label}
+          </button>
+        ) : null}
         {fulfillmentTargets.length > 0 ? (
           <div className="mb-4 flex flex-wrap gap-2">
             {fulfillmentTargets.map((target) => (
@@ -224,8 +257,9 @@ export function OrderActionsPanel({
           </div>
         ) : null}
 
-        {/* משלוח: חברת שילוח + מספר מעקב ⇒ shipped + מייל */}
-        {['preparing', 'unfulfilled'].includes(order.fulfillmentState) ? (
+        {/* משלוח: חברת שילוח + מספר מעקב ⇒ shipped + מייל. איסוף עצמי
+            אינו עובר כאן — ה-CTA הראשי למעלה (מוכן לאיסוף) הוא הצעד שלו */}
+        {!order.isPickup && ['preparing', 'unfulfilled'].includes(order.fulfillmentState) ? (
           <div className="mb-4 space-y-2 border-t border-rule pt-3">
             <p className="text-caption font-semibold text-ink">מסירה לשליח</p>
             <input
@@ -318,50 +352,14 @@ export function OrderActionsPanel({
         ) : null}
 
         {isAdmin && order.refundable > 0 ? (
-          <div className="mb-2 space-y-2 border-t border-rule pt-3">
-            <p className="text-caption font-semibold text-ink">
-              זיכוי (עד {order.refundable.toFixed(2)} ₪)
-            </p>
-            <input
-              type="number"
-              dir="ltr"
-              min={0.01}
-              max={order.refundable}
-              step={0.01}
-              placeholder="סכום"
-              value={refundAmount}
-              onChange={(e) => setRefundAmount(e.target.value)}
-              className="admin-field-input"
+          <div className="mb-2 border-t border-rule pt-3">
+            <RefundDialog
+              orderId={order.id}
+              refundable={order.refundable}
+              items={order.items}
+              shippingTotal={order.shippingTotal}
+              onDone={() => router.refresh()}
             />
-            <input
-              type="text"
-              placeholder="סיבה"
-              value={refundReason}
-              onChange={(e) => setRefundReason(e.target.value)}
-              className="admin-field-input"
-            />
-            <button
-              type="button"
-              disabled={pending || !refundAmount || !refundReason}
-              onClick={() => {
-                if (!window.confirm(`לבצע זיכוי של ${refundAmount} ₪ דרך מורנינג? פעולה בלתי הפיכה.`)) return;
-                const token = refundToken;
-                startTransition(async () => {
-                  const result = await refundOrder(order.id, Number(refundAmount), refundReason, token);
-                  setMessage(
-                    result.ok
-                      ? { text: 'בוצע.', ok: true }
-                      : { text: result.error ?? 'הפעולה נכשלה', ok: false },
-                  );
-                  // ניסיון חדש (בין אם קודם הצליח ובין אם נכשל) מקבל טוקן
-                  // חדש — כך שהאידמפוטנטיות חוסמת רק כפילות של אותו ניסיון
-                  setRefundToken(crypto.randomUUID());
-                });
-              }}
-              className="admin-btn admin-btn-danger"
-            >
-              ביצוע זיכוי
-            </button>
           </div>
         ) : null}
 

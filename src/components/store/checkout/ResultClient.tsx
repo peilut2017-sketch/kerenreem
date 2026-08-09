@@ -112,6 +112,13 @@ export function ResultClient({ outcome }: { outcome: string }) {
                 {t('deliveryEstimate', { date: state.promisedDateLabel })}
               </p>
             ) : null}
+            {/* [1.6] קישור מעקב (ח.12, ביקורת ב.23) — היה חסר לגמרי: עמוד
+                התודה לא הוביל לשום מקום שמראה סטטוס חי של ההזמנה */}
+            {state.trackToken ? (
+              <Link href={`/orders/track/${state.trackToken}`} className="btn btn-quiet">
+                {t('resultTrackCta')}
+              </Link>
+            ) : null}
             {/* ההצעה הממוקדת האחת של עמוד התודה (פרק 16.5): החשבון הפסיבי */}
             {state.accountsEnabled ? (
               <div className="mt-4 rounded-[var(--radius-lg)] border border-gold/40 bg-gold/10 px-6 py-5 text-center">

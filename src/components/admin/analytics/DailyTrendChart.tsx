@@ -1,22 +1,33 @@
 'use client';
 
 import { useId, useState } from 'react';
-import type { DailyPoint } from '@/lib/admin/analytics-queries';
 
 /**
- * מגמת ביקורים יומית — שתי סדרות (צפיות, מבקרים ייחודיים), ולכן צבע
- * קטגוריאלי (לא sequential) עם מקרא: כחול לצפיות, כתום למבקרים ייחודיים
- * — שני הגוונים הראשונים בסדר הקטגוריאלי המאומת (ראו dataviz), שנבדקו
- * גם מול משטח הכרטיס הבהיר של הממשק (ניגודיות, הפרדת CVD, סף ראייה
- * רגילה — כולם עוברים).
+ * מגמת ערכים יומית — סדרה אחת ומעלה (במקור: צפיות/מבקרים ייחודיים
+ * באנליטיקס; משמש גם למגמת מכירות בדשבורד עם סדרה בודדת). כשיש יותר
+ * מסדרה אחת — צבע קטגוריאלי (לא sequential) עם מקרא, לא תוויות ישירות.
  *
  * הריחוף מציג שרביט (crosshair) על ה-X הקרוב ביותר, עם tooltip יחיד
- * שמפרט את שתי הסדרות לאותו יום — לא נדרש למקד בול על הקו. לכל מי
+ * שמפרט את כל הסדרות לאותו יום — לא נדרש למקד בול על הקו. לכל מי
  * שאינו יכול לרחף (מקלדת, קורא מסך) יש טבלה מלאה מתחת, תמיד קיימת
  * ב-DOM — לא רק בריחוף.
+ *
+ * [1.5] שני תיקונים על הגרסה הקודמת (ביקורת ה-UI, חלק י׳):
+ *  1. ה-tooltip חישב אחוז-מרחק-משמאל והחיל אותו כ-insetInlineStart —
+ *     תכונה לוגית שב-RTL הופכת ל-right. הקואורדינטות של ה-SVG עצמו
+ *     (xAt) הן קואורדינטות פיזיות קבועות (0=שמאל) שלא מתהפכות לפי dir,
+ *     כך שאחוז שנמדד מהן חייב תכונת מיקום פיזית (left) ולא לוגית —
+ *     אחרת ה-tooltip קופץ לצד הנגדי של השרביט תחת RTL.
+ *  2. preserveAspectRatio="none" מותח קו ועיגולים לאליפסות בכל פעם
+ *     שהקונטיינר (בפריסת Grid/Flex) גבוה או נמוך מיחס הרוחב-גובה הטבעי
+ *     של ה-viewBox. הוסר לטובת ברירת המחדל (xMidYMid meet, לא מעוות),
+ *     ונוסף aspect-ratio מפורש כדי שהקונטיינר לא יימתח מלכתחילה.
  */
-const VIEWS_COLOR = '#2a78d6';
-const VISITORS_COLOR = '#eb6834';
+export interface TrendSeries<T> {
+  key: keyof T & string;
+  label: string;
+  color: string;
+}
 
 const WIDTH = 680;
 const HEIGHT = 200;
@@ -36,32 +47,34 @@ function niceMax(value: number): number {
   return value;
 }
 
-export function DailyTrendChart({
+export function DailyTrendChart<T extends { date: string }>({
   data,
-  viewsLabel,
-  visitorsLabel,
+  series,
   tableCaption,
+  formatValue = (value) => value.toLocaleString('he-IL'),
 }: {
-  data: DailyPoint[];
-  viewsLabel: string;
-  visitorsLabel: string;
+  data: T[];
+  series: TrendSeries<T>[];
   tableCaption: string;
+  formatValue?: (value: number) => string;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const gradientId = useId();
 
   if (data.length === 0) return null;
 
+  const numAt = (point: T, key: keyof T & string) => Number(point[key]) || 0;
+
   const plotWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
   const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
-  const max = niceMax(Math.max(...data.map((point) => Math.max(point.views, point.uniqueVisitors))));
+  const max = niceMax(Math.max(...data.map((point) => Math.max(...series.map((s) => numAt(point, s.key))))));
 
   const xAt = (index: number) =>
     data.length === 1 ? PAD_LEFT : PAD_LEFT + (index / (data.length - 1)) * plotWidth;
   const yAt = (value: number) => PAD_TOP + plotHeight - (value / max) * plotHeight;
 
-  const linePoints = (key: 'views' | 'uniqueVisitors') =>
-    data.map((point, index) => `${xAt(index)},${yAt(point[key])}`).join(' ');
+  const linePoints = (key: keyof T & string) =>
+    data.map((point, index) => `${xAt(index)},${yAt(numAt(point, key))}`).join(' ');
 
   function handlePointerMove(event: React.PointerEvent<SVGRectElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -83,24 +96,24 @@ export function DailyTrendChart({
   return (
     <div>
       {/* מקרא — חובה לשתי סדרות ומעלה, ולא רק תוויות ישירות */}
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-caption text-ink-soft">
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden="true" className="h-0.5 w-4 rounded-full" style={{ backgroundColor: VIEWS_COLOR }} />
-          {viewsLabel}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden="true" className="h-0.5 w-4 rounded-full" style={{ backgroundColor: VISITORS_COLOR }} />
-          {visitorsLabel}
-        </span>
-      </div>
+      {series.length > 1 ? (
+        <div className="mb-3 flex flex-wrap items-center gap-4 text-caption text-ink-soft">
+          {series.map((s) => (
+            <span key={s.key} className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="h-0.5 w-4 rounded-full" style={{ backgroundColor: s.color }} />
+              {s.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div className="relative">
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           className="w-full"
+          style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
           role="img"
           aria-label={tableCaption}
-          preserveAspectRatio="none"
         >
           <defs>
             <clipPath id={gradientId}>
@@ -154,13 +167,31 @@ export function DailyTrendChart({
           )}
 
           <g clipPath={`url(#${gradientId})`}>
-            <polyline points={linePoints('views')} fill="none" stroke={VIEWS_COLOR} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            <polyline points={linePoints('uniqueVisitors')} fill="none" stroke={VISITORS_COLOR} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            {series.map((s) => (
+              <polyline
+                key={s.key}
+                points={linePoints(s.key)}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
           </g>
 
           {/* נקודת קצה — התוויה הישירה היחידה, "עמוד/קו מוצא בקצה" */}
-          <circle cx={xAt(data.length - 1)} cy={yAt(data[data.length - 1].views)} r={4} fill={VIEWS_COLOR} stroke="var(--color-cream)" strokeWidth={2} />
-          <circle cx={xAt(data.length - 1)} cy={yAt(data[data.length - 1].uniqueVisitors)} r={4} fill={VISITORS_COLOR} stroke="var(--color-cream)" strokeWidth={2} />
+          {series.map((s) => (
+            <circle
+              key={s.key}
+              cx={xAt(data.length - 1)}
+              cy={yAt(numAt(data[data.length - 1], s.key))}
+              r={4}
+              fill={s.color}
+              stroke="var(--color-cream)"
+              strokeWidth={2}
+            />
+          ))}
 
           {/* שרביט הריחוף */}
           {hoverIndex !== null ? (
@@ -191,17 +222,19 @@ export function DailyTrendChart({
           <div
             className="pointer-events-none absolute top-2 rounded-[var(--admin-radius-btn)] border border-rule bg-cream px-3 py-2 text-caption shadow-[var(--admin-shadow-hover)]"
             style={{
-              insetInlineStart: `${Math.min(78, Math.max(2, (xAt(hoverIndex!) / WIDTH) * 100))}%`,
+              // פיזי (left) בכוונה, לא insetInlineStart: xAt/WIDTH הוא אחוז
+              // ממרחק פיזי-שמאלי קבוע בתוך ה-SVG (ראו הערת התיקון למעלה) —
+              // תכונה לוגית הייתה הופכת את הצד תחת RTL.
+              left: `${Math.min(78, Math.max(2, (xAt(hoverIndex!) / WIDTH) * 100))}%`,
               transform: 'translateX(-8%)',
             }}
           >
             <p className="font-semibold text-ink">{formatDate(hovered.date)}</p>
-            <p style={{ color: VIEWS_COLOR }}>
-              {viewsLabel}: <strong>{hovered.views.toLocaleString('he-IL')}</strong>
-            </p>
-            <p style={{ color: VISITORS_COLOR }}>
-              {visitorsLabel}: <strong>{hovered.uniqueVisitors.toLocaleString('he-IL')}</strong>
-            </p>
+            {series.map((s) => (
+              <p key={s.key} style={{ color: s.color }}>
+                {s.label}: <strong>{formatValue(numAt(hovered, s.key))}</strong>
+              </p>
+            ))}
           </div>
         ) : null}
       </div>
@@ -216,16 +249,22 @@ export function DailyTrendChart({
             <thead>
               <tr>
                 <th scope="col">תאריך</th>
-                <th scope="col">{viewsLabel}</th>
-                <th scope="col">{visitorsLabel}</th>
+                {series.map((s) => (
+                  <th key={s.key} scope="col">
+                    {s.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {data.map((point) => (
                 <tr key={point.date}>
                   <td>{point.date}</td>
-                  <td className="tabular-nums">{point.views.toLocaleString('he-IL')}</td>
-                  <td className="tabular-nums">{point.uniqueVisitors.toLocaleString('he-IL')}</td>
+                  {series.map((s) => (
+                    <td key={s.key} className="tabular-nums">
+                      {formatValue(numAt(point, s.key))}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

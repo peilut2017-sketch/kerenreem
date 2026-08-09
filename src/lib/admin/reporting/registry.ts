@@ -81,9 +81,9 @@ export const REPORTS: ReportDefinition[] = [
     id: 'books',
     family: 'catalog_inventory',
     title: 'ספרים ומוצרים',
-    blurb: 'יחידות שנמכרו, הכנסות, מחיר ממוצע בפועל, הנחה ממוצעת, צפיות, הוספות לסל, Conversion, מלאי.',
-    priority: 'later',
-    href: null,
+    blurb: 'יחידות שנמכרו, הכנסות, צפיות, שמירות, הוספות לסל והרשמות "הודיעו לי כשיחזור למלאי" — לא רק מה נמכר, גם מה מעניין ולא הומר.',
+    priority: 'important',
+    href: '/admin/reports/books',
   },
   {
     id: 'taxonomy',
@@ -106,8 +106,8 @@ export const REPORTS: ReportDefinition[] = [
     family: 'catalog_inventory',
     title: 'תנועות מלאי',
     blurb: 'Ledger מלא: קליטה, מכירה, ביטול, החזרה, נזק, ספירה ותיקון ידני — מי ביצע ומתי.',
-    priority: 'later',
-    href: null,
+    priority: 'important',
+    href: '/admin/reports/inventory-moves',
   },
   {
     id: 'catalog_quality',

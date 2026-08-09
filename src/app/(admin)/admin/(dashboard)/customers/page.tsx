@@ -136,12 +136,18 @@ export default async function AdminCustomersPage({
               )}
             </AdminCell>
             <AdminCell className="text-end">
-              <Link
-                href={`/admin/orders?q=${encodeURIComponent(row.phone ?? row.email ?? '')}`}
-                className="admin-btn admin-btn-ghost"
-              >
-                להזמנות
-              </Link>
+              {row.key !== 'ללא-קשר' ? (
+                <Link href={`/admin/customers/${encodeURIComponent(row.key)}`} className="admin-btn admin-btn-ghost">
+                  לכרטיס הלקוח
+                </Link>
+              ) : (
+                <Link
+                  href={`/admin/orders?q=${encodeURIComponent(row.phone ?? row.email ?? '')}`}
+                  className="admin-btn admin-btn-ghost"
+                >
+                  להזמנות
+                </Link>
+              )}
             </AdminCell>
           </AdminRow>
         ))}
