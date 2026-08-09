@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
+import { hasPermission } from '@/lib/admin/permissions';
+import { createClient } from '@/lib/supabase/server';
 import {
   getDashboardCounts,
   listDraftBooks,
@@ -27,6 +29,36 @@ export default async function AdminDashboard({
     listUpcomingEvents(),
   ]);
 
+  // [1.3] פילוח הזמנות בדשבורד — לבעלי הרשאת חנות בלבד
+  const storeStats: { label: string; value: number; href: string; icon: AdminIconName }[] = [];
+  if (hasPermission(session.profile.role, 'store_view')) {
+    const supabase = await createClient();
+    if (supabase) {
+      const count = (query: PromiseLike<{ count: number | null }>) =>
+        query.then((r) => r.count ?? 0);
+      const [total, confirmed, pendingPay, preparing, attention] = await Promise.all([
+        count(supabase.from('orders').select('id', { count: 'exact', head: true })),
+        count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('state', 'confirmed')),
+        count(
+          supabase
+            .from('orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('payment_state', 'pending')
+            .eq('state', 'pending'),
+        ),
+        count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('fulfillment_state', 'preparing')),
+        count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('state', 'cancel_pending_refund')),
+      ]);
+      storeStats.push(
+        { label: 'סה״כ הזמנות', value: total, href: '/admin/orders', icon: 'orders' },
+        { label: 'חדשות לטיפול', value: confirmed, href: '/admin/orders?view=new', icon: 'store' },
+        { label: 'ממתינות לתשלום', value: pendingPay, href: '/admin/orders?view=pending_payment', icon: 'finance' },
+        { label: 'בליקוט ואריזה', value: preparing, href: '/admin/orders?view=preparing', icon: 'inventory' },
+        { label: 'ממתינות לזיכוי', value: attention, href: '/admin/orders?view=attention', icon: 'coupon' },
+      );
+    }
+  }
+
   const stats: { label: string; value: number; href: string; icon: AdminIconName }[] = [
     { label: 'ספרים בקטלוג', value: counts.books, href: '/admin/books', icon: 'books' },
     { label: 'טיוטות', value: counts.drafts, href: '/admin/books', icon: 'edit' },
@@ -46,6 +78,28 @@ export default async function AdminDashboard({
         >
           אין לך הרשאה לאזור שביקשת.
         </p>
+      ) : null}
+
+      {storeStats.length > 0 ? (
+        <section aria-label="הזמנות" className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-small font-bold text-ink">
+            <AdminIcon name="store" className="h-4 w-4 text-muted" />
+            החנות עכשיו
+          </h2>
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {storeStats.map((stat) => (
+              <Link key={stat.label} href={stat.href} className="admin-stat">
+                <span className="admin-icon-chip h-11 w-11">
+                  <AdminIcon name={stat.icon} className="h-5 w-5" />
+                </span>
+                <span>
+                  <dt className="text-caption text-muted">{stat.label}</dt>
+                  <dd className="mt-0.5 font-serif text-h3 tabular-nums text-ink">{stat.value}</dd>
+                </span>
+              </Link>
+            ))}
+          </dl>
+        </section>
       ) : null}
 
       <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

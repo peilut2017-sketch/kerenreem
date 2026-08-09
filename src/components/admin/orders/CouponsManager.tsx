@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState, useTransition } from 'react';
-import { createCoupon, setCouponActive, type CouponFormState } from '@/lib/admin/coupons-actions';
+import { useActionState, useState, useTransition } from 'react';
+import { createCoupon, deleteCoupon, setCouponActive, updateCoupon, type CouponFormState } from '@/lib/admin/coupons-actions';
+import { AdminIcon } from '@/components/admin/AdminIcons';
 import { SubmitButton } from '../SubmitButton';
 
 export interface AdminCoupon {
@@ -14,6 +15,8 @@ export interface AdminCoupon {
   maxUses: number | null;
   active: boolean;
   uses: number;
+  minQuantity: number | null;
+  restrictedContact: string | null;
 }
 
 const KIND_LABELS: Record<AdminCoupon['kind'], string> = {
@@ -27,6 +30,9 @@ export function CouponsManager({ coupons }: { coupons: AdminCoupon[] }) {
     status: 'idle',
   });
   const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState({ value: '', minTotal: '', minQuantity: '', endsAt: '', restrictedContact: '' });
+  const [rowMessage, setRowMessage] = useState<string | null>(null);
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_22rem]">
@@ -41,12 +47,13 @@ export function CouponsManager({ coupons }: { coupons: AdminCoupon[] }) {
               <th className="px-4 py-3 text-start">תוקף עד</th>
               <th className="px-4 py-3 text-start">שימושים</th>
               <th className="px-4 py-3 text-start">מצב</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {coupons.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted">
                   אין קופונים עדיין.
                 </td>
               </tr>
@@ -84,6 +91,42 @@ export function CouponsManager({ coupons }: { coupons: AdminCoupon[] }) {
                       {coupon.active ? 'פעיל' : 'כבוי'}
                     </button>
                   </td>
+                  <td className="px-4 py-2.5 text-end">
+                    <span className="inline-flex gap-1">
+                      <button
+                        type="button"
+                        aria-label={`עריכה — ${coupon.code}`}
+                        onClick={() => {
+                          setEditing(editing === coupon.id ? null : coupon.id);
+                          setEditValues({
+                            value: String(coupon.value),
+                            minTotal: coupon.minTotal != null ? String(coupon.minTotal) : '',
+                            minQuantity: coupon.minQuantity != null ? String(coupon.minQuantity) : '',
+                            endsAt: coupon.endsAt ? coupon.endsAt.slice(0, 10) : '',
+                            restrictedContact: coupon.restrictedContact ?? '',
+                          });
+                          setRowMessage(null);
+                        }}
+                        className="admin-btn admin-btn-ghost admin-btn-icon"
+                      >
+                        <AdminIcon name="edit" className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`מחיקה — ${coupon.code}`}
+                        onClick={() => {
+                          if (!window.confirm(`למחוק את הקופון ${coupon.code}? פעולה בלתי הפיכה.`)) return;
+                          startTransition(async () => {
+                            const result = await deleteCoupon(coupon.id);
+                            setRowMessage(result.error ?? (result.ok ? 'נמחק.' : 'המחיקה נכשלה'));
+                          });
+                        }}
+                        className="admin-btn admin-btn-ghost admin-btn-icon"
+                      >
+                        <AdminIcon name="trash" className="h-4 w-4" />
+                      </button>
+                    </span>
+                  </td>
                 </tr>
               ))
             )}
@@ -91,7 +134,67 @@ export function CouponsManager({ coupons }: { coupons: AdminCoupon[] }) {
         </table>
       </div>
 
-      <form action={formAction} className="admin-card space-y-4 px-5 py-4 xl:sticky xl:top-6">
+      <div className="space-y-4 xl:sticky xl:top-6">
+      {rowMessage ? (
+        <p role="status" className="admin-card px-4 py-3 text-caption text-ink-soft">{rowMessage}</p>
+      ) : null}
+      {editing ? (
+        <div className="admin-card space-y-3 px-5 py-4">
+          <h2 className="text-small font-bold text-ink">
+            עריכת {coupons.find((c) => c.id === editing)?.code}
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="edit-value" className="admin-field-label">ערך</label>
+              <input id="edit-value" type="number" dir="ltr" min={0} value={editValues.value} onChange={(e) => setEditValues((v) => ({ ...v, value: e.target.value }))} className="admin-field-input" />
+            </div>
+            <div>
+              <label htmlFor="edit-min" className="admin-field-label">מינימום ₪</label>
+              <input id="edit-min" type="number" dir="ltr" min={0} value={editValues.minTotal} onChange={(e) => setEditValues((v) => ({ ...v, minTotal: e.target.value }))} className="admin-field-input" />
+            </div>
+            <div>
+              <label htmlFor="edit-min-qty" className="admin-field-label">מינימום יחידות</label>
+              <input id="edit-min-qty" type="number" dir="ltr" min={1} value={editValues.minQuantity} onChange={(e) => setEditValues((v) => ({ ...v, minQuantity: e.target.value }))} className="admin-field-input" />
+            </div>
+            <div>
+              <label htmlFor="edit-ends" className="admin-field-label">תוקף עד</label>
+              <input id="edit-ends" type="date" dir="ltr" value={editValues.endsAt} onChange={(e) => setEditValues((v) => ({ ...v, endsAt: e.target.value }))} className="admin-field-input" />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="edit-contact" className="admin-field-label">קופון אישי — טלפון או מייל (ריק = לכולם)</label>
+            <input id="edit-contact" dir="ltr" value={editValues.restrictedContact} onChange={(e) => setEditValues((v) => ({ ...v, restrictedContact: e.target.value }))} className="admin-field-input" />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  const data = new FormData();
+                  const current = coupons.find((c) => c.id === editing);
+                  data.set('kind', current?.kind ?? 'percent');
+                  data.set('value', editValues.value);
+                  data.set('min_total', editValues.minTotal);
+                  data.set('min_quantity', editValues.minQuantity);
+                  data.set('max_uses', current?.maxUses != null ? String(current.maxUses) : '');
+                  data.set('max_uses_per_customer', '1');
+                  data.set('ends_at', editValues.endsAt ? new Date(`${editValues.endsAt}T23:59:59`).toISOString() : '');
+                  data.set('restricted_contact', editValues.restrictedContact);
+                  const result = await updateCoupon(editing, data);
+                  setRowMessage(result.ok ? 'עודכן.' : (result.error ?? 'העדכון נכשל'));
+                  if (result.ok) setEditing(null);
+                })
+              }
+              className="admin-btn admin-btn-solid"
+            >
+              שמירה
+            </button>
+            <button type="button" onClick={() => setEditing(null)} className="admin-btn admin-btn-ghost">ביטול</button>
+          </div>
+        </div>
+      ) : null}
+      <form action={formAction} className="admin-card space-y-4 px-5 py-4">
         <h2 className="text-small font-bold text-ink">קופון חדש</h2>
         <div>
           <label htmlFor="coupon-new-code" className="admin-field-label">קוד</label>
@@ -131,6 +234,16 @@ export function CouponsManager({ coupons }: { coupons: AdminCoupon[] }) {
             <input id="coupon-new-per" name="max_uses_per_customer" type="number" dir="ltr" min={1} defaultValue={1} className="admin-field-input" />
           </div>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="coupon-new-minqty" className="admin-field-label">מינימום יחידות (קנה X)</label>
+            <input id="coupon-new-minqty" name="min_quantity" type="number" dir="ltr" min={1} className="admin-field-input" placeholder="ללא" />
+          </div>
+          <div>
+            <label htmlFor="coupon-new-contact" className="admin-field-label">קופון אישי (טלפון/מייל)</label>
+            <input id="coupon-new-contact" name="restricted_contact" dir="ltr" className="admin-field-input" placeholder="לכולם" />
+          </div>
+        </div>
         <label className="flex items-center gap-2 text-small text-ink-soft">
           <input type="checkbox" name="combinable_with_sale" className="h-4 w-4" />
           חל גם על ספרים במבצע
@@ -150,6 +263,7 @@ export function CouponsManager({ coupons }: { coupons: AdminCoupon[] }) {
           ) : null}
         </div>
       </form>
+      </div>
     </div>
   );
 }

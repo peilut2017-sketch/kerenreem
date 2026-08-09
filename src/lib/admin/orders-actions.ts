@@ -11,7 +11,7 @@ import {
   transitionOrder,
   type StateAxis,
 } from '@/lib/commerce/orders';
-import { adjustStock, releaseStock, transferStock } from '@/lib/commerce/inventory';
+import { adjustStock, releaseStock, reserveStock, transferStock } from '@/lib/commerce/inventory';
 import { sendOrderEmail, type EmailTemplate } from '@/lib/commerce/notifications';
 import { refundTransaction } from '@/lib/commerce/morning';
 import { createManualOrder } from '@/lib/commerce/manual-orders';
@@ -169,9 +169,23 @@ export async function addTracking(
     id: session.userId,
   });
   if (transition.ok && transition.order) {
+    // [1.3] פירוט מה שנשלח בפועל: אם סומן ליקוט חלקי — לפי picked_quantity
+    const { data: shippedItems } = await service
+      .from('order_items')
+      .select('title_snapshot, quantity, picked_quantity, line_total, unit_price')
+      .eq('order_id', orderId);
+    const anyPicked = (shippedItems ?? []).some((item) => item.picked_quantity != null);
+    const itemsForEmail = (shippedItems ?? [])
+      .map((item) => ({
+        title: item.title_snapshot ?? '',
+        quantity: anyPicked ? (item.picked_quantity ?? 0) : item.quantity,
+        lineTotal: Number(item.line_total ?? Number(item.unit_price) * item.quantity),
+      }))
+      .filter((item) => item.quantity > 0);
     await sendOrderEmail(service, 'shipped', transition.order, {
       trackingNumber: input.trackingNumber,
       trackingUrl: input.trackingUrl ?? null,
+      items: itemsForEmail,
     });
   }
   revalidateOrders(orderId);
@@ -640,5 +654,246 @@ export async function sendPaymentLink(orderId: string): Promise<OrderActionResul
   }, { url_expires: true });
 
   revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.3] עריכת פריטי הזמנה (פרק 9.7): מותרת רק כל עוד לא שולם ולא נארז —
+ * שינוי סכום אחרי חיוב מחייב זיכוי/חיוב משלים (יגיע עם A13). המחירים
+ * נשארים מהצילום; משתנות רק כמויות/שורות. סיבה חובה + מייל עדכון ללקוח.
+ */
+export async function editOrderItems(
+  orderId: string,
+  changes: { itemId: string; quantity: number }[],
+  reason: string,
+): Promise<OrderActionResult> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה לעריכה — נשלחת ללקוח ונשמרת בציר הזמן' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+  if (!['pending', 'failed'].includes(order.payment_state)) {
+    return {
+      ok: false,
+      error: 'ההזמנה שולמה — שינוי פריטים מחייב זיכוי או חיוב משלים (בצעו זיכוי חלקי במקום)',
+    };
+  }
+  if (!['unfulfilled', 'preparing'].includes(order.fulfillment_state)) {
+    return { ok: false, error: 'ההזמנה כבר נארזה/נשלחה — לא ניתן לערוך' };
+  }
+
+  const { data: items } = await service.from('order_items').select('*').eq('order_id', orderId);
+  const byId = new Map((items ?? []).map((item) => [item.id, item]));
+  const summary: string[] = [];
+
+  for (const change of changes) {
+    const item = byId.get(change.itemId);
+    if (!item) continue;
+    const next = Math.max(0, Math.floor(change.quantity));
+    if (next === item.quantity) continue;
+
+    // התאמת השריון במלאי: הפרש חיובי — שריון נוסף; שלילי — שחרור חלקי
+    if (item.book_id) {
+      if (next > item.quantity) {
+        const grow = await reserveStock(service, item.book_id, next - item.quantity, orderId);
+        if (!grow.ok) {
+          return { ok: false, error: `אין מספיק מלאי זמין עבור ${item.title_snapshot}` };
+        }
+      } else {
+        await releaseStock(service, item.book_id, item.quantity - next, orderId);
+      }
+    }
+
+    if (next === 0) {
+      await service.from('order_items').delete().eq('id', item.id);
+      summary.push(`${item.title_snapshot}: הוסר`);
+    } else {
+      await service
+        .from('order_items')
+        .update({ quantity: next, line_total: Number(item.unit_price) * next })
+        .eq('id', item.id);
+      summary.push(`${item.title_snapshot}: ${item.quantity} → ${next}`);
+    }
+  }
+  if (summary.length === 0) return { ok: false, error: 'לא בוצע שינוי' };
+
+  await recomputeOrderTotals(service, orderId);
+  const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
+  await recordOrderEvent(service, orderId, 'order_edited', actor, { reason, changes: summary });
+
+  const { data: fresh } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (fresh) {
+    await sendOrderEmail(service, 'order_updated', fresh as Order, { updateReason: reason }, `edit:${Date.now()}`);
+  }
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.3] שורת הנחת צוות מנומקת — "עריכת החשבונית" עד האריזה: מותרת רק
+ * לפני תשלום (החיוב יוצא לפי הסכום המעודכן). ההנחה יושבת על ההזמנה
+ * בנפרד מהקופון, עם סיבה שמופיעה בציר הזמן ובמייל.
+ */
+export async function setStaffDiscount(
+  orderId: string,
+  amount: number,
+  reason: string,
+): Promise<OrderActionResult> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!(amount >= 0)) return { ok: false, error: 'סכום לא תקין' };
+  if (amount > 0 && !reason.trim()) return { ok: false, error: 'נדרשת סיבה להנחה' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+  if (!['pending', 'failed'].includes(order.payment_state)) {
+    return { ok: false, error: 'ההזמנה שולמה — השתמשו בזיכוי במקום בהנחה' };
+  }
+  if (!['unfulfilled', 'preparing'].includes(order.fulfillment_state)) {
+    return { ok: false, error: 'ההזמנה כבר נארזה — לא ניתן לשנות את החשבון' };
+  }
+
+  await service
+    .from('orders')
+    .update({ staff_discount: amount, staff_discount_reason: reason.trim() || null })
+    .eq('id', orderId);
+  await recomputeOrderTotals(service, orderId);
+
+  const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
+  await recordOrderEvent(service, orderId, 'staff_discount_set', actor, { amount, reason });
+  const { data: fresh } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (fresh) {
+    await sendOrderEmail(service, 'order_updated', fresh as Order, { updateReason: reason }, `discount:${Date.now()}`);
+  }
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/** חישוב מחדש של סכומי ההזמנה מהשורות + ההנחות שעל ההזמנה. */
+async function recomputeOrderTotals(
+  service: NonNullable<ReturnType<typeof createServiceClient>>,
+  orderId: string,
+): Promise<void> {
+  const [{ data: order }, { data: items }] = await Promise.all([
+    service.from('orders').select('*').eq('id', orderId).maybeSingle(),
+    service.from('order_items').select('line_total, unit_price, quantity').eq('order_id', orderId),
+  ]);
+  if (!order) return;
+  const subtotal = (items ?? []).reduce(
+    (sum, item) => sum + Number(item.line_total ?? Number(item.unit_price) * item.quantity),
+    0,
+  );
+  // ההנחות הקיימות על ההזמנה נשמרות כמו שהן (קופון/מבצע צולמו ביצירה)
+  const couponAndPromo = Math.max(
+    Number(order.discount_total) - Number(order.staff_discount ?? 0),
+    0,
+  );
+  const discountTotal = Math.min(couponAndPromo + Number(order.staff_discount ?? 0), subtotal);
+  const total = Math.max(subtotal - discountTotal + Number(order.shipping_total ?? 0), 0);
+  await service
+    .from('orders')
+    .update({ subtotal, discount_total: discountTotal, total })
+    .eq('id', orderId);
+}
+
+/**
+ * [1.3] ליקוט מפורט: כמה לוקט מכל פריט + הערת מלקט. מותר לסמן "נארזה"
+ * גם כשלא הכל לוקט (מחסור) — מייל "נשלחה" יפרט מה נשלח בפועל.
+ */
+export async function savePickingState(
+  orderId: string,
+  picked: { itemId: string; pickedQuantity: number }[],
+  packingNote: string | null,
+): Promise<OrderActionResult> {
+  const session = await assertPermission('store_view');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  for (const entry of picked) {
+    await service
+      .from('order_items')
+      .update({ picked_quantity: Math.max(0, Math.floor(entry.pickedQuantity)) })
+      .eq('id', entry.itemId)
+      .eq('order_id', orderId);
+  }
+  await service
+    .from('orders')
+    .update({ packing_note: packingNote?.trim().slice(0, 500) || null })
+    .eq('id', orderId);
+
+  await recordOrderEvent(
+    service,
+    orderId,
+    'picking_updated',
+    { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
+    { note: packingNote ?? null },
+  );
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.3] מחיקת הזמנה — בלתי הפיכה, ולכן שמורה למקרים בטוחים בלבד:
+ * הזמנה שלא שולמה מעולם (או בוטלה בלי זיכוי). הזמנה עם תשלום שהצליח
+ * או מסמך — לעולם לא נמחקת (חובת שמירה 7 שנים); מבטלים במקום.
+ */
+export async function deleteOrder(orderId: string): Promise<OrderActionResult> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+
+  const { count: paidCount } = await service
+    .from('payments')
+    .select('id', { count: 'exact', head: true })
+    .eq('order_id', orderId)
+    .eq('status', 'succeeded');
+  const { count: docCount } = await service
+    .from('documents')
+    .select('id', { count: 'exact', head: true })
+    .eq('order_id', orderId);
+  if ((paidCount ?? 0) > 0 || (docCount ?? 0) > 0) {
+    return {
+      ok: false,
+      error: 'להזמנה תשלום שהצליח או מסמך חשבונאי — חובת שמירה; בטלו במקום למחוק',
+    };
+  }
+
+  // שחרור שריונים לפני המחיקה (אם ההזמנה עוד פעילה)
+  const { data: items } = await service
+    .from('order_items')
+    .select('book_id, quantity')
+    .eq('order_id', orderId);
+  for (const item of items ?? []) {
+    if (item.book_id) await releaseStock(service, item.book_id, item.quantity, orderId);
+  }
+
+  // ילדים שאינם cascade: תשלומים (שלא הצליחו) ומימושי קופון
+  await service.from('coupon_redemptions').delete().eq('order_id', orderId);
+  await service.from('payments').delete().eq('order_id', orderId);
+  const { error } = await service.from('orders').delete().eq('id', orderId);
+  if (error) return { ok: false, error: error.message };
+
+  const supabase = await createClient();
+  if (supabase) {
+    await supabase.from('audit_log').insert({
+      user_id: session.userId,
+      action: 'order_deleted',
+      table_name: 'orders',
+      record_id: orderId,
+      old_values: { order_number: order.order_number, total: order.total },
+      context: 'מחיקת הזמנה (ללא תשלום/מסמך)',
+    });
+  }
+  revalidateOrders();
   return { ok: true };
 }

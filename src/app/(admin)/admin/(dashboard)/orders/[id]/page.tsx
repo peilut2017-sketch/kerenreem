@@ -5,6 +5,8 @@ import { AdminHeader } from '@/components/admin/AdminList';
 import { getOrderDetail } from '@/lib/admin/commerce-queries';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { OrderActionsPanel } from '@/components/admin/orders/OrderActionsPanel';
+import { OrderProcessStrip } from '@/components/admin/orders/OrderProcessStrip';
+import { PickingPanel } from '@/components/admin/orders/PickingPanel';
 import {
   DOCUMENT_STATE_LABELS,
   FULFILLMENT_STATE_LABELS,
@@ -77,6 +79,13 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           order.channel === 'web' ? 'מהאתר' : order.channel === 'phone' ? 'בטלפון' : 'ידנית'
         }${order.is_gift ? ' · 🎁 מתנה' : ''}`}
         action={{ href: '/admin/orders', label: 'כל ההזמנות', variant: 'quiet' }}
+      />
+
+      <OrderProcessStrip
+        state={order.state}
+        paymentState={order.payment_state}
+        fulfillmentState={order.fulfillment_state}
+        isPickup={order.fulfillment_type === 'pickup'}
       />
 
       {/* תקציר ארבעת הצירים */}
@@ -271,6 +280,24 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         </div>
 
         {canEdit ? (
+          <div className="space-y-5">
+          <PickingPanel
+            orderId={order.id}
+            items={items.map((item) => ({
+              id: item.id,
+              title: item.title_snapshot ?? '',
+              quantity: item.quantity,
+              picked: item.picked_quantity,
+            }))}
+            packingNote={order.packing_note}
+            canEdit={canEdit}
+            canDiscount={isAdmin}
+            editable={
+              ['pending', 'failed'].includes(order.payment_state) &&
+              ['unfulfilled', 'preparing'].includes(order.fulfillment_state)
+            }
+            staffDiscount={Number(order.staff_discount ?? 0)}
+          />
           <OrderActionsPanel
             order={{
               id: order.id,
@@ -283,6 +310,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             }}
             isAdmin={isAdmin}
           />
+          </div>
         ) : null}
       </div>
     </>
