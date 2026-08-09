@@ -14,8 +14,8 @@ export function PrintSheet({
   className?: string;
   children: React.ReactNode;
 }) {
-  const width = format === 'label' ? '100mm' : '210mm';
-  const padding = format === 'label' ? '4mm' : '15mm';
+  const width = format === 'label' ? '100mm' : format === 'a6' ? '105mm' : '210mm';
+  const padding = format === 'label' ? '4mm' : format === 'a6' ? '8mm' : '15mm';
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: pageAtRuleCss(format) }} />

@@ -112,6 +112,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     } else {
       printItems.push({ href: `/admin/orders/${order.id}/print/shipping-label`, label: 'מדבקת משלוח' });
     }
+    if (order.is_gift && order.gift_message) {
+      printItems.push({ href: `/admin/orders/${order.id}/print/gift-card`, label: 'הקדשה' });
+    }
   }
 
   return (
