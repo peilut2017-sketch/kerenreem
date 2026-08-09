@@ -17,6 +17,11 @@ const RANGE_OPTIONS = [
 
 const LOCALE_NAMES: Record<string, string> = { he: 'עברית', en: 'אנגלית' };
 
+// שני הגוונים הראשונים בסדר הקטגוריאלי המאומת (ראו dataviz) — נבדקו מול
+// משטח הכרטיס הבהיר (ניגודיות, הפרדת CVD, סף ראייה רגילה — כולם עוברים).
+const VIEWS_COLOR = '#2a78d6';
+const VISITORS_COLOR = '#eb6834';
+
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
 /**
@@ -74,8 +79,10 @@ export default async function AdminAnalyticsPage({
         {hasData ? (
           <DailyTrendChart
             data={summary.dailySeries}
-            viewsLabel="צפיות"
-            visitorsLabel="מבקרים ייחודיים"
+            series={[
+              { key: 'views', label: 'צפיות', color: VIEWS_COLOR },
+              { key: 'uniqueVisitors', label: 'מבקרים ייחודיים', color: VISITORS_COLOR },
+            ]}
             tableCaption={`צפיות ומבקרים ייחודיים ליום, ${days} הימים האחרונים`}
           />
         ) : (
