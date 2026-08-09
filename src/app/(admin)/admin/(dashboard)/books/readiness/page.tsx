@@ -1,0 +1,148 @@
+import Link from 'next/link';
+import { requireRole } from '@/lib/admin/auth';
+import { listBookIdsWithTags, listBooks, type BookRow } from '@/lib/admin/queries';
+import { computeCompletion, type CompletionItem } from '@/lib/completion';
+import { AdminHeader } from '@/components/admin/AdminList';
+import { AdminIcon } from '@/components/admin/AdminIcons';
+import { AdminRecordList, type AdminRecordColumn } from '@/components/admin/AdminRecordList';
+import type { BookRelations } from '@/lib/supabase/types';
+
+export const dynamic = 'force-dynamic';
+
+interface ReadinessRow {
+  book: BookRow;
+  missing: CompletionItem[];
+  percent: number;
+}
+
+const columns: AdminRecordColumn<ReadinessRow>[] = [
+  {
+    key: 'title',
+    header: 'ספר',
+    render: (row) => row.book.title_he,
+    cardHidden: true,
+  },
+  {
+    key: 'author',
+    header: 'מחבר',
+    render: (row) => row.book.author?.name_he ?? row.book.author_name_he ?? '—',
+  },
+  {
+    key: 'missing',
+    header: 'חסר',
+    render: (row) => (
+      <div className="flex flex-wrap gap-1.5">
+        {row.missing.map((item) => (
+          <span key={item.key} className="admin-badge admin-badge-warning">
+            {item.label}
+          </span>
+        ))}
+      </div>
+    ),
+  },
+  {
+    key: 'percent',
+    header: 'שלמות',
+    render: (row) => `${row.percent}%`,
+    cardHidden: true,
+  },
+];
+
+/**
+ * [1.5] "ספרים שלא מוכנים לחנות" (ביקורת ג.7/ט.11) — כלי ההכנה המרכזי
+ * לפני פתיחת החנות. computeCompletion כבר בודק מחיר/משקל/מלאי לספר
+ * שסומן לרכישה, אבל בלי מסך מרכז אין דרך למצוא ספר חסר בלי לפתוח כל
+ * כרטיס בנפרד. כאן: אותו computeCompletion בדיוק, על כל ספרי הרכישה,
+ * עם צבירה לפי סוג חוסר וקישור ישיר לכל ספר.
+ */
+export default async function BooksReadinessPage() {
+  await requireRole('viewer');
+  const [books, bookIdsWithTags] = await Promise.all([listBooks(), listBookIdsWithTags()]);
+  const tagSet = new Set(bookIdsWithTags);
+
+  const purchasable = books.filter((book) => book.is_purchasable);
+  const rows: ReadinessRow[] = purchasable
+    .map((book) => {
+      const relations: BookRelations = {
+        tagIds: tagSet.has(book.id) ? ['_'] : [],
+        categoryIds: [],
+        attributeValueIds: [],
+      };
+      const completion = computeCompletion(book, relations);
+      return { book, missing: completion.missing, percent: completion.percent };
+    })
+    .filter((row) => row.missing.length > 0)
+    .sort((a, b) => a.percent - b.percent);
+
+  const countsByKey = new Map<string, { label: string; count: number }>();
+  for (const row of rows) {
+    for (const item of row.missing) {
+      const entry = countsByKey.get(item.key) ?? { label: item.label, count: 0 };
+      entry.count += 1;
+      countsByKey.set(item.key, entry);
+    }
+  }
+  const aggregated = [...countsByKey.values()].sort((a, b) => b.count - a.count);
+
+  return (
+    <>
+      <AdminHeader
+        title="ספרים שלא מוכנים לחנות"
+        description="כל ספר שסומן 'ניתן לרכישה' אך חסר בו שדה שהחנות זקוקה לו — מחיר, משקל למשלוח, מלאי, או תוכן בסיסי. אין חלון תאריכים: אלה בעיות פתוחות עכשיו."
+        action={{ href: '/admin/books', label: 'כל הספרים', variant: 'quiet' }}
+      />
+
+      {purchasable.length === 0 ? (
+        <div className="admin-card px-5 py-8 text-center text-small text-muted">
+          אין עדיין ספרים שסומנו &quot;ניתן לרכישה&quot;.
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="admin-card px-5 py-8 text-center">
+          <p className="text-small text-ink">
+            כל {purchasable.length.toLocaleString('he-IL')} ספרי הרכישה מוכנים לחנות. תקין.
+          </p>
+        </div>
+      ) : (
+        <>
+          <dl className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {aggregated.map((entry) => (
+              <div key={entry.label} className="admin-card flex items-center gap-3 px-5 py-4">
+                <span className="admin-icon-chip h-11 w-11">
+                  <AdminIcon name="diagnostics" className="h-5 w-5" />
+                </span>
+                <span>
+                  <dt className="text-caption text-muted">{entry.label}</dt>
+                  <dd className="mt-0.5 font-serif text-h3 tabular-nums text-ink">{entry.count}</dd>
+                </span>
+              </div>
+            ))}
+          </dl>
+
+          <p className="mb-3 text-caption text-muted">
+            {rows.length.toLocaleString('he-IL')} מתוך {purchasable.length.toLocaleString('he-IL')} ספרי הרכישה
+            חסרים שדה אחד לפחות, ממוינים מהחסר ביותר.
+          </p>
+
+          <AdminRecordList
+            rows={rows}
+            columns={columns}
+            getRowKey={(row) => row.book.id}
+            href={(row) => `/admin/books/${row.book.id}`}
+            renderCardTitle={(row) => row.book.title_he}
+            renderCardBadge={(row) => <span className="admin-badge admin-badge-warning">{row.percent}%</span>}
+            minWidthClassName="min-w-[36rem]"
+            emptyMessage="אין ספרים חסרים."
+          />
+        </>
+      )}
+
+      <p className="mt-6 text-caption text-muted">
+        רוצים לראות גם ספרי קטלוג (שאינם מסומנים לרכישה)?{' '}
+        <Link href="/admin/books" className="link">
+          כל הספרים
+        </Link>{' '}
+        מציגה את מד ההשלמה לכולם.
+      </p>
+    </>
+  );
+}

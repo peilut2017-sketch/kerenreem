@@ -20,6 +20,7 @@ export default async function AdminBooksPage() {
         description="הקטלוג — הנכס המרכזי של האתר."
         action={[
           { href: '/admin/books/new', label: 'ספר חדש', icon: 'plus' },
+          { href: '/admin/books/readiness', label: 'לא מוכנים לחנות', icon: 'diagnostics', variant: 'quiet' },
           { href: '/admin/books/settings', label: 'הגדרות קטלוג וחנות', icon: 'settings', variant: 'quiet' },
         ]}
       />
