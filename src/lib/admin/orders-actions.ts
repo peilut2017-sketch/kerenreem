@@ -20,6 +20,11 @@ import {
   uncommitStock,
 } from '@/lib/commerce/inventory';
 import { recordCreditNote } from '@/lib/commerce/documents';
+import {
+  openServiceRequest,
+  resolveOpenCancelRequests,
+  resolveServiceRequest,
+} from '@/lib/commerce/service-requests';
 import { sendOrderEmail, type EmailTemplate } from '@/lib/commerce/notifications';
 import { refundTransaction } from '@/lib/commerce/morning';
 import {
@@ -119,6 +124,9 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
     });
     if (!result.ok) return { ok: false, error: result.error };
     await recordOrderEvent(service, orderId, 'cancel_approved', actor, { reason, awaiting: 'refund' });
+    // [1.5] הביטול אושר וכעת בטיפול — בקשת השירות (אם הייתה) והתג הישן
+    // כבר לא אמורים להישאר ב״ממתין״; זה בדיוק הבאג שבו התג לא מתנקה
+    await resolveOpenCancelRequests(service, orderId, session.userId);
     revalidateOrders(orderId);
     return { ok: true };
   }
@@ -126,6 +134,7 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
   // לא שולמה (או שכבר זוכתה במלואה): ביטול מיידי + טיפול מלאי לפי המצב
   const result = await transitionOrder(service, orderId, 'state', 'cancelled', actor, { reason });
   if (!result.ok) return { ok: false, error: result.error };
+  await resolveOpenCancelRequests(service, orderId, session.userId);
 
   const wasCommitted = path === 'already_refunded'; // המלאי הופחת בתשלום שקדם לזיכוי
   const notShipped = !['shipped', 'delivered', 'fulfilled', 'returned'].includes(
@@ -155,6 +164,54 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
 
   if (result.order) await sendOrderEmail(service, 'cancelled', result.order);
   revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/**
+ * [1.5] בקשת החזרה שהצוות פותח (טלפון/מייל — אין עדיין ערוץ עצמי ללקוח).
+ * לא מזכה ולא נוגעת במלאי בעצמה — רק פותחת את הבקשה; הזיכוי בפועל
+ * (אם מאושר) עדיין דרך refundOrder הרגיל, לאחר שהפריטים חזרו פיזית.
+ */
+export async function openReturnRequest(
+  orderId: string,
+  reason: string,
+  items: { bookId: string; title: string; quantity: number }[],
+): Promise<OrderActionResult> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+  if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה' };
+  if (items.length === 0) return { ok: false, error: 'יש לבחור לפחות פריט אחד להחזרה' };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const result = await openServiceRequest(service, {
+    orderId,
+    kind: 'return',
+    reason,
+    requestedBy: 'staff',
+    items,
+    actor: { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  revalidateOrders(orderId);
+  return { ok: true };
+}
+
+/** [1.5] סגירת בקשת שירות (ביטול/החזרה) בלי לבטל את ההזמנה — למשל הלקוח חזר בו. */
+export async function closeServiceRequest(
+  requestId: string,
+  status: 'resolved' | 'declined',
+  note: string,
+): Promise<OrderActionResult> {
+  const session = await assertPermission('store');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const result = await resolveServiceRequest(service, requestId, status, note, session.userId);
+  if (!result.ok) return { ok: false, error: result.error };
+  if (result.orderId) revalidateOrders(result.orderId);
   return { ok: true };
 }
 

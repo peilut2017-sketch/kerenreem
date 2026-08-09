@@ -7,6 +7,7 @@ import { formatPrice } from '@/lib/commerce/pricing';
 import { OrderActionsPanel } from '@/components/admin/orders/OrderActionsPanel';
 import { OrderProcessStrip } from '@/components/admin/orders/OrderProcessStrip';
 import { PickingPanel } from '@/components/admin/orders/PickingPanel';
+import { ServiceRequestsPanel } from '@/components/admin/orders/ServiceRequestsPanel';
 import {
   AXIS_LABELS,
   DOC_STATUS_LABELS,
@@ -41,6 +42,7 @@ const EVENT_LABELS: Record<string, string> = {
   note_added: 'הערה פנימית',
   email_sent: 'נשלח מייל',
   cancel_requested: 'הלקוח ביקש ביטול',
+  return_requested: 'נפתחה בקשת החזרה',
   cancelled: 'ההזמנה בוטלה',
   refund_issued: 'בוצע זיכוי',
   cancel_approved: 'אושר ביטול — ממתין לזיכוי',
@@ -79,7 +81,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   const detail = await getOrderDetail(id);
   if (!detail) notFound();
 
-  const { order, items, events, payments, documents, notifications } = detail;
+  const { order, items, events, payments, documents, notifications, serviceRequests } = detail;
   const isAdmin = hasPermission(session.profile.role, 'finance');
   // [1.4/1.4] המלקט (store_view) חייב לראות את פאנל הליקוט; רק 'store'
   // ומעלה עורכים את ההזמנה עצמה — ורק הם רואים PII וסכומים (ראו הערה
@@ -359,6 +361,19 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 actualShippingCost: order.actual_shipping_cost,
               }}
               isAdmin={isAdmin}
+            />
+          ) : null}
+          {canEdit ? (
+            <ServiceRequestsPanel
+              orderId={order.id}
+              requests={serviceRequests}
+              items={items
+                .filter((item) => item.book_id)
+                .map((item) => ({
+                  bookId: item.book_id as string,
+                  title: item.title_snapshot ?? '',
+                  quantity: item.quantity,
+                }))}
             />
           ) : null}
           </div>

@@ -9,6 +9,7 @@ import type {
   OrderItem,
   Payment,
 } from '@/lib/supabase/types';
+import type { ServiceRequestRow } from '@/lib/commerce/service-requests';
 
 /**
  * שאילתות הצוות למסכי המסחר — דרך ה-session client, תחת ה-RLS של
@@ -142,6 +143,7 @@ export interface OrderDetail {
   payments: Payment[];
   documents: CommerceDocument[];
   notifications: NotificationLogEntry[];
+  serviceRequests: ServiceRequestRow[];
 }
 
 export async function getOrderDetail(orderId: string): Promise<OrderDetail | null> {
@@ -155,12 +157,13 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     .maybeSingle();
   if (error || !order) return null;
 
-  const [items, events, payments, documents, notifications] = await Promise.all([
+  const [items, events, payments, documents, notifications, serviceRequests] = await Promise.all([
     supabase.from('order_items').select('*').eq('order_id', orderId).order('created_at'),
     supabase.from('order_events').select('*').eq('order_id', orderId).order('created_at'),
     supabase.from('payments').select('*').eq('order_id', orderId).order('created_at'),
     supabase.from('documents').select('*').eq('order_id', orderId).order('created_at'),
     supabase.from('notification_log').select('*').eq('order_id', orderId).order('created_at'),
+    supabase.from('service_requests').select('*').eq('order_id', orderId).order('created_at', { ascending: false }),
   ]);
 
   return {
@@ -170,6 +173,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     payments: (payments.data ?? []) as Payment[],
     documents: (documents.data ?? []) as CommerceDocument[],
     notifications: (notifications.data ?? []) as NotificationLogEntry[],
+    serviceRequests: (serviceRequests.data ?? []) as ServiceRequestRow[],
   };
 }
 

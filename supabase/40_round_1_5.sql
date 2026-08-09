@@ -67,7 +67,57 @@ end $$;
 revoke all on function commerce_uncommit_stock(uuid, int, uuid) from public, anon, authenticated;
 grant execute on function commerce_uncommit_stock(uuid, int, uuid) to service_role;
 
+-- ----------------------------------------------------------------------------
+-- 2. בקשות שירות (ביטול/החזרה) — ישות אמיתית במקום תג+אירוע. עד כה
+--    "בקשת ביטול" חייתה רק כתג cancel-requested על ההזמנה: cancelOrder
+--    אינו נוגע ב-tags בכלל, כך שהתג נשאר לנצח והתור "בקשות ביטול" באדמין
+--    נסתם עם הזמנות שכבר טופלו לפני זמן רב. גם אין ישות "החזרה" בכלל —
+--    fulfillment_state='returned' קיים במכונה בלי שום תהליך סביבו.
+--    כאן גם התשתית ל"טופס החזרה" המודפס (מספר בקשה + QR).
+-- ----------------------------------------------------------------------------
+create table if not exists service_requests (
+  id              uuid primary key default gen_random_uuid(),
+  order_id        uuid not null references orders(id) on delete cascade,
+  kind            text not null check (kind in ('cancel', 'return')),
+  status          text not null default 'open'
+                    check (status in ('open', 'in_progress', 'resolved', 'declined')),
+  reason          text,
+  requested_by    text not null default 'customer' check (requested_by in ('customer', 'staff')),
+  items           jsonb,
+  resolution_note text,
+  resolved_at     timestamptz,
+  resolved_by     uuid,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+create index if not exists idx_service_requests_order on service_requests (order_id);
+create index if not exists idx_service_requests_status on service_requests (status, created_at desc);
+-- לא לאפשר שתי בקשות פתוחות מאותו סוג על אותה הזמנה בו-זמנית
+create unique index if not exists uq_service_requests_open
+  on service_requests (order_id, kind)
+  where status in ('open', 'in_progress');
+
+alter table service_requests enable row level security;
+revoke all on service_requests from anon, authenticated;
+grant select, insert, update on service_requests to authenticated;
+
+drop policy if exists service_requests_staff_read on service_requests;
+create policy service_requests_staff_read on service_requests
+  for select using (public.is_store_staff());
+
+drop policy if exists service_requests_staff_write on service_requests;
+create policy service_requests_staff_write on service_requests
+  for all using (public.can_manage_store()) with check (public.can_manage_store());
+
+-- set_updated_at() כבר קיים ומשמש טבלאות רבות באפליקציה (ראו migrations קודמות)
+drop trigger if exists trg_service_requests_updated_at on service_requests;
+create trigger trg_service_requests_updated_at
+  before update on service_requests
+  for each row execute function public.set_updated_at();
+
 -- ============================================================================
 -- לאימות אחרי הרצה:
 --   select proname from pg_proc where proname = 'commerce_uncommit_stock';
+--   select * from service_requests limit 1;
 -- ============================================================================
