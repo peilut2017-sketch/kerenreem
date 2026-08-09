@@ -106,8 +106,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     printItems.push(
       { href: `/admin/orders/${order.id}/print/picking-list`, label: 'רשימת ליקוט' },
       { href: `/admin/orders/${order.id}/print/packing-slip`, label: 'תעודת משלוח' },
-      { href: `/admin/orders/${order.id}/print/shipping-label`, label: 'מדבקת משלוח' },
     );
+    if (order.fulfillment_type === 'pickup') {
+      printItems.push({ href: `/admin/orders/${order.id}/print/pickup-label`, label: 'מדבקת איסוף עצמי' });
+    } else {
+      printItems.push({ href: `/admin/orders/${order.id}/print/shipping-label`, label: 'מדבקת משלוח' });
+    }
   }
 
   return (

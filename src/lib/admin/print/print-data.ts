@@ -92,3 +92,20 @@ export async function getServiceRequestForPrint(requestId: string): Promise<Serv
   const { data } = await supabase.from('service_requests').select('*').eq('id', requestId).maybeSingle();
   return (data as ServiceRequestRow) ?? null;
 }
+
+/**
+ * [1.5] תור איסוף עצמי — הזמנות שממתינות. "מוכן מאז" הוא updated_at
+ * כקירוב (אין timestamp ייעודי ל-ready_for_pickup) — מדויק מספיק להתרעת
+ * "לא נאסף", לא לחישוב חשבונאי.
+ */
+export async function getPickupQueue(): Promise<Order[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('fulfillment_type', 'pickup')
+    .eq('fulfillment_state', 'ready_for_pickup')
+    .order('updated_at');
+  return (data ?? []) as Order[];
+}
