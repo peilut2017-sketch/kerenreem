@@ -16,6 +16,7 @@ import {
   undoManualPayment,
   undoShipment,
 } from '@/lib/admin/orders-actions';
+import { CardPaymentDrawer } from './CardPaymentDrawer';
 import {
   FULFILLMENT_STATE_TRANSITIONS,
   ORDER_STATE_TRANSITIONS,
@@ -276,10 +277,11 @@ export function OrderActionsPanel({
           </div>
         ) : null}
 
-        {/* גבייה על הזמנה ממתינה: קישור תשלום ללקוח + סימון תשלום חיצוני */}
+        {/* גבייה על הזמנה ממתינה: תשלום באשראי מוטמע + קישור תשלום ללקוח + סימון תשלום חיצוני */}
         {['pending', 'failed'].includes(order.paymentState) &&
         !['cancelled', 'closed'].includes(order.state) ? (
           <div className="mb-4 flex flex-wrap gap-2 border-t border-rule pt-3">
+            {isAdmin ? <CardPaymentDrawer orderId={order.id} /> : null}
             <button
               type="button"
               disabled={pending}
@@ -289,7 +291,7 @@ export function OrderActionsPanel({
                   'לשלוח ללקוח מייל עם קישור לתשלום מאובטח במורנינג?',
                 )
               }
-              className="admin-btn admin-btn-solid"
+              className="admin-btn admin-btn-quiet"
             >
               שליחת קישור תשלום במייל
             </button>

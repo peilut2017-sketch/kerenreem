@@ -4,7 +4,7 @@ import type { Order, Payment, PaymentMethod } from '@/lib/supabase/types';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getStoreSettings } from './settings';
 import { createPaymentForm, isMorningConfigured } from './morning';
-import { recordOrderEvent, SYSTEM_ACTOR } from './orders';
+import { recordOrderEvent, SYSTEM_ACTOR, type Actor } from './orders';
 
 /**
  * התחלת תשלום (תרשים 7): רשומת payment → דף תשלום במורנינג → הפניה.
@@ -24,7 +24,15 @@ export interface StartPaymentResult {
 
 export async function startPayment(
   order: Order,
-  options: { wallet?: 'bit' | 'apple_pay' | 'google_pay' | null; siteUrl: string },
+  options: {
+    wallet?: 'bit' | 'apple_pay' | 'google_pay' | null;
+    siteUrl: string;
+    /** [1.5] דריסת יעדי החזרה — לגבייה בניהול (iframe) במקום checkout/result */
+    successUrl?: string;
+    failureUrl?: string;
+    /** [1.5] שיוך היוזמה לנציג הצוות בציר הזמן, במקום SYSTEM_ACTOR הגנרי */
+    actor?: Actor;
+  },
 ): Promise<StartPaymentResult> {
   const service = createServiceClient();
   if (!service || !isMorningConfigured()) return { ok: false, error: 'not_configured' };
@@ -125,8 +133,8 @@ export async function startPayment(
     vatIncluded: settings.vat_mode === 'included',
     maxInstallments: installmentsAllowed,
     preferredMethod: options.wallet ?? null,
-    successUrl: `${options.siteUrl}/checkout/result?order=${order.id}&outcome=success`,
-    failureUrl: `${options.siteUrl}/checkout/result?order=${order.id}&outcome=failure`,
+    successUrl: options.successUrl ?? `${options.siteUrl}/checkout/result?order=${order.id}&outcome=success`,
+    failureUrl: options.failureUrl ?? `${options.siteUrl}/checkout/result?order=${order.id}&outcome=failure`,
     notifyUrl: `${options.siteUrl}/api/webhooks/morning`,
     externalReference: order.id,
     lang: order.locale === 'en' ? 'en' : 'he',
@@ -156,7 +164,7 @@ export async function startPayment(
     .select('*')
     .maybeSingle();
 
-  await recordOrderEvent(service, order.id, 'payment_started', SYSTEM_ACTOR, {
+  await recordOrderEvent(service, order.id, 'payment_started', options.actor ?? SYSTEM_ACTOR, {
     payment_id: payment.id,
     wallet: options.wallet ?? 'page',
     amount: order.total,

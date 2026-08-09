@@ -971,6 +971,49 @@ export async function sendPaymentLink(orderId: string): Promise<OrderActionResul
 }
 
 /**
+ * [1.5] גביית תשלום באשראי בטלפון: יוצר את אותו דף תשלום מאובטח של
+ * מורנינג כמו קישור המייל (sendPaymentLink), אך עם successUrl/failureUrl
+ * שחוזרים לעמוד ההזמנה בניהול במקום checkout/result — ה-UI טוען את הדף
+ * הזה בתוך iframe והנציג מקליד אליו את הפרטים שהלקוח מקריא בזמן השיחה,
+ * כך שהם מגיעים אל מורנינג בלבד ולעולם אינם עוברים דרך השרת שלנו. בניגוד
+ * לקישור המייל, אינה דורשת כתובת דוא״ל — בדיוק המקרה שבו "סימון תשלום
+ * חיצוני" היה עד כה המוצא היחיד. מקור האמת למעבר ל-paid נשאר ה-Webhook
+ * הקיים בלבד (webhook-processing.ts) — הפעולה הזו רק פותחת את דף התשלום.
+ */
+export async function startAdminCardPayment(
+  orderId: string,
+): Promise<{ ok: true; paymentUrl: string } | { ok: false; error: string }> {
+  const session = await assertPermission('finance');
+  if ('error' in session) return { ok: false, error: session.error };
+  const service = createServiceClient();
+  if (!service) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
+  if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
+  if (!['pending', 'failed'].includes(order.payment_state)) {
+    return { ok: false, error: `לא ניתן לגבות תשלום ממצב ${order.payment_state}` };
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  const result = await startPayment(order as Order, {
+    siteUrl,
+    successUrl: `${siteUrl}/admin/orders/${orderId}/payment-return?outcome=success`,
+    failureUrl: `${siteUrl}/admin/orders/${orderId}/payment-return?outcome=failure`,
+    actor: { type: 'staff', id: session.userId, label: session.profile.full_name ?? undefined },
+  });
+  if (!result.ok || !result.paymentUrl) {
+    return {
+      ok: false,
+      error:
+        result.error === 'not_configured'
+          ? 'מורנינג אינה מוגדרת (מפתחות API חסרים) — סמנו תשלום חיצוני במקום'
+          : `יצירת טופס התשלום נכשלה: ${result.error}`,
+    };
+  }
+  return { ok: true, paymentUrl: result.paymentUrl };
+}
+
+/**
  * [1.3] עריכת פריטי הזמנה (פרק 9.7): מותרת רק כל עוד לא שולם ולא נארז —
  * שינוי סכום אחרי חיוב מחייב זיכוי/חיוב משלים (יגיע עם A13). המחירים
  * נשארים מהצילום; משתנות רק כמויות/שורות. סיבה חובה + מייל עדכון ללקוח.

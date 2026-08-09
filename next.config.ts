@@ -80,6 +80,32 @@ const SECURITY_HEADERS = [
   },
 ];
 
+/**
+ * [1.5] גביית אשראי בהזמנה טלפונית (CardPaymentDrawer): טוענת את טופס
+ * התשלום המאובטח של מורנינג בתוך iframe בעמוד ההזמנה, ומורנינג מפנה
+ * בסיום חזרה לעמוד payment-return שלנו — גם הוא בתוך אותו iframe. שני
+ * הכיוונים חסומים כברירת מחדל ב-CSP הגלובלי (frame-src מוגבל לוידאו
+ * בלבד; frame-ancestors 'none' חוסם הטמעה של כל עמוד שלנו) — לכן שתי
+ * דריסות ממוקדות, לא שינוי המדיניות הגלובלית:
+ *  - frame-src מורחב ל-domains של מורנינג, רק תחת /admin/orders/*.
+ *  - frame-ancestors/X-Frame-Options מוקלים ל-'self', רק בנתיב
+ *    payment-return המדויק — שאר הניהול (כולל עמוד ההזמנה עצמו, עם
+ *    כפתורי ביטול/מחיקה/זיכוי) נשאר חסום-הטמעה לגמרי, כהגנה מ-clickjacking.
+ *
+ * ⚠️ ה-domain המדויק שמורנינג מחזירה בשדה url של POST /payments/form לא
+ * אומת מול Sandbox בפועל (התיעוד הרשמי חסום מהסביבה שבה נכתב הקוד) —
+ * הרשימה למטה היא ההנחה הסבירה ביותר (API hosts הידועים + wildcard
+ * ברמה אחת). אם ה-iframe לא נטען בפועל, לבדוק את השגיאה שחסמה אותו
+ * ב-console (CSP violation) ולהוסיף את ה-host המדויק לכאן.
+ */
+const MORNING_FRAME_SRC =
+  'https://sandbox.d.greeninvoice.co.il https://api.greeninvoice.co.il https://*.greeninvoice.co.il';
+const ORDERS_CSP = CSP.replace(
+  'frame-src https://www.youtube-nocookie.com',
+  `frame-src ${MORNING_FRAME_SRC} https://www.youtube-nocookie.com`,
+);
+const PAYMENT_RETURN_CSP = CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'");
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
@@ -89,7 +115,17 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   async headers() {
-    return [{ source: '/:path*', headers: SECURITY_HEADERS }];
+    return [
+      { source: '/:path*', headers: SECURITY_HEADERS },
+      { source: '/admin/orders/:path*', headers: [{ key: 'Content-Security-Policy', value: ORDERS_CSP }] },
+      {
+        source: '/admin/orders/:id/payment-return',
+        headers: [
+          { key: 'Content-Security-Policy', value: PAYMENT_RETURN_CSP },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ],
+      },
+    ];
   },
 };
 
