@@ -1,6 +1,7 @@
 import { requirePermission } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
+import { getEffectivePrice } from '@/lib/commerce/pricing';
 import {
   ManualOrderForm,
   type ManualOrderBook,
@@ -22,7 +23,9 @@ export default async function NewManualOrderPage() {
     ? await Promise.all([
         supabase
           .from('books')
-          .select('id, title_he, sku, price, stock_quantity, is_purchasable, is_stock_managed')
+          .select(
+            'id, title_he, sku, price, sale_price, sale_starts_at, sale_ends_at, sale_name_he, stock_quantity, is_purchasable, is_stock_managed',
+          )
           .eq('is_purchasable', true)
           .order('title_he'),
         supabase
@@ -34,13 +37,32 @@ export default async function NewManualOrderPage() {
       ])
     : [{ data: [] }, { data: [] }];
 
-  const books: ManualOrderBook[] = (booksRes.data ?? []).map((book) => ({
-    id: book.id,
-    title: book.title_he,
-    sku: book.sku,
-    price: book.price != null ? Number(book.price) : null,
-    available: book.is_stock_managed === false ? null : (book.stock_quantity ?? 0),
-  }));
+  // [1.4] "המחיר בהזמנה הטלפונית שונה מהמחיר שנגבה" — הטופס שלף price
+  // בלבד בלי sale_price/sale_starts_at/sale_ends_at, כך שעל ספר במבצע
+  // הצוות הקריא ללקוח מחיר מלא בעוד השרת (getEffectivePrice, אותה
+  // הפונקציה שמשמשת את הקטלוג הציבורי) חייב במחיר המבצע בפועל.
+  const books: ManualOrderBook[] = (booksRes.data ?? []).map((book) => {
+    const effective = getEffectivePrice(
+      {
+        price: book.price != null ? Number(book.price) : null,
+        sale_price: book.sale_price != null ? Number(book.sale_price) : null,
+        sale_starts_at: book.sale_starts_at,
+        sale_ends_at: book.sale_ends_at,
+        sale_name_he: book.sale_name_he,
+        sale_name_en: null,
+      },
+      'he',
+    );
+    return {
+      id: book.id,
+      title: book.title_he,
+      sku: book.sku,
+      price: effective?.amount ?? null,
+      originalPrice: effective?.onSale ? effective.originalAmount : null,
+      saleName: effective?.onSale ? effective.saleName : null,
+      available: book.is_stock_managed === false ? null : (book.stock_quantity ?? 0),
+    };
+  });
   const methods: ManualShippingMethod[] = (methodsRes.data ?? []).map((method) => ({
     id: method.id,
     name: method.name_he,
