@@ -66,6 +66,11 @@ export default async function TrackOrderPage({
       <Container className="py-20 text-center">
         <h1 className="font-serif text-h2 text-ink">{t('trackNotFoundTitle')}</h1>
         <p className="mt-3 text-lead text-muted">{t('trackNotFoundBody')}</p>
+        <p className="mt-6">
+          <Link href="/orders/find" className="text-small text-burgundy underline underline-offset-2">
+            {t('trackFindOrderCta')}
+          </Link>
+        </p>
       </Container>
     );
   }

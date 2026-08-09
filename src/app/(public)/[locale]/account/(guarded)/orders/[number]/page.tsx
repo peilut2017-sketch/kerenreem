@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Container } from '@/components/Container';
 import { Link } from '@/i18n/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getCustomerSession, getMyOrderByNumber } from '@/lib/commerce/account';
+import { getMyOrderByNumber } from '@/lib/commerce/account';
 import { customerStatusKey } from '@/lib/commerce/state-machines';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
@@ -37,9 +36,6 @@ export default async function AccountOrderPage({
   setRequestLocale(locale);
   const t = await getTranslations('store');
 
-  const session = await getCustomerSession();
-  if (!session) redirect(`/account/login`);
-
   const orderNumber = Number(number);
   if (!Number.isInteger(orderNumber) || orderNumber <= 0) notFound();
   const order = await getMyOrderByNumber(orderNumber);
@@ -71,7 +67,7 @@ export default async function AccountOrderPage({
   const statusKey = customerStatusKey(order);
 
   return (
-    <Container className="max-w-3xl py-12 lg:py-16">
+    <>
       <header className="text-center">
         <p className="eyebrow">{t('accountOrdersTitle')}</p>
         <h1 className="mt-2 font-serif text-[clamp(1.6rem,3.4vw,2.2rem)] text-ink">
@@ -148,6 +144,6 @@ export default async function AccountOrderPage({
           ← {t('accountBackToAccount')}
         </Link>
       </p>
-    </Container>
+    </>
   );
 }

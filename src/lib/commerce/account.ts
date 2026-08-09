@@ -2,7 +2,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { hashGuestToken } from './guest-token';
-import type { Customer, CustomerAddress, Order, SavedBook } from '@/lib/supabase/types';
+import type { Customer, CustomerAddress, CommerceDocument, Order, SavedBook } from '@/lib/supabase/types';
 
 /**
  * שכבת חשבון הלקוח (פרק 4 במסמך האב). לקוח = משתמש auth עם שורת
@@ -166,4 +166,42 @@ export async function getMySavedBooks(): Promise<SavedBook[]> {
   if (!supabase) return [];
   const { data } = await supabase.from('saved_books').select('*');
   return (data ?? []) as SavedBook[];
+}
+
+export interface MyDocumentRow {
+  document: CommerceDocument;
+  orderNumber: number | null;
+}
+
+/**
+ * [1.6] "המסמכים שלי" (ט.1) — דרך ה-RLS בלבד (documents_read:
+ * can_manage_store() OR orders.user_id = auth.uid()), בלי service role.
+ * מספר ההזמנה לתצוגה מגיע בשאילתה שנייה (אותו דפוס כמו getCustomerDetail).
+ */
+export async function getMyDocuments(): Promise<MyDocumentRow[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('status', 'created')
+    .order('issued_at', { ascending: false })
+    .limit(100);
+  if (error) {
+    console.error('[commerce:account] documents', error.message);
+    return [];
+  }
+  const documents = (data ?? []) as CommerceDocument[];
+  if (documents.length === 0) return [];
+
+  const orderIds = [...new Set(documents.map((doc) => doc.order_id))];
+  const { data: orders } = await supabase.from('orders').select('id, order_number').in('id', orderIds);
+  const orderNumberById = new Map(
+    ((orders ?? []) as { id: string; order_number: number }[]).map((row) => [row.id, row.order_number]),
+  );
+
+  return documents.map((document) => ({
+    document,
+    orderNumber: orderNumberById.get(document.order_id) ?? null,
+  }));
 }

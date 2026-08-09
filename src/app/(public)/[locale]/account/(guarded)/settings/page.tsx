@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Container } from '@/components/Container';
 import { Link } from '@/i18n/navigation';
-import { getCommerceFlags } from '@/lib/commerce/settings';
 import { ensureCustomerRecord, getCustomerSession } from '@/lib/commerce/account';
 import { AccountSettings } from '@/components/store/account/AccountSettings';
 
@@ -19,30 +16,21 @@ export async function generateMetadata({
   return { title: t('settingsTitle'), robots: { index: false } };
 }
 
-/** [1.3] הגדרות חשבון (פרק 4.8) — פרטים אישיים ומחיקת חשבון. */
+/** [1.3] הגדרות חשבון (פרק 4.8) — פרטים אישיים, העדפות התראה ומחיקת חשבון. */
 export default async function SettingsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-
-  const flags = await getCommerceFlags();
   const t = await getTranslations('store');
-  if (!flags.accountsEnabled) {
-    return (
-      <Container className="py-20 text-center">
-        <p className="text-lead text-muted">{t('disabled')}</p>
-      </Container>
-    );
-  }
 
   const session = await getCustomerSession();
-  if (!session) redirect('/account/login');
+  if (!session) return null;
   const customer = session.customer ?? (await ensureCustomerRecord(session));
 
   // הטלפון הזמני של חשבון שנפתח בלי הזמנת מקור אינו מוצג כטלפון אמיתי
   const phone = customer?.phone && !customer.phone.startsWith('pending:') ? customer.phone : '';
 
   return (
-    <Container className="max-w-3xl py-12 lg:py-16">
+    <>
       <nav className="text-caption text-muted">
         <Link href="/account" className="underline-offset-2 hover:text-burgundy hover:underline">
           {t('accountBackToAccount')}
@@ -59,8 +47,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
           initialName={customer?.full_name ?? ''}
           initialPhone={phone}
           initialEmail={customer?.email ?? session.email ?? ''}
+          initialMarketingEmail={customer?.marketing_email_opt_in ?? false}
+          initialChannelSms={customer?.channel_sms_opt_in ?? false}
+          initialChannelWhatsapp={customer?.channel_whatsapp_opt_in ?? false}
         />
       </div>
-    </Container>
+    </>
   );
 }

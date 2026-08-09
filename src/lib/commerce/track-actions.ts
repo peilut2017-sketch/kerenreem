@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { hashGuestToken, guestTokenMatches } from './guest-token';
 import { openServiceRequest } from './service-requests';
 import { allowRequest, ipBucket } from './rate-limit';
+import { findAndReissueGuestToken } from './track';
 
 /**
  * פעולות הלקוח מעמוד המעקב (פרק 13.1): בקשת ביטול. הבקשה אינה מבטלת
@@ -65,4 +66,35 @@ export async function requestCancelByToken(
   if (!result.ok) return { ok: false, error: 'server' };
 
   return { ok: true };
+}
+
+/**
+ * [1.6] "מצא את ההזמנה שלי" (ט.19) — הגבלת קצב כפולה כמו sendLoginLink:
+ * דלי IP כללי + דלי לפי מספר ההזמנה הספציפי, כדי שלא יהיה אפשר לנחש
+ * פרטי קשר מול מספר הזמנה ידוע בכוח גס.
+ */
+export interface FindOrderResult {
+  ok: boolean;
+  token?: string;
+  error?: 'not_found' | 'rate_limited' | 'invalid';
+}
+
+export async function findMyOrder(orderNumberRaw: string, contactRaw: string): Promise<FindOrderResult> {
+  const orderNumber = Number(orderNumberRaw.trim());
+  const contact = contactRaw.trim();
+  if (!Number.isInteger(orderNumber) || orderNumber <= 0 || !contact) {
+    return { ok: false, error: 'invalid' };
+  }
+
+  const headerList = await headers();
+  if (!(await allowRequest(ipBucket('order-find', headerList), 8, 3600))) {
+    return { ok: false, error: 'rate_limited' };
+  }
+  if (!(await allowRequest(`order-find:${orderNumber}`, 5, 3600))) {
+    return { ok: false, error: 'rate_limited' };
+  }
+
+  const token = await findAndReissueGuestToken(orderNumber, contact);
+  if (!token) return { ok: false, error: 'not_found' };
+  return { ok: true, token };
 }

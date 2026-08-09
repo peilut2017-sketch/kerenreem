@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
-import { deleteMyAccount, updateMyDetails } from '@/lib/commerce/account-actions';
+import { deleteMyAccount, updateMyDetails, updateMyNotificationPreferences } from '@/lib/commerce/account-actions';
 
 /**
  * [1.3] הגדרות חשבון (פרק 4.8): עריכת שם/טלפון/מייל + מחיקת חשבון.
  * שינוי מייל מפעיל קישור אישור לכתובת החדשה (זרימת Supabase). מחיקה —
  * אישור כפול (דיאלוג + הקלדת מילת אימות); ההזמנות והמסמכים נשמרים כדין.
+ * [1.6] העדפות התראה (ט.20) — טופס שלישי, נפרד: שמירה כותבת גם ל-
+ * customers.*_opt_in וגם ל-consent_events (עוגן ראיה לכל שינוי הסכמה).
  */
 
 const inputCls =
@@ -18,10 +20,16 @@ export function AccountSettings({
   initialName,
   initialPhone,
   initialEmail,
+  initialMarketingEmail,
+  initialChannelSms,
+  initialChannelWhatsapp,
 }: {
   initialName: string;
   initialPhone: string;
   initialEmail: string;
+  initialMarketingEmail: boolean;
+  initialChannelSms: boolean;
+  initialChannelWhatsapp: boolean;
 }) {
   const t = useTranslations('store');
   const router = useRouter();
@@ -31,6 +39,12 @@ export function AccountSettings({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<'saved' | 'emailSent' | 'error' | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [marketingEmail, setMarketingEmail] = useState(initialMarketingEmail);
+  const [channelSms, setChannelSms] = useState(initialChannelSms);
+  const [channelWhatsapp, setChannelWhatsapp] = useState(initialChannelWhatsapp);
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [notifNotice, setNotifNotice] = useState<'saved' | 'error' | null>(null);
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -46,6 +60,22 @@ export function AccountSettings({
       router.refresh();
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveNotifications(event: React.FormEvent) {
+    event.preventDefault();
+    setNotifBusy(true);
+    setNotifNotice(null);
+    try {
+      const result = await updateMyNotificationPreferences({
+        marketingEmail,
+        channelSms,
+        channelWhatsapp,
+      });
+      setNotifNotice(result.ok ? 'saved' : 'error');
+    } finally {
+      setNotifBusy(false);
     }
   }
 
@@ -118,6 +148,62 @@ export function AccountSettings({
         ) : null}
         <button type="submit" disabled={busy} className="btn btn-solid">
           {t('settingsSave')}
+        </button>
+      </form>
+
+      <form
+        onSubmit={saveNotifications}
+        className="space-y-4 rounded-[var(--radius-lg)] border border-rule bg-cream p-5 shadow-[var(--shadow-soft)] sm:p-6"
+      >
+        <h2 className="flex items-center gap-2 font-serif text-h3 text-ink">
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 text-burgundy" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          {t('notificationsTitle')}
+        </h2>
+        <p className="text-small text-muted">{t('notificationsIntro')}</p>
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 text-small text-ink">
+            <input
+              type="checkbox"
+              checked={marketingEmail}
+              onChange={(e) => setMarketingEmail(e.target.checked)}
+              className="h-4 w-4 rounded border-rule text-burgundy focus-visible:ring-2 focus-visible:ring-gold/60"
+            />
+            {t('notificationsMarketingEmail')}
+          </label>
+          <label className="flex items-center gap-3 text-small text-ink">
+            <input
+              type="checkbox"
+              checked={channelSms}
+              onChange={(e) => setChannelSms(e.target.checked)}
+              className="h-4 w-4 rounded border-rule text-burgundy focus-visible:ring-2 focus-visible:ring-gold/60"
+            />
+            {t('notificationsSms')}
+          </label>
+          <label className="flex items-center gap-3 text-small text-ink">
+            <input
+              type="checkbox"
+              checked={channelWhatsapp}
+              onChange={(e) => setChannelWhatsapp(e.target.checked)}
+              className="h-4 w-4 rounded border-rule text-burgundy focus-visible:ring-2 focus-visible:ring-gold/60"
+            />
+            {t('notificationsWhatsapp')}
+          </label>
+        </div>
+        {notifNotice === 'saved' ? (
+          <p role="status" className="text-small font-semibold text-forest">
+            {t('notificationsSaved')}
+          </p>
+        ) : null}
+        {notifNotice === 'error' ? (
+          <p role="alert" className="text-small text-burgundy">
+            {t('settingsError')}
+          </p>
+        ) : null}
+        <button type="submit" disabled={notifBusy} className="btn btn-solid">
+          {t('notificationsSave')}
         </button>
       </form>
 

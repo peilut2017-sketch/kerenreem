@@ -191,6 +191,64 @@ export async function updateMyDetails(input: {
   return { ok: true, emailConfirmationSent };
 }
 
+/* ------------------- [1.6] העדפות התראה (ט.20, פרק 4.8) ------------------- */
+
+export interface NotificationPreferencesInput {
+  marketingEmail: boolean;
+  channelSms: boolean;
+  channelWhatsapp: boolean;
+}
+
+/**
+ * מעדכן את customers.*_opt_in (RLS: הלקוח על שורתו-שלו, כמו
+ * updateMyDetails) וכותב 3 שורות consent_events — טבלת ה-consent היא
+ * append-only ונכתבת רק ב-service role (25_customers.sql: revoke all
+ * מ-authenticated, grant select בלבד), בדיוק הדפוס של deleteMyAccount.
+ */
+export async function updateMyNotificationPreferences(
+  input: NotificationPreferencesInput,
+): Promise<AccountActionResult> {
+  const session = await getCustomerSession();
+  if (!session) return { ok: false, error: 'server' };
+  const supabase = await createClient();
+  if (!supabase) return { ok: false, error: 'server' };
+
+  const { error } = await supabase
+    .from('customers')
+    .update({
+      marketing_email_opt_in: input.marketingEmail,
+      channel_sms_opt_in: input.channelSms,
+      channel_whatsapp_opt_in: input.channelWhatsapp,
+    })
+    .eq('id', session.userId);
+  if (error) {
+    console.error('[commerce:account] notification prefs', error.message);
+    return { ok: false, error: 'server' };
+  }
+
+  const service = createServiceClient();
+  if (service) {
+    const rows = (
+      [
+        { kind: 'marketing_email', granted: input.marketingEmail },
+        { kind: 'channel_sms', granted: input.channelSms },
+        { kind: 'channel_whatsapp', granted: input.channelWhatsapp },
+      ] as const
+    ).map((row) => ({
+      customer_id: session.userId,
+      email: session.email,
+      phone: null,
+      kind: row.kind,
+      granted: row.granted,
+      source: 'account' as const,
+    }));
+    const { error: consentError } = await service.from('consent_events').insert(rows);
+    if (consentError) console.error('[commerce:account] consent events', consentError.message);
+  }
+
+  return { ok: true };
+}
+
 /* ---------------------- [1.3] פנקס הכתובות (פרק 4.6) ---------------------- */
 
 export interface AddressInput {
