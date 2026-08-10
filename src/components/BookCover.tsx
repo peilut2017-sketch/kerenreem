@@ -1,4 +1,5 @@
 import { Img as Image } from '@/components/Img';
+import { BookCoverPlaceholder } from '@/components/BookCoverPlaceholder';
 
 /**
  * כריכת ספר — האלמנט הוויזואלי המרכזי באתר.
@@ -7,8 +8,8 @@ import { Img as Image } from '@/components/Img';
  * 1. object-contain ולא object-cover — כריכת ספר היא טקסט; חיתוך בולע את
  *    שם הספר. הכריכות בעלות פרופורציות שונות ולכן הן מיושרות לתחתית,
  *    כמו ספרים העומדים על מדף.
- * 2. כשאין תמונה, מוצג "שער" טיפוגרפי עם שם הספר — לא ריבוע אפור.
- *    בקטלוג שנבנה בהדרגה זה המצב הנפוץ, וראוי שייראה מכובד.
+ * 2. [1.10] כשאין תמונה, מוצגת כריכה גנרית מוטבעת (BookCoverPlaceholder)
+ *    — לא ריבוע אפור. בקטלוג שנבנה בהדרגה זה המצב הנפוץ, וראוי שייראה מכובד.
  */
 export function BookCover({
   src,
@@ -24,17 +25,7 @@ export function BookCover({
   sizes?: string;
 }) {
   if (!src) {
-    return (
-      <div
-        className="flex aspect-3/4 w-full items-center justify-center border border-rule bg-cream-2 px-4"
-        role="img"
-        aria-label={alt}
-      >
-        <span className="text-center font-serif text-[0.95rem] leading-snug text-ink-soft">
-          {title}
-        </span>
-      </div>
-    );
+    return <BookCoverPlaceholder title={title} />;
   }
 
   return (

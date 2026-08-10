@@ -274,6 +274,43 @@ export async function countBooksBySeries(): Promise<Map<string, number>> {
   return counts;
 }
 
+/** ספר קלוש-משקל לרשימת הגרירה של סדר הכרכים בסדרה — לא Book מלא. */
+export interface SeriesMemberBook {
+  id: string;
+  title_he: string;
+  cover_image_url: string | null;
+  series_position: number | null;
+}
+
+/**
+ * [1.10] כל הספרים המשויכים לסדרה כלשהי, מקובצים לפי סדרה וממוינים
+ * לפי המיקום הנוכחי — מזין את רשימת הגרירה (SeriesOrderList) הן במסך
+ * הסדרה והן בטופס הספר. שאילתה אחת לכל הסדרות ולא אחת פר-סדרה, כי טופס
+ * הספר צריך להיות מוכן להציג את הרשימה הנכונה ברגע שנבחרת סדרה כלשהי
+ * מהרשימה הנפתחת, בלי סבב רשת נוסף.
+ */
+export async function listSeriesBooksMap(): Promise<Map<string, SeriesMemberBook[]>> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('books')
+    .select('id, title_he, cover_image_url, series_position, series_id')
+    .not('series_id', 'is', null)
+    .order('series_position', { ascending: true, nullsFirst: false });
+
+  const map = new Map<string, SeriesMemberBook[]>();
+  for (const row of (data as (SeriesMemberBook & { series_id: string })[] | null) ?? []) {
+    const list = map.get(row.series_id) ?? [];
+    list.push({
+      id: row.id,
+      title_he: row.title_he,
+      cover_image_url: row.cover_image_url,
+      series_position: row.series_position,
+    });
+    map.set(row.series_id, list);
+  }
+  return map;
+}
+
 export async function listEventsAdmin(): Promise<EventRecord[]> {
   const supabase = await client();
   const { data } = await supabase

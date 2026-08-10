@@ -1,7 +1,7 @@
 'use client';
 
 import { EntityForm } from './EntityForm';
-import { CheckboxField, FieldSet, SelectField, TextAreaField, TextField } from './Fields';
+import { ToggleField, FieldSet, SelectField, TextAreaField, TextField } from './Fields';
 import type { ContactField } from '@/lib/supabase/types';
 
 const FIELD_TYPE_OPTIONS = [
@@ -70,11 +70,13 @@ export function ContactFieldForm({
           </FieldSet>
 
           <FieldSet legend="תצוגה">
-            <CheckboxField
+            <ToggleField
               name="is_required"
               label="שדה חובה"
               hint="הפונה לא יוכל לשלוח את הטופס בלי למלא אותו."
               defaultChecked={field?.is_required ?? false}
+              entityKey="contact_fields"
+              id={field?.id}
             />
             <TextField
               name="sort_order"
@@ -84,11 +86,13 @@ export function ContactFieldForm({
               defaultValue={field?.sort_order ?? 0}
               hint="מספר קטן יותר מוצג קודם, אחרי השדות הקבועים של הטופס."
             />
-            <CheckboxField
+            <ToggleField
               name="is_published"
               label="מוצג בטופס הציבורי"
               hint="ביטול הסימון מסתיר את השדה מהטופס בלי למחוק את התשובות שכבר נאספו."
               defaultChecked={field?.is_published ?? true}
+              entityKey="contact_fields"
+              id={field?.id}
             />
           </FieldSet>
         </>

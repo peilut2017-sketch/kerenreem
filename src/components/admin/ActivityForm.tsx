@@ -1,7 +1,7 @@
 'use client';
 
 import { EntityForm } from './EntityForm';
-import { CheckboxField, FieldSet, TextAreaField, TextField } from './Fields';
+import { ToggleField, FieldSet, TextAreaField, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import { RichTextEditor } from './RichTextEditor';
 import type { Activity } from '@/lib/supabase/types';
@@ -34,9 +34,10 @@ export function ActivityForm({
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={activity?.slug}
               error={errors.slug}
+              hint="אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
             />
             <TextField name="title_en" label="Title" dir="ltr" defaultValue={activity?.title_en} />
           </FieldSet>
@@ -71,10 +72,12 @@ export function ActivityForm({
           </FieldSet>
 
           <FieldSet legend="פרסום">
-            <CheckboxField
+            <ToggleField
               name="is_published"
               label="מפורסם באתר"
               defaultChecked={activity?.is_published ?? true}
+              entityKey="activities"
+              id={activity?.id}
             />
             <TextField
               name="sort_order"

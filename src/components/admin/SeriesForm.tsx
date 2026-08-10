@@ -41,10 +41,10 @@ export function SeriesForm({
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={series?.slug}
               error={errors.slug}
-              hint="אותיות לטיניות קטנות ומקפים בלבד."
+              hint="אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
             />
             <TextField name="name_en" label="Name" dir="ltr" defaultValue={series?.name_en} />
           </FieldSet>

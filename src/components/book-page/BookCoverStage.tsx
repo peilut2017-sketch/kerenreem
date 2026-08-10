@@ -1,4 +1,5 @@
 import { Img as Image } from '@/components/Img';
+import { BookCoverPlaceholder } from '@/components/BookCoverPlaceholder';
 
 /**
  * הכריכה ב-Hero — לא עוד ניסיון לצייר "ספר עומד" ב-CSS.
@@ -11,9 +12,10 @@ import { Img as Image } from '@/components/Img';
  *
  * הכלל כאן פשוט: כש-hero_mockup_url קיים, הוא מוצג כמות שהוא — בלי שום
  * שכבת CSS שמנסה "לתקן" אותו. כשאין mockup, מוצגת הכריכה השטוחה
- * (cover_image_url) נקייה, בלי שדרה מומצאת. צל הקרקע נשאר בשני המקרים:
- * זו תאורת סביבה (איך האור נופל על המשטח שהספר "עומד" עליו), לא ניסיון
- * לצייר את הספר עצמו.
+ * (cover_image_url) נקייה, בלי שדרה מומצאת. [1.10] וכשאין גם וגם — כריכה
+ * גנרית מוטבעת (BookCoverPlaceholder), לא ריבוע ריק. צל הקרקע נשאר
+ * בשלושת המקרים: זו תאורת סביבה (איך האור נופל על המשטח שהספר "עומד"
+ * עליו), לא ניסיון לצייר את הספר עצמו.
  */
 export function BookCoverStage({
   cover,
@@ -30,9 +32,15 @@ export function BookCoverStage({
 
   if (!image) {
     return (
-      <div className="mx-auto flex aspect-3/4 w-64 items-center justify-center bg-cream-2 px-8">
-        <span className="text-center font-serif text-h3 text-ink">{title}</span>
-      </div>
+      <figure className="relative mx-auto w-64">
+        <div
+          aria-hidden="true"
+          className="absolute bottom-[3%] left-1/2 h-[12%] w-[78%] -translate-x-1/2 rounded-full bg-navy/25 blur-2xl"
+        />
+        <div className="relative">
+          <BookCoverPlaceholder title={title} className="drop-shadow-[0_35px_38px_rgba(11,21,32,0.22)]" />
+        </div>
+      </figure>
     );
   }
 

@@ -2,7 +2,7 @@
 
 import { AuthorTimelineField } from './AuthorTimelineField';
 import { EntityForm } from './EntityForm';
-import { CheckboxField, FieldSet, TextField } from './Fields';
+import { ToggleField, FieldSet, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import { RichTextEditor } from './RichTextEditor';
 import type { Author } from '@/lib/supabase/types';
@@ -40,9 +40,10 @@ export function AuthorForm({
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={author?.slug}
               error={errors.slug}
+              hint="/authors/מזהה — אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
             />
             <TextField name="name_en" label="Name" dir="ltr" defaultValue={author?.name_en} />
           </FieldSet>
@@ -78,10 +79,12 @@ export function AuthorForm({
           </FieldSet>
 
           <FieldSet legend="פרסום">
-            <CheckboxField
+            <ToggleField
               name="is_published"
               label="מפורסם באתר"
               defaultChecked={author?.is_published ?? true}
+              entityKey="authors"
+              id={author?.id}
             />
             <TextField
               name="sort_order"

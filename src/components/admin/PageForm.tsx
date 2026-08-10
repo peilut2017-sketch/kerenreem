@@ -1,7 +1,7 @@
 'use client';
 
 import { EntityForm } from './EntityForm';
-import { CheckboxField, FieldSet, TextField } from './Fields';
+import { ToggleField, FieldSet, TextField } from './Fields';
 import { RichTextEditor } from './RichTextEditor';
 import type { ContentPage } from '@/lib/supabase/types';
 
@@ -39,9 +39,10 @@ export function PageForm({ page, canWrite }: { page: ContentPage | null; canWrit
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={page?.slug}
               error={errors.slug}
+              hint="אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
             />
             <TextField name="title_en" label="Title" dir="ltr" defaultValue={page?.title_en} />
           </FieldSet>
@@ -52,11 +53,13 @@ export function PageForm({ page, canWrite }: { page: ContentPage | null; canWrit
           </FieldSet>
 
           <FieldSet legend="פרסום">
-            <CheckboxField
+            <ToggleField
               name="is_published"
               label="מפורסם באתר"
               defaultChecked={page?.is_published ?? true}
               hint="בעמודי החובה (תקנון, פרטיות, נגישות) יש להשאיר מפורסם."
+              entityKey="pages"
+              id={page?.id}
             />
           </FieldSet>
         </>

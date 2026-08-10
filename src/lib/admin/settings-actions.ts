@@ -77,38 +77,25 @@ export async function saveSettings(
 }
 
 /**
- * הגדרות הקטלוג/חנות — טופס נפרד מהגדרות האתר הכלליות, ועם פעולת שמירה
- * נפרדת משלו: עדכון עמודה יחידה (store_enabled) ותו לא. אילו הטופס הזה
- * היה משתמש ב-saveSettings הרגילה, שמירתו הייתה שולחת FormData שחסרים
- * בו כל שדות הקשר/רשתות/לוגו — ו-saveSettings הייתה קוראת אותם כריקים
- * ומוחקת אותם בפועל. שתי הגדרות בשני טפסים נפרדים דורשות שתי פעולות
- * נפרדות, לא אחת גנרית.
+ * [1.10] הפעלת/כיבוי החנות — עמודה יחידה (store_enabled), נשמרת מיד
+ * בלחיצה על הטוגל-סליידר בלי טופס וכפתור "שמירה" נפרדים. פעולה נפרדת
+ * מ-saveSettings הרגילה: אילו הטוגל הזה היה משתמש בה, השמירה הייתה
+ * שולחת FormData שחסרים בו כל שדות הקשר/רשתות/לוגו — ו-saveSettings
+ * הייתה קוראת אותם כריקים ומוחקת אותם בפועל.
  */
-export interface StoreSettingsState {
-  status: 'idle' | 'saved' | 'error';
-  message?: string;
-}
-
-export async function saveStoreSettings(
-  _prev: StoreSettingsState,
-  formData: FormData,
-): Promise<StoreSettingsState> {
-  // [1.7] הורד מ-admin ל-manager — ראו הערה ב-saveSettings למעלה.
+export async function toggleStoreEnabled(value: boolean): Promise<{ ok: boolean; error?: string }> {
   const session = await assertRole('manager');
-  if ('error' in session) return { status: 'error', message: session.error };
+  if ('error' in session) return { ok: false, error: session.error };
 
   const supabase = await createClient();
-  if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };
+  if (!supabase) return { ok: false, error: 'אין חיבור למסד' };
 
   const { error } = await supabase
     .from('site_settings')
-    .update({
-      store_enabled: formData.get('store_enabled') === 'on',
-      updated_at: new Date().toISOString(),
-    })
+    .update({ store_enabled: value, updated_at: new Date().toISOString() })
     .eq('id', 1);
 
-  if (error) return { status: 'error', message: `השמירה נכשלה: ${error.message}` };
+  if (error) return { ok: false, error: error.message };
 
   await supabase.from('audit_log').insert({
     user_id: session.userId,
@@ -117,11 +104,10 @@ export async function saveStoreSettings(
     record_id: null,
   });
 
-  // דגל החנות קובע אם כפתורי רכישה ומחירים מוצגים בעמודי הספרים.
   revalidatePath('/[locale]/books/[slug]', 'page');
   revalidatePath('/admin/books/settings');
 
-  return { status: 'saved' };
+  return { ok: true };
 }
 
 /**

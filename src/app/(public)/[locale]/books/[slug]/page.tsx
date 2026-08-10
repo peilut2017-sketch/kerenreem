@@ -55,7 +55,12 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  // [1.9] מזהי כתובת בעברית מגיעים מ-Next כאן עדיין percent-encoded
+  // (%D7%A4...) — לא מפוענחים אוטומטית כמו שהיה נהוג להניח. בלי הפענוח
+  // כאן ההשוואה ל-slug השמור (עברית רגילה) במסד לעולם לא תואמת, וכל עמוד
+  // עם כתובת עברית "לא נמצא" בפועל.
+  const slug = decodeURIComponent(rawSlug);
   const book = await getBookBySlug(slug);
   if (!book) return {};
 
@@ -102,8 +107,9 @@ export default async function BookPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
   setRequestLocale(locale);
+  const slug = decodeURIComponent(rawSlug);
 
   const book = await getBookBySlug(slug);
   if (!book) notFound();
