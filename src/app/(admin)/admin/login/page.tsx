@@ -1,5 +1,6 @@
 import { LoginForm } from '@/components/admin/LoginForm';
 import { SignOutButton } from '@/components/admin/SignOutButton';
+import { ForgotPasswordForm } from '@/components/admin/ForgotPasswordForm';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { getAdminSessionResult } from '@/lib/admin/auth';
 import { LoginDiagnostics } from '@/components/admin/LoginDiagnostics';
@@ -134,6 +135,7 @@ on conflict (id) do update set role = 'admin';`}</pre>
       ) : (
         <div className="mt-10">
           <LoginForm next={next} />
+          <ForgotPasswordForm />
         </div>
       )}
 

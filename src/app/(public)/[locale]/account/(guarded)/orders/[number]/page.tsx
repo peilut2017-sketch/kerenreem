@@ -7,6 +7,7 @@ import { getMyOrderByNumber } from '@/lib/commerce/account';
 import { customerStatusKey } from '@/lib/commerce/state-machines';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
+import { BookCover } from '@/components/BookCover';
 import type { CommerceDocument, OrderItem } from '@/lib/supabase/types';
 
 /**
@@ -46,7 +47,7 @@ export default async function AccountOrderPage({
     ? await Promise.all([
         supabase
           .from('order_items')
-          .select('title_snapshot, quantity, unit_price, line_total')
+          .select('title_snapshot, quantity, unit_price, line_total, book_id')
           .eq('order_id', order.id),
         supabase
           .from('documents')
@@ -57,12 +58,27 @@ export default async function AccountOrderPage({
     : [{ data: [] }, { data: [] }];
   const items = (itemsRes.data ?? []) as Pick<
     OrderItem,
-    'title_snapshot' | 'quantity' | 'unit_price' | 'line_total'
+    'title_snapshot' | 'quantity' | 'unit_price' | 'line_total' | 'book_id'
   >[];
   const documents = (documentsRes.data ?? []) as Pick<
     CommerceDocument,
     'doc_type' | 'doc_number' | 'download_url' | 'status'
   >[];
+
+  // [1.8] תמונת המוצר וקישור לעמוד שלו: הצילום (title_snapshot) אינו מכיל
+  // slug/תמונה, ולכן שולפים אותם בנפרד מ-books לפי book_id. פריט שספרו
+  // נמחק (book_id null, או לא נמצא) מוצג כטקסט בלבד — בלי קישור ובלי תמונה.
+  const bookIds = [...new Set(items.map((item) => item.book_id).filter((id): id is string => !!id))];
+  const booksById = new Map<string, { slug: string; cover_image_url: string | null }>();
+  if (supabase && bookIds.length > 0) {
+    const { data: books } = await supabase
+      .from('books')
+      .select('id, slug, cover_image_url')
+      .in('id', bookIds);
+    for (const book of books ?? []) {
+      booksById.set(book.id, { slug: book.slug, cover_image_url: book.cover_image_url });
+    }
+  }
 
   const statusKey = customerStatusKey(order);
 
@@ -86,16 +102,38 @@ export default async function AccountOrderPage({
       <section className="mt-10 rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-6 shadow-[var(--shadow-soft)]">
         <h2 className="font-serif text-h3 text-ink">{t('trackItemsTitle')}</h2>
         <ul className="mt-4 divide-y divide-rule">
-          {items.map((item, index) => (
-            <li key={index} className="flex justify-between gap-4 py-2.5 text-small">
-              <span className="text-ink">
-                {item.title_snapshot} ×{item.quantity}
-              </span>
-              <span className="tabular-nums text-ink-soft">
-                {formatPrice(item.line_total ?? item.unit_price * item.quantity, locale)}
-              </span>
-            </li>
-          ))}
+          {items.map((item, index) => {
+            const book = item.book_id ? booksById.get(item.book_id) : undefined;
+            return (
+              <li key={index} className="flex items-center justify-between gap-4 py-2.5 text-small">
+                <span className="flex min-w-0 items-center gap-3">
+                  {book ? (
+                    <Link href={`/books/${book.slug}`} className="w-12 shrink-0">
+                      <BookCover
+                        src={book.cover_image_url}
+                        title={item.title_snapshot ?? ''}
+                        alt=""
+                        sizes="48px"
+                      />
+                    </Link>
+                  ) : null}
+                  <span className="min-w-0 text-ink">
+                    {book ? (
+                      <Link href={`/books/${book.slug}`} className="hover:text-burgundy hover:underline">
+                        {item.title_snapshot}
+                      </Link>
+                    ) : (
+                      item.title_snapshot
+                    )}{' '}
+                    ×{item.quantity}
+                  </span>
+                </span>
+                <span className="shrink-0 tabular-nums text-ink-soft">
+                  {formatPrice(item.line_total ?? item.unit_price * item.quantity, locale)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
         <dl className="mt-4 space-y-1.5 border-t border-rule pt-3 text-small text-ink-soft">
           {order.discount_total > 0 ? (

@@ -87,16 +87,12 @@ export default async function ProfitabilityReportPage({
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-small font-bold text-ink">רווח גולמי לפי ספר (₪)</h2>
                 <CsvDownloadButton
-                  rows={current.items.filter((i) => i.costedQuantity > 0)}
+                  headers={['ספר', 'יחידות', 'הכנסה', 'עלות', 'רווח גולמי']}
+                  rows={current.items
+                    .filter((i) => i.costedQuantity > 0)
+                    .map((r) => [r.title, r.quantity, r.revenue.toFixed(2), r.cost.toFixed(2), (r.revenue - r.cost).toFixed(2)])}
                   filename={`profitability-${range.days}d.csv`}
                   label="CSV"
-                  columns={[
-                    { label: 'ספר', value: (r) => r.title },
-                    { label: 'יחידות', value: (r) => r.quantity },
-                    { label: 'הכנסה', value: (r) => r.revenue.toFixed(2) },
-                    { label: 'עלות', value: (r) => r.cost.toFixed(2) },
-                    { label: 'רווח גולמי', value: (r) => (r.revenue - r.cost).toFixed(2) },
-                  ]}
                 />
               </div>
               <BarList items={profitByBook} emptyLabel="אין נתוני עלות בטווח — הזינו עלות ליחידה בעמוד הספר." />

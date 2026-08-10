@@ -3,42 +3,11 @@ import { AdminHeader } from '@/components/admin/AdminList';
 import { StatTile } from '@/components/admin/analytics/StatTile';
 import { RangePicker } from '@/components/admin/reporting/RangePicker';
 import { CsvDownloadButton } from '@/components/admin/reporting/CsvDownloadButton';
-import { AdminRecordList, type AdminRecordColumn } from '@/components/admin/AdminRecordList';
-import { getBookEngagementReport, type BookEngagementRow } from '@/lib/admin/reporting/book-engagement-data';
+import { BookEngagementList } from '@/components/admin/reporting/BookEngagementList';
+import { getBookEngagementReport } from '@/lib/admin/reporting/book-engagement-data';
 import { rangeFromDays, parseRangeParam } from '@/lib/admin/reporting/date-range';
-import { formatPrice } from '@/lib/commerce/pricing';
 
 export const dynamic = 'force-dynamic';
-
-const columns: AdminRecordColumn<BookEngagementRow>[] = [
-  { key: 'title', header: 'ספר', render: (row) => row.title, cardHidden: true },
-  { key: 'views', header: 'צפיות', render: (row) => row.views.toLocaleString('he-IL'), className: 'tabular-nums' },
-  {
-    key: 'addsToCart',
-    header: 'הוספות לסל',
-    render: (row) => row.addsToCart.toLocaleString('he-IL'),
-    className: 'tabular-nums',
-  },
-  { key: 'saves', header: 'שמירות', render: (row) => row.saves.toLocaleString('he-IL'), className: 'tabular-nums' },
-  {
-    key: 'backInStockSubscribers',
-    header: 'הודיעו לי כשיחזור',
-    render: (row) => row.backInStockSubscribers.toLocaleString('he-IL'),
-    className: 'tabular-nums',
-  },
-  {
-    key: 'unitsSold',
-    header: 'יחידות שנמכרו',
-    render: (row) => row.unitsSold.toLocaleString('he-IL'),
-    className: 'tabular-nums',
-  },
-  {
-    key: 'revenue',
-    header: 'הכנסה',
-    render: (row) => formatPrice(row.revenue, 'he', { alwaysAgorot: true }),
-    className: 'tabular-nums',
-  },
-];
 
 /**
  * [1.6] דוח ספרים (ביקורת ט.7) — commerce_events נכתבת עם עשרות אירועים
@@ -118,32 +87,33 @@ export default async function BooksEngagementReportPage({
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-caption text-muted">ממוין לפי צפיות, {rows.length.toLocaleString('he-IL')} ספרים בטווח.</p>
             <CsvDownloadButton
-              rows={rows}
-              filename={`books-engagement-${range.days}d.csv`}
-              columns={[
-                { label: 'ספר', value: (r) => r.title },
-                { label: 'מחיר', value: (r) => r.price ?? '' },
-                { label: 'מלאי נוכחי', value: (r) => r.stockQuantity },
-                { label: 'צפיות', value: (r) => r.views },
-                { label: 'שמירות', value: (r) => r.saves },
-                { label: 'הוספות לסל', value: (r) => r.addsToCart },
-                { label: 'הודיעו לי כשיחזור', value: (r) => r.backInStockSubscribers },
-                { label: 'יחידות שנמכרו', value: (r) => r.unitsSold },
-                { label: 'הכנסה', value: (r) => r.revenue.toFixed(2) },
+              headers={[
+                'ספר',
+                'מחיר',
+                'מלאי נוכחי',
+                'צפיות',
+                'שמירות',
+                'הוספות לסל',
+                'הודיעו לי כשיחזור',
+                'יחידות שנמכרו',
+                'הכנסה',
               ]}
+              rows={rows.map((r) => [
+                r.title,
+                r.price ?? '',
+                r.stockQuantity,
+                r.views,
+                r.saves,
+                r.addsToCart,
+                r.backInStockSubscribers,
+                r.unitsSold,
+                r.revenue.toFixed(2),
+              ])}
+              filename={`books-engagement-${range.days}d.csv`}
             />
           </div>
 
-          <AdminRecordList
-            rows={rows}
-            columns={columns}
-            getRowKey={(row) => row.bookId}
-            href={(row) => `/admin/books/${row.bookId}`}
-            renderCardTitle={(row) => row.title}
-            renderCardBadge={(row) => <span className="admin-badge admin-badge-accent">{row.views} צפיות</span>}
-            minWidthClassName="min-w-[48rem]"
-            emptyMessage="אין נתוני עניין או מכירות בטווח שנבחר."
-          />
+          <BookEngagementList rows={rows} />
         </>
       )}
     </>

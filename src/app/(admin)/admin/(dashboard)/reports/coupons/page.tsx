@@ -35,17 +35,17 @@ export default async function CouponsReportPage() {
           <div className="flex items-center justify-between gap-2 px-5 pt-4">
             <h2 className="text-small font-bold text-ink">{rows.length} קופונים</h2>
             <CsvDownloadButton
-              rows={rows}
+              headers={['קוד', 'סוג', 'פעיל', 'שימושים', 'הנחה שניתנה', 'הכנסה (הזמנות ששולמו)', 'AOV']}
+              rows={rows.map((r) => [
+                r.code,
+                KIND_LABELS[r.kind] ?? r.kind,
+                r.active ? 'כן' : 'לא',
+                r.uses,
+                r.totalDiscount.toFixed(2),
+                r.paidRevenue.toFixed(2),
+                r.aov.toFixed(2),
+              ])}
               filename="coupon-performance.csv"
-              columns={[
-                { label: 'קוד', value: (r) => r.code },
-                { label: 'סוג', value: (r) => KIND_LABELS[r.kind] ?? r.kind },
-                { label: 'פעיל', value: (r) => (r.active ? 'כן' : 'לא') },
-                { label: 'שימושים', value: (r) => r.uses },
-                { label: 'הנחה שניתנה', value: (r) => r.totalDiscount.toFixed(2) },
-                { label: 'הכנסה (הזמנות ששולמו)', value: (r) => r.paidRevenue.toFixed(2) },
-                { label: 'AOV', value: (r) => r.aov.toFixed(2) },
-              ]}
             />
           </div>
           <table className="admin-table min-w-[48rem]">
