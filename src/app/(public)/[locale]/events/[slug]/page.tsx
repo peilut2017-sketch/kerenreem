@@ -41,7 +41,10 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  // [1.9] כתובת בעברית מגיעה מ-Next כאן עדיין percent-encoded — בלי
+  // הפענוח ההשוואה למזהה השמור במסד (עברית רגילה) לעולם לא תואמת.
+  const slug = decodeURIComponent(rawSlug);
   const event = await getEventBySlug(slug);
   if (!event) return {};
 
@@ -62,8 +65,9 @@ export default async function EventPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
   setRequestLocale(locale);
+  const slug = decodeURIComponent(rawSlug);
 
   const event = await getEventBySlug(slug);
   if (!event) notFound();

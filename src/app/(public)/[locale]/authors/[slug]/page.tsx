@@ -36,7 +36,10 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  // [1.9] כתובת בעברית מגיעה מ-Next כאן עדיין percent-encoded — בלי
+  // הפענוח ההשוואה למזהה השמור במסד (עברית רגילה) לעולם לא תואמת.
+  const slug = decodeURIComponent(rawSlug);
   const author = await getAuthorBySlug(slug);
   if (!author) return {};
 
@@ -52,8 +55,9 @@ export default async function AuthorPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
   setRequestLocale(locale);
+  const slug = decodeURIComponent(rawSlug);
 
   const author = await getAuthorBySlug(slug);
   if (!author) notFound();
