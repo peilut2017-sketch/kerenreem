@@ -24,9 +24,10 @@ export function EventForm({ event, canWrite }: { event: EventRecord | null; canW
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={event?.slug}
               error={errors.slug}
+              hint="אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
             />
             <TextField name="title_en" label="Title" dir="ltr" defaultValue={event?.title_en} />
           </FieldSet>

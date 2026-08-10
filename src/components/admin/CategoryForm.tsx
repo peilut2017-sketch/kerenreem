@@ -47,10 +47,10 @@ export function CategoryForm({
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={category?.slug}
               error={errors.slug}
-              hint="אותיות לטיניות קטנות ומקפים בלבד, למשל halacha."
+              hint="אותיות לטיניות קטנות או עבריות, ספרות ומקפים, למשל halacha."
             />
             <TextField name="name_en" label="Name" dir="ltr" defaultValue={category?.name_en} />
           </FieldSet>

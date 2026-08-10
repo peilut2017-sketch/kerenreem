@@ -140,10 +140,10 @@ export function BookForm({
                       <TextField
                         name="slug"
                         label="מזהה כתובת"
-                        dir="ltr"
+                        dir="auto"
                         defaultValue={book?.slug}
                         error={errors.slug}
-                        hint="אפשר להשאיר ריק — ייווצר אוטומטית ותיוחד לספר (מבוסס מק״ט כשיש). /books/מזהה, אותיות לטיניות קטנות בלבד."
+                        hint="אפשר להשאיר ריק — ייווצר אוטומטית ותיוחד לספר (מבוסס מק״ט כשיש). /books/מזהה, אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
                       />
                       <TextAreaField
                         name="subtitle_he"

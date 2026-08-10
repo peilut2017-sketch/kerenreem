@@ -40,9 +40,10 @@ export function AuthorForm({
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={author?.slug}
               error={errors.slug}
+              hint="/authors/מזהה — אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
             />
             <TextField name="name_en" label="Name" dir="ltr" defaultValue={author?.name_en} />
           </FieldSet>

@@ -71,7 +71,8 @@ export function TextField({
 }: BaseProps & {
   defaultValue?: string | number | null;
   type?: 'text' | 'number' | 'url' | 'date' | 'email';
-  dir?: 'rtl' | 'ltr';
+  /** 'auto' — הדפדפן קובע כיוון לפי התו הראשון שהוקלד; לשדות שיכולים לקבל גם עברית וגם לטינית (כמו slug). */
+  dir?: 'rtl' | 'ltr' | 'auto';
   placeholder?: string;
   /** אייקון מוביל ברשות — לשדות שבהם הוא מוסיף זיהוי מהיר (חיפוש, קישור, תאריך) */
   icon?: AdminIconName;

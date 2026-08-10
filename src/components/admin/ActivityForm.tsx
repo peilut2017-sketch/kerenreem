@@ -34,9 +34,10 @@ export function ActivityForm({
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={activity?.slug}
               error={errors.slug}
+              hint="אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
             />
             <TextField name="title_en" label="Title" dir="ltr" defaultValue={activity?.title_en} />
           </FieldSet>

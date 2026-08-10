@@ -39,9 +39,10 @@ export function PageForm({ page, canWrite }: { page: ContentPage | null; canWrit
               name="slug"
               label="מזהה כתובת"
               required
-              dir="ltr"
+              dir="auto"
               defaultValue={page?.slug}
               error={errors.slug}
+              hint="אותיות לטיניות קטנות או עבריות, ספרות ומקפים."
             />
             <TextField name="title_en" label="Title" dir="ltr" defaultValue={page?.title_en} />
           </FieldSet>
