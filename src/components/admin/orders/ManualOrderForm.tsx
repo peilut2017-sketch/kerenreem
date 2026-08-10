@@ -87,12 +87,14 @@ export function ManualOrderForm({
   const [pending, startTransition] = useTransition();
 
   const bookById = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
+  // [1.8] לא מסננים לפי price != null: ספר קטלוגי (is_purchasable) בלי
+  // מחיר מוגדר עדיין קיים בחיפוש, אבל מוצג מושבת עם הסבר — היעלמות שקטה
+  // מהתוצאות (ללא המחיר-null היה פשוט נעלם) נראית לצוות כאילו הספר לא
+  // קיים בקטלוג בכלל, בלי שום רמז לתקן את הבעיה האמיתית (חסר מחיר).
   const results = useMemo(() => {
     const q = query.trim();
     if (!q) return [];
-    return books
-      .filter((b) => b.price != null && (b.title.includes(q) || (b.sku ?? '').includes(q)))
-      .slice(0, 8);
+    return books.filter((b) => b.title.includes(q) || (b.sku ?? '').includes(q)).slice(0, 8);
   }, [books, query]);
 
   // [1.5] "משלוח חינם לא מחושב, אי אפשר להזין קופון" — אומדן חי מהשרת
@@ -214,8 +216,9 @@ export function ManualOrderForm({
                   <li key={book.id}>
                     <button
                       type="button"
+                      disabled={book.price == null}
                       onClick={() => addItem(book.id)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-start text-small hover:bg-[var(--admin-accent-soft)]"
+                      className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-start text-small hover:bg-[var(--admin-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                     >
                       <span className="min-w-0 truncate text-ink">
                         {book.title}
@@ -226,11 +229,17 @@ export function ManualOrderForm({
                         ) : null}
                       </span>
                       <span className="shrink-0 text-caption text-muted tabular-nums">
-                        {book.originalPrice != null ? (
-                          <span className="me-1 line-through">{book.originalPrice.toFixed(2)} ₪</span>
-                        ) : null}
-                        {book.price?.toFixed(2)} ₪
-                        {book.available != null ? ` · במלאי ${book.available}` : ''}
+                        {book.price == null ? (
+                          <span className="text-[var(--admin-danger)]">אין מחיר מוגדר</span>
+                        ) : (
+                          <>
+                            {book.originalPrice != null ? (
+                              <span className="me-1 line-through">{book.originalPrice.toFixed(2)} ₪</span>
+                            ) : null}
+                            {book.price.toFixed(2)} ₪
+                            {book.available != null ? ` · במלאי ${book.available}` : ''}
+                          </>
+                        )}
                       </span>
                     </button>
                   </li>

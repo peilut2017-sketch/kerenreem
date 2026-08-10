@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
-import { hasPermission } from '@/lib/admin/permissions';
+import { requireRole, screenAccess } from '@/lib/admin/auth';
 import { createClient } from '@/lib/supabase/server';
 import {
   getDashboardCounts,
@@ -35,8 +34,17 @@ export default async function AdminDashboard({
   searchParams: Promise<{ denied?: string }>;
 }) {
   const [session, { denied }] = await Promise.all([requireRole('viewer'), searchParams]);
-  const canStoreView = hasPermission(session.profile.role, 'store_view');
-  const canFinance = hasPermission(session.profile.role, 'finance');
+  // [1.8] הרשאה גרגרית פר-מסך (screenAccess), לא hasPermission הישן לפי
+  // role: הרשאה מותאמת אישית שמבטלת גישה למסך "הזמנות" או "הגדרות קטלוג
+  // וחנות" (מסך הצוות, ScreenPermissionsPanel) לא הייתה משפיעה על הדשבורד
+  // — הוא המשיך להציג תוכן חנות לפי ברירת המחדל של ה-role בלבד. שני
+  // המסכים כאן נבחרו כך שברירת המחדל שלהם, פר role, זהה בדיוק ל-
+  // hasPermission(role, 'store_view'/'finance') הקודם — שינוי בהתנהגות
+  // רק כשיש override מפורש.
+  const [canStoreView, canFinance] = await Promise.all([
+    screenAccess(session, 'orders').then((a) => a.view),
+    screenAccess(session, 'store-settings').then((a) => a.view),
+  ]);
 
   // חמש שאילתות מצומצמות במקביל, במקום שליפה של הקטלוג ולוח האירועים כולם.
   const [counts, recent, drafts, upcoming] = await Promise.all([

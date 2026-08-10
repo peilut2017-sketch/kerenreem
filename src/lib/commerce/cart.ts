@@ -76,11 +76,20 @@ const CART_BOOK_COLUMNS =
 /**
  * אימות עגלה מלא מול המסד. previousPrices — המחירים שהוצגו ללקוח
  * (מהרינדור הקודם), להשוואה ולדיווח שינוי מפורש.
+ *
+ * [1.8] allowUnpublished — ערוץ ההזמנה הטלפונית (manual-orders.ts) מציג
+ * לצוות כל ספר עם is_purchasable=true, בלי לבדוק is_published (ספר יכול
+ * להימכר בטלפון לפני שהוא גלוי בקטלוג הציבורי). בלי הדגל, אותו ספר לא
+ * נמצא כאן (השאילתה דרשה is_published), נופל לענף "ספר לא נמצא" למטה,
+ * ונעלם מההזמנה בלי שום סימון — הצוות מוסיף אותו, הכל נראה תקין, וההזמנה
+ * שנוצרת פשוט חסרה את הפריט. לצ׳ק-אאוט הציבורי (שאר הקוראים) נשאר הגדר
+ * הרגיל — עגלה של אורח לא אמורה לצאת עם ספר שאינו מפורסם.
  */
 export async function validateCart(
   items: CartInputItem[],
   locale: string = 'he',
   previousPrices?: Record<string, number>,
+  options?: { allowUnpublished?: boolean },
 ): Promise<ValidatedCart> {
   const empty: ValidatedCart = {
     lines: [],
@@ -100,11 +109,14 @@ export async function validateCart(
   if (!supabase) return empty;
 
   const flags = await getCommerceFlags();
-  const { data, error } = await supabase
+  let query = supabase
     .from('books')
     .select(CART_BOOK_COLUMNS)
-    .in('id', cleaned.map((item) => item.bookId))
-    .eq('is_published', true);
+    .in('id', cleaned.map((item) => item.bookId));
+  if (!options?.allowUnpublished) {
+    query = query.eq('is_published', true);
+  }
+  const { data, error } = await query;
 
   if (error) {
     console.error('[commerce:cart] validate', error.message);
@@ -118,7 +130,14 @@ export async function validateCart(
 
   for (const item of cleaned) {
     const book = books.get(item.bookId);
-    if (!book) continue; // ספר שנמחק/בוטל פרסומו — נעלם מהעגלה עם הודעת unavailable
+    if (!book) {
+      // ספר שנמחק (או בוטל פרסומו, כשלא הותר allowUnpublished) — שורת
+      // "לא זמין" מפורשת, לא היעלמות שקטה: אחרת הצוות/הלקוח מוסיפים
+      // פריט תקין למראית עין, וההזמנה שנוצרת פשוט חסרה אותו בלי הסבר.
+      lines.push(buildUnknownRemovedLine(item.bookId, item.quantity));
+      changes.push({ bookId: item.bookId, title: item.bookId, kind: 'unavailable' });
+      continue;
+    }
 
     const title = locale === 'en' && book.title_en ? book.title_en : book.title_he;
     const author = locale === 'en' && book.author_name_en ? book.author_name_en : book.author_name_he;
@@ -226,5 +245,30 @@ function buildRemovedLine(
     isPreorder: false,
         categoryId: book.category_id ?? null,
     removedReason: reason,
+  };
+}
+
+/** ספר שלא נמצא בכלל בשאילתה (נמחק, או שאינו מפורסם בלי allowUnpublished) — אין row לשלוף ממנו כותרת/כריכה. */
+function buildUnknownRemovedLine(bookId: string, requested: number): ValidatedCartLine {
+  return {
+    bookId,
+    slug: '',
+    title: bookId,
+    author: null,
+    coverImageUrl: null,
+    quantity: 0,
+    requestedQuantity: requested,
+    adjusted: true,
+    unitPrice: 0,
+    originalUnitPrice: null,
+    onSale: false,
+    lineTotal: 0,
+    availability: 'catalog_only',
+    availableQuantity: 0,
+    weightGrams: 0,
+    freeShippingEligible: true,
+    isPreorder: false,
+    categoryId: null,
+    removedReason: 'not_purchasable',
   };
 }

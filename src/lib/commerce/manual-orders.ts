@@ -162,7 +162,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
     return { ok: false, error: 'כתובת מייל לא תקינה' };
   }
 
-  const cart = await validateCart(input.items, input.locale);
+  const cart = await validateCart(input.items, input.locale, undefined, { allowUnpublished: true });
   const activeLines = cart.lines.filter((line) => line.removedReason === null && line.quantity > 0);
   if (activeLines.length === 0) return { ok: false, error: 'לא נבחרו פריטים זמינים' };
   const unavailable = cart.lines.filter((line) => line.removedReason !== null);
@@ -342,7 +342,7 @@ export async function previewManualOrderTotals(input: {
   contactEmail: string | null;
   locale: string;
 }): Promise<ManualOrderPreview> {
-  const cart = await validateCart(input.items, input.locale);
+  const cart = await validateCart(input.items, input.locale, undefined, { allowUnpublished: true });
   const activeLines = cart.lines.filter((line) => line.removedReason === null && line.quantity > 0);
   if (activeLines.length === 0) {
     return { ok: false, error: 'no_items', ...EMPTY_PREVIEW };

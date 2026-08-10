@@ -133,7 +133,14 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
           </p>
           <p className="text-caption text-cream-2/60">
             {contact.registration_number ? `${contact.registration_number} · ` : ''}
-            {t('footer.credit')}
+            <a
+              href="https://smartop-azure.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-4 transition-colors hover:text-gold"
+            >
+              {t('footer.credit')}
+            </a>
           </p>
         </div>
       </div>
