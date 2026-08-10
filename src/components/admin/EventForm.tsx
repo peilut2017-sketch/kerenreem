@@ -1,7 +1,7 @@
 'use client';
 
 import { EntityForm } from './EntityForm';
-import { CheckboxField, FieldSet, TextField } from './Fields';
+import { ToggleField, FieldSet, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import { GalleryField } from './GalleryField';
 import { RichTextEditor } from './RichTextEditor';
@@ -92,11 +92,13 @@ export function EventForm({ event, canWrite }: { event: EventRecord | null; canW
                 הרשימה וגם עמוד האירוע מסננים is_published. ספר נשאר טיוטה
                 כברירת מחדל כי יש בו עשרות שדות למלא; אירוע הוא כותרת,
                 תאריך וטקסט. */}
-            <CheckboxField
+            <ToggleField
               name="is_published"
               label="מפורסם באתר"
               defaultChecked={event?.is_published ?? true}
               hint="אירוע שאינו מפורסם נראה בממשק הניהול בלבד, וכתובתו באתר מחזירה עמוד ״לא נמצא״."
+              entityKey="events"
+              id={event?.id}
             />
           </FieldSet>
         </>

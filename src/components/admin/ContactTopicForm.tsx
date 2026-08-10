@@ -1,7 +1,7 @@
 'use client';
 
 import { EntityForm } from './EntityForm';
-import { CheckboxField, FieldSet, TextField } from './Fields';
+import { ToggleField, FieldSet, TextField } from './Fields';
 import type { ContactTopic } from '@/lib/supabase/types';
 
 /**
@@ -40,11 +40,13 @@ export function ContactTopicForm({
               defaultValue={topic?.sort_order ?? 0}
               hint="מספר קטן יותר מוצג קודם."
             />
-            <CheckboxField
+            <ToggleField
               name="is_published"
               label="מוצג בטופס הציבורי"
               hint="ביטול הסימון מסתיר את התחום מהטופס בלי למחוק אותו."
               defaultChecked={topic?.is_published ?? true}
+              entityKey="contact_topics"
+              id={topic?.id}
             />
           </FieldSet>
         </>

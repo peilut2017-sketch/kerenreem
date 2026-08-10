@@ -27,6 +27,7 @@ export function QuickAddSelect({
   addLabel,
   fieldLabel,
   onCreate,
+  onChange,
 }: {
   name: string;
   label: string;
@@ -39,9 +40,15 @@ export function QuickAddSelect({
   /** תווית שדה השם במגירה, למשל "שם המחבר" */
   fieldLabel: string;
   onCreate: (name: string) => Promise<Option | null>;
+  /** נקרא בכל שינוי בחירה (כולל יצירה מהירה) — לרכיב הורה שצריך לדעת מה נבחר עכשיו, למשל SeriesOrderList */
+  onChange?: (value: string) => void;
 }) {
   const [extra, setExtra] = useState<Option[]>([]);
-  const [selected, setSelected] = useState(defaultValue ?? '');
+  const [selected, setSelectedState] = useState(defaultValue ?? '');
+  const setSelected = (value: string) => {
+    setSelectedState(value);
+    onChange?.(value);
+  };
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [pending, startTransition] = useTransition();

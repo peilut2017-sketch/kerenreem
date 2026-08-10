@@ -1,7 +1,9 @@
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import { useId, useState, useTransition, type ReactNode } from 'react';
+import { toggleEntityField } from '@/lib/admin/actions';
 import { AdminIcon, type AdminIconName } from './AdminIcons';
+import { Spinner } from './SubmitButton';
 
 /**
  * שדות הטופס של ממשק הניהול.
@@ -183,41 +185,110 @@ export function SelectField({
   );
 }
 
-export function CheckboxField({
+/**
+ * [1.10] טוגל־סליידר — לא עוד תיבת סימון מרובעת. שלושה מצבי שימוש:
+ *
+ * 1. entityKey+id מסופקים (רשומה קיימת מתוך ENTITIES): הלחיצה שומרת מיד
+ *    דרך toggleEntityField, בלי לחכות לכפתור "שמירה" של שאר הטופס — עדכון
+ *    אופטימי עם חזרה אחורה במקרה כשל. השדה *לא* משתתף בשליחת ה-form
+ *    (בלי name), כי הוא כבר נשמר בפני עצמו.
+ * 2. onToggle מסופק (טפסים ייעודיים מחוץ ל-ENTITIES, כמו הגדרות חנות):
+ *    אותה התנהגות אוטומטית, אבל דרך פעולת שמירה מותאמת שהקורא מספק.
+ * 3. בלעדיהם (רשומה חדשה שטרם נשמרה): מתנהג כמו תיבת סימון רגילה בתוך
+ *    טופס — defaultChecked לא מבוקר, ומשתתף בשליחה הכוללת (name).
+ */
+export function ToggleField({
   name,
   label,
   hint,
   defaultChecked,
   disabled,
+  entityKey,
+  id: recordId,
+  onToggle,
 }: {
   name: string;
   label: string;
   hint?: string;
   defaultChecked?: boolean;
   disabled?: boolean;
+  /** ישות ומזהה רשומה קיימת — כשמסופקים שניהם, השינוי נשמר מיד (ראו תיעוד למעלה). */
+  entityKey?: string;
+  id?: string | null;
+  /** פעולת שמירה מותאמת — חלופה ל-entityKey+id לטפסים מחוץ ל-ENTITIES. */
+  onToggle?: (next: boolean) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const id = useId();
+  const autoSave = Boolean(onToggle) || Boolean(entityKey && recordId);
+  const [checked, setChecked] = useState(defaultChecked ?? false);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function handleChange(next: boolean) {
+    if (!autoSave) return;
+    const previous = checked;
+    setChecked(next);
+    setError(null);
+    startTransition(async () => {
+      const result = onToggle
+        ? await onToggle(next)
+        : await toggleEntityField(entityKey!, recordId!, name, next);
+      if (!result.ok) {
+        setChecked(previous);
+        setError(result.error ?? 'השמירה נכשלה');
+      }
+    });
+  }
+
+  const isDisabled = disabled || (autoSave && pending);
+
   return (
     <div>
       <label
         htmlFor={id}
-        className={`flex items-start gap-3 rounded-[var(--admin-radius-btn)] border border-transparent px-1 py-1 text-small text-ink-soft transition-colors ${
-          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-cream-2'
+        className={`flex items-center justify-between gap-3 rounded-[var(--admin-radius-btn)] border border-transparent px-1 py-1.5 text-small text-ink-soft transition-colors ${
+          isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-cream-2'
         }`}
       >
+        <span className="flex min-w-0 items-center gap-2">
+          {label}
+          {autoSave && pending ? <Spinner className="h-3 w-3 shrink-0 text-muted" /> : null}
+        </span>
+        <span
+          aria-hidden="true"
+          className={`relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors ${
+            (autoSave ? checked : defaultChecked) ? 'bg-[var(--admin-accent)]' : 'bg-[var(--admin-border)]'
+          }`}
+        >
+          {/* מיקום פיזי (right), לא לוגי: הניהול תמיד dir="rtl" קבוע, אז
+              "כבוי" תמיד מימין ו"מופעל" תמיד משמאל — בדיוק "סליידר מימין
+              לשמאל" כמקובל היום. */}
+          <span
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[right] duration-200 ${
+              (autoSave ? checked : defaultChecked) ? 'right-[1.375rem]' : 'right-0.5'
+            }`}
+          />
+        </span>
         <input
           id={id}
-          name={name}
+          name={autoSave ? undefined : name}
           type="checkbox"
-          defaultChecked={defaultChecked}
-          disabled={disabled}
-          aria-describedby={hint ? `${id}-hint` : undefined}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--admin-accent)]"
+          role="switch"
+          {...(autoSave
+            ? { checked, onChange: (event: React.ChangeEvent<HTMLInputElement>) => handleChange(event.target.checked) }
+            : { defaultChecked })}
+          disabled={isDisabled}
+          aria-checked={autoSave ? checked : undefined}
+          aria-describedby={hint || error ? `${id}-hint` : undefined}
+          className="sr-only"
         />
-        <span>{label}</span>
       </label>
-      {hint ? (
-        <span id={`${id}-hint`} className="admin-field-hint ms-8">
+      {error ? (
+        <span role="alert" className="admin-field-hint ms-1 block text-[var(--admin-danger)]">
+          {error}
+        </span>
+      ) : hint ? (
+        <span id={`${id}-hint`} className="admin-field-hint ms-1">
           {hint}
         </span>
       ) : null}

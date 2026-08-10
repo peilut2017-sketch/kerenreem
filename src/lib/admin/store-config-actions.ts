@@ -48,20 +48,10 @@ export async function saveStoreConfig(
   const supabase = await createClient();
   if (!supabase) return { status: 'error', message: 'אין חיבור למסד' };
 
+  // [1.10] הדגלים השכבתיים אינם חלק מהשליחה הזו יותר — כל טוגל שומר את
+  // עצמו מיד דרך toggleStoreConfigFlag. הפעולה כאן נוגעת רק בשדות
+  // הכספיים/תפעוליים שנשארו בטופס.
   const patch: Record<string, unknown> = {};
-  for (const flag of FLAG_FIELDS) {
-    patch[flag] = formData.get(flag) === 'on';
-  }
-
-  // [1.4] "סליקה פעילה" חייבת לשקף מציאות: בלי מפתחות מורנינג בסביבה
-  // אסור לשמור אותה כ-true, גם אם מישהו שלח את השדה ישירות מעקף ה-UI
-  // (שבו הצ׳קבוקס מנוטרל). אקספרס תלוי בסליקה ולכן כבוי איתה יחד.
-  let flagsClamped = false;
-  if (patch.payments_enabled === true && !isMorningConfigured()) {
-    patch.payments_enabled = false;
-    patch.express_checkout_enabled = false;
-    flagsClamped = true;
-  }
 
   patch.free_shipping_threshold = numberField(formData, 'free_shipping_threshold');
   const installmentsMin = numberField(formData, 'installments_min_total');
@@ -111,10 +101,48 @@ export async function saveStoreConfig(
   revalidatePath('/[locale]/books', 'page');
   revalidatePath('/[locale]/cart', 'page');
   revalidatePath('/[locale]', 'layout');
-  return {
-    status: 'saved',
-    message: flagsClamped
-      ? 'שאר ההגדרות נשמרו, אך "סליקה במורנינג" נכבתה: אין מפתחות API מוגדרים בסביבה.'
-      : undefined,
-  };
+  return { status: 'saved' };
+}
+
+/**
+ * [1.10] שמירה מיידית של דגל שכבתי בודד — לטוגל-הסליידר בטופס הגדרות
+ * החנות, בלי לחכות לכפתור "שמירה" הכולל. נוגעת רק בעמודה שהתבקשה, כדי
+ * שלא לדרוס בטעות שדות אחרים (כתובת איסוף, שעות וכו') שאינם חלק
+ * מהבקשה הזו.
+ */
+export async function toggleStoreConfigFlag(
+  flag: string,
+  value: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!(FLAG_FIELDS as readonly string[]).includes(flag)) return { ok: false, error: 'שדה לא מוכר' };
+
+  const session = await assertScreenPermission('store-settings', 'edit');
+  if ('error' in session) return { ok: false, error: session.error };
+
+  if ((flag === 'payments_enabled' || flag === 'express_checkout_enabled') && value && !isMorningConfigured()) {
+    return { ok: false, error: 'אין מפתחות מורנינג בסביבה — לא ניתן להפעיל את זה כרגע.' };
+  }
+
+  const supabase = await createClient();
+  if (!supabase) return { ok: false, error: 'אין חיבור למסד' };
+
+  const patch = { [flag]: value };
+  const { error } = await supabase.from('store_settings').update(patch).eq('id', 1);
+  if (error) return { ok: false, error: error.message };
+
+  await supabase.from('audit_log').insert({
+    user_id: session.userId,
+    action: 'update',
+    table_name: 'store_settings',
+    record_id: null,
+    new_values: patch,
+    context: 'הגדרות חנות',
+  });
+
+  revalidatePath('/admin/books/settings');
+  revalidatePath('/[locale]/books/[slug]', 'page');
+  revalidatePath('/[locale]/books', 'page');
+  revalidatePath('/[locale]/cart', 'page');
+  revalidatePath('/[locale]', 'layout');
+  return { ok: true };
 }

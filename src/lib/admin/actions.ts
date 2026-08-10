@@ -388,6 +388,72 @@ export async function saveEntity(
   }
 }
 
+export interface ToggleFieldResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * [1.10] שינוי שדה בוליאני בודד ברשומה קיימת, נשמר מיד — ToggleField
+ * קוראת לזה בכל לחיצה, בלי לחכות לכפתור "שמירה" של שאר הטופס. עדכון
+ * ממוקד בעמודה אחת בלבד, לא saveEntity מלא: לא נוגע בשאר שדות הרשומה,
+ * ולכן אין סיכון שערך ישן שהוצג בטופס (שלא עודכן מאז הטעינה) ידרוס שדה
+ * אחר. אותה ולידציית תלות בין-שדות כמו ב-saveEntity, אבל נשלפת מהמסד
+ * (לא מה-payload — אין כאן payload) כי אין כאן שאר שדות הטופס לבדוק מולם.
+ */
+export async function toggleEntityField(
+  entityKey: string,
+  id: string,
+  fieldName: string,
+  value: boolean,
+): Promise<ToggleFieldResult> {
+  try {
+    if (!isEntityKey(entityKey)) return { ok: false, error: 'ישות לא מוכרת' };
+    const entity: EntitySpec = ENTITIES[entityKey as EntityKey];
+    const spec = entity.fields.find((field) => field.name === fieldName);
+    if (!spec || spec.type !== 'boolean') return { ok: false, error: 'שדה לא מוכר' };
+
+    const session = await assertScreenPermission(entity.screenKey, 'edit');
+    if ('error' in session) return { ok: false, error: session.error };
+
+    const supabase = await createClient();
+    if (!supabase) return { ok: false, error: 'אין חיבור למסד' };
+
+    if (entityKey === 'books' && fieldName === 'is_purchasable' && value === true) {
+      const { data: row } = await supabase.from('books').select('price').eq('id', id).maybeSingle();
+      if (row?.price == null) {
+        return { ok: false, error: 'ספר שמסומן לרכישה חייב מחיר — הזינו מחיר בלשונית מסחר' };
+      }
+    }
+    if (entityKey === 'books' && fieldName === 'external_supplier_enabled' && value === true) {
+      const { data: row } = await supabase
+        .from('books')
+        .select('external_supplier_url, external_supplier_name')
+        .eq('id', id)
+        .maybeSingle();
+      if (!row?.external_supplier_url?.trim() || !row?.external_supplier_name?.trim()) {
+        return { ok: false, error: 'יש למלא קישור ושם ספק לפני ההפעלה' };
+      }
+    }
+
+    const { error, data } = await supabase
+      .from(entity.table)
+      .update({ [fieldName]: value })
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+    if (error) return { ok: false, error: describeDbError(error, entity).message };
+    if (!data) return { ok: false, error: 'העדכון לא נשמר: הרשומה לא נמצאה או שאין לך הרשאה לערוך אותה.' };
+
+    await writeAudit(supabase, session.userId, 'update', entity.table, id);
+    revalidateEntity(entityKey as EntityKey);
+    return { ok: true };
+  } catch (error) {
+    console.error('[admin:toggleEntityField] חריגה לא צפויה', error);
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 /**
  * תרגום שגיאות Postgres נפוצות להודעה שאפשר לפעול לפיה.
  *
@@ -699,6 +765,48 @@ export async function createSeriesQuick(name: string): Promise<{ series?: Series
     return { series: (data as Series) ?? undefined };
   } catch (error) {
     console.error('[admin:createSeriesQuick] חריגה לא צפויה', error);
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * [1.10] סדר הכרכים בסדרה — נקבע בגרירה (SeriesOrderList), לא בהקלדת
+ * מספר בטופס הספר. bookIds מסונן מול ספרי הסדרה בפועל במסד: שיוך לסדרה
+ * עצמו נעשה רק בטופס הספר, ולכן ייתכן שספר שגורר כאן כבר לא שייך
+ * לסדרה (למשל שונה בלשונית אחרת באותה שנייה) — סינון כזה מתעלם ממנו
+ * בשקט במקום לזרוק שגיאה על כל השמירה.
+ */
+export async function saveSeriesOrder(seriesId: string, bookIds: string[]): Promise<ActionResult> {
+  try {
+    const session = await assertScreenPermission('books', 'edit');
+    if ('error' in session) return session;
+
+    const supabase = await createClient();
+    if (!supabase) return { error: 'אין חיבור למסד' };
+
+    const { data: rows, error: fetchError } = await supabase
+      .from('books')
+      .select('id')
+      .eq('series_id', seriesId);
+    if (fetchError) return { error: fetchError.message };
+
+    const memberIds = new Set((rows ?? []).map((row) => row.id));
+    const ordered = bookIds.filter((id) => memberIds.has(id));
+
+    for (const [index, id] of ordered.entries()) {
+      const { error } = await supabase
+        .from('books')
+        .update({ series_position: index + 1 })
+        .eq('id', id);
+      if (error) return { error: error.message };
+    }
+
+    await writeAudit(supabase, session.userId, 'update', 'series', seriesId);
+    revalidatePath('/admin/series');
+    revalidateEntity('books');
+    return {};
+  } catch (error) {
+    console.error('[admin:saveSeriesOrder] חריגה לא צפויה', error);
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }

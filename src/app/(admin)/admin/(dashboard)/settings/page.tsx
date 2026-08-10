@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminSettingsPage() {
   // [1.7] admin → manager: "מנהל ראשי" מוגדר כ"כל ההגדרות, לא כולל הוספת
-  // משתמשים" — ראו saveSettings/saveStoreSettings/saveBannersEnabled ב-
+  // משתמשים" — ראו saveSettings/toggleStoreEnabled/saveBannersEnabled ב-
   // settings-actions.ts, שירדו לאותה דרגה, וscreens.ts (org-settings אינו
   // ב-ADMIN_ONLY_SCREENS).
   await requireRole('manager');

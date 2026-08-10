@@ -9,7 +9,9 @@ import {
   listAuthorsAdmin,
   listCategoriesAdmin,
   listSeriesAdmin,
+  listSeriesBooksMap,
   listTags,
+  type SeriesMemberBook,
 } from './queries';
 import type {
   AttributeWithValues,
@@ -32,6 +34,8 @@ export interface BookFormData {
   tags: Tag[];
   attributes: AttributeWithValues[];
   series: Series[];
+  /** [1.10] ספרים לפי סדרה, ממוינים לפי המיקום הנוכחי — לרשימת הגרירה של סדר הכרכים */
+  seriesBooks: Record<string, SeriesMemberBook[]>;
   relations: BookRelations;
   storeEnabled: boolean;
   canWrite: boolean;
@@ -46,7 +50,7 @@ export interface BookFormData {
 }
 
 async function loadShared(mode: 'view' | 'edit') {
-  const [session, authors, categories, tags, attributes, series, settings] = await Promise.all([
+  const [session, authors, categories, tags, attributes, series, settings, seriesBooksMap] = await Promise.all([
     requireScreenPermission('books', mode),
     listAuthorsAdmin(),
     listCategoriesAdmin(),
@@ -54,12 +58,13 @@ async function loadShared(mode: 'view' | 'edit') {
     listAttributes(),
     listSeriesAdmin(),
     getSettings(),
+    listSeriesBooksMap(),
   ]);
-  return { session, authors, categories, tags, attributes, series, settings };
+  return { session, authors, categories, tags, attributes, series, settings, seriesBooksMap };
 }
 
 export async function loadNewBookFormData(): Promise<BookFormData> {
-  const { authors, categories, tags, attributes, series, settings } = await loadShared('edit');
+  const { authors, categories, tags, attributes, series, settings, seriesBooksMap } = await loadShared('edit');
   return {
     book: null,
     authors,
@@ -67,6 +72,7 @@ export async function loadNewBookFormData(): Promise<BookFormData> {
     tags,
     attributes,
     series,
+    seriesBooks: Object.fromEntries(seriesBooksMap),
     relations: { tagIds: [], categoryIds: [], attributeValueIds: [] },
     storeEnabled: settings?.store_enabled ?? false,
     // הגישה לעמוד עצמו כבר דרשה edit (loadShared('edit') למעלה) — אין
@@ -90,7 +96,7 @@ async function getBookStockOnHand(bookId: string, fallback: number | null): Prom
 }
 
 export async function loadEditBookFormData(id: string): Promise<BookFormData> {
-  const [{ session, authors, categories, tags, attributes, series, settings }, book, relations] =
+  const [{ session, authors, categories, tags, attributes, series, settings, seriesBooksMap }, book, relations] =
     await Promise.all([loadShared('view'), getBook(id), getBookRelations(id)]);
 
   if (!book) notFound();
@@ -103,6 +109,7 @@ export async function loadEditBookFormData(id: string): Promise<BookFormData> {
     tags,
     attributes,
     series,
+    seriesBooks: Object.fromEntries(seriesBooksMap),
     relations,
     storeEnabled: settings?.store_enabled ?? false,
     canWrite: (await screenAccess(session, 'books')).edit,

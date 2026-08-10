@@ -104,7 +104,10 @@ export const ENTITIES = {
       f('author_name_en'),
       f('category_id', 'uuid'),
       f('series_id', 'uuid'),
-      f('series_position', 'number'),
+      // [1.10] fd ולא f: המיקום נקבע בגרירה (SeriesOrderList/saveSeriesOrder),
+      // לא בטופס הזה. השמטת השדה מהטופס משאירה null בעדכון "אל תיגע" —
+      // אחרת כל שמירה של הספר (גם על שדה אחר לגמרי) הייתה מאפסת את הסדר.
+      fd('series_position', 'number'),
       f('publication_year_he'),
       f('publication_year_ce', 'number'),
       f('cover_image_url'),

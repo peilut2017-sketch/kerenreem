@@ -1,9 +1,9 @@
 'use client';
 
 import { useActionState } from 'react';
-import { CheckboxField, FieldSet, SelectField, TextField } from './Fields';
+import { ToggleField, FieldSet, SelectField, TextField } from './Fields';
 import { SubmitButton } from './SubmitButton';
-import { saveStoreConfig, type StoreConfigState } from '@/lib/admin/store-config-actions';
+import { saveStoreConfig, toggleStoreConfigFlag, type StoreConfigState } from '@/lib/admin/store-config-actions';
 import type { StoreSettings } from '@/lib/supabase/types';
 
 /**
@@ -24,7 +24,6 @@ export function StoreConfigForm({
   const [state, formAction] = useActionState<StoreConfigState, FormData>(saveStoreConfig, {
     status: 'idle',
   });
-  const paymentsLies = settings.payments_enabled && !morningConfigured;
 
   return (
     <form action={formAction} className="space-y-8">
@@ -39,14 +38,28 @@ export function StoreConfigForm({
             className="mb-3 rounded-[var(--radius-sm)] bg-[var(--admin-warning-soft)] px-3 py-2.5 text-caption text-[var(--admin-warning)]"
           >
             ⚠ מורנינג אינה מחוברת (מפתחות API חסרים בסביבה) — לא ניתן להפעיל סליקה כרגע.
-            {paymentsLies ? ' הדגל מסומן פעיל במסד למרות זאת; השמירה הבאה תכבה אותו אוטומטית.' : ''}
           </p>
         ) : null}
         <div className="grid gap-2 sm:grid-cols-2">
-          <CheckboxField name="show_prices" label="הצגת מחירים" defaultChecked={settings.show_prices} />
-          <CheckboxField name="cart_enabled" label="עגלה ו-Mini Cart" defaultChecked={settings.cart_enabled} />
-          <CheckboxField name="checkout_enabled" label="קופה (Checkout)" defaultChecked={settings.checkout_enabled} />
-          <CheckboxField
+          <ToggleField
+            name="show_prices"
+            label="הצגת מחירים"
+            defaultChecked={settings.show_prices}
+            onToggle={(next) => toggleStoreConfigFlag('show_prices', next)}
+          />
+          <ToggleField
+            name="cart_enabled"
+            label="עגלה ו-Mini Cart"
+            defaultChecked={settings.cart_enabled}
+            onToggle={(next) => toggleStoreConfigFlag('cart_enabled', next)}
+          />
+          <ToggleField
+            name="checkout_enabled"
+            label="קופה (Checkout)"
+            defaultChecked={settings.checkout_enabled}
+            onToggle={(next) => toggleStoreConfigFlag('checkout_enabled', next)}
+          />
+          <ToggleField
             name="payments_enabled"
             label="סליקה במורנינג"
             defaultChecked={settings.payments_enabled && morningConfigured}
@@ -56,19 +69,46 @@ export function StoreConfigForm({
                 ? 'אין להפעיל לפני השלמת אימותי ה-Sandbox ותנאי הפתיחה שבאפיון.'
                 : 'חסום: אין מפתחות מורנינג בסביבה (MORNING_API_KEY_ID / MORNING_API_SECRET).'
             }
+            onToggle={(next) => toggleStoreConfigFlag('payments_enabled', next)}
           />
-          <CheckboxField
+          <ToggleField
             name="express_checkout_enabled"
             label="מסלול אקספרס (ביט / ארנקים)"
             defaultChecked={settings.express_checkout_enabled && morningConfigured}
             disabled={!morningConfigured}
             hint="רק אחרי שאימות 9.3.1 — קביעת אמצעי מראש ב-API — הוכרע."
+            onToggle={(next) => toggleStoreConfigFlag('express_checkout_enabled', next)}
           />
-          <CheckboxField name="accounts_enabled" label="חשבונות לקוח" defaultChecked={settings.accounts_enabled} />
-          <CheckboxField name="returns_enabled" label="בקשות ביטול והחזרה" defaultChecked={settings.returns_enabled} />
-          <CheckboxField name="coupons_enabled" label="קופונים" defaultChecked={settings.coupons_enabled} />
-          <CheckboxField name="donations_enabled" label="תוספת תרומה" defaultChecked={settings.donations_enabled} />
-          <CheckboxField name="recommendations_enabled" label="המלצות (נקנו יחד)" defaultChecked={settings.recommendations_enabled} />
+          <ToggleField
+            name="accounts_enabled"
+            label="חשבונות לקוח"
+            defaultChecked={settings.accounts_enabled}
+            onToggle={(next) => toggleStoreConfigFlag('accounts_enabled', next)}
+          />
+          <ToggleField
+            name="returns_enabled"
+            label="בקשות ביטול והחזרה"
+            defaultChecked={settings.returns_enabled}
+            onToggle={(next) => toggleStoreConfigFlag('returns_enabled', next)}
+          />
+          <ToggleField
+            name="coupons_enabled"
+            label="קופונים"
+            defaultChecked={settings.coupons_enabled}
+            onToggle={(next) => toggleStoreConfigFlag('coupons_enabled', next)}
+          />
+          <ToggleField
+            name="donations_enabled"
+            label="תוספת תרומה"
+            defaultChecked={settings.donations_enabled}
+            onToggle={(next) => toggleStoreConfigFlag('donations_enabled', next)}
+          />
+          <ToggleField
+            name="recommendations_enabled"
+            label="המלצות (נקנו יחד)"
+            defaultChecked={settings.recommendations_enabled}
+            onToggle={(next) => toggleStoreConfigFlag('recommendations_enabled', next)}
+          />
         </div>
       </FieldSet>
 
@@ -150,7 +190,12 @@ export function StoreConfigForm({
       </FieldSet>
 
       <FieldSet legend="איסוף עצמי" icon="store">
-        <CheckboxField name="pickup_enabled" label="איסוף עצמי פעיל" defaultChecked={settings.pickup_enabled} />
+        <ToggleField
+          name="pickup_enabled"
+          label="איסוף עצמי פעיל"
+          defaultChecked={settings.pickup_enabled}
+          onToggle={(next) => toggleStoreConfigFlag('pickup_enabled', next)}
+        />
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField
             name="pickup_address"

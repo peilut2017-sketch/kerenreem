@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { EntityForm } from './EntityForm';
 import { BookFormTabs } from './BookFormTabs';
-import { CheckboxField, FieldSet, TextAreaField, TextField } from './Fields';
+import { ToggleField, FieldSet, TextAreaField, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import { BookImagesEditor } from './BookImagesEditor';
 import { BookTocEditor } from './BookTocEditor';
@@ -12,9 +13,11 @@ import { BookStorePreview } from './books/BookStorePreview';
 import { QuickAddSelect } from './QuickAddSelect';
 import { RepeatableTextField } from './RepeatableTextField';
 import { RichTextEditor } from './RichTextEditor';
+import { SeriesOrderList } from './SeriesOrderList';
 import { TagPicker } from './TagPicker';
 import { createAuthorQuick, createCategoryQuick, createSeriesQuick, createTag } from '@/lib/admin/actions';
 import { computeCompletion } from '@/lib/completion';
+import type { SeriesMemberBook } from '@/lib/admin/queries';
 import type {
   AttributeWithValues,
   Author,
@@ -53,6 +56,7 @@ export function BookForm({
   tags,
   attributes,
   series,
+  seriesBooks,
   relations,
   images,
   toc,
@@ -67,6 +71,8 @@ export function BookForm({
   tags: Tag[];
   attributes: AttributeWithValues[];
   series: Series[];
+  /** [1.10] ספרים לפי סדרה, ממוינים לפי המיקום הנוכחי — לרשימת הגרירה של סדר הכרכים */
+  seriesBooks: Record<string, SeriesMemberBook[]>;
   relations: BookRelations;
   /** גלריה, תוכן עניינים ודפי דוגמה — קיימים רק לספר שכבר נשמר (book !== null). */
   images: BookImage[];
@@ -80,6 +86,7 @@ export function BookForm({
 }) {
   const languages = book?.languages ?? ['he'];
   const completion = book ? computeCompletion(book, relations) : null;
+  const [selectedSeriesId, setSelectedSeriesId] = useState(book?.series_id ?? '');
 
   return (
     <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
@@ -205,31 +212,46 @@ export function BookForm({
                       icon="series"
                       description="רק אם הספר הוא כרך בתוך מהדורה רב-כרכית. אפשר להשאיר ריק."
                     >
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <QuickAddSelect
-                          name="series_id"
-                          label="סדרה"
-                          emptyLabel="— אינו חלק מסדרה —"
-                          defaultValue={book?.series_id}
-                          options={series.map((item) => ({ value: item.id, label: item.name_he }))}
-                          addLabel="+ סדרה חדשה"
-                          fieldLabel="שם הסדרה"
-                          onCreate={async (name) => {
-                            const result = await createSeriesQuick(name);
-                            return result.series
-                              ? { value: result.series.id, label: result.series.name_he }
-                              : null;
-                          }}
-                        />
-                        <TextField
-                          name="series_position"
-                          label="מיקום בסדרה"
-                          type="number"
-                          dir="ltr"
-                          defaultValue={book?.series_position}
-                          hint="כרך א׳ = 1, כרך ב׳ = 2 וכן הלאה."
-                        />
-                      </div>
+                      <QuickAddSelect
+                        name="series_id"
+                        label="סדרה"
+                        emptyLabel="— אינו חלק מסדרה —"
+                        defaultValue={book?.series_id}
+                        options={series.map((item) => ({ value: item.id, label: item.name_he }))}
+                        addLabel="+ סדרה חדשה"
+                        fieldLabel="שם הסדרה"
+                        onCreate={async (name) => {
+                          const result = await createSeriesQuick(name);
+                          return result.series
+                            ? { value: result.series.id, label: result.series.name_he }
+                            : null;
+                        }}
+                        onChange={setSelectedSeriesId}
+                      />
+                      {selectedSeriesId ? (
+                        <div>
+                          <span className="admin-field-label block">סדר הכרכים בסדרה</span>
+                          <p className="admin-field-hint mb-3">
+                            גררו לקביעת מקומו של הספר הזה בסדרה. ניתן לסדר מחדש גם אחרי השמירה.
+                          </p>
+                          {(() => {
+                            const members = seriesBooks[selectedSeriesId] ?? [];
+                            const isAlreadyMember = Boolean(book?.id) && members.some((m) => m.id === book!.id);
+                            return (
+                              <SeriesOrderList
+                                seriesId={selectedSeriesId}
+                                books={members.map((member) => ({
+                                  id: member.id,
+                                  title: member.title_he,
+                                  coverUrl: member.cover_image_url,
+                                }))}
+                                pendingBookId={isAlreadyMember ? undefined : book?.id}
+                                pendingBookTitle={book?.title_he || '(הספר הזה)'}
+                              />
+                            );
+                          })()}
+                        </div>
+                      ) : null}
                     </FieldSet>
 
                     <FieldSet
@@ -778,11 +800,13 @@ export function BookForm({
                           hint="מיקום המלאי הפיזי, למשל ״מדף A3״ — לצוות בלבד, לא מוצג באתר."
                         />
                       </div>
-                      <CheckboxField
+                      <ToggleField
                         name="is_stock_managed"
                         label="מלאי מנוהל"
                         defaultChecked={book?.is_stock_managed ?? true}
                         hint="ביטול = מלאי בלתי מוגבל: אין שמירה ואין הפחתה במכירה."
+                        entityKey="books"
+                        id={book?.id}
                       />
                     </FieldSet>
 
@@ -806,19 +830,23 @@ export function BookForm({
                           hint="מידות הספר, למשל 17x24 ס״מ."
                         />
                       </div>
-                      <CheckboxField
+                      <ToggleField
                         name="free_shipping_eligible"
                         label="נספר לסף משלוח חינם"
                         defaultChecked={book?.free_shipping_eligible ?? true}
+                        entityKey="books"
+                        id={book?.id}
                       />
                     </FieldSet>
 
                     <FieldSet legend="רכישה" icon="store">
-                      <CheckboxField
+                      <ToggleField
                         name="is_purchasable"
                         label="ניתן לרכישה באתר"
                         defaultChecked={book?.is_purchasable ?? false}
                         hint="מחייב מחיר. בלי מחיר — השמירה תיעצר."
+                        entityKey="books"
+                        id={book?.id}
                       />
                     </FieldSet>
 
@@ -827,11 +855,13 @@ export function BookForm({
                       icon="external"
                       description="ספר שנמכר (גם, או רק) דרך גורם אחר — למשל הוצאה חיצונית. בעמוד הספר יופיע כפתור לרכישה אצל הספק, לצד ההזמנה אצלנו או במקומה."
                     >
-                      <CheckboxField
+                      <ToggleField
                         name="external_supplier_enabled"
                         label="מכירה דרך ספק חיצוני"
                         defaultChecked={book?.external_supplier_enabled ?? false}
                         hint="כשמופעל: ספר זה נמכר דרך ספק חיצוני ולא (רק) דרך קרן רא״ם — הכפתור בעמוד הספר יפנה החוצה לקישור שבשדה שלמטה."
+                        entityKey="books"
+                        id={book?.id}
                       />
                       <div className="grid gap-5 sm:grid-cols-2">
                         <TextField
@@ -850,11 +880,13 @@ export function BookForm({
                           hint="מוצג בטקסט הכפתור, למשל ״רכישה דרך יד שרה״."
                         />
                       </div>
-                      <CheckboxField
+                      <ToggleField
                         name="external_supplier_always_show"
                         label="הצג גם כשנמכר אצלנו"
                         defaultChecked={book?.external_supplier_always_show ?? false}
                         hint="ברירת מחדל: הכפתור מוצג רק כשהספר אינו ניתן לרכישה אצלנו בפועל (לא מסומן לרכישה, או שהחנות כבויה). הפעילו כדי להציג אותו גם כשהוא כן נמכר אצלנו."
+                        entityKey="books"
+                        id={book?.id}
                       />
                     </FieldSet>
 
@@ -863,10 +895,12 @@ export function BookForm({
                       icon="events"
                       description="מציג תג 'בקרוב' ומאפשר הזמנה מראש גם ללא מלאי."
                     >
-                      <CheckboxField
+                      <ToggleField
                         name="preorder_enabled"
                         label="הזמנה מראש (בקרוב)"
                         defaultChecked={book?.preorder_enabled ?? false}
+                        entityKey="books"
+                        id={book?.id}
                       />
                       <TextField
                         name="preorder_release_date"
@@ -896,7 +930,7 @@ export function BookForm({
                 hasError: false,
                 content: (
                   <FieldSet legend="פרסום" icon="check">
-                    <CheckboxField
+                    <ToggleField
                       name="is_published"
                       label="מפורסם באתר"
                       // ברירת המחדל לספר חדש היא מפורסם: "ברירת מחדל תמיד
@@ -904,12 +938,16 @@ export function BookForm({
                       // להציג את המצב האמיתי שלו, לא מאופס למפורסם בכל עריכה.
                       defaultChecked={book ? book.is_published : true}
                       hint="ספר שאינו מפורסם נראה בממשק הניהול בלבד."
+                      entityKey="books"
+                      id={book?.id}
                     />
-                    <CheckboxField
+                    <ToggleField
                       name="is_featured"
                       label="בחירת המכון"
                       defaultChecked={book?.is_featured ?? false}
                       hint="מציג תג 'בחירת המכון' בעמוד הספר."
+                      entityKey="books"
+                      id={book?.id}
                     />
 
                     {book ? (

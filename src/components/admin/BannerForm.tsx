@@ -1,7 +1,7 @@
 'use client';
 
 import { EntityForm } from './EntityForm';
-import { CheckboxField, FieldSet, SelectField, TextAreaField, TextField } from './Fields';
+import { ToggleField, FieldSet, SelectField, TextAreaField, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import type { Banner } from '@/lib/supabase/types';
 
@@ -96,10 +96,12 @@ export function BannerForm({ banner, canWrite }: { banner: Banner | null; canWri
           </FieldSet>
 
           <FieldSet legend="תצוגה">
-            <CheckboxField
+            <ToggleField
               name="is_published"
               label="מוצג באתר"
               defaultChecked={banner?.is_published ?? false}
+              entityKey="banners"
+              id={banner?.id}
             />
             <TextField
               name="sort_order"
