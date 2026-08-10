@@ -18,7 +18,10 @@ import type { Order, ShippingAddress, StoreSettings } from '@/lib/supabase/types
  * בשיחה, בוחר ספרים, ממלא פרטי קשר ואספקה — וההזמנה נוצרת עם אותו צילום
  * מלא, אותה שמירת מלאי ואותו טוקן מעקב כמו הזמנת אתר. ההמשך משם זהה:
  * קישור תשלום מורנינג במייל, או סימון תשלום חיצוני (העברה/מזומן בחנות).
- * המחירים תמיד מהקטלוג דרך validateCart — הצוות אינו מקליד מחירים.
+ * המחירים תמיד מהקטלוג דרך validateCart. [1.9] חריג יחיד: ספר בלי מחיר
+ * קטלוגי (price null) — הצוות יכול להקליד מחיר לפריט הזה בלבד
+ * (manualUnitPrice/priceOverrides ב-validateCart), ולעולם לא כדריסה של
+ * מחיר קטלוגי קיים.
  *
  * [1.5] "משלוח חינם לא מחושב, אי אפשר להזין קופון" — resolvePricing הוא
  * מקור אמת יחיד למחיר משלוח+קופון+מבצע אוטומטי, בשימוש הן לתצוגה החיה
@@ -131,8 +134,24 @@ async function resolvePricing(
   };
 }
 
+export interface ManualOrderItemInput {
+  bookId: string;
+  quantity: number;
+  /** [1.9] מחיר שהצוות הקליד לפריט — נבחן רק כשלספר אין מחיר קטלוגי (ראו validateCart). */
+  manualUnitPrice?: number;
+}
+
+/** ממפה bookId למחיר הידני שהוקלד — תמיד מסונן ל-manualUnitPrice מספרי, כדי לא להעביר undefined כערך. */
+function priceOverridesFrom(items: ManualOrderItemInput[]): Record<string, number> {
+  const overrides: Record<string, number> = {};
+  for (const item of items) {
+    if (item.manualUnitPrice != null) overrides[item.bookId] = item.manualUnitPrice;
+  }
+  return overrides;
+}
+
 export interface ManualOrderInput {
-  items: { bookId: string; quantity: number }[];
+  items: ManualOrderItemInput[];
   contact: { name: string; phone: string; email: string | null };
   fulfillment:
     | { type: 'pickup' }
@@ -162,7 +181,10 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
     return { ok: false, error: 'כתובת מייל לא תקינה' };
   }
 
-  const cart = await validateCart(input.items, input.locale, undefined, { allowUnpublished: true });
+  const cart = await validateCart(input.items, input.locale, undefined, {
+    allowUnpublished: true,
+    priceOverrides: priceOverridesFrom(input.items),
+  });
   const activeLines = cart.lines.filter((line) => line.removedReason === null && line.quantity > 0);
   if (activeLines.length === 0) return { ok: false, error: 'לא נבחרו פריטים זמינים' };
   const unavailable = cart.lines.filter((line) => line.removedReason !== null);
@@ -335,14 +357,17 @@ const EMPTY_PREVIEW: Omit<ManualOrderPreview, 'ok' | 'error'> = {
 
 /** [1.5] אומדן חי לטופס — אותו resolvePricing שמשמש את היצירה בפועל. */
 export async function previewManualOrderTotals(input: {
-  items: { bookId: string; quantity: number }[];
+  items: ManualOrderItemInput[];
   fulfillment: ManualOrderFulfillment;
   couponCode: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
   locale: string;
 }): Promise<ManualOrderPreview> {
-  const cart = await validateCart(input.items, input.locale, undefined, { allowUnpublished: true });
+  const cart = await validateCart(input.items, input.locale, undefined, {
+    allowUnpublished: true,
+    priceOverrides: priceOverridesFrom(input.items),
+  });
   const activeLines = cart.lines.filter((line) => line.removedReason === null && line.quantity > 0);
   if (activeLines.length === 0) {
     return { ok: false, error: 'no_items', ...EMPTY_PREVIEW };

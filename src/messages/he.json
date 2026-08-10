@@ -68,6 +68,7 @@
     "goToPurchase": "לרכישה",
     "outOfStock": "אזל מן המלאי",
     "notForSale": "הספר אינו נמכר באתר",
+    "buyFromSupplier": "רכישה דרך {supplier}",
     "coverAlt": "כריכת הספר {title}",
     "noCover": "אין כריכה",
     "byAuthor": "מאת {name}",

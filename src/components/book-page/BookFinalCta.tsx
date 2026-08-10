@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { BookCover } from '@/components/BookCover';
 import { useLocalList } from '@/lib/client-hooks';
 import { AddToCartButton } from '../store/AddToCartButton';
+import { ExternalSupplierButton } from './ExternalSupplierButton';
 import type { BookAvailability } from '@/lib/supabase/types';
 
 /**
@@ -18,6 +19,7 @@ export function BookFinalCta({
   price,
   showBuy,
   availability,
+  externalSupplier,
 }: {
   bookId: string;
   title: string;
@@ -25,6 +27,8 @@ export function BookFinalCta({
   price: string | null;
   showBuy: boolean;
   availability: BookAvailability;
+  /** [1.9] מוגדר רק כשהעמוד קבע שיש להציג את כפתור הספק החיצוני עכשיו */
+  externalSupplier?: { url: string; name: string } | null;
 }) {
   const t = useTranslations('books');
   const { has, toggle } = useLocalList('kr:favourites');
@@ -49,6 +53,14 @@ export function BookFinalCta({
       <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
         {showBuy ? (
           <AddToCartButton bookId={bookId} title={title} availability={availability} />
+        ) : null}
+        {externalSupplier ? (
+          <ExternalSupplierButton
+            bookId={bookId}
+            url={externalSupplier.url}
+            supplierName={externalSupplier.name}
+            variant={showBuy ? 'quiet' : 'solid'}
+          />
         ) : null}
         <button
           type="button"

@@ -111,7 +111,13 @@ export function BookForm({
                 ? 'basics'
                 : errors.meta_title || errors.meta_description
                   ? 'identity'
-                  : errors.price || errors.sale_price || errors.stock_quantity || errors.weight_grams || errors.low_stock_threshold
+                  : errors.price ||
+                      errors.sale_price ||
+                      errors.stock_quantity ||
+                      errors.weight_grams ||
+                      errors.low_stock_threshold ||
+                      errors.external_supplier_url ||
+                      errors.external_supplier_name
                     ? 'store'
                     : undefined
             }
@@ -638,7 +644,13 @@ export function BookForm({
                 label: 'מסחר',
                 icon: 'store',
                 hasError: Boolean(
-                  errors.price || errors.sale_price || errors.stock_quantity || errors.weight_grams || errors.low_stock_threshold,
+                  errors.price ||
+                    errors.sale_price ||
+                    errors.stock_quantity ||
+                    errors.weight_grams ||
+                    errors.low_stock_threshold ||
+                    errors.external_supplier_url ||
+                    errors.external_supplier_name,
                 ),
                 content: (
                   <BookStorePreview
@@ -807,6 +819,42 @@ export function BookForm({
                         label="ניתן לרכישה באתר"
                         defaultChecked={book?.is_purchasable ?? false}
                         hint="מחייב מחיר. בלי מחיר — השמירה תיעצר."
+                      />
+                    </FieldSet>
+
+                    <FieldSet
+                      legend="רכישה דרך ספק חיצוני"
+                      icon="external"
+                      description="ספר שנמכר (גם, או רק) דרך גורם אחר — למשל הוצאה חיצונית. בעמוד הספר יופיע כפתור לרכישה אצל הספק, לצד ההזמנה אצלנו או במקומה."
+                    >
+                      <CheckboxField
+                        name="external_supplier_enabled"
+                        label="מכירה דרך ספק חיצוני"
+                        defaultChecked={book?.external_supplier_enabled ?? false}
+                        hint="כשמופעל: ספר זה נמכר דרך ספק חיצוני ולא (רק) דרך קרן רא״ם — הכפתור בעמוד הספר יפנה החוצה לקישור שבשדה שלמטה."
+                      />
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <TextField
+                          name="external_supplier_url"
+                          label="קישור לרכישה אצל הספק"
+                          type="url"
+                          dir="ltr"
+                          defaultValue={book?.external_supplier_url}
+                          error={errors.external_supplier_url}
+                        />
+                        <TextField
+                          name="external_supplier_name"
+                          label="שם הספק"
+                          defaultValue={book?.external_supplier_name}
+                          error={errors.external_supplier_name}
+                          hint="מוצג בטקסט הכפתור, למשל ״רכישה דרך יד שרה״."
+                        />
+                      </div>
+                      <CheckboxField
+                        name="external_supplier_always_show"
+                        label="הצג גם כשנמכר אצלנו"
+                        defaultChecked={book?.external_supplier_always_show ?? false}
+                        hint="ברירת מחדל: הכפתור מוצג רק כשהספר אינו ניתן לרכישה אצלנו בפועל (לא מסומן לרכישה, או שהחנות כבויה). הפעילו כדי להציג אותו גם כשהוא כן נמכר אצלנו."
                       />
                     </FieldSet>
 

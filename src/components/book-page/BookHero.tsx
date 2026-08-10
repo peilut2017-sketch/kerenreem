@@ -1,4 +1,3 @@
-import { Link } from '@/i18n/navigation';
 import { Reveal } from '@/components/Reveal';
 import { BookCoverStage } from './BookCoverStage';
 import { HeroBackground } from './HeroBackground';
@@ -16,7 +15,9 @@ import type { CoverPalette } from '@/lib/cover-colors';
  * בכל שורה. שתי העמודות צמודות זו לזו במקום להידחף לקצוות ההפוכים,
  * כך שהכריכה והשם נקראים כיחידה אחת.
  *
- * המידע מדורג בכוונה: תג → שם → מחבר → משפט אחד → מפרט קצר → פעולה.
+ * המידע מדורג בכוונה: תג → שם → משפט אחד → מפרט קצר (כולל מחבר, מקושר
+ * לעמודו) → פעולה. שם המחבר מופיע פעם אחת בלבד — בסרגל המפרט, לא גם
+ * מתחת לכותרת — כדי לא לחזור על אותו מידע פעמיים ברצף.
  * כל שורה עונה על שאלה אחת, ומי שמצא את מבוקשו יכול לעצור.
  *
  * הכריכה ראשונה גם ב-DOM וגם חזותית — בלי order-* שמפריד בין מה שרואים
@@ -49,12 +50,15 @@ export function BookHero({
   actions?: React.ReactNode;
   t: (key: string, values?: Record<string, string | number | Date>) => string;
 }) {
+  // [1.9] שם המחבר מוצג פעם אחת בלבד — כאן בסרגל, עם קישור לעמודו כשקיים
+  // (author.href הוא null לטקסט חופשי, ראו lib/books/author-display.ts).
+  // הוסר מתחת לכותרת כדי לא לחזור על אותו מידע פעמיים ברצף.
   const specs = [
-    author ? { label: t('author'), value: author.name } : null,
+    author ? { label: t('author'), value: author.name, href: author.href ?? undefined } : null,
     categoryName ? { label: t('category'), value: categoryName } : null,
     year ? { label: t('publicationYear'), value: year } : null,
     book.pages ? { label: t('pages'), value: String(book.pages) } : null,
-  ].filter((item): item is { label: string; value: string } => item !== null);
+  ].filter((item): item is { label: string; value: string; href?: string } => item !== null);
 
   // תג המהדורה: קטגוריה + שנה עברית, לא טענה מומצאת ("מהדורה מבוארת")
   // שאין לה מקור נתונים אמיתי בכל ספר.
@@ -115,18 +119,6 @@ export function BookHero({
               <Reveal as="h1" className="font-serif text-[clamp(2.75rem,5.2vw,4.75rem)] leading-[1.03] text-ink">
                 {title}
               </Reveal>
-
-              {author ? (
-                <Reveal delay={90} as="p" className="mt-2 font-serif text-[clamp(1.2rem,1.9vw,1.55rem)] text-ink-soft">
-                  {author.href ? (
-                    <Link href={author.href} className="link">
-                      {author.name}
-                    </Link>
-                  ) : (
-                    author.name
-                  )}
-                </Reveal>
-              ) : null}
 
               {subtitle ? (
                 <Reveal delay={150} as="p" className="mx-auto mt-4 max-w-xl text-lead text-muted lg:mx-0">

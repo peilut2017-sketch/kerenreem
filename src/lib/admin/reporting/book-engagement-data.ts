@@ -22,11 +22,19 @@ export interface BookEngagementRow {
   saves: number;
   addsToCart: number;
   backInStockSubscribers: number;
+  /** [1.9] לחיצות על "רכישה דרך ספק חיצוני" — האינדיקציה לביקוש על ספר שלא נמכר אצלנו */
+  externalSupplierClicks: number;
   unitsSold: number;
   revenue: number;
 }
 
-const TRACKED_EVENTS = ['product_viewed', 'product_saved', 'product_added_to_cart', 'back_in_stock_subscribed'];
+const TRACKED_EVENTS = [
+  'product_viewed',
+  'product_saved',
+  'product_added_to_cart',
+  'back_in_stock_subscribed',
+  'external_supplier_clicked',
+];
 
 export async function getBookEngagementReport(
   range: ReportDateRange,
@@ -53,16 +61,25 @@ export async function getBookEngagementReport(
 
   const counters = new Map<
     string,
-    { views: number; saves: number; addsToCart: number; backInStockSubscribers: number }
+    {
+      views: number;
+      saves: number;
+      addsToCart: number;
+      backInStockSubscribers: number;
+      externalSupplierClicks: number;
+    }
   >();
   for (const row of eventsRes.data ?? []) {
     const bookId = row.book_id;
     if (!bookId) continue;
-    const entry = counters.get(bookId) ?? { views: 0, saves: 0, addsToCart: 0, backInStockSubscribers: 0 };
+    const entry =
+      counters.get(bookId) ??
+      { views: 0, saves: 0, addsToCart: 0, backInStockSubscribers: 0, externalSupplierClicks: 0 };
     if (row.event_name === 'product_viewed') entry.views += 1;
     else if (row.event_name === 'product_saved') entry.saves += 1;
     else if (row.event_name === 'product_added_to_cart') entry.addsToCart += 1;
     else if (row.event_name === 'back_in_stock_subscribed') entry.backInStockSubscribers += 1;
+    else if (row.event_name === 'external_supplier_clicked') entry.externalSupplierClicks += 1;
     counters.set(bookId, entry);
   }
 
@@ -89,6 +106,7 @@ export async function getBookEngagementReport(
       saves: counts?.saves ?? 0,
       addsToCart: counts?.addsToCart ?? 0,
       backInStockSubscribers: counts?.backInStockSubscribers ?? 0,
+      externalSupplierClicks: counts?.externalSupplierClicks ?? 0,
       unitsSold: sale?.quantity ?? 0,
       revenue: sale?.revenue ?? 0,
     };

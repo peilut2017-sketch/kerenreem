@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
 import { ShelfPicker } from './ShelfPicker';
 import { AddToCartButton } from '../store/AddToCartButton';
+import { ExternalSupplierButton } from './ExternalSupplierButton';
 import type { BookAvailability } from '@/lib/supabase/types';
 
 /**
@@ -22,6 +23,7 @@ export function BookHeroActions({
   price,
   availability,
   preorderDate,
+  externalSupplier,
 }: {
   bookId: string;
   title: string;
@@ -30,6 +32,8 @@ export function BookHeroActions({
   availability: BookAvailability;
   /** תאריך יציאה מעוצב מראש, רק כשהזמינות preorder */
   preorderDate?: string | null;
+  /** [1.9] מוגדר רק כשהעמוד קבע שיש להציג את כפתור הספק החיצוני עכשיו */
+  externalSupplier?: { url: string; name: string } | null;
 }) {
   const t = useTranslations('books');
   const { has, toggle } = useLocalList('kr:favourites');
@@ -70,6 +74,15 @@ export function BookHeroActions({
         <span className="w-full text-caption text-muted lg:w-auto">
           {t('preorderRelease', { date: preorderDate })}
         </span>
+      ) : null}
+
+      {externalSupplier ? (
+        <ExternalSupplierButton
+          bookId={bookId}
+          url={externalSupplier.url}
+          supplierName={externalSupplier.name}
+          variant={price ? 'quiet' : 'solid'}
+        />
       ) : null}
 
       <ShelfPicker bookId={bookId} />

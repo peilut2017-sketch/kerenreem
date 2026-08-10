@@ -222,6 +222,16 @@ export default async function BookPage({
   const showBuy = availability !== 'catalog_only';
   const effectivePrice = showBuy ? getEffectivePrice(book, locale) : null;
   const formattedPrice = effectivePrice ? formatPrice(effectivePrice.amount, locale) : null;
+
+  // [1.9] הכפתור מוצג רק כשהוגדר ספק חיצוני, וכש-showBuy=false (הספר לא
+  // נמכר אצלנו בפועל — לא ניתן לרכישה, או שהחנות/המחירים כבויים) או שהוגדר
+  // מפורשות להציג אותו גם כשכן נמכר אצלנו (external_supplier_always_show).
+  const externalSupplier =
+    book.external_supplier_enabled && book.external_supplier_url && book.external_supplier_name
+      ? (!showBuy || book.external_supplier_always_show
+          ? { url: book.external_supplier_url, name: book.external_supplier_name }
+          : null)
+      : null;
   const formattedPreorderDate =
     availability === 'preorder' && book.preorder_release_date
       ? new Intl.DateTimeFormat(locale === 'en' ? 'en' : 'he', { dateStyle: 'long' }).format(
@@ -330,6 +340,7 @@ export default async function BookPage({
             price={formattedPrice}
             availability={availability}
             preorderDate={formattedPreorderDate}
+            externalSupplier={externalSupplier}
           />
         }
         t={tValues}
@@ -451,6 +462,7 @@ export default async function BookPage({
           price={formattedPrice}
           showBuy={showBuy}
           availability={availability}
+          externalSupplier={externalSupplier}
         />
       </Container>
 
