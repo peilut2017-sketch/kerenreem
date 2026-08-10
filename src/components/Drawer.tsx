@@ -29,6 +29,7 @@ export function Drawer({
   returnFocusTo,
   closeLabel = 'סגירה',
   variant = 'side',
+  panelClassName = '',
 }: {
   open: boolean;
   onClose: () => void;
@@ -54,6 +55,8 @@ export function Drawer({
    * האנכי אינו תלוי RTL/LTR, בניגוד להחלקה אופקית מהצד.
    */
   variant?: 'side' | 'center' | 'bottom';
+  /** מחלקה נוספת על פאנל המגירה — למשל 'commerce-flow' לסקופ עיצוב התהליך */
+  panelClassName?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -147,7 +150,7 @@ export function Drawer({
         type="button"
         aria-label={closeLabel}
         onClick={onClose}
-        className={`absolute inset-0 bg-navy/40 backdrop-blur-sm transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-ink/45 transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
       />
 
       <div
@@ -155,11 +158,11 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`glass relative flex w-full ${widthClassName} flex-col overflow-hidden ${
+        className={`relative flex w-full border border-rule bg-cream ${widthClassName} flex-col overflow-hidden ${
           bottom ? 'rounded-t-[var(--radius-xl)]' : 'rounded-[var(--radius-xl)]'
         } shadow-[var(--shadow-float)] ${
           centered ? 'max-h-[88vh]' : bottom ? 'max-h-[85vh]' : 'm-3'
-        } ${panelMotion}`}
+        } ${panelMotion} ${panelClassName}`}
       >
         <div className="flex items-center justify-between border-b border-rule px-6 py-4">
           <h2 id={titleId} className="font-serif text-h3 text-ink">

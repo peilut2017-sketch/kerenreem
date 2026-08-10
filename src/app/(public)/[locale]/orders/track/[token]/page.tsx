@@ -69,7 +69,7 @@ export default async function TrackOrderPage({
 
   if (!tracked) {
     return (
-      <Container className="py-20 text-center">
+      <Container className="commerce-flow py-20 text-center">
         <h1 className="font-serif text-h2 text-ink">{t('trackNotFoundTitle')}</h1>
         <p className="mt-3 text-lead text-muted">{t('trackNotFoundBody')}</p>
         <p className="mt-6">
@@ -92,7 +92,7 @@ export default async function TrackOrderPage({
   const steps = stepsFor(statusKey, isPickup);
 
   return (
-    <Container className="max-w-3xl py-12 lg:py-16">
+    <Container className="commerce-flow max-w-3xl py-12 lg:py-16">
       <header className="text-center">
         <p className="eyebrow">{t('trackTitle')}</p>
         <h1 className="mt-2 font-serif text-[clamp(1.6rem,3.4vw,2.2rem)] text-ink">
@@ -102,33 +102,21 @@ export default async function TrackOrderPage({
       </header>
 
       {!cancelled ? (
-        <ol className="mx-auto mt-8 flex max-w-xl items-center justify-between gap-1" aria-label={t('trackTitle')}>
+        <ol className="mx-auto mt-8 flex max-w-xl items-start justify-between" aria-label={t('trackTitle')}>
           {steps.map((step, index) => (
-            <li key={step.key} className="flex flex-1 items-center gap-1 last:flex-none">
+            <li key={step.key} className="flex flex-1 items-center last:flex-none">
               <span className="flex flex-col items-center gap-1.5 text-center">
-                <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-caption font-bold ${
-                    step.state === 'done'
-                      ? 'bg-gold text-navy'
-                      : step.state === 'current'
-                        ? 'bg-gold/20 text-burgundy ring-2 ring-gold'
-                        : 'bg-cream-2 text-muted'
-                  }`}
-                  aria-hidden="true"
-                >
-                  {step.state === 'done' ? '✓' : step.state === 'current' ? '●' : index + 1}
+                <span className="rail-dot" data-state={step.state === 'done' ? 'done' : step.state === 'current' ? 'active' : undefined} aria-hidden="true">
+                  {step.state === 'done' ? <TrackCheckGlyph /> : index + 1}
                 </span>
                 <span
-                  className={`text-caption ${step.state === 'upcoming' ? 'text-muted' : 'text-ink'} ${step.state === 'current' ? 'font-semibold' : ''}`}
+                  className={`max-w-16 text-caption ${step.state === 'upcoming' ? 'text-muted' : 'text-ink'} ${step.state === 'current' ? 'font-semibold' : ''}`}
                 >
                   {t(step.key as 'stepOrdered')}
                 </span>
               </span>
               {index < steps.length - 1 ? (
-                <span
-                  aria-hidden="true"
-                  className={`mx-1 h-0.5 flex-1 rounded ${step.state === 'done' ? 'bg-gold' : 'bg-cream-2'}`}
-                />
+                <span aria-hidden="true" className="rail-line-h" data-state={step.state === 'done' ? 'done' : undefined} />
               ) : null}
             </li>
           ))}
@@ -230,7 +218,7 @@ export default async function TrackOrderPage({
       {/* [1.1] עוגן ה-Claim הבטוח: הטוקן שבידי הלקוח מוכיח את הזמנת
           המקור — ההצעה לחשבון עוברת אותו הלאה (תרשים 18) */}
       {flags.accountsEnabled && !order.user_id && !cancelled ? (
-        <div className="mt-8 rounded-[var(--radius-lg)] border border-gold/40 bg-gold/10 px-6 py-5 text-center">
+        <div className="accent-panel mt-8 px-6 py-5 text-center">
           <p className="font-serif text-h3 text-ink">{t('accountOfferTitle')}</p>
           <p className="mt-1.5 text-small text-muted">{t('accountOfferBody')}</p>
           <Link href={`/account/login?claim=${token}`} className="btn btn-solid mt-4 inline-block">
@@ -245,5 +233,13 @@ export default async function TrackOrderPage({
         </p>
       ) : null}
     </Container>
+  );
+}
+
+function TrackCheckGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3.2 8.4 3.1 3.1L12.8 5" />
+    </svg>
   );
 }

@@ -100,7 +100,7 @@ export function ContactBlock({
               onChange={(e) => setValues((v) => ({ ...v, phone: e.target.value }))}
               aria-invalid={errors.phone ? true : undefined}
               aria-describedby={errors.phone ? 'checkout-phone-error' : undefined}
-              className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+              className="commerce-field"
             />
           }
         />
@@ -118,7 +118,7 @@ export function ContactBlock({
               onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
               aria-invalid={errors.name ? true : undefined}
               aria-describedby={errors.name ? 'checkout-name-error' : undefined}
-              className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+              className="commerce-field"
             />
           }
         />
@@ -139,7 +139,7 @@ export function ContactBlock({
               onChange={(e) => setValues((v) => ({ ...v, email: e.target.value }))}
               aria-invalid={errors.email ? true : undefined}
               aria-describedby={errors.email ? 'checkout-email-error' : 'checkout-email-hint'}
-              className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+              className="commerce-field"
             />
           }
         />

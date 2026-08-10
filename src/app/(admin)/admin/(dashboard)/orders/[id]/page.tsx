@@ -95,6 +95,14 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     .filter((p) => p.kind === 'refund' && p.status === 'succeeded')
     .reduce((sum, p) => sum + Number(p.amount), 0);
 
+  // [1.7] כרטיסים משניים נפתחים כברירת מחדל רק כשיש בהם משהו שדורש
+  // תשומת לב עכשיו — לא "הכל תמיד פתוח" (גלילה ארוכה) ולא "הכל תמיד
+  // סגור" (מסתיר בעיה אמיתית). זו הדינמיות שנדרשה: הפתיחה נגזרת ממצב
+  // ההזמנה, לא קבועה.
+  const paymentsNeedAttention =
+    ['pending', 'failed'].includes(order.payment_state) ||
+    ['not_created', 'failed'].includes(order.document_state);
+
   // [1.5] "כפתור הדפסה אחד לא מספיק" — כל מסמכי ההזמנה במקום אחד.
   // הרשאה כמו שאר העמוד: מסמכים עם מחיר דורשים store (canSeeMoney),
   // ליקוט/משלוח מספיקים ב-store_view (כמו canPick).
@@ -255,10 +263,18 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             ) : null}
           </section>
 
-          {/* תשלומים ומסמכים — כספי, למי שיכול לראות סכומים בלבד */}
+          {/* תשלומים ומסמכים — כספי, למי שיכול לראות סכומים בלבד. נפתח
+              מאליו כשיש בעיה (תשלום תקוע/מסמך שנכשל) — אחרת מתקפל. */}
           {canSeeMoney ? (
-          <section className="admin-card px-5 py-4">
-            <h2 className="mb-3 text-small font-bold text-ink">תשלומים ומסמכים</h2>
+          <details className="admin-card admin-disclosure" open={paymentsNeedAttention}>
+            <summary className="admin-disclosure-summary">
+              <span className="flex items-center gap-2">
+                תשלומים ומסמכים
+                {paymentsNeedAttention ? <span className="admin-badge admin-badge-warning">דורש תשומת לב</span> : null}
+              </span>
+              <AdminChevron />
+            </summary>
+            <div className="admin-disclosure-body">
             {payments.length === 0 ? (
               <p className="text-small text-muted">אין ניסיונות תשלום.</p>
             ) : (
@@ -299,13 +315,18 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 ))}
               </ul>
             ) : null}
-          </section>
+            </div>
+          </details>
           ) : null}
 
-          {/* הודעות שנשלחו */}
+          {/* הודעות שנשלחו — יומן, לא פעולה: מתקפל תמיד כברירת מחדל */}
           {canSeeMoney ? (
-          <section className="admin-card px-5 py-4">
-            <h2 className="mb-3 text-small font-bold text-ink">הודעות ללקוח</h2>
+          <details className="admin-card admin-disclosure">
+            <summary className="admin-disclosure-summary">
+              הודעות ללקוח
+              <AdminChevron />
+            </summary>
+            <div className="admin-disclosure-body">
             {notifications.length === 0 ? (
               <p className="text-small text-muted">טרם נשלחו הודעות.</p>
             ) : (
@@ -322,12 +343,17 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 ))}
               </ul>
             )}
-          </section>
+            </div>
+          </details>
           ) : null}
 
-          {/* ציר זמן */}
-          <section className="admin-card px-5 py-4">
-            <h2 className="mb-3 text-small font-bold text-ink">ציר זמן</h2>
+          {/* ציר זמן — יומן מלא, מתקפל כברירת מחדל */}
+          <details className="admin-card admin-disclosure">
+            <summary className="admin-disclosure-summary">
+              ציר זמן
+              <AdminChevron />
+            </summary>
+            <div className="admin-disclosure-body">
             <ol className="space-y-2.5 text-small">
               {events.map((event) => (
                 <li key={event.id} className="flex flex-wrap items-baseline gap-2">
@@ -355,28 +381,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 </li>
               ))}
             </ol>
-          </section>
+            </div>
+          </details>
         </div>
 
         {canPick ? (
           <div className="space-y-5">
-          <PickingPanel
-            orderId={order.id}
-            items={items.map((item) => ({
-              id: item.id,
-              title: item.title_snapshot ?? '',
-              quantity: item.quantity,
-              picked: item.picked_quantity,
-            }))}
-            packingNote={order.packing_note}
-            canEdit={canEdit}
-            canDiscount={isAdmin}
-            editable={
-              ['pending', 'failed'].includes(order.payment_state) &&
-              ['unfulfilled', 'preparing'].includes(order.fulfillment_state)
-            }
-            staffDiscount={Number(order.staff_discount ?? 0)}
-          />
           {canEdit ? (
             <OrderActionsPanel
               order={{
@@ -400,6 +410,23 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               isAdmin={isAdmin}
             />
           ) : null}
+          <PickingPanel
+            orderId={order.id}
+            items={items.map((item) => ({
+              id: item.id,
+              title: item.title_snapshot ?? '',
+              quantity: item.quantity,
+              picked: item.picked_quantity,
+            }))}
+            packingNote={order.packing_note}
+            canEdit={canEdit}
+            canDiscount={isAdmin}
+            editable={
+              ['pending', 'failed'].includes(order.payment_state) &&
+              ['unfulfilled', 'preparing'].includes(order.fulfillment_state)
+            }
+            staffDiscount={Number(order.staff_discount ?? 0)}
+          />
           {canEdit ? (
             <ServiceRequestsPanel
               orderId={order.id}
@@ -417,6 +444,14 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         ) : null}
       </div>
     </>
+  );
+}
+
+function AdminChevron() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="admin-disclosure-chevron h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m5 8 7 7 7-7" />
+    </svg>
   );
 }
 

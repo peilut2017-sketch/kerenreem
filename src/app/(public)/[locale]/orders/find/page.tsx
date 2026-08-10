@@ -25,7 +25,7 @@ export default async function FindOrderPage({ params }: { params: Promise<{ loca
   const t = await getTranslations('store');
 
   return (
-    <Container className="max-w-md py-16 lg:py-24">
+    <Container className="commerce-flow max-w-md py-16 lg:py-24">
       <h1 className="text-center font-serif text-[clamp(1.6rem,3.4vw,2.2rem)] text-ink">
         {t('findOrderTitle')}
       </h1>

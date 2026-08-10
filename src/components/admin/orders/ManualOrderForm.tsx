@@ -220,7 +220,7 @@ export function ManualOrderForm({
                       <span className="min-w-0 truncate text-ink">
                         {book.title}
                         {book.originalPrice != null ? (
-                          <span className="ms-1.5 rounded-[var(--radius-pill)] bg-[var(--admin-warning-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--admin-warning)]">
+                          <span className="ms-1.5 rounded-[var(--admin-radius-chip)] bg-[var(--admin-warning-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--admin-warning)]">
                             מבצע
                           </span>
                         ) : null}
@@ -251,7 +251,7 @@ export function ManualOrderForm({
                     <span className="min-w-0 flex-1 truncate text-ink">
                       {book.title}
                       {book.originalPrice != null ? (
-                        <span className="ms-1.5 rounded-[var(--radius-pill)] bg-[var(--admin-warning-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--admin-warning)]">
+                        <span className="ms-1.5 rounded-[var(--admin-radius-chip)] bg-[var(--admin-warning-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--admin-warning)]">
                           מבצע
                         </span>
                       ) : null}

@@ -38,7 +38,12 @@ export function FreeShippingBar({ view }: { view: CartViewModel }) {
 
   return (
     <div>
-      <p className="text-caption text-ink-soft" aria-live="polite">
+      <p className="flex items-center gap-1.5 text-caption text-ink-soft" aria-live="polite">
+        {achieved ? (
+          <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-gold-deep" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m3.2 8.4 3.1 3.1L12.8 5" />
+          </svg>
+        ) : null}
         {achieved
           ? t('freeShippingAchieved')
           : remaining != null

@@ -44,26 +44,15 @@ interface GroupEntry extends NavAccess {
 type NavEntry = LinkEntry | GroupEntry;
 
 /**
- * "ספרים" = הקטלוג; "חנות" = כל מערכת המסחר, כולל הגדרות החנות (עברו
- * לכאן מקבוצת הספרים — דרישת בעל האתר בסבב 1.1: "הגדרות חנות תחת טאב
- * חנות"). "צוות והרשאות" — מסך 15, מנהל-על בלבד.
+ * "חנות" = כל מערכת המסחר, כולל הגדרות החנות (עברו לכאן מקבוצת הספרים
+ * — דרישת בעל האתר בסבב 1.1: "הגדרות חנות תחת טאב חנות"). "ספרים" =
+ * הקטלוג. [1.7] "חנות" מוצגת ראשונה, לפני "ספרים": הזמנה שממתינה
+ * לטיפול היא דחופה בזמן בצורה שעדכון קטלוג אינו — הסדר במגירת הניווט
+ * משקף סדר עדיפויות תפעולי, לא סדר בנייה היסטורי. "צוות והרשאות" —
+ * מסך 15, מנהל-על בלבד.
  */
 const ITEMS: NavEntry[] = [
   { type: 'link', href: '/admin', label: 'דשבורד', icon: 'dashboard', minRole: 'viewer', perm: 'store_view' },
-  {
-    type: 'group',
-    label: 'ספרים',
-    icon: 'books',
-    // ללא שער עצמי — הקבוצה מוצגת אם ולו פריט אחד בתוכה גלוי (ראו visible למטה)
-    items: [
-      { href: '/admin/books', label: 'כל הספרים', icon: 'books', screen: 'books' },
-      { href: '/admin/authors', label: 'מחברים', icon: 'authors', screen: 'authors' },
-      { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', screen: 'categories' },
-      { href: '/admin/series', label: 'סדרות', icon: 'series', screen: 'series' },
-      { href: '/admin/tags', label: 'תגיות', icon: 'tags', screen: 'tags' },
-      { href: '/admin/books/homepage-shelf', label: 'מדף בעמוד הבית', icon: 'settings', screen: 'homepage-shelf' },
-    ],
-  },
   {
     type: 'group',
     label: 'חנות',
@@ -77,6 +66,20 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/books/sale-prices', label: 'מחירי מבצע', icon: 'coupon', screen: 'sale-prices' },
       { href: '/admin/reports', label: 'דוחות ורווחיות', icon: 'finance', screen: 'reports' },
       { href: '/admin/books/settings', label: 'הגדרות חנות', icon: 'settings', screen: 'store-settings' },
+    ],
+  },
+  {
+    type: 'group',
+    label: 'ספרים',
+    icon: 'books',
+    // ללא שער עצמי — הקבוצה מוצגת אם ולו פריט אחד בתוכה גלוי (ראו visible למטה)
+    items: [
+      { href: '/admin/books', label: 'כל הספרים', icon: 'books', screen: 'books' },
+      { href: '/admin/authors', label: 'מחברים', icon: 'authors', screen: 'authors' },
+      { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', screen: 'categories' },
+      { href: '/admin/series', label: 'סדרות', icon: 'series', screen: 'series' },
+      { href: '/admin/tags', label: 'תגיות', icon: 'tags', screen: 'tags' },
+      { href: '/admin/books/homepage-shelf', label: 'מדף בעמוד הבית', icon: 'settings', screen: 'homepage-shelf' },
     ],
   },
   { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', screen: 'banners' },

@@ -80,9 +80,6 @@ export function ReviewBlock({
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState(false);
 
-  const inputCls =
-    'w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60';
-
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!termsAccepted) {
@@ -107,6 +104,7 @@ export function ReviewBlock({
       open={open}
       done={false}
       reachable={reachable}
+      isLast
       onOpen={onOpen}
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
@@ -164,7 +162,7 @@ export function ReviewBlock({
                     onChange={(e) => setCouponInput(e.target.value)}
                     aria-invalid={couponError ? true : undefined}
                     aria-describedby={couponError ? 'coupon-error' : undefined}
-                    className={inputCls}
+                    className="commerce-field"
                   />
                 </div>
                 <button
@@ -213,13 +211,12 @@ export function ReviewBlock({
 
         {/* מתנה — progressive disclosure */}
         <div>
-          <label className="flex cursor-pointer items-center gap-2.5 text-small text-ink">
-            <input
-              type="checkbox"
-              checked={isGift}
-              onChange={(e) => setIsGift(e.target.checked)}
-              className="h-4 w-4 accent-[var(--color-burgundy)]"
-            />
+          <label className="flex cursor-pointer items-center gap-3 text-small font-semibold text-ink">
+            <span className="switch">
+              <input type="checkbox" checked={isGift} onChange={(e) => setIsGift(e.target.checked)} />
+              <span className="switch-track" aria-hidden="true" />
+              <span className="switch-thumb" aria-hidden="true" />
+            </span>
             {t('giftToggle')}
           </label>
           {isGift ? (
@@ -228,14 +225,14 @@ export function ReviewBlock({
                 id="gift-recipient"
                 label={t('giftRecipientName')}
                 input={
-                  <input id="gift-recipient" type="text" value={giftRecipientName} onChange={(e) => setGiftRecipientName(e.target.value)} className={inputCls} />
+                  <input id="gift-recipient" type="text" value={giftRecipientName} onChange={(e) => setGiftRecipientName(e.target.value)} className="commerce-field" />
                 }
               />
               <Field
                 id="gift-message"
                 label={t('giftMessage')}
                 input={
-                  <textarea id="gift-message" rows={3} maxLength={300} value={giftMessage} onChange={(e) => setGiftMessage(e.target.value)} className={inputCls} />
+                  <textarea id="gift-message" rows={3} maxLength={300} value={giftMessage} onChange={(e) => setGiftMessage(e.target.value)} className="commerce-field" />
                 }
               />
               <label className="flex cursor-pointer items-center gap-2.5 text-small text-ink">
@@ -243,7 +240,6 @@ export function ReviewBlock({
                   type="checkbox"
                   checked={giftHidePrices}
                   onChange={(e) => setGiftHidePrices(e.target.checked)}
-                  className="h-4 w-4 accent-[var(--color-burgundy)]"
                 />
                 {t('giftHidePrices')}
               </label>
@@ -252,28 +248,27 @@ export function ReviewBlock({
           ) : null}
         </div>
 
-        {/* ערוץ נייד — ריק כברירת מחדל, בחירה יזומה */}
+        {/* ערוץ נייד — ריק כברירת מחדל, בחירה יזומה; זוג צ'יפים בררים
+            (לא checkbox זוגי) כי הבחירה יחידה עם אפשרות ביטול */}
         <fieldset>
           <legend className="text-small font-semibold text-ink">{t('notifyPrompt')}</legend>
-          <div className="mt-2 flex gap-4">
-            <label className="flex cursor-pointer items-center gap-2 text-small text-ink-soft">
-              <input
-                type="checkbox"
-                checked={notifyChannel === 'sms'}
-                onChange={(e) => setNotifyChannel(e.target.checked ? 'sms' : null)}
-                className="h-4 w-4 accent-[var(--color-burgundy)]"
-              />
+          <div className="seg-toggle-group mt-2">
+            <button
+              type="button"
+              aria-pressed={notifyChannel === 'sms'}
+              onClick={() => setNotifyChannel(notifyChannel === 'sms' ? null : 'sms')}
+              className="seg-toggle"
+            >
               {t('notifySms')}
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-small text-ink-soft">
-              <input
-                type="checkbox"
-                checked={notifyChannel === 'whatsapp'}
-                onChange={(e) => setNotifyChannel(e.target.checked ? 'whatsapp' : null)}
-                className="h-4 w-4 accent-[var(--color-burgundy)]"
-              />
+            </button>
+            <button
+              type="button"
+              aria-pressed={notifyChannel === 'whatsapp'}
+              onClick={() => setNotifyChannel(notifyChannel === 'whatsapp' ? null : 'whatsapp')}
+              className="seg-toggle"
+            >
               {t('notifyWhatsapp')}
-            </label>
+            </button>
           </div>
         </fieldset>
 
@@ -290,7 +285,7 @@ export function ReviewBlock({
               onChange={(e) => setTermsAccepted(e.target.checked)}
               aria-invalid={termsError ? true : undefined}
               aria-describedby={termsError ? 'terms-error' : undefined}
-              className="mt-0.5 h-4 w-4 accent-[var(--color-burgundy)]"
+              className="mt-0.5"
             />
             <span>
               {t('termsPrefix')}

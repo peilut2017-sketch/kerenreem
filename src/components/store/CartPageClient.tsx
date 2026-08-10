@@ -62,7 +62,7 @@ export function CartPageClient() {
     <div className="mt-8 grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_22rem]">
       <div>
         {changes.length > 0 ? (
-          <div role="status" className="mb-6 rounded-[var(--radius-md)] border border-gold/40 bg-gold/10 px-4 py-3 text-small text-ink">
+          <div role="status" className="accent-panel mb-6 px-4 py-3 text-small text-ink">
             <ul className="space-y-1">
               {changes.map((change) => (
                 <li key={`${change.bookId}-${change.kind}`}>
@@ -85,7 +85,7 @@ export function CartPageClient() {
           {lines.map((line) => (
             <li
               key={line.bookId}
-              className="group flex gap-4 rounded-[var(--radius-lg)] border border-rule/70 bg-cream px-4 py-4 shadow-[var(--shadow-soft)] transition-shadow duration-300 hover:shadow-[var(--shadow-float)] sm:px-5"
+              className="group flex gap-4 rounded-[var(--radius-lg)] border border-rule/70 bg-cream px-4 py-4 shadow-[var(--shadow-soft)] transition-colors duration-200 hover:border-ink-soft/50 sm:px-5"
             >
               <Link href={`/books/${line.slug}`} className="w-20 shrink-0 self-start">
                 <BookCover src={line.coverImageUrl} title={line.title} alt="" sizes="80px" />
@@ -341,7 +341,7 @@ function CartCouponField({
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder={t('coupon')}
-            className="min-w-0 flex-1 rounded-[var(--radius-md)] border border-rule bg-white/70 px-3 py-2 text-small uppercase tracking-wide text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+            className="commerce-field min-w-0 flex-1 uppercase tracking-wide"
           />
           <button type="submit" className="btn btn-quiet shrink-0 px-4 py-2 text-small">
             {t('couponApply')}

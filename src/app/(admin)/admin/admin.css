@@ -3,10 +3,10 @@
    --------------------------------------------------------------------------
    קובץ נפרד מ-globals.css, נטען רק מתוך ה-root layout של /admin ולעולם
    לא מהאתר הציבורי — כך שהרענון כאן לא יכול לדלוף ולשנות את מראה האתר
-   החי. הממשק הזה הוא כלי עבודה פנימי ולא נכס מיתוגי, ולכן חופשי מהכללים
-   המצמצמים של זהות המכון (הזהב כקו בלבד וכו'); שני גווני הסטטוס החדשים
-   (הצלחה/אזהרה) הם משמעויות אוניברסליות של ממשקי ניהול ולא חלק ממיתוג
-   האתר, ולכן נוספים רק כאן.
+   החי. שני גווני הסטטוס האוניברסליים (הצלחה/אזהרה) אינם חלק ממיתוג
+   האתר ולכן נוספים רק כאן — אבל צבע המבטא עצמו (admin-accent) **כן**
+   נשען על זהות המכון: דיו וזהב, לא אינדיגו. ביקורת המימוש (ד.1) ציינה
+   בפירוש שהאינדיגו הישן ניתק את הממשק מזהות המכון; התיקון כאן.
 
    בכוונה בלי @theme: הקובץ הזה אינו מתחיל הקשר Tailwind משלו (אין בו
    ‎@import 'tailwindcss'), ולכן משתני עיצוב מוגדרים כאן כמשתני CSS רגילים
@@ -14,8 +14,8 @@
    ========================================================================== */
 
 :root {
-  --admin-accent: #4338ca;
-  --admin-accent-soft: #eef2ff;
+  --admin-accent: var(--color-gold-deep);
+  --admin-accent-soft: color-mix(in srgb, var(--color-gold) 14%, #fff);
   --admin-success: #15803d;
   --admin-success-soft: #ecfdf5;
   --admin-warning: #b45309;
@@ -23,8 +23,10 @@
   --admin-danger: #b91c1c;
   --admin-danger-soft: #fef2f2;
   --admin-border: color-mix(in srgb, var(--color-rule) 70%, transparent);
-  --admin-radius-card: 1.25rem;
-  --admin-radius-btn: 0.75rem;
+  /* [2026] סולם רדיוס צנוע — כרטיסים ושדות קרובים, לא עיגולים גדולים */
+  --admin-radius-card: 0.875rem;
+  --admin-radius-btn: 0.625rem;
+  --admin-radius-chip: 0.375rem;
   --admin-shadow: 0 1px 2px rgb(20 18 15 / 0.03), 0 10px 24px -18px rgb(20 18 15 / 0.12);
   --admin-shadow-hover: 0 2px 6px rgb(20 18 15 / 0.05), 0 22px 44px -18px rgb(20 18 15 / 0.18);
   /* [1.1] קנבס בהיר ואוורירי: המשטחים לבנים על רקע נייר עדין — פחות
@@ -42,7 +44,7 @@
     box-shadow: var(--admin-shadow);
   }
 
-  /* --- כפתורים: פיל, עם משבצת לאייקון, הגבהה עדינה במגע --- */
+  /* --- כפתורים: מלבן עדין, עם משבצת לאייקון, לחיצה פיזית --- */
   .admin-btn {
     display: inline-flex;
     align-items: center;
@@ -52,7 +54,7 @@
     font-weight: 600;
     line-height: 1;
     padding: 0.7rem 1.2rem;
-    border-radius: var(--radius-pill);
+    border-radius: var(--admin-radius-btn);
     border: 1px solid transparent;
     white-space: nowrap;
     transition:
@@ -100,13 +102,13 @@
 
   .admin-btn-icon { padding: 0.55rem; }
 
-  /* --- תגי סטטוס: פיל עם נקודה, לא רק צבע טקסט --- */
+  /* --- תגי סטטוס: מלבן עדין עם נקודה, לא רק צבע טקסט --- */
   .admin-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
     padding: 0.3rem 0.75rem;
-    border-radius: var(--radius-pill);
+    border-radius: var(--admin-radius-chip);
     font-size: 0.75rem;
     font-weight: 600;
     white-space: nowrap;
@@ -214,7 +216,7 @@
   .admin-table tbody tr { transition: background-color 150ms ease; }
   .admin-table tbody tr:hover { background: color-mix(in srgb, var(--admin-accent) 3.5%, var(--admin-surface)); }
 
-  /* --- ניווט: קפסולה לבנה צפה, קלה --- */
+  /* --- ניווט: סרגל מלבני מחובר, לא קפסולת-פיל --- */
   .admin-nav-shell {
     display: inline-flex;
     align-items: center;
@@ -222,7 +224,7 @@
     padding: 0.3rem;
     background: var(--admin-surface);
     border: 1px solid var(--admin-border);
-    border-radius: var(--radius-pill);
+    border-radius: 0.75rem;
     box-shadow: var(--admin-shadow);
   }
   .admin-nav-link {
@@ -230,7 +232,7 @@
     align-items: center;
     gap: 0.4rem;
     padding: 0.55rem 1rem;
-    border-radius: var(--radius-pill);
+    border-radius: 0.5rem;
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--color-ink-soft);
@@ -251,7 +253,7 @@
     padding: 0.4rem;
     background: var(--color-cream);
     border: 1px solid var(--admin-border);
-    border-radius: 1rem;
+    border-radius: 0.75rem;
     box-shadow: var(--admin-shadow-hover);
     z-index: 30;
   }
@@ -260,7 +262,7 @@
     align-items: center;
     gap: 0.65rem;
     padding: 0.65rem 0.8rem;
-    border-radius: 0.65rem;
+    border-radius: 0.5rem;
     font-size: 0.8125rem;
     color: var(--color-ink);
     transition: background-color 150ms ease, color 150ms ease;
@@ -279,12 +281,49 @@
     padding: 1.15rem 1.3rem;
     background: var(--admin-surface);
     border: 1px solid var(--admin-border);
-    border-radius: 1.1rem;
-    transition: box-shadow 220ms ease, transform 220ms ease, border-color 220ms ease;
+    border-radius: var(--admin-radius-card);
+    transition: border-color 200ms ease;
   }
-  .admin-stat:hover {
-    box-shadow: var(--admin-shadow-hover);
-    transform: translateY(-2px);
-    border-color: color-mix(in srgb, var(--admin-accent) 45%, transparent);
+  .admin-stat:hover { border-color: color-mix(in srgb, var(--admin-accent) 45%, transparent); }
+
+  /* --- כרטיס נפתח (details/summary): מחליף קירות-כפתורים ופאנלים
+         תמיד-פתוחים בעמוד ההזמנה — כל מקטע משני מתקפל, פתוח כברירת
+         מחדל רק כשהוא הכי רלוונטי לתפקיד הצופה. --- */
+  .admin-disclosure { overflow: hidden; }
+  .admin-disclosure-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    cursor: pointer;
+    list-style: none;
+    padding: 1rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    transition: background-color 150ms ease;
   }
+  .admin-disclosure-summary::-webkit-details-marker { display: none; }
+  .admin-disclosure-summary:hover { background-color: var(--color-cream-2); }
+  .admin-disclosure-summary:focus-visible { outline: 2px solid var(--admin-accent); outline-offset: -2px; }
+  .admin-disclosure-chevron { color: var(--color-muted); transition: transform 200ms ease; flex-shrink: 0; }
+  details[open] > .admin-disclosure-summary .admin-disclosure-chevron { transform: rotate(180deg); }
+  .admin-disclosure-body { padding: 0 1.25rem 1.25rem; border-top: 1px solid var(--admin-border); padding-top: 1rem; margin-top: -1px; }
+
+  /* --- בקרה מפולחת (segmented): תצוגות שמורות, לשוניות קצרות — קישורים
+         מחוברים ולא צ'יפים צפים, כי הבחירה ביניהם היא בלעדית. --- */
+  .admin-seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--admin-border); border-radius: 0.625rem; overflow: hidden; }
+  .admin-seg-item {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-ink-soft);
+    background: var(--admin-surface);
+    border-inline-start: 1px solid var(--admin-border);
+    white-space: nowrap;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .admin-seg-item:first-child { border-inline-start: none; }
+  .admin-seg-item:hover { background: var(--color-cream-2); }
+  .admin-seg-item[aria-current='true'] { background: var(--color-ink); color: var(--color-cream); }
 }

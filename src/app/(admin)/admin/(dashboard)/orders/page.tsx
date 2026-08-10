@@ -49,11 +49,11 @@ export default async function AdminOrdersPage({
         ]}
       />
 
-      {/* תצוגות שמורות */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        <ViewChip href="/admin/orders" label="הכל" active={!filter.view && !filter.state && !filter.payment && !filter.fulfillment} />
+      {/* תצוגות שמורות — בקרה מפולחת אחת, לא צ'יפים צפים: הבחירה ביניהן בלעדית */}
+      <div className="admin-seg mb-4">
+        <SegLink href="/admin/orders" label="הכל" active={!filter.view && !filter.state && !filter.payment && !filter.fulfillment} />
         {Object.entries(SAVED_VIEWS).map(([key, view]) => (
-          <ViewChip key={key} href={savedViewHref(key)} label={view.label} active={activeView === key} />
+          <SegLink key={key} href={savedViewHref(key)} label={view.label} active={activeView === key} />
         ))}
       </div>
 
@@ -108,17 +108,9 @@ export default async function AdminOrdersPage({
   );
 }
 
-function ViewChip({ href, label, active }: { href: string; label: string; active: boolean }) {
+function SegLink({ href, label, active }: { href: string; label: string; active: boolean }) {
   return (
-    <Link
-      href={href}
-      aria-current={active ? 'true' : undefined}
-      className={`rounded-[var(--radius-pill)] px-3 py-1.5 text-caption transition-colors ${
-        active
-          ? 'bg-[var(--admin-accent)] text-white'
-          : 'bg-cream-2 text-ink-soft hover:bg-cream-3'
-      }`}
-    >
+    <Link href={href} aria-current={active ? 'true' : undefined} className="admin-seg-item">
       {label}
     </Link>
   );

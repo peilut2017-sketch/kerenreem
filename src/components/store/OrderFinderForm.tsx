@@ -47,7 +47,7 @@ export function OrderFinderForm() {
           required
           value={orderNumber}
           onChange={(e) => setOrderNumber(e.target.value)}
-          className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+          className="commerce-field"
         />
       </div>
       <div>
@@ -61,7 +61,7 @@ export function OrderFinderForm() {
           required
           value={contact}
           onChange={(e) => setContact(e.target.value)}
-          className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+          className="commerce-field"
         />
       </div>
       {state === 'notFound' ? (

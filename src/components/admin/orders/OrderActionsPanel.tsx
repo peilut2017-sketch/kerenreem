@@ -363,31 +363,6 @@ export function OrderActionsPanel({
           </div>
         ) : null}
 
-        {/* [1.3] מחיקת הזמנה — רק ללא תשלום/מסמך; בלתי הפיכה, אישור כפול */}
-        {isAdmin && !['paid', 'partially_refunded', 'refunded'].includes(order.paymentState) ? (
-          <div className="mb-4 border-t border-rule pt-3">
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (!window.confirm('למחוק את ההזמנה לצמיתות? הפעולה בלתי הפיכה.')) return;
-                if (!window.confirm('אישור אחרון: ההזמנה, פריטיה וההיסטוריה שלה יימחקו סופית.')) return;
-                startTransition(async () => {
-                  const result = await deleteOrder(order.id);
-                  if (result.ok) {
-                    router.push('/admin/orders');
-                  } else {
-                    setMessage({ text: result.error ?? 'המחיקה נכשלה', ok: false });
-                  }
-                });
-              }}
-              className="admin-btn admin-btn-danger w-full"
-            >
-              מחיקת ההזמנה לצמיתות
-            </button>
-          </div>
-        ) : null}
-
         {/* [1.1] עלות המשלוח בפועל — מזינה את דוח פער המשלוח (17.14) */}
         {isAdmin ? (
           <div className="mb-2 space-y-2 border-t border-rule pt-3">
@@ -421,57 +396,102 @@ export function OrderActionsPanel({
             </div>
           </div>
         ) : null}
-      </section>
 
-      {/* הערה פנימית */}
-      <section className="admin-card px-5 py-4">
-        <h2 className="mb-2 text-small font-bold text-ink">הערה פנימית</h2>
-        <textarea
-          rows={2}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          className="admin-field-input"
-        />
-        <button
-          type="button"
-          disabled={pending || !note.trim()}
-          onClick={() =>
-            run(async () => {
-              const result = await addOrderNote(order.id, note);
-              if (result.ok) setNote('');
-              return result;
-            })
-          }
-          className="admin-btn admin-btn-quiet mt-2"
-        >
-          הוספה לציר הזמן
-        </button>
-      </section>
-
-      {/* שליחה חוזרת של מיילים */}
-      <section className="admin-card px-5 py-4">
-        <h2 className="mb-2 text-small font-bold text-ink">שליחה חוזרת של מייל</h2>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['order_confirmation', 'אישור הזמנה'],
-              ['payment_received', 'אישור תשלום'],
-              ['shipped', 'נשלח'],
-              ['ready_for_pickup', 'מוכן לאיסוף'],
-            ] as const
-          ).map(([template, label]) => (
+        {/* [1.3] מחיקת הזמנה — רק ללא תשלום/מסמך; בלתי הפיכה, אישור כפול.
+            בכוונה בתחתית הכרטיס: הפעולה המסוכנת ביותר רחוקה ביד מהפעולות
+            השוטפות שמעליה. */}
+        {isAdmin && !['paid', 'partially_refunded', 'refunded'].includes(order.paymentState) ? (
+          <div className="mt-2 border-t border-rule pt-3">
             <button
-              key={template}
               type="button"
               disabled={pending}
-              onClick={() => run(() => resendOrderEmail(order.id, template))}
-              className="admin-btn admin-btn-ghost"
+              onClick={() => {
+                if (!window.confirm('למחוק את ההזמנה לצמיתות? הפעולה בלתי הפיכה.')) return;
+                if (!window.confirm('אישור אחרון: ההזמנה, פריטיה וההיסטוריה שלה יימחקו סופית.')) return;
+                startTransition(async () => {
+                  const result = await deleteOrder(order.id);
+                  if (result.ok) {
+                    router.push('/admin/orders');
+                  } else {
+                    setMessage({ text: result.error ?? 'המחיקה נכשלה', ok: false });
+                  }
+                });
+              }}
+              className="admin-btn admin-btn-danger w-full"
             >
-              {label}
+              מחיקת ההזמנה לצמיתות
             </button>
-          ))}
-        </div>
+          </div>
+        ) : null}
       </section>
+
+      {/* הערה פנימית — כרטיס נפתח: לא בשימוש בכל ביקור בעמוד */}
+      <details className="admin-card admin-disclosure">
+        <summary className="admin-disclosure-summary">
+          הערה פנימית
+          <AdminDisclosureChevron />
+        </summary>
+        <div className="admin-disclosure-body">
+          <textarea
+            rows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="admin-field-input"
+          />
+          <button
+            type="button"
+            disabled={pending || !note.trim()}
+            onClick={() =>
+              run(async () => {
+                const result = await addOrderNote(order.id, note);
+                if (result.ok) setNote('');
+                return result;
+              })
+            }
+            className="admin-btn admin-btn-quiet mt-2"
+          >
+            הוספה לציר הזמן
+          </button>
+        </div>
+      </details>
+
+      {/* שליחה חוזרת של מיילים — כרטיס נפתח: שחזור ידני נדיר */}
+      <details className="admin-card admin-disclosure">
+        <summary className="admin-disclosure-summary">
+          שליחה חוזרת של מייל
+          <AdminDisclosureChevron />
+        </summary>
+        <div className="admin-disclosure-body">
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ['order_confirmation', 'אישור הזמנה'],
+                ['payment_received', 'אישור תשלום'],
+                ['shipped', 'נשלח'],
+                ['ready_for_pickup', 'מוכן לאיסוף'],
+              ] as const
+            ).map(([template, label]) => (
+              <button
+                key={template}
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => resendOrderEmail(order.id, template))}
+                className="admin-btn admin-btn-ghost"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </details>
     </aside>
+  );
+}
+
+function AdminDisclosureChevron() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="admin-disclosure-chevron h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m5 8 7 7 7-7" />
+    </svg>
   );
 }

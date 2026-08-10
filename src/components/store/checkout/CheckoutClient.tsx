@@ -311,7 +311,7 @@ export function CheckoutClient() {
 
   return (
     <div className="mx-auto mt-8 grid max-w-5xl grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_20rem]">
-      <div className="space-y-4">
+      <div className="space-y-5">
         <p className="text-small text-muted">
           <Link href="/cart" className="hover:text-burgundy">
             ← {t('backToCart')}
@@ -329,54 +329,56 @@ export function CheckoutClient() {
           />
         ) : null}
 
-        <ContactBlock
-          open={openBlock === 'contact'}
-          done={contactDone}
-          initial={{
-            phone: bootstrap.session?.contact_phone ?? '',
-            name: bootstrap.session?.contact_name ?? '',
-            email: bootstrap.session?.contact_email ?? '',
-          }}
-          supportPhone={bootstrap.supportPhone}
-          onOpen={() => setOpenBlock('contact')}
-          onSubmit={submitContact}
-        />
+        <ol className="rail">
+          <ContactBlock
+            open={openBlock === 'contact'}
+            done={contactDone}
+            initial={{
+              phone: bootstrap.session?.contact_phone ?? '',
+              name: bootstrap.session?.contact_name ?? '',
+              email: bootstrap.session?.contact_email ?? '',
+            }}
+            supportPhone={bootstrap.supportPhone}
+            onOpen={() => setOpenBlock('contact')}
+            onSubmit={submitContact}
+          />
 
-        <FulfillmentBlock
-          open={openBlock === 'fulfillment'}
-          done={fulfillmentDone}
-          reachable={contactDone}
-          methods={bootstrap.methods}
-          pickup={bootstrap.pickup}
-          initialMethodId={bootstrap.session?.fulfillment?.method_id ?? null}
-          initialAddress={bootstrap.session?.fulfillment?.address ?? {}}
-          onOpen={() => contactDone && setOpenBlock('fulfillment')}
-          onSubmit={submitFulfillment}
-        />
+          <FulfillmentBlock
+            open={openBlock === 'fulfillment'}
+            done={fulfillmentDone}
+            reachable={contactDone}
+            methods={bootstrap.methods}
+            pickup={bootstrap.pickup}
+            initialMethodId={bootstrap.session?.fulfillment?.method_id ?? null}
+            initialAddress={bootstrap.session?.fulfillment?.address ?? {}}
+            onOpen={() => contactDone && setOpenBlock('fulfillment')}
+            onSubmit={submitFulfillment}
+          />
 
-        <ReviewBlock
-          open={openBlock === 'review'}
-          reachable={contactDone && fulfillmentDone}
-          paymentsEnabled={bootstrap.paymentsEnabled}
-          couponsEnabled={bootstrap.couponsEnabled}
-          coupon={coupon}
-          onApplyCoupon={handleApplyCoupon}
-          onRemoveCoupon={handleRemoveCoupon}
-          installments={bootstrap.installments}
-          supportPhone={bootstrap.supportPhone}
-          total={totalToShow}
-          initial={{
-            isGift: bootstrap.session?.is_gift ?? false,
-            giftRecipientName: bootstrap.session?.gift_recipient_name ?? '',
-            giftMessage: bootstrap.session?.gift_message ?? '',
-            giftHidePrices: bootstrap.session?.gift_hide_prices ?? true,
-            notifyChannel: bootstrap.session?.notify_channel ?? null,
-          }}
-          placing={placing}
-          placeError={placeError}
-          onOpen={() => contactDone && fulfillmentDone && setOpenBlock('review')}
-          onSubmit={submitOrder}
-        />
+          <ReviewBlock
+            open={openBlock === 'review'}
+            reachable={contactDone && fulfillmentDone}
+            paymentsEnabled={bootstrap.paymentsEnabled}
+            couponsEnabled={bootstrap.couponsEnabled}
+            coupon={coupon}
+            onApplyCoupon={handleApplyCoupon}
+            onRemoveCoupon={handleRemoveCoupon}
+            installments={bootstrap.installments}
+            supportPhone={bootstrap.supportPhone}
+            total={totalToShow}
+            initial={{
+              isGift: bootstrap.session?.is_gift ?? false,
+              giftRecipientName: bootstrap.session?.gift_recipient_name ?? '',
+              giftMessage: bootstrap.session?.gift_message ?? '',
+              giftHidePrices: bootstrap.session?.gift_hide_prices ?? true,
+              notifyChannel: bootstrap.session?.notify_channel ?? null,
+            }}
+            placing={placing}
+            placeError={placeError}
+            onOpen={() => contactDone && fulfillmentDone && setOpenBlock('review')}
+            onSubmit={submitOrder}
+          />
+        </ol>
       </div>
 
       {/* סיכום דביק; במובייל יורד מתחת לבלוקים ומתקפל (ח.11) */}

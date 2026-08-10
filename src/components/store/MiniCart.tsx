@@ -34,6 +34,7 @@ export function MiniCart() {
       title={t('cart')}
       closeLabel={t('closeCart')}
       widthClassName="max-w-[26rem]"
+      panelClassName="commerce-flow"
       footer={
         cart.count > 0 ? (
           <div className="flex w-full flex-col gap-3">

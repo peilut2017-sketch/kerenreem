@@ -28,7 +28,7 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
   const t = await getTranslations('store');
 
   return (
-    <Container className="py-12 lg:py-16">
+    <Container className="commerce-flow py-12 lg:py-16">
       <PageHeader title={t('cart')} />
       <CartPageClient />
     </Container>

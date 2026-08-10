@@ -121,7 +121,7 @@ export function ResultClient({ outcome }: { outcome: string }) {
             ) : null}
             {/* ההצעה הממוקדת האחת של עמוד התודה (פרק 16.5): החשבון הפסיבי */}
             {state.accountsEnabled ? (
-              <div className="mt-4 rounded-[var(--radius-lg)] border border-gold/40 bg-gold/10 px-6 py-5 text-center">
+              <div className="accent-panel mt-4 px-6 py-5 text-center">
                 <p className="font-serif text-h3 text-ink">{t('accountOfferTitle')}</p>
                 <p className="mt-1.5 text-small text-muted">{t('accountOfferBody')}</p>
                 <Link href="/account/login" className="btn btn-solid mt-4 inline-block">
@@ -195,7 +195,7 @@ function Shell({
     <div role="status" aria-live="polite" className="mx-auto flex max-w-lg flex-col items-center gap-4 text-center">
       <span
         aria-hidden="true"
-        className={`flex h-14 w-14 items-center justify-center rounded-full text-2xl ${
+        className={`flex h-14 w-14 items-center justify-center rounded-full ${
           tone === 'success'
             ? 'bg-gold/20 text-gold-deep'
             : tone === 'error'
@@ -206,11 +206,19 @@ function Shell({
         {spinner ? (
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
         ) : tone === 'success' ? (
-          '✓'
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m4.5 12.5 5.5 5.5L19.5 7" />
+          </svg>
         ) : tone === 'error' ? (
-          '!'
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M12 7.5v6M12 17v.01" />
+          </svg>
         ) : (
-          '⋯'
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" stroke="none">
+            <circle cx="6" cy="12" r="1.6" />
+            <circle cx="12" cy="12" r="1.6" />
+            <circle cx="18" cy="12" r="1.6" />
+          </svg>
         )}
       </span>
       <h1 className="font-serif text-[clamp(1.5rem,3vw,2rem)] text-ink">{title}</h1>

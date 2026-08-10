@@ -36,7 +36,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
   }
 
   return (
-    <Container className="py-10 lg:py-14">
+    <Container className="commerce-flow py-10 lg:py-14">
       <h1 className="text-center font-serif text-[clamp(1.6rem,3.4vw,2.2rem)] text-ink">
         {t('checkoutTitle')}
       </h1>

@@ -33,7 +33,7 @@ export default async function CheckoutResultPage({
   setRequestLocale(locale);
 
   return (
-    <Container className="py-16 lg:py-24">
+    <Container className="commerce-flow py-16 lg:py-24">
       <ResultClient outcome={outcome ?? 'unknown'} />
     </Container>
   );

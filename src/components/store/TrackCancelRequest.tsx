@@ -59,7 +59,7 @@ export function TrackCancelRequest({ token }: { token: string }) {
             required
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+            className="commerce-field"
           />
           {state === 'error' ? (
             <p role="alert" className="text-caption text-burgundy">

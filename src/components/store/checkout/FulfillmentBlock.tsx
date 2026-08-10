@@ -87,9 +87,6 @@ export function FulfillmentBlock({
   const set = (key: keyof ShippingAddress) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setAddress((a) => ({ ...a, [key]: e.target.value }));
 
-  const inputCls =
-    'w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60';
-
   return (
     <BlockShell
       index={2}
@@ -109,20 +106,14 @@ export function FulfillmentBlock({
           <legend className="sr-only">{t('fulfillmentTitle')}</legend>
           <div className="grid gap-3 sm:grid-cols-2">
             {methods.map((method) => (
-              <label
-                key={method.id}
-                className={`flex cursor-pointer flex-col gap-1 rounded-[var(--radius-md)] border px-4 py-3 transition-colors ${
-                  methodId === method.id ? 'border-gold bg-gold/10' : 'border-rule bg-white/50'
-                }`}
-              >
+              <label key={method.id} className="choice-card">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-small font-semibold text-ink">
+                  <span className="flex items-center gap-2.5 text-small font-semibold text-ink">
                     <input
                       type="radio"
                       name="shipping-method"
                       checked={methodId === method.id}
                       onChange={() => setMethodId(method.id)}
-                      className="accent-[var(--color-burgundy)]"
                     />
                     {method.name}
                   </span>
@@ -130,7 +121,7 @@ export function FulfillmentBlock({
                     {method.price === 0 ? t('free') : formatPrice(method.price, locale)}
                   </span>
                 </span>
-                <span className="ps-6 text-caption text-muted">
+                <span className="ps-7 text-caption text-muted">
                   {t('deliveryEstimate', { date: method.promisedDateLabel })}
                 </span>
               </label>
@@ -161,14 +152,14 @@ export function FulfillmentBlock({
                 label={t('recipientName')}
                 error={errors.recipient_name}
                 input={
-                  <input id="addr-recipient" type="text" autoComplete="shipping name" required value={address.recipient_name ?? ''} onChange={set('recipient_name')} aria-invalid={errors.recipient_name ? true : undefined} className={inputCls} />
+                  <input id="addr-recipient" type="text" autoComplete="shipping name" required value={address.recipient_name ?? ''} onChange={set('recipient_name')} aria-invalid={errors.recipient_name ? true : undefined} className="commerce-field" />
                 }
               />
               <Field
                 id="addr-phone"
                 label={t('recipientPhone')}
                 input={
-                  <input id="addr-phone" type="tel" dir="ltr" autoComplete="shipping tel" value={address.phone ?? ''} onChange={set('phone')} className={inputCls} />
+                  <input id="addr-phone" type="tel" dir="ltr" autoComplete="shipping tel" value={address.phone ?? ''} onChange={set('phone')} className="commerce-field" />
                 }
               />
             </div>
@@ -178,7 +169,7 @@ export function FulfillmentBlock({
                 label={t('city')}
                 error={errors.city}
                 input={
-                  <AddressAutocomplete id="addr-city" autoComplete="shipping address-level2" required value={address.city ?? ''} onChange={(next) => setAddress((v) => ({ ...v, city: next }))} fetcher={searchCities} invalid={Boolean(errors.city)} className={inputCls} />
+                  <AddressAutocomplete id="addr-city" autoComplete="shipping address-level2" required value={address.city ?? ''} onChange={(next) => setAddress((v) => ({ ...v, city: next }))} fetcher={searchCities} invalid={Boolean(errors.city)} className="commerce-field" />
                 }
               />
               <Field
@@ -186,7 +177,7 @@ export function FulfillmentBlock({
                 label={t('street')}
                 error={errors.street}
                 input={
-                  <AddressAutocomplete id="addr-street" autoComplete="shipping address-line1" required value={address.street ?? ''} onChange={(next) => setAddress((v) => ({ ...v, street: next }))} fetcher={(q) => searchStreets(address.city ?? '', q)} invalid={Boolean(errors.street)} className={inputCls} />
+                  <AddressAutocomplete id="addr-street" autoComplete="shipping address-line1" required value={address.street ?? ''} onChange={(next) => setAddress((v) => ({ ...v, street: next }))} fetcher={(q) => searchStreets(address.city ?? '', q)} invalid={Boolean(errors.street)} className="commerce-field" />
                 }
               />
               <Field
@@ -194,20 +185,20 @@ export function FulfillmentBlock({
                 label={t('houseNumber')}
                 error={errors.house_number}
                 input={
-                  <input id="addr-house" type="text" inputMode="numeric" required value={address.house_number ?? ''} onChange={set('house_number')} aria-invalid={errors.house_number ? true : undefined} className={inputCls} />
+                  <input id="addr-house" type="text" inputMode="numeric" required value={address.house_number ?? ''} onChange={set('house_number')} aria-invalid={errors.house_number ? true : undefined} className="commerce-field" />
                 }
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-4">
-              <Field id="addr-entrance" label={t('entrance')} input={<input id="addr-entrance" type="text" value={address.entrance ?? ''} onChange={set('entrance')} className={inputCls} />} />
-              <Field id="addr-floor" label={t('floor')} input={<input id="addr-floor" type="text" inputMode="numeric" value={address.floor ?? ''} onChange={set('floor')} className={inputCls} />} />
-              <Field id="addr-apartment" label={t('apartment')} input={<input id="addr-apartment" type="text" inputMode="numeric" value={address.apartment ?? ''} onChange={set('apartment')} className={inputCls} />} />
+              <Field id="addr-entrance" label={t('entrance')} input={<input id="addr-entrance" type="text" value={address.entrance ?? ''} onChange={set('entrance')} className="commerce-field" />} />
+              <Field id="addr-floor" label={t('floor')} input={<input id="addr-floor" type="text" inputMode="numeric" value={address.floor ?? ''} onChange={set('floor')} className="commerce-field" />} />
+              <Field id="addr-apartment" label={t('apartment')} input={<input id="addr-apartment" type="text" inputMode="numeric" value={address.apartment ?? ''} onChange={set('apartment')} className="commerce-field" />} />
               <Field
                 id="addr-zip"
                 label={t('zip')}
                 error={errors.zip}
                 input={
-                  <input id="addr-zip" type="text" dir="ltr" inputMode="numeric" autoComplete="shipping postal-code" value={address.zip ?? ''} onChange={set('zip')} aria-invalid={errors.zip ? true : undefined} className={inputCls} />
+                  <input id="addr-zip" type="text" dir="ltr" inputMode="numeric" autoComplete="shipping postal-code" value={address.zip ?? ''} onChange={set('zip')} aria-invalid={errors.zip ? true : undefined} className="commerce-field" />
                 }
               />
             </div>
@@ -215,7 +206,7 @@ export function FulfillmentBlock({
               id="addr-notes"
               label={t('courierNotes')}
               input={
-                <input id="addr-notes" type="text" value={courierNotes} onChange={(e) => setCourierNotes(e.target.value)} className={inputCls} />
+                <input id="addr-notes" type="text" value={courierNotes} onChange={(e) => setCourierNotes(e.target.value)} className="commerce-field" />
               }
             />
           </div>

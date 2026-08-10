@@ -28,7 +28,7 @@ export function CartIndicator() {
       {cart.count > 0 ? (
         <span
           aria-hidden="true"
-          className="absolute -end-0.5 -top-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-[var(--radius-pill)] bg-burgundy px-1 text-[0.65rem] font-bold leading-none text-cream tabular-nums"
+          className="absolute -end-0.5 -top-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-[var(--radius-pill)] bg-ink px-1 text-[0.65rem] font-bold leading-none text-cream tabular-nums"
         >
           {cart.count > 99 ? '99+' : cart.count}
         </span>
