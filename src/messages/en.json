@@ -68,6 +68,7 @@
     "goToPurchase": "Go to purchase",
     "outOfStock": "Out of stock",
     "notForSale": "Not sold through this site",
+    "buyFromSupplier": "Buy via {supplier}",
     "coverAlt": "Cover of {title}",
     "noCover": "No cover image",
     "byAuthor": "by {name}",

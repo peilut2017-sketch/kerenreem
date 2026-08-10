@@ -95,6 +95,7 @@ export default async function BooksEngagementReportPage({
                 'שמירות',
                 'הוספות לסל',
                 'הודיעו לי כשיחזור',
+                'לחיצות לספק חיצוני',
                 'יחידות שנמכרו',
                 'הכנסה',
               ]}
@@ -106,6 +107,7 @@ export default async function BooksEngagementReportPage({
                 r.saves,
                 r.addsToCart,
                 r.backInStockSubscribers,
+                r.externalSupplierClicks,
                 r.unitsSold,
                 r.revenue.toFixed(2),
               ])}

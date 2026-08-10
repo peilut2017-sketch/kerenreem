@@ -63,8 +63,10 @@ export interface ManualShippingMethod {
 
 /**
  * טופס ההזמנה הטלפונית (פרק 9.6): איש הצוות בשיחה — לכן הכל במסך אחד,
- * חיפוש ספר מהיר, והסכום מתעדכן תוך כדי. מחירים מהקטלוג בלבד; הסכום
- * המחייב מחושב בשרת (validateCart) — מה שמוצג כאן הוא אומדן חי.
+ * חיפוש ספר מהיר, והסכום מתעדכן תוך כדי. מחירים מהקטלוג; [1.9] חריג
+ * יחיד — ספר בלי מחיר קטלוגי, שם הצוות מתמחר את הפריט בטופס עצמו
+ * (manualPrice למטה). הסכום המחייב מחושב בשרת (validateCart) — מה
+ * שמוצג כאן הוא אומדן חי.
  */
 export function ManualOrderForm({
   books,
@@ -75,7 +77,9 @@ export function ManualOrderForm({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [items, setItems] = useState<{ bookId: string; quantity: number }[]>([]);
+  const [items, setItems] = useState<{ bookId: string; quantity: number; manualPrice?: number }[]>(
+    [],
+  );
   const [contact, setContact] = useState({ name: '', phone: '', email: '' });
   const [fulfillmentType, setFulfillmentType] = useState<'pickup' | 'shipping'>('pickup');
   const [methodId, setMethodId] = useState(methods[0]?.id ?? '');
@@ -87,15 +91,20 @@ export function ManualOrderForm({
   const [pending, startTransition] = useTransition();
 
   const bookById = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
-  // [1.8] לא מסננים לפי price != null: ספר קטלוגי (is_purchasable) בלי
-  // מחיר מוגדר עדיין קיים בחיפוש, אבל מוצג מושבת עם הסבר — היעלמות שקטה
-  // מהתוצאות (ללא המחיר-null היה פשוט נעלם) נראית לצוות כאילו הספר לא
-  // קיים בקטלוג בכלל, בלי שום רמז לתקן את הבעיה האמיתית (חסר מחיר).
+  // [1.9] לא מסננים לפי price != null: ספר קטלוגי (is_purchasable) בלי
+  // מחיר מוגדר עדיין ניתן להוספה — הצוות מתמחר אותו בשורת הפריט (למטה).
+  // היעלמות שקטה מהתוצאות הייתה נראית לצוות כאילו הספר לא קיים בקטלוג
+  // בכלל, בלי שום דרך להזמין אותו טלפונית.
   const results = useMemo(() => {
     const q = query.trim();
     if (!q) return [];
     return books.filter((b) => b.title.includes(q) || (b.sku ?? '').includes(q)).slice(0, 8);
   }, [books, query]);
+
+  // פריט שספרו בלי מחיר קטלוגי וטרם הוקלד לו מחיר — לא ניתן לשלוח כך.
+  const hasMissingManualPrice = items.some(
+    (item) => bookById.get(item.bookId)?.price == null && !(item.manualPrice != null && item.manualPrice > 0),
+  );
 
   // [1.5] "משלוח חינם לא מחושב, אי אפשר להזין קופון" — אומדן חי מהשרת
   // (previewManualOrderTotalsAction, אותו resolvePricing כמו ביצירה
@@ -104,12 +113,12 @@ export function ManualOrderForm({
   const requestId = useRef(0);
 
   useEffect(() => {
-    if (items.length === 0) return;
+    if (items.length === 0 || hasMissingManualPrice) return;
     const id = ++requestId.current;
     const timer = setTimeout(() => {
       setPreview((p) => ({ ...p, loading: true }));
       previewManualOrderTotalsAction({
-        items,
+        items: items.map((item) => ({ ...item, manualUnitPrice: item.manualPrice })),
         fulfillment:
           fulfillmentType === 'pickup' ? { type: 'pickup' } : { type: 'shipping', methodId },
         couponCode: couponCode.trim() || null,
@@ -133,13 +142,14 @@ export function ManualOrderForm({
       });
     }, 350);
     return () => clearTimeout(timer);
-  }, [items, fulfillmentType, methodId, couponCode, contact.phone, contact.email]);
+  }, [items, hasMissingManualPrice, fulfillmentType, methodId, couponCode, contact.phone, contact.email]);
 
   const showPreview = items.length > 0;
   // תצוגה מיידית לשורת הפריטים (מהקטלוג בצד הלקוח, כבר כולל מבצע) — לא
   // ממתינה לעגול-התור מהשרת; משלוח/הנחה/סה״כ תמיד מהשרת בלבד (preview.ready).
+  // [1.9] לספר בלי מחיר קטלוגי — המחיר שהצוות הקליד (manualPrice).
   const clientSubtotal = items.reduce(
-    (sum, item) => sum + (bookById.get(item.bookId)?.price ?? 0) * item.quantity,
+    (sum, item) => sum + (bookById.get(item.bookId)?.price ?? item.manualPrice ?? 0) * item.quantity,
     0,
   );
 
@@ -160,7 +170,7 @@ export function ManualOrderForm({
     setError(null);
     startTransition(async () => {
       const result = await createManualOrderAction({
-        items,
+        items: items.map((item) => ({ ...item, manualUnitPrice: item.manualPrice })),
         contact: {
           name: contact.name,
           phone: contact.phone,
@@ -216,9 +226,8 @@ export function ManualOrderForm({
                   <li key={book.id}>
                     <button
                       type="button"
-                      disabled={book.price == null}
                       onClick={() => addItem(book.id)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-start text-small hover:bg-[var(--admin-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                      className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-start text-small hover:bg-[var(--admin-accent-soft)]"
                     >
                       <span className="min-w-0 truncate text-ink">
                         {book.title}
@@ -256,51 +265,91 @@ export function ManualOrderForm({
                 const book = bookById.get(item.bookId);
                 if (!book) return null;
                 return (
-                  <li key={item.bookId} className="flex items-center gap-3 py-2.5 text-small">
-                    <span className="min-w-0 flex-1 truncate text-ink">
-                      {book.title}
-                      {book.originalPrice != null ? (
-                        <span className="ms-1.5 rounded-[var(--radius-pill)] bg-[var(--admin-warning-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--admin-warning)]">
-                          מבצע
+                  <li key={item.bookId} className="space-y-2 py-2.5 text-small">
+                    <div className="flex items-center gap-3">
+                      <span className="min-w-0 flex-1 truncate text-ink">
+                        {book.title}
+                        {book.originalPrice != null ? (
+                          <span className="ms-1.5 rounded-[var(--radius-pill)] bg-[var(--admin-warning-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--admin-warning)]">
+                            מבצע
+                          </span>
+                        ) : null}
+                      </span>
+                      <input
+                        type="number"
+                        dir="ltr"
+                        min={1}
+                        max={99}
+                        value={item.quantity}
+                        aria-label={`כמות — ${book.title}`}
+                        onChange={(e) =>
+                          setItems((current) =>
+                            current.map((it) =>
+                              it.bookId === item.bookId
+                                ? { ...it, quantity: Math.max(1, Number(e.target.value) || 1) }
+                                : it,
+                            ),
+                          )
+                        }
+                        className="admin-field-input w-20 py-1.5 text-center"
+                      />
+                      {book.price != null ? (
+                        <span className="w-28 text-end tabular-nums text-ink">
+                          {book.originalPrice != null ? (
+                            <span className="block text-caption leading-tight text-muted line-through">
+                              {(book.originalPrice * item.quantity).toFixed(2)} ₪
+                            </span>
+                          ) : null}
+                          {(book.price * item.quantity).toFixed(2)} ₪
                         </span>
                       ) : null}
-                    </span>
-                    <input
-                      type="number"
-                      dir="ltr"
-                      min={1}
-                      max={99}
-                      value={item.quantity}
-                      aria-label={`כמות — ${book.title}`}
-                      onChange={(e) =>
-                        setItems((current) =>
-                          current.map((it) =>
-                            it.bookId === item.bookId
-                              ? { ...it, quantity: Math.max(1, Number(e.target.value) || 1) }
-                              : it,
-                          ),
-                        )
-                      }
-                      className="admin-field-input w-20 py-1.5 text-center"
-                    />
-                    <span className="w-28 text-end tabular-nums text-ink">
-                      {book.originalPrice != null ? (
-                        <span className="block text-caption leading-tight text-muted line-through">
-                          {(book.originalPrice * item.quantity).toFixed(2)} ₪
-                        </span>
-                      ) : null}
-                      {((book.price ?? 0) * item.quantity).toFixed(2)} ₪
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`הסרה — ${book.title}`}
-                      onClick={() =>
-                        setItems((current) => current.filter((it) => it.bookId !== item.bookId))
-                      }
-                      className="text-muted hover:text-[var(--admin-danger)]"
-                    >
-                      <AdminIcon name="trash" className="h-4 w-4" />
-                    </button>
+                      <button
+                        type="button"
+                        aria-label={`הסרה — ${book.title}`}
+                        onClick={() =>
+                          setItems((current) => current.filter((it) => it.bookId !== item.bookId))
+                        }
+                        className="text-muted hover:text-[var(--admin-danger)]"
+                      >
+                        <AdminIcon name="trash" className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {book.price == null ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] bg-[var(--admin-danger-soft)] px-3 py-2">
+                        <label
+                          htmlFor={`mo-manual-price-${item.bookId}`}
+                          className="text-caption text-[var(--admin-danger)]"
+                        >
+                          אין מחיר קטלוגי לספר הזה — הזינו מחיר ליחידה כדי להמשיך
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id={`mo-manual-price-${item.bookId}`}
+                            type="number"
+                            dir="ltr"
+                            min={0}
+                            step={0.5}
+                            value={item.manualPrice ?? ''}
+                            placeholder="0.00"
+                            onChange={(e) =>
+                              setItems((current) =>
+                                current.map((it) =>
+                                  it.bookId === item.bookId
+                                    ? {
+                                        ...it,
+                                        manualPrice:
+                                          e.target.value === '' ? undefined : Math.max(0, Number(e.target.value) || 0),
+                                      }
+                                    : it,
+                                ),
+                              )
+                            }
+                            className="admin-field-input w-24 py-1.5 text-end"
+                          />
+                          <span className="text-caption text-muted">₪ ליחידה</span>
+                        </div>
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}
@@ -466,6 +515,7 @@ export function ManualOrderForm({
           disabled={
             pending ||
             items.length === 0 ||
+            hasMissingManualPrice ||
             !contact.name.trim() ||
             !contact.phone.trim() ||
             preview.loading ||

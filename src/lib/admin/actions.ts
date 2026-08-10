@@ -300,6 +300,17 @@ export async function saveEntity(
       ) {
         fieldErrors.sale_price = 'מחיר המבצע חייב להיות נמוך מהמחיר הרגיל';
       }
+      // [1.9] רכישה דרך ספק חיצוני — מופעל רק עם קישור ושם ספק תקינים
+      if (payload.external_supplier_enabled === true) {
+        const url = typeof payload.external_supplier_url === 'string' ? payload.external_supplier_url.trim() : '';
+        const name = typeof payload.external_supplier_name === 'string' ? payload.external_supplier_name.trim() : '';
+        if (!url) {
+          fieldErrors.external_supplier_url = 'שדה חובה כשהאפשרות מופעלת';
+        } else if (!/^https?:\/\/.+/i.test(url)) {
+          fieldErrors.external_supplier_url = 'נדרש קישור מלא (מתחיל ב-http:// או https://)';
+        }
+        if (!name) fieldErrors.external_supplier_name = 'שדה חובה כשהאפשרות מופעלת';
+      }
     }
 
     if (Object.keys(fieldErrors).length > 0) {

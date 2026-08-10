@@ -84,12 +84,16 @@ const CART_BOOK_COLUMNS =
  * ונעלם מההזמנה בלי שום סימון — הצוות מוסיף אותו, הכל נראה תקין, וההזמנה
  * שנוצרת פשוט חסרה את הפריט. לצ׳ק-אאוט הציבורי (שאר הקוראים) נשאר הגדר
  * הרגיל — עגלה של אורח לא אמורה לצאת עם ספר שאינו מפורסם.
+ *
+ * [1.9] priceOverrides — גם בערוץ הטלפוני בלבד: מחיר שהצוות הקליד עבור
+ * ספר *בלי* מחיר קטלוגי. לעולם לא דורס מחיר קטלוגי קיים (נבדק למטה לפני
+ * שהערך נקרא בכלל) — אחרת עובד/באג היה יכול לתמחר מתחת למחיר האמיתי.
  */
 export async function validateCart(
   items: CartInputItem[],
   locale: string = 'he',
   previousPrices?: Record<string, number>,
-  options?: { allowUnpublished?: boolean },
+  options?: { allowUnpublished?: boolean; priceOverrides?: Record<string, number> },
 ): Promise<ValidatedCart> {
   const empty: ValidatedCart = {
     lines: [],
@@ -141,8 +145,33 @@ export async function validateCart(
 
     const title = locale === 'en' && book.title_en ? book.title_en : book.title_he;
     const author = locale === 'en' && book.author_name_en ? book.author_name_en : book.author_name_he;
-    const availability = getBookAvailability(book, flags.storeEnabled);
-    const price = getEffectivePrice(book, locale);
+    const catalogPrice = getEffectivePrice(book, locale);
+    // מחיר ידני נבחן רק כשאין בכלל מחיר קטלוגי (catalogPrice null) — אף
+    // פעם לא כתחליף למחיר שכבר קיים.
+    const manualPrice =
+      catalogPrice == null ? options?.priceOverrides?.[item.bookId] : undefined;
+    const price =
+      catalogPrice ??
+      (manualPrice != null && manualPrice >= 0
+        ? { amount: round2(manualPrice), originalAmount: null, onSale: false, saleName: null }
+        : null);
+
+    let availability = getBookAvailability(book, flags.storeEnabled);
+    // "catalog_only" יכול לנבוע רק מחוסר מחיר (לא מ-is_purchasable=false
+    // ולא מחנות כבויה) — במקרה הזה בלבד מחיר ידני "מתקן" את הזמינות.
+    if (
+      availability === 'catalog_only' &&
+      manualPrice != null &&
+      price != null &&
+      book.is_purchasable &&
+      flags.storeEnabled
+    ) {
+      availability = book.preorder_enabled
+        ? 'preorder'
+        : (book.stock_quantity ?? 0) > 0
+          ? 'in_stock'
+          : 'out_of_stock';
+    }
 
     if (availability === 'catalog_only' || price == null) {
       lines.push(buildRemovedLine(book, title, author, item.quantity, 'not_purchasable'));

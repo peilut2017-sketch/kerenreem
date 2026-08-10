@@ -105,6 +105,8 @@ function book(
     accent_primary: null, accent_secondary: null,
     is_featured: false, preorder_enabled: false, preorder_release_date: null,
     hero_mockup_url: null,
+    external_supplier_enabled: false, external_supplier_url: null,
+    external_supplier_name: null, external_supplier_always_show: false,
     ...base,
     author: { id: author.id, slug: author.slug, name_he: author.name_he, name_en: author.name_en },
     category: { id: category.id, slug: category.slug, name_he: category.name_he, name_en: category.name_en },

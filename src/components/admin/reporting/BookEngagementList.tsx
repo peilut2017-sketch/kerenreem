@@ -30,6 +30,12 @@ export function BookEngagementList({ rows }: { rows: BookEngagementRow[] }) {
       className: 'tabular-nums',
     },
     {
+      key: 'externalSupplierClicks',
+      header: 'לחיצות לספק חיצוני',
+      render: (row) => row.externalSupplierClicks.toLocaleString('he-IL'),
+      className: 'tabular-nums',
+    },
+    {
       key: 'unitsSold',
       header: 'יחידות שנמכרו',
       render: (row) => row.unitsSold.toLocaleString('he-IL'),

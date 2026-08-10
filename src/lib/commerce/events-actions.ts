@@ -40,6 +40,7 @@ const ALLOWED_EVENTS = new Set([
   'order_cancel_requested',
   'return_requested',
   'back_in_stock_subscribed',
+  'external_supplier_clicked',
 ]);
 
 function dailyVisitorHash(ip: string, userAgent: string): string {

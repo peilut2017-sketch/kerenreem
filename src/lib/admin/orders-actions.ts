@@ -31,6 +31,7 @@ import {
   createManualOrder,
   previewManualOrderTotals,
   type ManualOrderFulfillment,
+  type ManualOrderItemInput,
   type ManualOrderPreview,
 } from '@/lib/commerce/manual-orders';
 import { startPayment } from '@/lib/commerce/payments';
@@ -867,7 +868,7 @@ export async function setActualShippingCost(
  * שמה שהנציג מקריא ללקוח בשיחה = מה שיירשם בהזמנה.
  */
 export async function previewManualOrderTotalsAction(input: {
-  items: { bookId: string; quantity: number }[];
+  items: ManualOrderItemInput[];
   fulfillment: ManualOrderFulfillment;
   couponCode: string | null;
   contactPhone: string | null;
@@ -894,10 +895,12 @@ export async function previewManualOrderTotalsAction(input: {
 
 /**
  * הזמנה ידנית — ערוץ הטלפון (פרק 9.6): הצוות קולט את ההזמנה בשיחה.
- * מחירים מהקטלוג בלבד; מלאי נשמר; ללקוח נשלח מייל אישור עם קישור מעקב.
+ * מחירים מהקטלוג; [1.9] חריג יחיד — ספר בלי מחיר קטלוגי, שם הצוות מתמחר
+ * את הפריט בטופס עצמו (manualUnitPrice, ראו validateCart/priceOverrides).
+ * מלאי נשמר; ללקוח נשלח מייל אישור עם קישור מעקב.
  */
 export async function createManualOrderAction(input: {
-  items: { bookId: string; quantity: number }[];
+  items: ManualOrderItemInput[];
   contact: { name: string; phone: string; email: string | null };
   fulfillment:
     | { type: 'pickup' }

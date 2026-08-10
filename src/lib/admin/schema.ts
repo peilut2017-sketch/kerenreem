@@ -154,6 +154,11 @@ export const ENTITIES = {
       f('preorder_release_date', 'date'),
       // הדמיית כריכה ל-Hero (15_book_flip_preview.sql)
       f('hero_mockup_url'),
+      // [1.9] רכישה דרך ספק חיצוני (42_external_supplier.sql)
+      f('external_supplier_enabled', 'boolean'),
+      f('external_supplier_url'),
+      f('external_supplier_name'),
+      f('external_supplier_always_show', 'boolean'),
     ],
     relations: [
       { field: 'tag_ids', table: 'book_tags', ownerColumn: 'book_id', targetColumn: 'tag_id' },

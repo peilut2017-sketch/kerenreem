@@ -73,7 +73,7 @@ export default async function NewManualOrderPage() {
     <>
       <AdminHeader
         title="הזמנה טלפונית חדשה"
-        description="קליטת הזמנה בשיחה: פריטים מהקטלוג, פרטי לקוח ואספקה. המחירים תמיד מהקטלוג — אין הקלדת מחיר ידנית."
+        description="קליטת הזמנה בשיחה: פריטים מהקטלוג, פרטי לקוח ואספקה. המחירים מהקטלוג — למעט ספר בלי מחיר מוגדר, שם ניתן להקליד מחיר לפריט עצמו."
         action={{ href: '/admin/orders', label: 'חזרה להזמנות', icon: 'back' }}
       />
       <ManualOrderForm books={books} methods={methods} />

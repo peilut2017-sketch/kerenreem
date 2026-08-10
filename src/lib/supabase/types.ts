@@ -137,6 +137,12 @@ export interface Book {
   /* ------------------------------------------------ */
   /** הדמיית כריכה שקופה ל-Hero (שדרה/עובי/תאורה מוכנים) — 15_book_flip_preview.sql. */
   hero_mockup_url: string | null;
+  /* --- [1.9] רכישה דרך ספק חיצוני (42_external_supplier.sql) --- */
+  external_supplier_enabled: boolean;
+  external_supplier_url: string | null;
+  external_supplier_name: string | null;
+  /** מציג את כפתור הספק החיצוני גם כשהספר כן נמכר אצלנו (ברירת מחדל: מוסתר אז). */
+  external_supplier_always_show: boolean;
   created_at: string;
   updated_at: string;
 }
