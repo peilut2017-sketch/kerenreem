@@ -114,14 +114,12 @@ export default async function SalesReportPage({
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-small font-bold text-ink">ספרים מובילים (הכנסה)</h2>
                 <CsvDownloadButton
-                  rows={[...current.items].sort((a, b) => b.revenue - a.revenue)}
+                  headers={['ספר', 'יחידות', 'הכנסה']}
+                  rows={[...current.items]
+                    .sort((a, b) => b.revenue - a.revenue)
+                    .map((r) => [r.title, r.quantity, r.revenue.toFixed(2)])}
                   filename={`sales-books-${range.days}d.csv`}
                   label="CSV"
-                  columns={[
-                    { label: 'ספר', value: (r) => r.title },
-                    { label: 'יחידות', value: (r) => r.quantity },
-                    { label: 'הכנסה', value: (r) => r.revenue.toFixed(2) },
-                  ]}
                 />
               </div>
               <BarList items={topByRevenue} emptyLabel="אין מכירות בטווח." />

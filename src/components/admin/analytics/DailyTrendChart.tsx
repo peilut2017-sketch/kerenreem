@@ -47,17 +47,31 @@ function niceMax(value: number): number {
   return value;
 }
 
+/**
+ * [1.8] `valueFormat` ולא `formatValue`: פונקציה שמגיעה כ-prop מקומפוננטת
+ * שרת (page.tsx בלי 'use client') אינה ניתנת לסריאליזציה דרך גבול
+ * שרת/לקוח — Next זורק "Functions cannot be passed directly to Client
+ * Components". במקום זאת מעבירים תווית פורמט (מחרוזת) והפונקציה נבחרת
+ * כאן, בתוך קומפוננטת הלקוח עצמה.
+ */
+const VALUE_FORMATTERS: Record<'number' | 'currency', (value: number) => string> = {
+  number: (value) => value.toLocaleString('he-IL'),
+  currency: (value) =>
+    new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(value),
+};
+
 export function DailyTrendChart<T extends { date: string }>({
   data,
   series,
   tableCaption,
-  formatValue = (value) => value.toLocaleString('he-IL'),
+  valueFormat = 'number',
 }: {
   data: T[];
   series: TrendSeries<T>[];
   tableCaption: string;
-  formatValue?: (value: number) => string;
+  valueFormat?: 'number' | 'currency';
 }) {
+  const formatValue = VALUE_FORMATTERS[valueFormat];
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const gradientId = useId();
 

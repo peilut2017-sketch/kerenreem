@@ -50,11 +50,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
 
           <div className="flex items-center gap-4">
-            <span className="hidden text-caption text-muted sm:inline">
+            <Link
+              href="/admin/account"
+              className="hidden text-caption text-muted hover:text-ink sm:inline"
+              title="החשבון שלי — שינוי מייל וסיסמה"
+            >
               {session.profile.full_name || session.email}
               {' · '}
               {ROLE_LABELS[session.profile.role]}
-            </span>
+            </Link>
             <SignOutButton />
           </div>
         </div>

@@ -1,21 +1,21 @@
 'use client';
 
-import { toCsv, type CsvColumn } from '@/lib/admin/reporting/csv';
+import { toCsv } from '@/lib/admin/reporting/csv';
 
 /** [1.5] הורדת CSV מהשורות שכבר מוצגות בעמוד — בלי round-trip נוסף לשרת. */
-export function CsvDownloadButton<T>({
+export function CsvDownloadButton({
+  headers,
   rows,
-  columns,
   filename,
   label = 'ייצוא CSV',
 }: {
-  rows: T[];
-  columns: CsvColumn<T>[];
+  headers: string[];
+  rows: (string | number | null | undefined)[][];
   filename: string;
   label?: string;
 }) {
   function download() {
-    const csv = toCsv(rows, columns);
+    const csv = toCsv(headers, rows);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

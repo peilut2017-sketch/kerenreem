@@ -308,7 +308,7 @@ export default async function AdminDashboard({
               data={salesTrend}
               series={[{ key: 'revenue', label: 'הכנסות (₪)', color: '#2a78d6' }]}
               tableCaption="הכנסות יומיות, 30 הימים האחרונים"
-              formatValue={(value) => formatPrice(value, 'he', { alwaysAgorot: true })}
+              valueFormat="currency"
             />
           ) : (
             <p className="py-6 text-center text-small text-muted">אין נתוני מכירות זמינים כרגע.</p>
