@@ -5,6 +5,7 @@ import {
   ORDER_STATE_LABELS,
   PAYMENT_STATE_LABELS,
 } from '@/components/admin/orders/labels';
+import { toCdnUrl } from '@/lib/image-src';
 import type { Order } from '@/lib/supabase/types';
 import type { PrintItem } from '@/lib/admin/print/print-data';
 
@@ -82,7 +83,7 @@ export function OrderSheetBody({ order, items }: { order: Order; items: PrintIte
               <td className="py-1.5 pe-2">
                 {item.coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.coverUrl} alt="" className="h-12 w-9 object-cover" />
+                  <img src={toCdnUrl(item.coverUrl)} alt="" className="h-12 w-9 object-cover" />
                 ) : null}
               </td>
               <td className="py-1.5 pe-2">{item.title_snapshot}</td>

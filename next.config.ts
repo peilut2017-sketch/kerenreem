@@ -18,6 +18,22 @@ const supabaseHost = (() => {
 })();
 
 /**
+ * דומיין ה-CDN (Cloudflare) שמונח מול Supabase Storage, אם הוגדר —
+ * ראו src/lib/image-src.ts (toCdnUrl) לפרטים. supabaseHost נשאר מותר
+ * גם כשה-CDN מוגדר: כתובות שנשמרו במסד *לפני* המעבר עדיין מצביעות
+ * עליו ישירות, ואסור שהן ייחסמו.
+ */
+const cdnHost = (() => {
+  const url = process.env.NEXT_PUBLIC_CDN_URL;
+  if (!url) return null;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+})();
+
+/**
  * Google Analytics 4 מוגדר-תצורה: מופעל רק כש-NEXT_PUBLIC_GA_MEASUREMENT_ID
  * קיים (ראו src/components/GoogleAnalytics.tsx). ה-CSP מורחב לספקי גוגל
  * *רק* כשהמשתנה מוגדר בזמן הבנייה — אתר שלא הגדיר GA4 ממשיך לקבל את
@@ -62,7 +78,7 @@ const CSP = [
   `script-src 'self' 'unsafe-inline'${GA_SCRIPT_SRC}${CAPTCHA_SCRIPT_SRC}`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  `img-src 'self' data: blob:${supabaseHost ? ` https://${supabaseHost}` : ''} https://i.ytimg.com${GA_IMG_SRC}`,
+  `img-src 'self' data: blob:${supabaseHost ? ` https://${supabaseHost}` : ''}${cdnHost ? ` https://${cdnHost}` : ''} https://i.ytimg.com${GA_IMG_SRC}`,
   `connect-src 'self'${supabaseHost ? ` https://${supabaseHost} wss://${supabaseHost}` : ''}${GA_CONNECT_SRC}`,
   `frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com${CAPTCHA_FRAME_SRC}`,
   'upgrade-insecure-requests',
@@ -109,9 +125,14 @@ const PAYMENT_RETURN_CSP = CSP.replace("frame-ancestors 'none'", "frame-ancestor
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
-    remotePatterns: supabaseHost
-      ? [{ protocol: 'https', hostname: supabaseHost, pathname: '/storage/v1/object/public/**' }]
-      : [],
+    remotePatterns: [
+      ...(supabaseHost
+        ? [{ protocol: 'https' as const, hostname: supabaseHost, pathname: '/storage/v1/object/public/**' }]
+        : []),
+      ...(cdnHost
+        ? [{ protocol: 'https' as const, hostname: cdnHost, pathname: '/storage/v1/object/public/**' }]
+        : []),
+    ],
     formats: ['image/avif', 'image/webp'],
   },
   async headers() {

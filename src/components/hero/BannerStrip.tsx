@@ -3,6 +3,7 @@
 import { Img as Image } from '@/components/Img';
 import { useCallback, useId, useState } from 'react';
 import { Link } from '@/i18n/navigation';
+import { toCdnUrl } from '@/lib/image-src';
 import type { Banner } from '@/lib/supabase/types';
 
 /** מיפוי נקודת המיקוד למחלקת object-position. */
@@ -57,9 +58,9 @@ export function BannerStrip({
           הרצועה כרגיל. */}
       {active.image_mobile_url ? (
         <picture>
-          <source media="(min-width: 640px)" srcSet={active.image_url ?? ''} />
+          <source media="(min-width: 640px)" srcSet={active.image_url ? toCdnUrl(active.image_url) : ''} />
           <img
-            src={active.image_mobile_url}
+            src={toCdnUrl(active.image_mobile_url)}
             alt={alt}
             className="h-full w-full object-contain sm:object-cover"
           />

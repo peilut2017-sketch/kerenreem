@@ -5,6 +5,7 @@ import { uploadToBucket } from '../ImageField';
 import { AdminIcon } from '../AdminIcons';
 import { Spinner } from '../SubmitButton';
 import { saveBookPreviewPages } from '@/lib/admin/actions';
+import { toCdnUrl } from '@/lib/image-src';
 import { MAX_PREVIEW_PAGES } from '@/lib/books/render-preview-pages';
 import type { BookPreviewPage } from '@/lib/supabase/types';
 
@@ -143,7 +144,7 @@ export function BookPreviewGenerator({
               <li key={page.id} className="w-16">
                 {/* eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה בניהול, לא נכס ציבורי */}
                 <img
-                  src={page.image_url}
+                  src={toCdnUrl(page.image_url)}
                   alt={`עמוד ${page.page_number}`}
                   className="w-full rounded-[var(--admin-radius-btn)] border border-rule object-contain"
                 />

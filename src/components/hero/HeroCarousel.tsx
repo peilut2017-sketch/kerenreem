@@ -4,6 +4,7 @@ import { Img as Image } from '@/components/Img';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { toCdnUrl } from '@/lib/image-src';
 import type { HeroSlide } from './types';
 
 /** מיפוי נקודת המיקוד למחלקת object-position. */
@@ -134,9 +135,9 @@ function ActivePanel({
               מרכז העניין. picture נותן לדפדפן לבחור לפני ההורדה. */}
           {slide.imageMobileUrl ? (
             <picture>
-              <source media="(min-width: 768px)" srcSet={slide.imageUrl} />
+              <source media="(min-width: 768px)" srcSet={toCdnUrl(slide.imageUrl)} />
               <img
-                src={slide.imageMobileUrl}
+                src={toCdnUrl(slide.imageMobileUrl)}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover"
               />

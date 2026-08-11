@@ -1,4 +1,5 @@
 import { Link } from '@/i18n/navigation';
+import { toCdnUrl } from '@/lib/image-src';
 
 /**
  * סמל הקרן ושמה.
@@ -25,7 +26,8 @@ export function Wordmark({
   /** גרסה מכווצת — לוגו וטקסט קטנים יותר, לניווט במצב צף */
   compact?: boolean;
 }) {
-  const resolvedLogo = variant === 'dark' ? (darkLogoUrl || logoUrl) : logoUrl;
+  const rawLogo = variant === 'dark' ? (darkLogoUrl || logoUrl) : logoUrl;
+  const resolvedLogo = rawLogo ? toCdnUrl(rawLogo) : rawLogo;
 
   /**
    * לוגו שהועלה בלי גרסה ייעודית לרקע כהה עשוי להיות כהה בעצמו — למשל

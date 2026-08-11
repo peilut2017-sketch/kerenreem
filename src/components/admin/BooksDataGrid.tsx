@@ -7,6 +7,7 @@ import type { BookRow } from '@/lib/admin/queries';
 import { computeCompletion } from '@/lib/completion';
 import { useLocalList } from '@/lib/client-hooks';
 import { formatPrice } from '@/lib/commerce/pricing';
+import { toCdnUrl } from '@/lib/image-src';
 import { AdminIcon } from './AdminIcons';
 import { CompletionBadge } from './CompletionBadge';
 import { RowActions } from './RowActions';
@@ -438,7 +439,7 @@ export function BooksDataGrid({
                   {book.cover_image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element -- תמונונת קטנה בטבלה; אין צורך באופטימיזציית next/image
                     <img
-                      src={book.cover_image_url}
+                      src={toCdnUrl(book.cover_image_url)}
                       alt=""
                       className="h-10 w-8 rounded-[4px] border border-rule object-cover"
                     />

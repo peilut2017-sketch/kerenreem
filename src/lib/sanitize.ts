@@ -1,4 +1,5 @@
 import sanitizeHtmlLib, { type IOptions } from 'sanitize-html';
+import { toCdnUrl } from '@/lib/image-src';
 
 /**
  * ניקוי HTML שנוצר בעורך התוכן לפני הזרקתו לעמוד.
@@ -92,6 +93,18 @@ const OPTIONS: IOptions = {
   exclusiveFilter: (frame) => frame.tag === 'iframe' && !frame.attribs.src,
 
   transformTags: {
+    // תמונות שהוטמעו בטקסט העשיר (RichTextEditor מעלה אותן דרך אותו
+    // uploadToBucket כמו כל שדה תמונה אחר) לא עוברות דרך Img.tsx — הן
+    // מוזרקות כ-HTML גולמי (RichText.tsx, dangerouslySetInnerHTML).
+    // בלי הטרנספורמציה הזו, כתובת שנשמרה לפני הגדרת ה-CDN (או שהמנגנון
+    // באתר שלא נכתב כדי לגעת ב-uploadToBucket) ממשיכה להצביע ישירות על
+    // Supabase לנצח, גם אחרי הגדרת ה-CDN — toCdnUrl כאן מזהה ומתרגם
+    // כל הצגה, לא רק העלאה חדשה.
+    img: (tagName, attribs) => ({
+      tagName,
+      attribs: { ...attribs, ...(attribs.src ? { src: toCdnUrl(attribs.src) } : {}) },
+    }),
+
     iframe: (tagName, attribs) => ({
       tagName,
       attribs: {

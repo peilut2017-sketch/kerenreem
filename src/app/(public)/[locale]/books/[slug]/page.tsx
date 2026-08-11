@@ -28,6 +28,7 @@ import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
+import { toCdnUrl } from '@/lib/image-src';
 import { routing } from '@/i18n/routing';
 
 /**
@@ -409,7 +410,7 @@ export default async function BookPage({
             <BookFlipViewer
               pages={previewPages.map((page) => ({
                 id: page.id,
-                imageUrl: page.image_url,
+                imageUrl: toCdnUrl(page.image_url),
                 pageNumber: page.page_number,
               }))}
               title={title}
