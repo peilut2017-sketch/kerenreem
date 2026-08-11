@@ -4,6 +4,7 @@ import { getSettings, listBanners } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
 import { BannersEnabledToggle } from '@/components/admin/BannersEnabledToggle';
+import { toCdnUrl } from '@/lib/image-src';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,7 @@ export default async function AdminBannersPage() {
             <AdminCell>
               {banner.image_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה בממשק הניהול */
-                <img src={banner.image_url} alt="" className="h-10 w-20 border border-rule object-cover" />
+                <img src={toCdnUrl(banner.image_url)} alt="" className="h-10 w-20 border border-rule object-cover" />
               ) : (
                 <span className="text-caption text-burgundy">חסרה תמונה</span>
               )}

@@ -1,25 +1,38 @@
 import NextImage, { type ImageProps } from 'next/image';
-import { isOptimizableImageSrc } from '@/lib/image-src';
+import { isOptimizableImageSrc, toCdnUrl } from '@/lib/image-src';
 
 /**
- * next/image שאינו מפיל את העמוד על כתובת זרה.
+ * next/image שאינו מפיל את העמוד על כתובת זרה, ומגיש כתובות אחסון
+ * דרך ה-CDN (Cloudflare) שמונח מול Supabase Storage, אם הוגדר —
+ * ראו src/lib/image-src.ts (toCdnUrl).
  *
- * העטיפה היחידה שהרכיב מוסיף: unoptimized אוטומטי לכתובת שאינה מאחסון
- * הפרויקט. הדגל הזה גורם ל-generateImgAttrs לצאת מוקדם, לפני ה-loader
- * המובנה שזורק על כתובת שאינה ב-remotePatterns — וזו בדיוק הזריקה
- * שהפכה תמונה אחת שהודבקה בניהול לעמוד שגיאה שלם. ההסבר המלא ב-
- * src/lib/image-src.ts.
+ * העטיפה היחידה שהרכיב מוסיף מעבר לזה: unoptimized אוטומטי לכתובת
+ * שאינה מאחסון הפרויקט. הדגל הזה גורם ל-generateImgAttrs לצאת מוקדם,
+ * לפני ה-loader המובנה שזורק על כתובת שאינה ב-remotePatterns — וזו
+ * בדיוק הזריקה שהפכה תמונה אחת שהודבקה בניהול לעמוד שגיאה שלם. ההסבר
+ * המלא ב-src/lib/image-src.ts.
  *
  * בכל שאר המובנים זהו next/image רגיל: כתובות תקינות ממשיכות דרך שירות
- * האופטימיזציה בדיוק כמו קודם, עם אותו srcSet ואותו sizes.
+ * האופטימיזציה בדיוק כמו קודם, עם אותו srcSet ואותו sizes. הבדיקה
+ * (isOptimizableImageSrc) פועלת על הכתובת *המקורית* שנשמרה במסד, לפני
+ * ההמרה ל-CDN — כך ש-remotePatterns/CSP נשארים מקור האמת היחיד, בלי
+ * תלות בסדר הפעולות.
  *
  * משמש בכל מקום שבו הכתובת מגיעה מהניהול. לנכסים סטטיים שמיובאים ב-import
  * אין צורך בו — שם הכתובת ידועה בזמן בנייה ואינה יכולה להיות זרה.
  */
-export function Img(props: ImageProps) {
-  // src יכול להיות גם StaticImageData (import סטטי); שם אין מה לבדוק.
-  const unoptimized =
-    props.unoptimized ?? (typeof props.src === 'string' ? !isOptimizableImageSrc(props.src) : false);
+export function Img({ src, ...props }: ImageProps) {
+  // src יכול להיות גם StaticImageData (import סטטי); שם אין מה לבדוק/להמיר.
+  const rawSrc = typeof src === 'string' ? src : undefined;
+  const unoptimized = props.unoptimized ?? (rawSrc ? !isOptimizableImageSrc(rawSrc) : false);
+  const resolvedSrc = rawSrc ? toCdnUrl(rawSrc) : src;
 
-  return <NextImage {...props} unoptimized={unoptimized} />;
+  // זמני לאבחון מעבר ל-CDN — לא מותנה בסביבה בכוונה, כדי שיהיה גלוי גם
+  // ב-build הייצור בפועל. להסיר את זה אחרי שהתמונות מאומתות כמגיעות
+  // דרך ה-CDN (חיפוש "cdn rewrite" מאתר את שתי נקודות הלוג, כאן וב-toCdnUrl).
+  if (rawSrc) {
+    console.log('[Img] cdn rewrite', { rawSrc, resolvedSrc, cdnUrl: process.env.NEXT_PUBLIC_CDN_URL ?? null });
+  }
+
+  return <NextImage src={resolvedSrc} unoptimized={unoptimized} {...props} />;
 }

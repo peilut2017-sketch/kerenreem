@@ -2,6 +2,7 @@
 
 import { useId, useState, useTransition } from 'react';
 import { saveSeriesOrder } from '@/lib/admin/actions';
+import { toCdnUrl } from '@/lib/image-src';
 import { AdminIcon } from './AdminIcons';
 import { Spinner } from './SubmitButton';
 
@@ -118,7 +119,7 @@ export function SeriesOrderList({
             <span className="w-5 shrink-0 text-center text-caption tabular-nums text-muted">{index + 1}</span>
             {book.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה קטנה בממשק הניהול
-              <img src={book.coverUrl} alt="" className="h-10 w-8 shrink-0 rounded-[2px] object-cover" />
+              <img src={toCdnUrl(book.coverUrl)} alt="" className="h-10 w-8 shrink-0 rounded-[2px] object-cover" />
             ) : (
               <span className="h-10 w-8 shrink-0 rounded-[2px] bg-cream-2" aria-hidden="true" />
             )}

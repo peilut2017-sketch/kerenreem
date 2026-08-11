@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { isProjectStorageUrl } from '@/lib/image-src';
+import { isProjectStorageUrl, toCdnUrl } from '@/lib/image-src';
 
 export type StorageBucket = 'covers' | 'events' | 'portraits' | 'samples' | 'site';
 
@@ -45,7 +45,7 @@ export async function uploadToBucket(
   if (error) throw new Error(`ההעלאה נכשלה: ${error.message}`);
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-  return data.publicUrl;
+  return toCdnUrl(data.publicUrl);
 }
 
 /**
@@ -106,7 +106,7 @@ export function ImageField({
         {url && accept.startsWith('image') ? (
           // eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה של קובץ שהרגע הועלה
           <img
-            src={url}
+            src={toCdnUrl(url)}
             alt=""
             className="h-24 w-auto max-w-24 border border-rule object-contain"
           />

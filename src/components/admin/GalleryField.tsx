@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { uploadToBucket } from './ImageField';
+import { toCdnUrl } from '@/lib/image-src';
 import type { GalleryImage } from '@/lib/supabase/types';
 
 /**
@@ -92,7 +93,7 @@ export function GalleryField({
           {images.map((image, index) => (
             <li key={`${image.url}-${index}`} className="flex flex-wrap items-start gap-4">
               {/* eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה בממשק הניהול */}
-              <img src={image.url} alt="" className="h-20 w-20 border border-rule object-cover" />
+              <img src={toCdnUrl(image.url)} alt="" className="h-20 w-20 border border-rule object-cover" />
 
               <div className="min-w-56 flex-1">
                 <label htmlFor={`${id}-caption-${index}`} className="field-label">
