@@ -4,6 +4,7 @@ import { AdminNav } from '@/components/admin/AdminNav';
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import { ROLE_LABELS } from '@/lib/admin/permissions';
 import { SignOutButton } from '@/components/admin/SignOutButton';
+import { ToastHost } from '@/components/admin/ToastHost';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 
 
@@ -27,6 +28,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--admin-canvas)]">
+      {/* מורכב פעם אחת ברמת הפריסה, לא בתוך עמוד — כך הודעת "נשמר" נשארת
+          גלויה גם כש-EntityForm מנווט משם מיד אחרי, ראו toast-bus.ts. */}
+      <ToastHost />
+
       {/* הכותרת נדבקת לראש החלון, כמו באתר הציבורי: בטבלה ארוכה הניווט
           היה נעלם למעלה וכל מעבר בין מסכים חייב גלילה חזרה. */}
       <header className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/90 backdrop-blur-md">

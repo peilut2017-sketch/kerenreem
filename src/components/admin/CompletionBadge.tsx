@@ -2,9 +2,10 @@ import { computeCompletion } from '@/lib/completion';
 import type { Book, BookRelations } from '@/lib/supabase/types';
 
 /**
- * תגית אחוז ההשלמה. הצבע משתנה רק ב-100% — לא מדרג בין 40 ל-70, כי
- * המשקלים שווים במכוון (ראו completion.ts) ואין לדרגות ביניים משמעות
- * שמצדיקה צבעים נוספים.
+ * תגית אחוז ההשלמה. הצבע משתנה רק ב-100% — לא מדרג בין 40 ל-70: האחוז
+ * כאן הוא כבר תוצאה של ניקוד משוקלל לפי ערך השדה (ראו completion.ts),
+ * ואין לדרגות ביניים משמעות אחידה שמצדיקה עוד צבעים — טווח האחוזים
+ * עצמו כבר משקף חשיבות, לא רק כמות.
  */
 export function CompletionBadge({ book, relations }: { book: Book; relations: BookRelations }) {
   const { percent, missing } = computeCompletion(book, relations);

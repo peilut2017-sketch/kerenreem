@@ -6,6 +6,8 @@ import { saveEntity, type SaveState } from '@/lib/admin/actions';
 import { DeleteButton } from './DeleteButton';
 import { SubmitButton } from './SubmitButton';
 import { restoreFormValues } from '@/lib/restore-form';
+import { showAdminToast } from '@/lib/admin/toast-bus';
+import { useModalClose } from './modal-close-context';
 
 /** מזהה איזה משני כפתורי השמירה הפעיל את השליחה — ראו name="intent" למטה. */
 type Intent = 'save' | 'save-new';
@@ -49,6 +51,7 @@ export function EntityForm({
   backHref: string;
 }) {
   const router = useRouter();
+  const closeModal = useModalClose();
   const formRef = useRef<HTMLFormElement>(null);
   const submitted = useRef<FormData | null>(null);
   // משתנה כדי לאלץ מיחדוש (remount) מלא של הטופס אחרי "שמירה ופתיחת חדש"
@@ -100,9 +103,21 @@ export function EntityForm({
    * כל ניווט הוא רשת ביטחון נוספת: מכריח את Next.js להעריך מחדש את כל
    * המשבצות המקבילות (כולל @modal) לפי הכתובת החדשה, ולא לסמוך רק על
    * כך שהניווט הרך יעדכן אותן מעצמו.
+   *
+   * [1.10] הודעת "נשמר בהצלחה" מוצגת בכל שמירה מוצלחת, בלי קשר למה
+   * שקורה אחריה (סגירה, המשך פתוח, או "שמירה ופתיחת חדש") — ToastHost
+   * ברמת הפריסה שורד את הניווט שקורה מיד אחרי, ראו toast-bus.ts.
+   *
+   * [1.10] "סגירת כרטיס" בתוך מסלול מיורט (@modal, ראו BookFormDrawer)
+   * לא סוגרת אמינה דרך router.replace לכתובת שאינה תואמת אף segment
+   * ב-slot המיורט — תקלה ידועה של מסלולים מיורטים. closeModal (מ-
+   * ModalCloseContext, קיים רק כשבאמת בתוך מודאל) עושה בדיוק מה
+   * שהסגירה הידנית כבר עושה: router.back(). מחוץ למודאל closeModal הוא
+   * null, וההתנהגות הרגילה (replace לרשימה) נשארת כפי שהייתה.
    */
   useEffect(() => {
     if (state.status !== 'saved') return;
+    showAdminToast('הנתונים נשמרו בהצלחה');
 
     if (state.intent === 'save-new') {
       if (id) {
@@ -118,12 +133,32 @@ export function EntityForm({
       return;
     }
 
+    if (closeModal) {
+      closeModal();
+      router.refresh();
+      return;
+    }
+
     router.replace(`/admin/${entity}`);
     router.refresh();
-  }, [state, entity, id, router]);
+  }, [state, entity, id, router, closeModal]);
+
+  /**
+   * [1.10] Ctrl/Cmd+Enter שולח את הטופס כאילו נלחץ "שמירה" — בכל מקום
+   * בתוכו, כולל שדה טקסט או עורך טקסט עשיר, לא רק כשהפוקוס על כפתור.
+   * requestSubmit() בלי submitter מדמה בדיוק את כפתור ה"שמירה" הראשי:
+   * formData.get('intent') חוזר null, וה-reducer שלמעלה מברירת מחדל
+   * ל-'save' (לא 'save-new') בדיוק כמו שהיה קורה בלי שדה intent כלל.
+   */
+  function handleKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+  }
 
   return (
-    <form ref={formRef} action={action} className="space-y-8" key={resetToken}>
+    <form ref={formRef} action={action} onKeyDown={handleKeyDown} className="space-y-8" key={resetToken}>
       <fieldset disabled={!canWrite} className="space-y-8 disabled:opacity-70">
         {children(state.fieldErrors ?? {})}
       </fieldset>
