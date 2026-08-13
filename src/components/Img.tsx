@@ -27,12 +27,5 @@ export function Img({ src, ...props }: ImageProps) {
   const unoptimized = props.unoptimized ?? (rawSrc ? !isOptimizableImageSrc(rawSrc) : false);
   const resolvedSrc = rawSrc ? toCdnUrl(rawSrc) : src;
 
-  // זמני לאבחון מעבר ל-CDN — לא מותנה בסביבה בכוונה, כדי שיהיה גלוי גם
-  // ב-build הייצור בפועל. להסיר את זה אחרי שהתמונות מאומתות כמגיעות
-  // דרך ה-CDN (חיפוש "cdn rewrite" מאתר את שתי נקודות הלוג, כאן וב-toCdnUrl).
-  if (rawSrc) {
-    console.log('[Img] cdn rewrite', { rawSrc, resolvedSrc, cdnUrl: process.env.NEXT_PUBLIC_CDN_URL ?? null });
-  }
-
   return <NextImage src={resolvedSrc} unoptimized={unoptimized} {...props} />;
 }

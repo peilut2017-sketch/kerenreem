@@ -1,9 +1,10 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 import { ToggleField, FieldSet, SelectField, TextField } from './Fields';
 import { SubmitButton } from './SubmitButton';
 import { saveStoreConfig, toggleStoreConfigFlag, type StoreConfigState } from '@/lib/admin/store-config-actions';
+import { showAdminToast } from '@/lib/admin/toast-bus';
 import type { StoreSettings } from '@/lib/supabase/types';
 
 /**
@@ -24,9 +25,24 @@ export function StoreConfigForm({
   const [state, formAction] = useActionState<StoreConfigState, FormData>(saveStoreConfig, {
     status: 'idle',
   });
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state.status !== 'saved') return;
+    showAdminToast(state.message ?? 'הנתונים נשמרו בהצלחה');
+  }, [state]);
+
+  // [1.10] Ctrl/Cmd+Enter שולח את הטופס כמו כפתור "שמירה" — ראו אותה
+  // תוספת ב-EntityForm.tsx.
+  function handleKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+  }
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form ref={formRef} action={formAction} onKeyDown={handleKeyDown} className="space-y-8">
       <FieldSet
         legend="דגלים שכבתיים"
         icon="store"

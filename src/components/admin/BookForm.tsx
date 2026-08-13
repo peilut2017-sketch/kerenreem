@@ -104,7 +104,9 @@ export function BookForm({
               </div>
               {completion.missing.length > 0 ? (
                 <p className="mt-2 text-caption text-muted">
-                  חסר: {completion.missing.map((item) => item.label).join(', ')}
+                  {/* ממוין מהניקוד הגבוה לנמוך (ראו completion.ts) — מה שהכי
+                      משתלם להשלים קודם מופיע ראשון. */}
+                  חסר: {completion.missing.map((item) => `${item.label} (${item.weight} נק')`).join(', ')}
                 </p>
               ) : (
                 <p className="mt-2 text-caption text-muted">כל השדות שהמד בודק מולאו.</p>

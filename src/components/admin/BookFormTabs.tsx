@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AdminIcon, type AdminIconName } from './AdminIcons';
+import { useModalClose } from './modal-close-context';
 
 export interface BookFormTab {
   id: string;
@@ -23,6 +24,15 @@ export interface BookFormTab {
  * לפי props שהשתנו" (ראו react.dev/learn/you-might-not-need-an-effect) —
  * firstErrorTab משתנה רק אחרי שליחה כושלת חדשה, ומשווים אותו לעצמו
  * מהרינדור הקודם כדי לזהות בדיוק את הרגע הזה בלי אפקט נפרד.
+ *
+ * [1.10] סרגל הלשוניות נדבק לראש החלון בזמן גלילה — טופס הספר ארוך
+ * (תשע לשוניות), ובלעדי זה מעבר בין לשוניות מחייב לגלול חזרה למעלה בכל
+ * פעם. אותה טכניקה בדיוק כמו StickyNav.tsx (עמוד הספר הציבורי) ו-
+ * SiteHeaderHeightVar.tsx: גובה ה-header הדביק של הניהול נמדד בפועל
+ * (ResizeObserver), לא מונח כמספר קבוע, כי הוא משתנה בין שברי מסך.
+ * בתוך כרטיס תצוגה מיורט (BookFormDrawer) המדידה מדלגת: תוכן הכרטיס
+ * גולל בפני עצמו בתוך מגירה, בלי header חיצוני שמתחרה על אותו top:0 —
+ * ראו modal-close-context.ts.
  */
 export function BookFormTabs({
   firstErrorTab,
@@ -33,15 +43,34 @@ export function BookFormTabs({
 }) {
   const [activeTab, setActiveTab] = useState(firstErrorTab ?? tabs[0].id);
   const [seenErrorTab, setSeenErrorTab] = useState(firstErrorTab);
+  const insideModal = useModalClose() !== null;
+  const [stickyTop, setStickyTop] = useState(0);
 
   if (firstErrorTab && firstErrorTab !== seenErrorTab) {
     setSeenErrorTab(firstErrorTab);
     setActiveTab(firstErrorTab);
   }
 
+  useEffect(() => {
+    if (insideModal) return;
+    const header = document.querySelector('header');
+    if (!header || typeof ResizeObserver === 'undefined') return;
+
+    const apply = (height: number) => setStickyTop(height);
+    apply(header.getBoundingClientRect().height);
+    const observer = new ResizeObserver(([entry]) => apply(entry.target.getBoundingClientRect().height));
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [insideModal]);
+
   return (
     <div>
-      <div role="tablist" aria-label="קטעי טופס הספר" className="admin-nav-shell mb-8 flex-wrap">
+      <div
+        role="tablist"
+        aria-label="קטעי טופס הספר"
+        style={{ top: stickyTop }}
+        className="admin-nav-shell sticky z-20 mb-8 flex-wrap"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
