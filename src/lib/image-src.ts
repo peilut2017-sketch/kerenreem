@@ -84,16 +84,6 @@ export function isOptimizableImageSrc(src: string): boolean {
  * שינוי — כולל כתובת חיצונית שהודבקה ידנית בטופס ImageField.
  */
 export function toCdnUrl(src: string): string {
-  // זמני לאבחון מעבר ל-CDN — לא מותנה בסביבה בכוונה. להסיר אחרי אימות
-  // (חיפוש "cdn rewrite" מאתר את זה ואת נקודת הלוג התאומה ב-Img.tsx).
-  console.log('[toCdnUrl] cdn rewrite check', {
-    src,
-    CDN_URL,
-    CDN_HOST,
-    SUPABASE_HOST,
-    isProjectStorageUrl: isProjectStorageUrl(src),
-  });
-
   if (!CDN_URL || !isProjectStorageUrl(src)) return src;
   try {
     const url = new URL(src);
