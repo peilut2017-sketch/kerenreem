@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { routing } from '@/i18n/routing';
 import { applySitePreference, readSitePreferences, type SiteA11yToggle } from '@/lib/a11y-preferences';
 
 /**
@@ -121,7 +122,10 @@ export function AccessibilityWidget() {
             emoji: '📄',
             toggle: false,
             method: () => {
-              window.location.href = `/${locale}/accessibility`;
+              // localePrefix: 'as-needed' — לשפת ברירת המחדל אין קידומת
+              // בכתובת; ‎/he/accessibility היה עובר הפניה מיותרת בכל לחיצה.
+              const prefix = locale === routing.defaultLocale ? '' : `/${locale}`;
+              window.location.href = `${prefix}/accessibility`;
             },
           },
         ],

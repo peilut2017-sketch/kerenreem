@@ -286,7 +286,7 @@ function CartCouponField({
 }: {
   appliedCode: string | null;
   freeShipping: boolean;
-  error: { error?: string; minTotal?: number; code: string } | null;
+  error: { error?: string; minTotal?: number; minQuantity?: number; code: string } | null;
   onApply: (code: string) => void;
   onRemove: () => void;
 }) {
@@ -352,13 +352,17 @@ function CartCouponField({
         <p role="alert" className="mt-2 text-caption text-burgundy">
           {error.error === 'min_total' && error.minTotal != null
             ? t('couponErrMinTotal', { amount: formatPrice(error.minTotal, locale) })
-            : error.error === 'used_up'
-              ? t('couponErrUsedUp')
-              : error.error === 'not_applicable'
-                ? t('couponErrNotApplicable')
-                : error.error === 'not_combinable'
-                  ? t('couponErrNotCombinable')
-                  : t('couponErrInvalid')}
+            : error.error === 'min_quantity' && error.minQuantity != null
+              ? t('couponErrMinQuantity', { count: error.minQuantity })
+              : error.error === 'used_up'
+                ? t('couponErrUsedUp')
+                : error.error === 'first_order_only'
+                  ? t('couponErrFirstOrderOnly')
+                  : error.error === 'not_applicable'
+                    ? t('couponErrNotApplicable')
+                    : error.error === 'not_combinable'
+                      ? t('couponErrNotCombinable')
+                      : t('couponErrInvalid')}
         </p>
       ) : null}
     </div>

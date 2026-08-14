@@ -67,8 +67,8 @@
   --text-h1--line-height: 1.18;
 
   /* --- פינות: כרטיס הוא אובייקט פיזי, לא מלבן --- */
-  --radius-xs: 0.625rem;   /* 10px — שדות, תגיות */
-  --radius-sm: 0.875rem;   /* 14px — אלמנטים קטנים */
+  --radius-xs: 0.75rem;    /* 12px — שדות, תגיות */
+  --radius-sm: 1rem;       /* 16px — אלמנטים קטנים */
   --radius-md: 1.25rem;    /* 20px — מדיה, תמונות */
   --radius-lg: 1.75rem;    /* 28px — כרטיסים */
   --radius-xl: 2rem;       /* 32px — משטחים גדולים */
@@ -270,6 +270,7 @@ body::before {
   .btn-solid:hover {
     background-color: var(--color-navy-2);
     box-shadow: var(--shadow-lift);
+    transform: translateY(-2px);
   }
 
   .btn-quiet {
@@ -283,6 +284,7 @@ body::before {
     border-color: var(--color-rule-strong);
     background-color: color-mix(in srgb, #fff 78%, transparent);
     box-shadow: var(--shadow-float);
+    transform: translateY(-2px);
   }
 
   /* על רקע כהה: המלא הופך לזהב, והשקט לזכוכית כהה */
@@ -298,7 +300,12 @@ body::before {
     border-color: color-mix(in srgb, var(--color-gold) 70%, transparent);
   }
 
+  /* הצהרה חוזרת אחרי כללי ה-hover: בזמן לחיצה תוך כדי ריחוף, הכיווץ
+     חייב לגבור על ההרמה — סדר המקור מכריע כשהספציפיות שווה. */
+  .btn:active { transform: scale(0.97); }
+
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled:hover { transform: none; }
 
   /* --- זכוכית: blur אמיתי, שקיפות נמוכה, מסגרת דקה, קו אור עליון.
          לא ניאון ולא פלסטיק — משטח שמראה את מה שמתחתיו בעדינות. --- */
@@ -488,7 +495,14 @@ body::before {
     border-block-start: 1px solid var(--color-rule);
     margin-block: 2.5em;
   }
-  .prose-reem img { max-width: 100%; height: auto; border: 1px solid var(--color-rule); }
+  /* תמונות וטבלאות בתוכן עשיר: פינות רכות כמו שאר האתר — מלבן חד בתוך
+     עמוד שכולו רדיוסים נקרא כגוף זר. */
+  .prose-reem img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md);
+  }
   .prose-reem table { width: 100%; border-collapse: collapse; font-size: var(--text-small); }
   .prose-reem th, .prose-reem td {
     border: 1px solid var(--color-rule);
@@ -503,6 +517,7 @@ body::before {
     aspect-ratio: 16 / 9;
     height: auto;
     border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md);
   }
   .prose-reem div[data-youtube-video] { margin-block: 1.75em; }
   .prose-reem div[data-youtube-video] iframe { width: 100%; height: auto; aspect-ratio: 16 / 9; }

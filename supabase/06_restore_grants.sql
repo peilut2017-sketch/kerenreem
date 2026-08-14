@@ -40,16 +40,37 @@ grant usage on schema public to anon, authenticated, service_role;
 
 grant all on all tables    in schema public to anon, authenticated, service_role;
 grant all on all sequences in schema public to anon, authenticated, service_role;
-grant all on all functions in schema public to anon, authenticated, service_role;
 
--- הרשאות ברירת מחדל — כדי שגם טבלאות שייווצרו בעתיד יקבלו אותן אוטומטית,
--- ולא נחזור לכאן בכל שינוי סכימה.
+-- ⚠ פונקציות — service_role בלבד, ובכוונה.
+--
+-- הרבה מפונקציות המסחר הן SECURITY DEFINER (commerce_reserve_stock,
+-- commerce_adjust_stock, commerce_rate_limit ועוד): RLS אינו חוסם הרצת
+-- פונקציה, ולכן EXECUTE ל-anon על פונקציה כזו הוא הסלמת הרשאות ישירה —
+-- כל מבקר עם המפתח הציבורי היה יכול לשנות מלאי או לשרוף מכסות קצב.
+-- מיגרציות 13/30/31/36/37/40 מעניקות אותן ל-service_role בלבד; שחזור
+-- גורף היה מבטל את ההקשחה הזו. לכן כאן service_role בלבד, והפונקציה
+-- הציבורית היחידה שאורח באמת צריך מוענקת במפורש למטה.
+grant all on all functions in schema public to service_role;
+
+-- increment_book_view — מונה הצפיות הציבורי (10_book_page_stage_c.sql).
+-- הפונקציה הציבורית היחידה שאורח קורא בפועל (lib/data.ts). שאר
+-- הפונקציות נשארות שרת-בלבד.
+do $$
+begin
+  execute 'grant execute on function public.increment_book_view(text) to anon, authenticated';
+exception when undefined_function then
+  raise notice 'increment_book_view not present yet — run 10_book_page_stage_c.sql first';
+end $$;
+
+-- הרשאות ברירת מחדל — לטבלאות/רצפים שייווצרו בעתיד בלבד. פונקציות
+-- מוחרגות במכוון: פונקציה חדשה מקבלת את הגדר שמיגרציית האבטחה שלה
+-- קובעת (ברירת מחדל: service_role), לא EXECUTE גורף ל-anon.
 alter default privileges in schema public
   grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public
   grant all on sequences to anon, authenticated, service_role;
 alter default privileges in schema public
-  grant all on functions to anon, authenticated, service_role;
+  grant all on functions to service_role;
 
 -- ----------------------------------------------------------------------------
 -- 3. אימות

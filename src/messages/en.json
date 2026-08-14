@@ -500,6 +500,8 @@
     "couponErrMinTotal": "This coupon applies from {amount}",
     "couponErrUsedUp": "This coupon has been fully used",
     "couponErrNotApplicable": "This coupon does not apply to the items in your cart",
+    "couponErrMinQuantity": "This coupon applies to {count} books or more",
+    "couponErrFirstOrderOnly": "This coupon is for a first order only",
     "stepOrdered": "Received",
     "stepPaid": "Paid",
     "stepPreparing": "Preparing",

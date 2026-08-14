@@ -60,7 +60,9 @@ export function computeCompletion(book: Book, relations: BookRelations): Complet
     { key: 'publisher', label: 'הוצאה לאור', done: Boolean(book.publisher_he), weight: 2 },
     { key: 'isbn', label: 'מסת״ב', done: Boolean(book.isbn), weight: 2 },
     { key: 'pages', label: 'מספר עמודים', done: book.pages != null, weight: 2 },
-    { key: 'quotes', label: 'ציטוטים', done: book.quotes.length > 0, weight: 2 },
+    // ‎?? []‎: שורה גולמית מהניהול (listBooks) יכולה להגיע עם quotes=null
+    // במסד שטרם הריץ את 10_book_page_stage_c — גישה ישירה הפילה את המסך.
+    { key: 'quotes', label: 'ציטוטים', done: (book.quotes ?? []).length > 0, weight: 2 },
     // שדות אנגלית — כשליש מהניקוד של המקבילה העברית, ראו הסבר למעלה
     { key: 'title_en', label: 'שם (אנגלית)', done: Boolean(book.title_en), weight: 3 },
     { key: 'description_en', label: 'תיאור (אנגלית)', done: Boolean(book.description_en), weight: 3 },

@@ -18,19 +18,8 @@ export interface CostActionResult {
   costPrice?: number | null;
 }
 
-export async function getBookCost(bookId: string): Promise<CostActionResult> {
-  const session = await assertPermission('costs');
-  if ('error' in session) return { ok: false, error: session.error };
-  const service = createServiceClient();
-  if (!service) return { ok: false, error: 'אין חיבור למסד' };
-
-  const { data } = await service
-    .from('book_costs')
-    .select('cost_price')
-    .eq('book_id', bookId)
-    .maybeSingle();
-  return { ok: true, costPrice: data ? Number(data.cost_price) : null };
-}
+// getBookCost הוסר — אף רכיב לא קרא לו: BookCostPanel מקבל את העלות
+// מהשרת דרך book-form-data ושומר דרך saveBookCost בלבד.
 
 export async function saveBookCost(bookId: string, costPrice: number | null): Promise<CostActionResult> {
   const session = await assertPermission('costs');

@@ -44,12 +44,20 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       // עומד בכלל set-state-in-effect וגם לא מהבהב "מחפש…" על כל הקשה
       // בזמן ה-debounce עצמו, רק אחרי שהוא עומד לשלוח בקשה בפועל.
       setLoading(true);
-      globalSearch(query, locale).then((data) => {
-        if (requestId.current !== id) return; // תשובה ישנה — התעלמות, מונע הבהוב תוצאות
-        setResult(data);
-        setLoading(false);
-        setActive(-1);
-      });
+      globalSearch(query, locale)
+        .then((data) => {
+          if (requestId.current !== id) return; // תשובה ישנה — התעלמות, מונע הבהוב תוצאות
+          setResult(data);
+          setLoading(false);
+          setActive(-1);
+        })
+        .catch(() => {
+          // כשל רשת חולף: בלי ה-catch הדחייה נשארה לא-מטופלת ו"מחפש…"
+          // נתקע לצמיתות (loading לא התאפס). הקשה הבאה תנסה שוב.
+          if (requestId.current !== id) return;
+          setResult(EMPTY);
+          setLoading(false);
+        });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [value, locale]);

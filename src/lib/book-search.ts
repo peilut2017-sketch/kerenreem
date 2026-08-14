@@ -227,9 +227,9 @@ export function sortBooks(books: BookWithRelations[], key: SortKey): BookWithRel
     case 'title':
       return sorted.sort((a, b) => collator.compare(a.title_he, b.title_he));
     case 'priceAsc':
-      return sorted.sort((a, b) => priceOf(a) - priceOf(b));
+      return sorted.sort(comparePrices((a, b) => a - b));
     case 'priceDesc':
-      return sorted.sort((a, b) => priceOf(b) - priceOf(a));
+      return sorted.sort(comparePrices((a, b) => b - a));
     default:
       // "מומלצים" הוא ברירת המחדל, לא רשימה שנקבעת ידנית ספר-ספר: אין
       // בניהול שדה סדר תצוגה, כך שהמיון היחיד שיש לו משמעות יציבה כאן
@@ -238,9 +238,23 @@ export function sortBooks(books: BookWithRelations[], key: SortKey): BookWithRel
   }
 }
 
-/** ספר בלי מחיר יורד לסוף בשני כיווני המיון, ולא מתחזה לחינם. */
-function priceOf(book: BookWithRelations): number {
-  return book.price === null || book.price === undefined
-    ? Number.POSITIVE_INFINITY
-    : Number(book.price);
+/**
+ * ספר בלי מחיר יורד לסוף בשני כיווני המיון, ולא מתחזה לחינם.
+ * הטיפול במחיר-חסר נעשה כאן במפורש ולא דרך Infinity: ב-priceDesc
+ * אינסוף היה ממיין את חסרי-המחיר דווקא לראש, ושני חסרי-מחיר החזירו
+ * NaN‏ (Infinity - Infinity) — ערך לא חוקי למשווה.
+ */
+function comparePrices(
+  direction: (a: number, b: number) => number,
+): (a: BookWithRelations, b: BookWithRelations) => number {
+  const priceOf = (book: BookWithRelations): number | null =>
+    book.price === null || book.price === undefined ? null : Number(book.price);
+  return (a, b) => {
+    const priceA = priceOf(a);
+    const priceB = priceOf(b);
+    if (priceA === null && priceB === null) return 0;
+    if (priceA === null) return 1;
+    if (priceB === null) return -1;
+    return direction(priceA, priceB);
+  };
 }

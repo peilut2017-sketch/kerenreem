@@ -24,9 +24,15 @@ export default async function LoginPage({
   const permissionDenied = /permission denied/i.test(errorMessage ?? '');
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[32rem] flex-col justify-center px-6 py-16">
-      <h1 className="font-serif text-h2 text-ink">ניהול תוכן</h1>
-      <p className="mt-2 text-small text-muted">מכון קרן רא״ם</p>
+    <div className="admin-canvas flex min-h-dvh flex-col justify-center px-6 py-16">
+      <div className="admin-card relative mx-auto w-full max-w-[30rem] overflow-hidden px-8 py-10 sm:px-10">
+        {/* אותו קו גרדיאנט כמו בראש מסכי הניהול — חתימת הצבע של המנשק */}
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-[3px] bg-[linear-gradient(90deg,var(--admin-accent),var(--admin-accent-2)_45%,var(--color-gold))]"
+        />
+        <h1 className="font-serif text-h2 text-ink">ניהול תוכן</h1>
+        <p className="mt-2 text-small text-muted">מכון קרן רא״ם</p>
 
       {!isSupabaseConfigured ? (
         <p className="mt-10 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-ink-soft">
@@ -60,14 +66,17 @@ export default async function LoginPage({
               >{`grant usage on schema public to anon, authenticated, service_role;
 grant all on all tables    in schema public to anon, authenticated, service_role;
 grant all on all sequences in schema public to anon, authenticated, service_role;
-grant all on all functions in schema public to anon, authenticated, service_role;
+-- פונקציות: service_role בלבד — פונקציות SECURITY DEFINER של המסחר
+-- אסור להן להיות פתוחות ל-anon (הסלמת הרשאות). ראו supabase/06_restore_grants.sql
+grant all on all functions in schema public to service_role;
+grant execute on function public.increment_book_view(text) to anon, authenticated;
 
 alter default privileges in schema public
   grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public
   grant all on sequences to anon, authenticated, service_role;
 alter default privileges in schema public
-  grant all on functions to anon, authenticated, service_role;`}</pre>
+  grant all on functions to service_role;`}</pre>
               <p className="mt-3 text-small text-muted">
                 מדיניות ה-RLS אינה מושפעת — היא ממשיכה לקבוע אילו שורות נראות.
                 הקובץ <code>supabase/06_restore_grants.sql</code> מכיל גם שאילתת אבחון.
@@ -139,10 +148,11 @@ on conflict (id) do update set role = 'admin';`}</pre>
         </div>
       )}
 
-      {/* אבחון החיבור מוצג גם כשהטופס תקין: כשההתחברות נכשלת, זו הדרך
-          היחידה לראות לאיזה פרויקט הבנייה פונה — מסך האבחון המלא נמצא
-          מאחורי אותה התחברות שאינה עובדת. */}
-      {isSupabaseConfigured ? <LoginDiagnostics /> : null}
+        {/* אבחון החיבור מוצג גם כשהטופס תקין: כשההתחברות נכשלת, זו הדרך
+            היחידה לראות לאיזה פרויקט הבנייה פונה — מסך האבחון המלא נמצא
+            מאחורי אותה התחברות שאינה עובדת. */}
+        {isSupabaseConfigured ? <LoginDiagnostics /> : null}
+      </div>
     </div>
   );
 }

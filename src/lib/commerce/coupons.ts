@@ -42,7 +42,11 @@ export interface CouponRow {
 export type CouponError =
   | 'invalid'
   | 'min_total'
+  /** "קנה X יחידות ומעלה" — נבדל מ-min_total כדי שההודעה ללקוח תדבר על כמות, לא על סכום */
+  | 'min_quantity'
   | 'used_up'
+  /** קופון להזמנה ראשונה בלבד — ללקוח שכבר הזמין בעבר */
+  | 'first_order_only'
   | 'not_applicable'
   /** [1.1] קופון קיים או חדש אינו מסומן "ניתן לצירוף" (ברירת מחדל: לא) */
   | 'not_combinable';
@@ -51,6 +55,7 @@ export interface CouponResult {
   ok: boolean;
   error?: CouponError;
   minTotal?: number;
+  minQuantity?: number;
   coupon?: CouponRow;
   /** הנחת סכום על ההזמנה (0 לקופון משלוח חינם) */
   discountAmount: number;
@@ -127,9 +132,10 @@ export async function validateCoupon(
   if (coupon.min_total != null && cart.subtotal < coupon.min_total) {
     return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total };
   }
-  // [1.3] "קנה X יחידות ומעלה"
+  // [1.3] "קנה X יחידות ומעלה" — שגיאה משלה, לא min_total: ההודעה ללקוח
+  // צריכה לומר "הוסיפו עוד ספר", לא סכום שקלים שגוי (או ריק).
   if (coupon.min_quantity != null && cart.totalQuantity < coupon.min_quantity) {
-    return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total ?? undefined };
+    return { ...NO_COUPON, error: 'min_quantity', minQuantity: coupon.min_quantity };
   }
   // [1.3] קופון אישי — מזוהה מול טלפון/מייל ההזמנה; בלי פרטי קשר (עגלה)
   // או בלי התאמה — נדחה בהודעה גנרית (לא מדליפים למי הקופון שייך)
@@ -138,6 +144,27 @@ export async function validateCoupon(
     const phoneMatch = contactPhone ? normalizePhone(contactPhone) === normalizePhone(target) : false;
     const emailMatch = contactEmail ? contactEmail.trim().toLowerCase() === target : false;
     if (!phoneMatch && !emailMatch) return { ...NO_COUPON, error: 'invalid' };
+  }
+  // "הזמנה ראשונה בלבד" — נאכף כשידועים פרטי קשר (בקופה תמיד; בעגלה,
+  // לפני הזנת פרטים, אין עדיין מול מה לבדוק — האכיפה הסופית ממילא רצה
+  // שוב ב-placeOrder עם הפרטים המלאים). הזמנות שבוטלו אינן נספרות.
+  if (coupon.first_order_only && (contactPhone || contactEmail)) {
+    const phone = contactPhone ? normalizePhone(contactPhone) : null;
+    const email = contactEmail?.trim().toLowerCase() ?? null;
+    // שתי ספירות נפרדות עם eq ולא ‎.or()‎ אחד: ערך ה-or נשזר לתחביר
+    // הסינון של PostgREST כטקסט, ומייל עם פסיק/סוגריים היה מזריק סינון.
+    const countPrior = (column: 'contact_phone' | 'contact_email', value: string) =>
+      service
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq(column, value)
+        .not('state', 'in', '(cancelled,cancel_pending_refund)')
+        .then((r) => r.count ?? 0);
+    const [byPhone, byEmail] = await Promise.all([
+      phone ? countPrior('contact_phone', phone) : Promise.resolve(0),
+      email ? countPrior('contact_email', email) : Promise.resolve(0),
+    ]);
+    if (byPhone + byEmail > 0) return { ...NO_COUPON, error: 'first_order_only' };
   }
 
   const typedCoupon = coupon as CouponRow;

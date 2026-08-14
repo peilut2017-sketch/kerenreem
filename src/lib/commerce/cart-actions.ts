@@ -19,6 +19,7 @@ export interface CartCouponView {
   ok: boolean;
   error?: CouponError;
   minTotal?: number;
+  minQuantity?: number;
   discountAmount: number;
   freeShipping: boolean;
 }
@@ -41,7 +42,6 @@ export interface CartViewModel {
   /** [1.3] מבצע אוטומטי שחל על העגלה — בלי קוד */
   promotion: { name: string; discountAmount: number; combinableWithCoupon: boolean } | null;
   estimatedShipping: number | null;
-  estimatedDeliveryDate: string | null;
   estimatedDeliveryLabel: string | null;
   supportPhone: string | null;
 }
@@ -69,6 +69,7 @@ export async function getCartView(
       ok: result.ok,
       error: result.error,
       minTotal: result.minTotal,
+      minQuantity: result.minQuantity,
       discountAmount: result.discountAmount,
       freeShipping: result.freeShipping,
     };
@@ -92,7 +93,6 @@ export async function getCartView(
   };
 
   let estimatedShipping: number | null = null;
-  let estimatedDeliveryDate: string | null = null;
   let estimatedDeliveryLabel: string | null = null;
 
   if (cart.totalQuantity > 0) {
@@ -106,7 +106,6 @@ export async function getCartView(
         etaBusinessDays: cheapest.method.eta_business_days,
         prepDaysOverride: cart.maxPrepDays,
       });
-      estimatedDeliveryDate = promised.toISOString().slice(0, 10);
       estimatedDeliveryLabel = formatPromisedDate(promised, locale);
     }
   }
@@ -131,7 +130,6 @@ export async function getCartView(
     coupon,
     promotion,
     estimatedShipping,
-    estimatedDeliveryDate,
     estimatedDeliveryLabel,
     supportPhone: settings.support_phone,
   };

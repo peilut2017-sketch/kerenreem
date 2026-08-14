@@ -7,12 +7,11 @@ import { isProjectStorageUrl, toCdnUrl } from '@/lib/image-src';
 export type StorageBucket = 'covers' | 'events' | 'portraits' | 'samples' | 'site';
 
 /**
- * אין מגבלת גודל בקוד.
- *
  * הכריכה נשמרת במלוא הרזולוציה שהועלתה, והתצוגה היא שמקטינה: next/image
  * מייצר גרסאות בגודל המתאים לכל מסך לפי sizes, כך שכרטיס בקטלוג מוריד
- * תמונה ברוחב מאתיים ומשהו פיקסלים ולא את הקובץ המקורי. המגבלה היחידה
- * שנשארה היא זו שמוגדרת ב-Supabase Storage עצמו.
+ * תמונה ברוחב מאתיים ומשהו פיקסלים ולא את הקובץ המקורי. תקרת הגודל
+ * וסוגי הקובץ המותרים נאכפים בשתי שכבות — כאן (משוב מיידי) וב-Storage
+ * (הרשומה הסמכותית, ראו 44_storage_hardening.sql).
  */
 
 /** שם קובץ בטוח וייחודי — שמות עבריים או עם רווחים שוברים כתובות אחסון. */
@@ -22,6 +21,27 @@ function safeName(original: string): string {
   const random = Math.random().toString(36).slice(2, 8);
   return `${stamp}-${random}.${extension.replace(/[^a-z0-9]/g, '')}`;
 }
+
+/**
+ * סוגי הקובץ המותרים בכל bucket — תואם ל-allowed_mime_types במסד
+ * (44_storage_hardening.sql). בדיקה בצד הלקוח נותנת שגיאה מיידית וברורה
+ * ומונעת ניסיון העלאה של HTML/SVG שהמסד ממילא ידחה. אף פעם לא SVG:
+ * הוא נושא סקריפט, ומוגש מדומיין ה-Storage.
+ */
+const BUCKET_MIME: Record<StorageBucket, string[]> = {
+  covers: ['image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif'],
+  events: ['image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif'],
+  portraits: ['image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif'],
+  site: ['image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif'],
+  samples: ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'],
+};
+const BUCKET_MAX_BYTES: Record<StorageBucket, number> = {
+  covers: 10 * 1024 * 1024,
+  events: 10 * 1024 * 1024,
+  portraits: 10 * 1024 * 1024,
+  site: 10 * 1024 * 1024,
+  samples: 40 * 1024 * 1024,
+};
 
 /**
  * pathPrefix אופציונלי — לנכסים שנוצרים בקבוצה ושייכים לישות אחת
@@ -36,6 +56,15 @@ export async function uploadToBucket(
 ): Promise<string> {
   const supabase = createClient();
   if (!supabase) throw new Error('אין חיבור לאחסון');
+
+  // אכיפה בצד הלקוח, מעל לאכיפת ה-Storage — משוב מיידי, ולא ניסיון
+  // להעלות סוג/גודל שהמסד ידחה בכל מקרה.
+  if (!BUCKET_MIME[bucket].includes(file.type)) {
+    throw new Error(`סוג הקובץ אינו נתמך (${file.type || 'לא ידוע'})`);
+  }
+  if (file.size > BUCKET_MAX_BYTES[bucket]) {
+    throw new Error(`הקובץ גדול מדי (מקסימום ${Math.round(BUCKET_MAX_BYTES[bucket] / 1024 / 1024)}MB)`);
+  }
 
   const path = pathPrefix ? `${pathPrefix.replace(/\/+$/, '')}/${safeName(file.name)}` : safeName(file.name);
   const { error } = await supabase.storage.from(bucket).upload(path, file, {

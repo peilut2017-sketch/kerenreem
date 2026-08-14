@@ -3,38 +3,16 @@
 import { headers } from 'next/headers';
 import { getTranslations } from 'next-intl/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+import { allowRequest, ipBucket } from '@/lib/commerce/rate-limit';
 
 /**
- * הגבלת קצב בזיכרון התהליך.
- *
- * מלכודת הבוטים (השדה המוסתר) עוצרת סורקים פשוטים, אבל לא כלי שנכתב מול
- * הטופס הזה. בלי הגבלה כלשהי אפשר להזרים אלפי פניות לטבלה בדקה.
- *
- * מכוון: זו הגנה חלקית ולא מלאה. הזיכרון אינו משותף בין מופעים, ולכן
- * בפריסה ללא שרת (Vercel) כל מופע סופר לעצמו, והמונה מתאפס בהתחלה קרה.
- * זה עדיין חוסם את המקרה הנפוץ — סקריפט יחיד ששולח בלולאה — בעלות אפס
- * ובלי תלות חיצונית. הגנה אמיתית דורשת מונה משותף (Upstash/Redis) או
- * שכבת WAF, וזו החלטה שכדאי לקבל כשיהיה נפח אמיתי.
+ * הגבלת קצב — מונה משותף בין כל המופעים (commerce_rate_limit, אותה טבלה
+ * שבה משתמשות נקודות המסחר), במקום מפת זיכרון פר-מופע שהתאפסה בכל התחלה
+ * קרה ולא נספרה בין שרתים בפריסה ללא שרת. חמש פניות לדקה לכל IP.
  */
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 5;
-const hits = new Map<string, number[]>();
-
-function rateLimited(key: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((time) => now - time < WINDOW_MS);
-  recent.push(now);
-  hits.set(key, recent);
-
-  // ניקוי עצלן: בלעדיו המפה גדלה לצמיתות עם כל כתובת שפנתה אי־פעם.
-  if (hits.size > 5000) {
-    for (const [entry, times] of hits) {
-      if (times.every((time) => now - time >= WINDOW_MS)) hits.delete(entry);
-    }
-  }
-
-  return recent.length > MAX_PER_WINDOW;
-}
+const CONTACT_MAX_PER_WINDOW = 5;
+const CONTACT_WINDOW_SECONDS = 60;
 
 export interface ContactFormState {
   status: 'idle' | 'success' | 'error';
@@ -114,15 +92,20 @@ export async function submitContact(
     return { status: 'success' };
   }
 
-  // מזהה הפונה לצורך הגבלת הקצב. x-forwarded-for נשלט על ידי הלקוח ואינו
-  // ראיה קבילה לזהות — אבל כאן הוא לא משמש להרשאה, רק לספירה, ולכן די בו.
+  // מזהה הפונה לצורך הגבלת הקצב והקאפצ'ה. x-forwarded-for נשלט על ידי
+  // הלקוח ואינו ראיה קבילה לזהות — אבל כאן הוא לא משמש להרשאה, רק לספירה.
   const requestHeaders = await headers();
   const ip =
     requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     requestHeaders.get('x-real-ip') ||
     'unknown';
-
-  if (rateLimited(ip)) {
+  if (
+    !(await allowRequest(
+      ipBucket('contact', requestHeaders),
+      CONTACT_MAX_PER_WINDOW,
+      CONTACT_WINDOW_SECONDS,
+    ))
+  ) {
     return { status: 'error', message: t('tooMany') };
   }
 
@@ -186,7 +169,13 @@ export async function submitContact(
     }
   }
 
-  const { error } = await supabase.from('contact_messages').insert({
+  // הכתיבה דרך service role ולא דרך הלקוח האנונימי: כך אפשר לבטל את
+  // מדיניות ה-INSERT ל-anon על contact_messages (שעקפה מלכודת בוט,
+  // הגבלת קצב וקאפצ'ה בקריאה ישירה ל-PostgREST). הקריאה כאן מגיעה רק
+  // אחרי שכל הבדיקות עברו. נפילה חזרה ללקוח כשאין service key מוגדר —
+  // כדי לא לשבור סביבות פיתוח בלי המפתח.
+  const writer = createServiceClient() ?? supabase;
+  const { error } = await writer.from('contact_messages').insert({
     name,
     email,
     phone: phone || null,
@@ -195,6 +184,7 @@ export async function submitContact(
     attachments,
     topic_id: topicId || null,
     custom_field_values: customFieldValues,
+    is_handled: false,
   });
 
   if (error) {

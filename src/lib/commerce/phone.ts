@@ -12,5 +12,7 @@ export function normalizePhone(raw: string): string {
 }
 
 export function isValidIsraeliPhone(raw: string): boolean {
-  return /^\+9725\d{8}$|^\+972[2-4,8-9]\d{7}$|^\+97277\d{7}$/.test(normalizePhone(raw));
+  // ‎[2-489]‎ — קידומות קו: 2, 3, 4, 8, 9. בלי פסיק בתוך המחלקה: פסיק
+  // במחלקת תווים הוא תו מילולי, לא מפריד טווחים.
+  return /^\+9725\d{8}$|^\+972[2-489]\d{7}$|^\+97277\d{7}$/.test(normalizePhone(raw));
 }

@@ -12,6 +12,8 @@ const COUPON_ERROR_TEXT: Record<string, string> = {
   not_applicable: 'הקופון אינו חל על הפריטים שבסל',
   not_combinable: 'לא ניתן לצרף את הקופון לקופון שכבר הוחל — קופון אחד להזמנה',
   min_total: 'הקופון תקף מסכום גבוה יותר',
+  min_quantity: 'הקופון תקף לכמות ספרים גבוהה יותר',
+  first_order_only: 'הקופון מיועד להזמנה ראשונה בלבד',
 };
 
 interface Preview {
@@ -89,6 +91,9 @@ export function ManualOrderForm({
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // מפתח idempotency פר-טופס: נוצר פעם אחת — לחיצה כפולה או retry שולחים
+  // את אותו מפתח והשרת מחזיר את ההזמנה הקיימת במקום ליצור כפולה.
+  const idempotencyKey = useRef(crypto.randomUUID());
 
   const bookById = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
   // [1.9] לא מסננים לפי price != null: ספר קטלוגי (is_purchasable) בלי
@@ -124,22 +129,28 @@ export function ManualOrderForm({
         couponCode: couponCode.trim() || null,
         contactPhone: contact.phone.trim() || null,
         contactEmail: contact.email.trim() || null,
-      }).then((result) => {
-        if (requestId.current !== id) return;
-        setPreview({
-          loading: false,
-          ready: true,
-          subtotal: result.subtotal,
-          shippingTotal: result.shippingTotal,
-          discountTotal: result.discountTotal,
-          total: result.total,
-          freeShippingApplied: result.freeShippingApplied,
-          couponValid: result.couponValid,
-          couponError: result.couponError,
-          promotionName: result.promotionName,
-          serverError: result.ok ? null : (result.error ?? 'חישוב הסכום נכשל'),
+      })
+        .then((result) => {
+          if (requestId.current !== id) return;
+          setPreview({
+            loading: false,
+            ready: true,
+            subtotal: result.subtotal,
+            shippingTotal: result.shippingTotal,
+            discountTotal: result.discountTotal,
+            total: result.total,
+            freeShippingApplied: result.freeShippingApplied,
+            couponValid: result.couponValid,
+            couponError: result.couponError,
+            promotionName: result.promotionName,
+            serverError: result.ok ? null : (result.error ?? 'חישוב הסכום נכשל'),
+          });
+        })
+        .catch(() => {
+          // כשל רשת: בלי זה "מחשב…" קפא לצמיתות והנציג לא ראה סכום לצטט
+          if (requestId.current !== id) return;
+          setPreview((p) => ({ ...p, loading: false, serverError: 'חישוב הסכום נכשל — נסו שוב' }));
         });
-      });
     }, 350);
     return () => clearTimeout(timer);
   }, [items, hasMissingManualPrice, fulfillmentType, methodId, couponCode, contact.phone, contact.email]);
@@ -193,6 +204,7 @@ export function ManualOrderForm({
               },
         couponCode: preview.couponValid ? couponCode.trim() || null : null,
         note: note.trim() || null,
+        idempotencyKey: idempotencyKey.current,
       });
       if (!result.ok || !result.orderId) {
         setError(result.error ?? 'יצירת ההזמנה נכשלה');

@@ -166,7 +166,9 @@ export async function createOrderFromSession(input: CreateOrderInput): Promise<C
     payment_state: 'pending',
     fulfillment_state: 'unfulfilled',
     document_state: 'not_created',
-    channel: session.is_express ? 'web' : 'web',
+    // תמיד 'web' — ערכי העמודה המותרים הם web/phone/manual בלבד
+    // (orders_channel_valid); "אקספרס" נרשם בנפרד באירוע order_created.
+    channel: 'web',
     locale: session.locale,
     subtotal: totals.subtotal,
     discount_total: totals.discountTotal,

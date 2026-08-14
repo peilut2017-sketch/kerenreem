@@ -39,7 +39,14 @@ export function FavouritesClient({
     void (favouriteIds.length === 0
       ? Promise.resolve<BookWithRelations[]>([])
       : fetchFavouriteBooks(favouriteIds)
-    ).then(setBooks);
+    )
+      .then(setBooks)
+      .catch(() => {
+        // כשל רשת: איפוס מפתח השליפה כדי שרינדור/שינוי הבא ינסה שוב —
+        // בלעדיו השלד המהבהב נשאר לנצח (books=null והשמירה מנעה ניסיון חוזר)
+        fetchedFor.current = null;
+        setBooks((prev) => prev ?? []);
+      });
   }, [favouriteIds]);
 
   const current = new Set(favouriteIds);

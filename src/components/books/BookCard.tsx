@@ -45,7 +45,9 @@ export function BookCard({
 
   return (
     <article className="card card-interactive group relative flex h-full flex-col focus-within:ring-2 focus-within:ring-gold/50">
-      <div className="relative overflow-hidden rounded-t-[var(--radius-lg)] bg-cream-2 p-5">
+      {/* במת הכריכה: דעיכה עדינה מקרם ללבן במקום משטח שטוח — הכריכה
+          "עומדת באור" והכרטיס כולו נקרא קליל יותר. */}
+      <div className="relative overflow-hidden rounded-t-[var(--radius-lg)] bg-[linear-gradient(180deg,var(--color-cream-2),#ffffff)] p-5">
         <div className="transition-transform duration-500 ease-[var(--ease-spring)] group-hover:-translate-y-0.5 group-hover:scale-[1.02] motion-reduce:transform-none">
           <BookCover
             src={book.cover_image_url}

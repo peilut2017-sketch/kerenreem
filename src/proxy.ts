@@ -6,8 +6,10 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from './lib/sup
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-/** מסלולי ניהול שמותר להגיע אליהם בלי session. */
-const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/auth/callback'];
+/** מסלולי ניהול שמותר להגיע אליהם בלי session.
+    (מסלול ה-callback של איפוס סיסמה יושב תחת ‎/api/auth/admin-callback —
+    מחוץ ל-matcher ממילא; אין מסלולי ‎/admin/auth/*‎ ציבוריים.) */
+const ADMIN_PUBLIC_PATHS = ['/admin/login'];
 
 async function handleAdmin(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -82,5 +84,9 @@ export const config = {
   matcher: [
     // כל מה שאינו נכס סטטי, קובץ API פנימי או קובץ עם סיומת
     '/((?!api|_next|_vercel|.*\\..*).*)',
+    // ‏/admin תמיד דרך השכבה הזו — גם נתיב עם נקודה (‎/admin/x.y‎), שאותו
+    // הדפוס הראשון מדלג עליו כ"קובץ": שער ה-session לא יעקף דרך זה.
+    // (ההרשאה האמיתית ממילא נאכפת בעמודים וב-actions — זו הגנת עומק.)
+    '/admin/:path*',
   ],
 };

@@ -69,12 +69,14 @@ export function renderEmail(
 ): RenderedEmail {
   const n = order.order_number;
   const total = formatPrice(order.total, order.locale, { alwaysAgorot: true });
-  const track = extra.trackUrl
-    ? `<p><a href="${extra.trackUrl}">לצפייה בהזמנה ולמעקב</a></p>`
+  const trackHref = safeUrl(extra.trackUrl);
+  const track = trackHref ? `<p><a href="${trackHref}">לצפייה בהזמנה ולמעקב</a></p>` : '';
+  const payHref = safeUrl(extra.paymentUrl);
+  const payLink = payHref
+    ? `<p style="margin:16px 0"><a href="${payHref}" style="background:#1f1c17;color:#fff;border-radius:999px;padding:12px 24px;text-decoration:none;display:inline-block">לתשלום מאובטח — ${total}</a></p><p style="color:#8a8577;font-size:13px">התשלום מתבצע בדף המאובטח של חשבונית ירוקה. הקישור בתוקף מוגבל.</p>`
     : '';
-  const payLink = extra.paymentUrl
-    ? `<p style="margin:16px 0"><a href="${extra.paymentUrl}" style="background:#1f1c17;color:#fff;border-radius:999px;padding:12px 24px;text-decoration:none;display:inline-block">לתשלום מאובטח — ${total}</a></p><p style="color:#8a8577;font-size:13px">התשלום מתבצע בדף המאובטח של חשבונית ירוקה. הקישור בתוקף מוגבל.</p>`
-    : '';
+  const documentHref = safeUrl(extra.documentUrl);
+  const trackingHref = safeUrl(extra.trackingUrl);
 
   switch (template) {
     case 'order_confirmation':
@@ -101,8 +103,8 @@ export function renderEmail(
         html: `${orderHeader(order)}<p>התשלום על הזמנה <strong>${n}</strong> התקבל בהצלחה. סה״כ: <strong>${total}</strong>.</p>${
           extra.promisedDateLabel ? `<p>אספקה משוערת: ${extra.promisedDateLabel}</p>` : ''
         }${
-          extra.documentUrl
-            ? `<p><a href="${extra.documentUrl}">לצפייה במסמך החשבונאי</a></p>`
+          documentHref
+            ? `<p><a href="${documentHref}">לצפייה במסמך החשבונאי</a></p>`
             : '<p>המסמך החשבונאי יישלח אליך בנפרד.</p>'
         }${track}${FOOTER}`,
       };
@@ -115,7 +117,7 @@ export function renderEmail(
       return {
         subject: `המסמך החשבונאי מוכן — הזמנה ${n}`,
         html: `${orderHeader(order)}<p>המסמך החשבונאי על הזמנה <strong>${n}</strong> מוכן.</p>${
-          extra.documentUrl ? `<p><a href="${extra.documentUrl}">לצפייה ולהורדה</a></p>` : ''
+          documentHref ? `<p><a href="${documentHref}">לצפייה ולהורדה</a></p>` : ''
         }${track}${FOOTER}`,
       };
     case 'shipped':
@@ -126,7 +128,7 @@ export function renderEmail(
         }${
           extra.trackingNumber
             ? `<p>מספר מעקב: <strong dir="ltr">${escapeHtml(extra.trackingNumber)}</strong>${
-                extra.trackingUrl ? ` · <a href="${extra.trackingUrl}">מעקב אצל חברת המשלוחים</a>` : ''
+                trackingHref ? ` · <a href="${trackingHref}">מעקב אצל חברת המשלוחים</a>` : ''
               }</p>`
             : ''
         }${extra.promisedDateLabel ? `<p>אספקה משוערת: ${extra.promisedDateLabel}</p>` : ''}${track}${FOOTER}`,
@@ -148,17 +150,29 @@ export function renderEmail(
           extra.refundAmount != null
             ? ` בסך <strong>${formatPrice(extra.refundAmount, order.locale, { alwaysAgorot: true })}</strong>`
             : ''
-        }.</p>${extra.documentUrl ? `<p><a href="${extra.documentUrl}">למסמך הזיכוי</a></p>` : ''}${FOOTER}`,
+        }.</p>${documentHref ? `<p><a href="${documentHref}">למסמך הזיכוי</a></p>` : ''}${FOOTER}`,
       };
   }
 }
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+}
+
+/**
+ * כתובת לשיבוץ ב-href: רק http/https, אחרי escape של תווי HTML.
+ * מספר מעקב/קישור מעקב הם קלט חופשי של הצוות — בלי הבדיקה, גרש כפול
+ * בערך שובר את המאפיין ומזריק תגיות למייל הלקוח.
+ */
+function safeUrl(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  if (!/^https?:\/\//i.test(value)) return null;
+  return escapeHtml(value);
 }
 
 /* ------------------------------- provider --------------------------------- */
@@ -171,20 +185,27 @@ async function sendViaProvider(
   const from = process.env.COMMERCE_EMAIL_FROM ?? 'מכון קרן רא״ם <no-reply@keren-reem.org>';
   if (!apiKey) return { ok: false, skipped: true, error: 'RESEND_API_KEY not configured' };
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject: email.subject,
-      html: `<div dir="rtl" style="font-family:Arial,'Segoe UI',sans-serif;line-height:1.7">${email.html}</div>`,
-    }),
-    cache: 'no-store',
-  });
-  const data = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
-  if (!response.ok) return { ok: false, error: data.message ?? `provider ${response.status}` };
-  return { ok: true, id: data.id };
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject: email.subject,
+        html: `<div dir="rtl" style="font-family:Arial,'Segoe UI',sans-serif;line-height:1.7">${email.html}</div>`,
+      }),
+      cache: 'no-store',
+    });
+    const data = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
+    if (!response.ok) return { ok: false, error: data.message ?? `provider ${response.status}` };
+    return { ok: true, id: data.id };
+  } catch (error) {
+    // ספק לא זמין = כשל שליחה, לא חריגה שמפילה את placeOrder: ההזמנה
+    // כבר נוצרה וקישור התשלום הופק — מייל שנפל אסור לו להציג ללקוח
+    // "ההזמנה נכשלה" על הזמנה שקיימת.
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 /**

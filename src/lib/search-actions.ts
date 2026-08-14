@@ -1,6 +1,7 @@
 'use server';
 
-import { getAuthors, getBooks, getCategories, getSiteSettings } from './data';
+import { getAuthors, getBooks, getCategories } from './data';
+import { getCommerceFlags } from './commerce/settings';
 import { getBookAvailability } from './books/availability';
 import { getEffectivePrice, formatPrice } from './commerce/pricing';
 import { normalise, matches, searchCorpus } from './book-search';
@@ -42,13 +43,15 @@ export async function globalSearch(query: string, locale: string): Promise<Globa
   const q = query.trim();
   if (!q) return EMPTY_RESULT;
 
-  const [books, authors, categories, settings] = await Promise.all([
+  const [books, authors, categories, flags] = await Promise.all([
     getBooks(),
     getAuthors(),
     getCategories(),
-    getSiteSettings(),
+    getCommerceFlags(),
   ]);
-  const storeEnabled = settings.store_enabled;
+  // showPrices ולא store_enabled הגולמי: כשהמחירים כבויים, גם דיאלוג
+  // החיפוש לא מציג מחיר — כמו כל שאר משטחי התצוגה (קטלוג, עמוד ספר).
+  const storeEnabled = flags.showPrices;
 
   const matchedBooks = books.filter((book) => matches(searchCorpus(book), q));
   const matchedAuthors = authors

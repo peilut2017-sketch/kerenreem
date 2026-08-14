@@ -1,8 +1,8 @@
 'use client';
 
 import { Img as Image } from '@/components/Img';
-import { useCallback, useId, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useCallback, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { toCdnUrl } from '@/lib/image-src';
 import type { HeroSlide } from './types';
@@ -29,19 +29,23 @@ const FOCAL_CLASS: Record<string, string> = {
  */
 export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const t = useTranslations('hero');
+  const locale = useLocale();
   const [index, setIndex] = useState(0);
-  const regionRef = useRef<HTMLElement>(null);
-  const id = useId();
 
   const count = slides.length;
   const go = useCallback((next: number) => setIndex(((next % count) + count) % count), [count]);
 
-  // חצים במקלדת כשהמיקוד בתוך הקרוסלה
+  // חצים במקלדת כשהמיקוד בתוך הקרוסלה. ב-RTL "קדימה" הוא שמאלה — אותו
+  // כיוון שאליו מצביע חץ-הקדימה המצויר (rtl:-scale-x-100), כמו
+  // ב-BookFlipViewerClient; בלי ההיפוך המקלדת והעכבר סתרו זה את זה.
+  const rtl = locale !== 'en';
   function onKeyDown(event: React.KeyboardEvent) {
-    if (event.key === 'ArrowRight') {
+    const forward = rtl ? event.key === 'ArrowLeft' : event.key === 'ArrowRight';
+    const backward = rtl ? event.key === 'ArrowRight' : event.key === 'ArrowLeft';
+    if (forward) {
       event.preventDefault();
       go(index + 1);
-    } else if (event.key === 'ArrowLeft') {
+    } else if (backward) {
       event.preventDefault();
       go(index - 1);
     }
@@ -55,7 +59,6 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
   return (
     <section
-      ref={regionRef}
       aria-roledescription="carousel"
       aria-label={t('label')}
       onKeyDown={onKeyDown}
@@ -101,9 +104,6 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
         </>
       ) : null}
 
-      <span id={`${id}-status`} className="sr-only" aria-live="polite">
-        {t('status', { index: index + 1, total: count })}
-      </span>
     </section>
   );
 }

@@ -54,8 +54,10 @@ export default async function AdminDashboard({
     listUpcomingEvents(),
   ]);
 
-  // [1.3] פילוח הזמנות בדשבורד — לבעלי הרשאת חנות בלבד
-  const storeStats: { label: string; value: number; href: string; icon: AdminIconName }[] = [];
+  // [1.3] פילוח הזמנות בדשבורד — לבעלי הרשאת חנות בלבד.
+  // hue: גוון פר-כרטיס (admin-hue-*, ראו admin.css) — צבע כמידע: מאפשר
+  // לזהות את הכרטיס במבט חטוף בלי לקרוא את התווית.
+  const storeStats: { label: string; value: number; href: string; icon: AdminIconName; hue: string }[] = [];
   // [1.5] בלוק "דורש טיפול" — מפורק לפי סוג (לא מספר יחיד כמו קודם) ונגיש
   // ל-store_view ולא רק ל-finance (ביקורת ה-UI, י.8): הספירות עצמן הן
   // כמויות הזמנות בלבד, בלי סכומים ובלי PII, אז אין סיבה לגדר אותן
@@ -87,15 +89,16 @@ export default async function AdminDashboard({
       // מסוננת (המונה אומר 3, המסך מציג 100). savedViewHref בונה את
       // הקישור המלא מאותו מקור שממנו חושב המספר, כך שהשניים תמיד יתאימו.
       storeStats.push(
-        { label: 'סה״כ הזמנות', value: total, href: '/admin/orders', icon: 'orders' },
-        { label: 'חדשות לטיפול', value: confirmed, href: savedViewHref('new'), icon: 'store' },
-        { label: 'ממתינות לתשלום', value: pendingPay, href: savedViewHref('pending_payment'), icon: 'finance' },
-        { label: 'בליקוט ואריזה', value: preparing, href: savedViewHref('preparing'), icon: 'inventory' },
+        { label: 'סה״כ הזמנות', value: total, href: '/admin/orders', icon: 'orders', hue: 'admin-hue-indigo' },
+        { label: 'חדשות לטיפול', value: confirmed, href: savedViewHref('new'), icon: 'store', hue: 'admin-hue-emerald' },
+        { label: 'ממתינות לתשלום', value: pendingPay, href: savedViewHref('pending_payment'), icon: 'finance', hue: 'admin-hue-amber' },
+        { label: 'בליקוט ואריזה', value: preparing, href: savedViewHref('preparing'), icon: 'inventory', hue: 'admin-hue-sky' },
         {
           label: 'ממתינות לזיכוי',
           value: cancelPendingRefund,
           href: '/admin/orders?state=cancel_pending_refund',
           icon: 'coupon',
+          hue: 'admin-hue-rose',
         },
       );
     }
@@ -125,7 +128,7 @@ export default async function AdminDashboard({
   // [1.4] "דשבורד ריק מתוכן" — בלי הכנסות, בלי "היום", בלי גרף מכירות.
   // סכומים — למי שרואה כספים (finance) בלבד, באותה רוח שבה נגישות ל-PII
   // וסכומים גודרה בעמוד ההזמנה למלקט. "דורש טיפול" עבר למעלה, ל-store_view.
-  const financeStats: { label: string; value: string; href: string; icon: AdminIconName }[] = [];
+  const financeStats: { label: string; value: string; href: string; icon: AdminIconName; hue: string }[] = [];
   let salesTrend: Awaited<ReturnType<typeof getDailyRevenueTrend>> = [];
   if (canFinance) {
     const supabase = await createClient();
@@ -164,30 +167,32 @@ export default async function AdminDashboard({
       const aov30 = orders30 > 0 ? revenue30 / orders30 : 0;
 
       financeStats.push(
-        { label: 'הזמנות היום', value: todayOrders.toLocaleString('he-IL'), href: '/admin/reports/sales', icon: 'dashboard' },
+        { label: 'הזמנות היום', value: todayOrders.toLocaleString('he-IL'), href: '/admin/reports/sales', icon: 'dashboard', hue: 'admin-hue-indigo' },
         {
           label: 'הכנסות היום',
           value: formatPrice(revenueToday, 'he', { alwaysAgorot: true }),
           href: '/admin/reports/sales',
           icon: 'finance',
+          hue: 'admin-hue-emerald',
         },
         {
           label: 'ערך הזמנה ממוצע (30 יום)',
           value: formatPrice(aov30, 'he', { alwaysAgorot: true }),
           href: '/admin/reports/sales',
           icon: 'finance',
+          hue: 'admin-hue-violet',
         },
-        { label: 'מלאי נמוך', value: lowStockCount.toLocaleString('he-IL'), href: '/admin/inventory', icon: 'inventory' },
+        { label: 'מלאי נמוך', value: lowStockCount.toLocaleString('he-IL'), href: '/admin/inventory', icon: 'inventory', hue: 'admin-hue-amber' },
       );
     }
   }
 
-  const stats: { label: string; value: number; href: string; icon: AdminIconName }[] = [
-    { label: 'ספרים בקטלוג', value: counts.books, href: '/admin/books', icon: 'books' },
-    { label: 'טיוטות', value: counts.drafts, href: '/admin/books', icon: 'edit' },
-    { label: 'מחברים', value: counts.authors, href: '/admin/authors', icon: 'authors' },
-    { label: 'אירועים', value: counts.events, href: '/admin/events', icon: 'events' },
-    { label: 'פניות שלא טופלו', value: counts.messages, href: '/admin/messages', icon: 'messages' },
+  const stats: { label: string; value: number; href: string; icon: AdminIconName; hue: string }[] = [
+    { label: 'ספרים בקטלוג', value: counts.books, href: '/admin/books', icon: 'books', hue: 'admin-hue-indigo' },
+    { label: 'טיוטות', value: counts.drafts, href: '/admin/books', icon: 'edit', hue: 'admin-hue-amber' },
+    { label: 'מחברים', value: counts.authors, href: '/admin/authors', icon: 'authors', hue: 'admin-hue-violet' },
+    { label: 'אירועים', value: counts.events, href: '/admin/events', icon: 'events', hue: 'admin-hue-sky' },
+    { label: 'פניות שלא טופלו', value: counts.messages, href: '/admin/messages', icon: 'messages', hue: 'admin-hue-rose' },
   ];
 
   return (
@@ -211,7 +216,7 @@ export default async function AdminDashboard({
           </h2>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {storeStats.map((stat) => (
-              <Link key={stat.label} href={stat.href} className="admin-stat">
+              <Link key={stat.label} href={stat.href} className={`admin-stat ${stat.hue}`}>
                 <span className="admin-icon-chip h-11 w-11">
                   <AdminIcon name={stat.icon} className="h-5 w-5" />
                 </span>
@@ -286,7 +291,7 @@ export default async function AdminDashboard({
           </h2>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {financeStats.map((stat) => (
-              <Link key={stat.label} href={stat.href} className="admin-stat">
+              <Link key={stat.label} href={stat.href} className={`admin-stat ${stat.hue}`}>
                 <span className="admin-icon-chip h-11 w-11">
                   <AdminIcon name={stat.icon} className="h-5 w-5" />
                 </span>
@@ -326,7 +331,7 @@ export default async function AdminDashboard({
 
       <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((stat) => (
-          <Link key={stat.label} href={stat.href} className="admin-stat">
+          <Link key={stat.label} href={stat.href} className={`admin-stat ${stat.hue}`}>
             <span className="admin-icon-chip h-11 w-11">
               <AdminIcon name={stat.icon} className="h-5 w-5" />
             </span>

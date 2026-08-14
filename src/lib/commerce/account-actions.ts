@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { getCommerceFlags } from './settings';
 import { allowRequest, ipBucket } from './rate-limit';
 import { getCustomerSession, ensureCustomerRecord } from './account';
+import { normalizePhone } from './phone';
 import type { ShelfKey } from '@/lib/supabase/types';
 
 /**
@@ -28,10 +29,11 @@ export async function sendLoginLink(email: string): Promise<AccountActionResult>
   }
 
   const headerList = await headers();
-  if (!(await allowRequest(ipBucket('login-link', headerList), 5, 3600))) {
+  // fail-closed: קישור התחברות — הגנה מפני הצפת מיילים ו-enumeration
+  if (!(await allowRequest(ipBucket('login-link', headerList), 5, 3600, { failClosed: true }))) {
     return { ok: false, error: 'rate_limited' };
   }
-  if (!(await allowRequest(`login-email:${trimmed.toLowerCase()}`, 3, 3600))) {
+  if (!(await allowRequest(`login-email:${trimmed.toLowerCase()}`, 3, 3600, { failClosed: true }))) {
     return { ok: false, error: 'rate_limited' };
   }
 
@@ -176,7 +178,10 @@ export async function updateMyDetails(input: {
     full_name: input.fullName.trim().slice(0, 120) || null,
     email,
   };
-  if (input.phone?.trim()) patch.phone = input.phone.trim().slice(0, 30);
+  // נירמול ל-E.164 כמו בכל שאר המערכת (checkout, הזמנות טלפוניות,
+  // קופונים אישיים): טלפון גולמי ("052-1234567") לא היה תואם את
+  // restricted_contact ואת איתור הזמנות לפי טלפון.
+  if (input.phone?.trim()) patch.phone = normalizePhone(input.phone.trim()).slice(0, 30);
   const { error } = await supabase.from('customers').update(patch).eq('id', session.userId);
   if (error) return { ok: false, error: 'server' };
 
@@ -300,8 +305,14 @@ export async function saveMyAddress(
       .update({ is_default: false })
       .eq('customer_id', session.userId);
   }
+  // ‎.eq('customer_id', …)‎ נוסף על סינון ה-id: הגנת-עומק מעבר ל-RLS,
+  // באותו דפוס בדיוק כמו שאר פעולות החשבון בקובץ.
   const { error } = addressId
-    ? await supabase.from('customer_addresses').update(row).eq('id', addressId)
+    ? await supabase
+        .from('customer_addresses')
+        .update(row)
+        .eq('id', addressId)
+        .eq('customer_id', session.userId)
     : await supabase.from('customer_addresses').insert(row);
   if (error) {
     console.error('[commerce:account] address', error.message);
@@ -315,7 +326,11 @@ export async function deleteMyAddress(addressId: string): Promise<AccountActionR
   if (!session) return { ok: false, error: 'server' };
   const supabase = await createClient();
   if (!supabase) return { ok: false, error: 'server' };
-  const { error } = await supabase.from('customer_addresses').delete().eq('id', addressId);
+  const { error } = await supabase
+    .from('customer_addresses')
+    .delete()
+    .eq('id', addressId)
+    .eq('customer_id', session.userId);
   if (error) return { ok: false, error: 'server' };
   return { ok: true };
 }

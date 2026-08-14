@@ -3,6 +3,7 @@ import { createStaticClient } from '@/lib/supabase/server';
 import { getBookAvailability } from '@/lib/books/availability';
 import type { Book, BookAvailability } from '@/lib/supabase/types';
 import { getEffectivePrice, round2 } from './pricing';
+import { needsStockManagement } from './inventory';
 import { getCommerceFlags } from './settings';
 
 /**
@@ -156,7 +157,13 @@ export async function validateCart(
         ? { amount: round2(manualPrice), originalAmount: null, onSale: false, saleName: null }
         : null);
 
-    let availability = getBookAvailability(book, flags.storeEnabled);
+    // בערוץ הציבורי — showPrices ולא storeEnabled, אותו דגל שכל שכבות
+    // התצוגה משתמשות בו: כשהמחירים כבויים (store_enabled=true אך
+    // show_prices=false) האתר לא מציג קנייה, ואימות עגלה שנשלח ישירות
+    // ל-Server Action לא אמור לתמחר בכל זאת. הערוץ הטלפוני של הצוות
+    // (allowUnpublished) ממשיך לפעול גם במצב קטלוג — שם מוכרים בטלפון.
+    const sellingEnabled = options?.allowUnpublished ? flags.storeEnabled : flags.showPrices;
+    let availability = getBookAvailability(book, sellingEnabled);
     // "catalog_only" יכול לנבוע רק מחוסר מחיר (לא מ-is_purchasable=false
     // ולא מחנות כבויה) — במקרה הזה בלבד מחיר ידני "מתקן" את הזמינות.
     if (
@@ -164,7 +171,7 @@ export async function validateCart(
       manualPrice != null &&
       price != null &&
       book.is_purchasable &&
-      flags.storeEnabled
+      sellingEnabled
     ) {
       availability = book.preorder_enabled
         ? 'preorder'
@@ -179,7 +186,7 @@ export async function validateCart(
       continue;
     }
 
-    const managed = book.is_stock_managed !== false && !book.preorder_enabled;
+    const managed = needsStockManagement(book);
     const available = managed ? Math.max(book.stock_quantity ?? 0, 0) : null;
 
     if (managed && (available ?? 0) <= 0) {

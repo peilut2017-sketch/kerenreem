@@ -28,6 +28,7 @@ import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
+import { safeJsonLd } from '@/lib/json-ld';
 import { toCdnUrl } from '@/lib/image-src';
 import { routing } from '@/i18n/routing';
 
@@ -324,7 +325,7 @@ export default async function BookPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       <ViewTracker slug={book.slug} />
@@ -367,7 +368,7 @@ export default async function BookPage({
           {showInlineSample ? (
             <section
               aria-labelledby="book-sample"
-              className="rounded-[var(--radius-lg)] border border-rule bg-cream px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
+              className="rounded-[var(--radius-lg)] border border-rule/60 bg-white px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
             >
               <h2 id="book-sample" className="mb-4 font-serif text-h3 text-ink">
                 {t('readSample')}
@@ -379,7 +380,7 @@ export default async function BookPage({
           <section
             id="book-summary"
             aria-labelledby="book-summary-heading"
-            className="rounded-[var(--radius-lg)] border border-rule bg-cream px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
+            className="rounded-[var(--radius-lg)] border border-rule/60 bg-white px-7 py-8 shadow-[var(--shadow-soft)] sm:px-9 sm:py-10"
           >
             <h2 id="book-summary-heading" className="mb-4 font-serif text-h3 text-ink">
               {t('navSummary')}

@@ -29,8 +29,10 @@ export async function requestAdminPasswordReset(email: string): Promise<AdminAcc
   if (!EMAIL_RE.test(trimmed)) return { ok: false, error: 'כתובת מייל לא תקינה' };
 
   const headerList = await headers();
-  const ipOk = await allowRequest(ipBucket('admin-reset', headerList), 5, 3600);
-  const emailOk = await allowRequest(`admin-reset-email:${trimmed}`, 3, 3600);
+  // fail-closed: איפוס סיסמת מנהל — עדיף לחסום זמנית מאשר לפתוח
+  // brute-force כשמנגנון ההגבלה עצמו נכשל.
+  const ipOk = await allowRequest(ipBucket('admin-reset', headerList), 5, 3600, { failClosed: true });
+  const emailOk = await allowRequest(`admin-reset-email:${trimmed}`, 3, 3600, { failClosed: true });
   if (!ipOk || !emailOk) return { ok: false, error: 'יותר מדי בקשות. נסו שוב בעוד שעה.' };
 
   const supabase = await createClient();

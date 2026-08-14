@@ -40,9 +40,3 @@ export const FAMILY_ICONS: Record<ReportFamily, AdminIconName> = {
 };
 
 export type ReportPriority = 'critical' | 'important' | 'later';
-
-export const PRIORITY_LABELS: Record<ReportPriority, string> = {
-  critical: 'קריטי',
-  important: 'חשוב',
-  later: 'בקרוב',
-};

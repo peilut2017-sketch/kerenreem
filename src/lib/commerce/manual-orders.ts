@@ -45,6 +45,8 @@ interface PricingResolution {
   totals: Totals;
   coupon: { id: string; code: string } | null;
   couponError: CouponError | null;
+  /** חלק ההנחה של הקופון בלבד — לרישום המימוש (בלי הנחת המבצע האוטומטי) */
+  couponDiscount: number;
   promotionId: string | null;
   promotionName: string | null;
 }
@@ -82,6 +84,7 @@ async function resolvePricing(
         totals: computeTotals(cart, 0, settings),
         coupon: null,
         couponError: null,
+        couponDiscount: 0,
         promotionId: null,
         promotionName: null,
       };
@@ -129,6 +132,7 @@ async function resolvePricing(
     totals,
     coupon,
     couponError,
+    couponDiscount,
     promotionId: promotion?.promotion.id ?? null,
     promotionName: promotion?.promotion.name ?? null,
   };
@@ -160,6 +164,8 @@ export interface ManualOrderInput {
   note: string | null;
   locale: string;
   actor: Actor;
+  /** מפתח שנוצר בטופס פעם אחת — לחיצה כפולה/‏retry מחזירים את אותה הזמנה */
+  idempotencyKey?: string | null;
 }
 
 export interface ManualOrderResult {
@@ -224,6 +230,19 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
           .toISOString()
           .slice(0, 10);
 
+  // Idempotency אמיתי: המפתח מגיע מהטופס ונוצר שם פעם אחת — לחיצה
+  // כפולה שולחת את אותו מפתח ומקבלת חזרה את ההזמנה הקיימת. (המפתח הישן
+  // נגזר מטוקן שנוצר מחדש בכל קריאה, ולכן לא היה idempotent כלל.)
+  const idempotencyKey = input.idempotencyKey?.trim()
+    ? `manual:${input.idempotencyKey.trim().slice(0, 48)}`
+    : `manual:${generateGuestToken().token.slice(0, 24)}`;
+  const { data: existing } = await service
+    .from('orders')
+    .select('*')
+    .eq('idempotency_key', idempotencyKey)
+    .maybeSingle();
+  if (existing) return { ok: true, order: existing as Order };
+
   const { token, hash } = generateGuestToken();
   const guestExpiry = new Date();
   guestExpiry.setDate(guestExpiry.getDate() + 90);
@@ -261,6 +280,10 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
         fulfillment.type === 'shipping' ? fulfillment.courierNotes?.trim().slice(0, 500) || null : null,
       coupon_id: pricing.coupon?.id ?? null,
       coupon_code_snapshot: pricing.coupon?.code ?? null,
+      // צילום המבצע האוטומטי — כמו בהזמנת אתר (checkout.ts): בלעדיו דוח
+      // הקופונים/מבצעים לא ראה הנחות מבצע בהזמנות טלפוניות.
+      promotion_id: pricing.promotionId,
+      promotion_name_snapshot: pricing.promotionName,
       guest_token_hash: hash,
       guest_token_expires_at: guestExpiry.toISOString(),
       contact_name: name,
@@ -268,7 +291,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
       contact_phone: normalizePhone(input.contact.phone),
       notes: input.note?.trim().slice(0, 1000) || null,
       placed_at: new Date().toISOString(),
-      idempotency_key: `manual:${token.slice(0, 24)}`,
+      idempotency_key: idempotencyKey,
     })
     .select('*')
     .maybeSingle();
@@ -315,7 +338,9 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
       orderId: order.id,
       customerId: null,
       contactPhone: normalizePhone(input.contact.phone),
-      amountDiscounted: pricing.totals.discountTotal,
+      // חלק הקופון בלבד — discountTotal כולל גם את המבצע האוטומטי,
+      // ורישומו היה מנפח את דוח הקופונים (המסלול באתר כבר עושה כך).
+      amountDiscounted: pricing.couponDiscount,
     });
   }
 

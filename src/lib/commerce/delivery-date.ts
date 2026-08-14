@@ -60,6 +60,16 @@ export interface PromisedDateInput {
   now?: Date;
 }
 
+/**
+ * שעון הקיר הישראלי של רגע נתון, כ-Date שרכיביו המקומיים הם התאריך
+ * והשעה בישראל. חישוב הימים חייב לרוץ בזמן ישראל: על שרת UTC, הזמנה
+ * ב-01:30 לפנות בוקר שעון ישראל עוד שייכת ליום הקודם ב-UTC — והתאריך
+ * המובטח יצא מוקדם ביום, לעתים על שישי/שבת.
+ */
+function israelWallClock(now: Date): Date {
+  return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
+}
+
 export function getPromisedDate({
   settings,
   etaBusinessDays,
@@ -71,7 +81,13 @@ export function getPromisedDate({
   const totalDays = isPickup
     ? Math.max(prepDays, Math.ceil(settings.pickup_prep_hours / 24))
     : prepDays + etaBusinessDays + settings.delivery_buffer_days;
-  return addBusinessDays(now, totalDays, settings.non_working_dates);
+  // הצהריים מונעים גלישת-יום סביב מעברי שעון קיץ בזמן הצעידה
+  const start = israelWallClock(now);
+  start.setHours(12, 0, 0, 0);
+  const landed = addBusinessDays(start, totalDays, settings.non_working_dates);
+  // עיגון התוצאה לצהרי UTC של אותו תאריך: כך גם ‎.toISOString().slice(0,10)‎
+  // (הצילום על ההזמנה) וגם Intl עם Asia/Jerusalem מציגים את אותו יום.
+  return new Date(Date.UTC(landed.getFullYear(), landed.getMonth(), landed.getDate(), 12));
 }
 
 /** "יגיע עד יום שלישי, 18.8" — תאריך, לא טווח ימי עסקים (פרק 3.3). */

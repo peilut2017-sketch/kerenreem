@@ -725,7 +725,11 @@ export async function staffAdjustStock(input: {
   /** [1.1] מיקום מפורש (ריבוי מחסנים); ריק = המיקום הראשי */
   locationId?: string | null;
 }): Promise<OrderActionResult & { onHand?: number }> {
-  const session = await assertScreenPermission('orders', 'edit');
+  // מסך המלאי, לא ההזמנות — אותו שער כמו העמוד שממנו הפעולה מופעלת:
+  // ‏override שמעניק/שולל 'inventory' משפיע עכשיו גם על הפעולות, לא רק
+  // על הצפייה. ברירות המחדל פר-תפקיד זהות בשני המסכים — אין שינוי התנהגות
+  // בלי override מפורש.
+  const session = await assertScreenPermission('inventory', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -771,7 +775,8 @@ export async function staffTransferStock(input: {
   qty: number;
   note?: string;
 }): Promise<OrderActionResult> {
-  const session = await assertScreenPermission('orders', 'edit');
+  // מסך המלאי — ראו הערה ב-staffAdjustStock
+  const session = await assertScreenPermission('inventory', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -907,6 +912,8 @@ export async function createManualOrderAction(input: {
     | { type: 'shipping'; methodId: string; address: ShippingAddress; courierNotes?: string };
   couponCode: string | null;
   note: string | null;
+  /** נוצר בטופס פעם אחת — לחיצה כפולה מחזירה את אותה הזמנה במקום ליצור שתיים */
+  idempotencyKey?: string | null;
 }): Promise<OrderActionResult & { orderId?: string; orderNumber?: number }> {
   const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
@@ -1140,7 +1147,10 @@ async function recomputeOrderTotals(
 ): Promise<void> {
   const [{ data: order }, { data: items }] = await Promise.all([
     service.from('orders').select('*').eq('id', orderId).maybeSingle(),
-    service.from('order_items').select('line_total, unit_price, quantity').eq('order_id', orderId),
+    service
+      .from('order_items')
+      .select('line_total, unit_price, quantity, tax_rate_snapshot')
+      .eq('order_id', orderId),
   ]);
   if (!order) return;
   const subtotal = (items ?? []).reduce(
@@ -1153,10 +1163,25 @@ async function recomputeOrderTotals(
     0,
   );
   const discountTotal = Math.min(couponAndPromo + Number(order.staff_discount ?? 0), subtotal);
-  const total = Math.max(subtotal - discountTotal + Number(order.shipping_total ?? 0), 0);
+  const shippingTotal = Number(order.shipping_total ?? 0);
+  // התרומה חלק מהסכום הכולל (computeTotals) — השמטתה כאן גרמה לפער בין
+  // total מחושב-מחדש לבין הסכום שנשלח לחיוב.
+  const donation = Number(order.donation_amount ?? 0);
+  const total = Math.max(subtotal - discountTotal + shippingTotal + donation, 0);
+  // רכיב המע"מ מחושב מחדש מאותו שיעור שצולם על השורות ביצירה — אחרת
+  // tax_total נשאר צילום ישן שאינו תואם את total החדש (דוחות המע"מ
+  // וההתאמות קוראים אותו). tax_total=0 מקורי פירושו מצב "לא כלול" —
+  // נשאר אפס, כמו ב-computeTotals.
+  const snapshotRate = (items ?? [])
+    .map((item) => Number(item.tax_rate_snapshot))
+    .find((rate) => Number.isFinite(rate) && rate > 0);
+  const taxTotal =
+    Number(order.tax_total ?? 0) > 0 && snapshotRate
+      ? Math.round(((subtotal - discountTotal + shippingTotal) * snapshotRate * 100) / (100 + snapshotRate)) / 100
+      : Number(order.tax_total ?? 0);
   await service
     .from('orders')
-    .update({ subtotal, discount_total: discountTotal, total })
+    .update({ subtotal, discount_total: discountTotal, total, tax_total: taxTotal })
     .eq('id', orderId);
 }
 

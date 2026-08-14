@@ -18,7 +18,27 @@ export function restoreFormValues(form: HTMLFormElement, values: FormData): void
       continue;
     }
 
-    const submitted = values.get(field.name);
-    if (typeof submitted === 'string') field.value = submitted;
+    // select multiple: כל הבחירות משוחזרות, לא רק הראשונה — get מחזיר
+    // ערך יחיד גם כשנשלחו כמה (coerce בצד השרת כבר קורא getAll במקביל).
+    if (field instanceof HTMLSelectElement && field.multiple) {
+      const selected = new Set(
+        values.getAll(field.name).filter((entry): entry is string => typeof entry === 'string'),
+      );
+      for (const option of Array.from(field.options)) {
+        option.selected = selected.has(option.value);
+      }
+      continue;
+    }
+
+    // שדות חוזרים באותו שם (RepeatableTextField): כל מופע מקבל את הערך
+    // שנשלח במקומו הסידורי, לא כולם את הראשון.
+    const all = values.getAll(field.name).filter((entry): entry is string => typeof entry === 'string');
+    if (all.length === 0) continue;
+    const sameName = Array.from(form.elements).filter(
+      (el) => (el as HTMLInputElement).name === field.name,
+    );
+    const position = sameName.indexOf(field);
+    const submitted = all[position] ?? all[0];
+    field.value = submitted;
   }
 }

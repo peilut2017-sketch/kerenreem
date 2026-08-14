@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { getStoreSettings } from './settings';
 import { transitionOrder, SYSTEM_ACTOR } from './orders';
 import { releaseStock } from './inventory';
-import { sendOrderEmail, sendPlainEmail } from './notifications';
+import { escapeHtml, sendOrderEmail, sendPlainEmail } from './notifications';
 import type { Order } from '@/lib/supabase/types';
 
 /**
@@ -122,12 +122,15 @@ export async function notifyBackInStock(): Promise<number> {
   for (const sub of pending) {
     const book = available.get(sub.book_id);
     if (!book || !sub.email) continue;
+    // escape לשם הספר ולכתובת — שם עם תו HTML לא ישבור את המבנה,
+    // ו-slug בעברית עובר קידוד URI תקין בתוך ה-href.
+    const bookUrl = escapeHtml(`${siteUrl}/books/${encodeURIComponent(book.slug)}`);
     const result = await sendPlainEmail(
       sub.email,
       `הספר ״${book.title_he}״ חזר למלאי — מכון קרן רא״ם`,
       `<h2 style="margin:0 0 12px">בשורה טובה!</h2>
-       <p>הספר <strong>${book.title_he}</strong> שביקשת לדעת עליו — חזר למלאי.</p>
-       <p style="margin:16px 0"><a href="${siteUrl}/books/${book.slug}" style="background:#1f1c17;color:#fff;border-radius:999px;padding:12px 24px;text-decoration:none;display:inline-block">לעמוד הספר</a></p>
+       <p>הספר <strong>${escapeHtml(book.title_he)}</strong> שביקשת לדעת עליו — חזר למלאי.</p>
+       <p style="margin:16px 0"><a href="${bookUrl}" style="background:#1f1c17;color:#fff;border-radius:999px;padding:12px 24px;text-decoration:none;display:inline-block">לעמוד הספר</a></p>
        <p style="color:#8a8577;font-size:13px">קיבלת את המייל כי נרשמת לעדכון חזרה למלאי. זו הודעה חד-פעמית.</p>`,
     );
     if (result.ok) {

@@ -500,6 +500,8 @@
     "couponErrMinTotal": "הקופון תקף מסכום {amount}",
     "couponErrUsedUp": "הקופון מוצה",
     "couponErrNotApplicable": "הקופון אינו חל על הפריטים שבסל",
+    "couponErrMinQuantity": "הקופון תקף לרכישת {count} ספרים ומעלה",
+    "couponErrFirstOrderOnly": "הקופון מיועד להזמנה ראשונה בלבד",
     "stepOrdered": "התקבלה",
     "stepPaid": "שולמה",
     "stepPreparing": "בהכנה",

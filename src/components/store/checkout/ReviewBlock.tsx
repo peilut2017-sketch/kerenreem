@@ -179,13 +179,17 @@ export function ReviewBlock({
                         setCouponError(
                           result.error === 'min_total' && result.minTotal != null
                             ? t('couponErrMinTotal', { amount: formatPrice(result.minTotal, locale) })
-                            : result.error === 'used_up'
-                              ? t('couponErrUsedUp')
-                              : result.error === 'not_applicable'
-                                ? t('couponErrNotApplicable')
-                                : result.error === 'not_combinable'
-                                  ? t('couponErrNotCombinable')
-                                  : t('couponErrInvalid'),
+                            : result.error === 'min_quantity' && result.minQuantity != null
+                              ? t('couponErrMinQuantity', { count: result.minQuantity })
+                              : result.error === 'used_up'
+                                ? t('couponErrUsedUp')
+                                : result.error === 'first_order_only'
+                                  ? t('couponErrFirstOrderOnly')
+                                  : result.error === 'not_applicable'
+                                    ? t('couponErrNotApplicable')
+                                    : result.error === 'not_combinable'
+                                      ? t('couponErrNotCombinable')
+                                      : t('couponErrInvalid'),
                         );
                       } else {
                         setCouponInput('');

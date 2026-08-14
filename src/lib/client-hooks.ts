@@ -248,15 +248,34 @@ export function useLocalMap(key: string): {
     [key],
   );
 
-  return {
-    map,
-    get: (id: string) => map[id],
-    set: (id: string, value: string) => write({ ...map, [id]: value }),
-    clear: (id: string) => {
-      const next = { ...map };
+  /* המצב העדכני נקרא מהמטמון בזמן הקריאה, לא מ-map שנלכד ברינדור:
+     set/clear שנקראים בלולאה (ריקון סל, עדכון מחירים לכל השורות) היו
+     בונים כל פעם מחדש מהעותק הישן — ורק הכתיבה האחרונה שרדה. */
+  const latest = useCallback((): Record<string, string> => {
+    const raw = readRaw(key);
+    const cached = mapCaches.get(key);
+    if (!cached || cached.raw !== raw) mapCaches.set(key, { raw, map: parseMap(raw) });
+    return mapCaches.get(key)!.map;
+  }, [key]);
+
+  const set = useCallback(
+    (id: string, value: string) => write({ ...latest(), [id]: value }),
+    [latest, write],
+  );
+  const clear = useCallback(
+    (id: string) => {
+      const next = { ...latest() };
       delete next[id];
       write(next);
     },
+    [latest, write],
+  );
+
+  return {
+    map,
+    get: (id: string) => map[id],
+    set,
+    clear,
   };
 }
 

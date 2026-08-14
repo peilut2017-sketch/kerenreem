@@ -560,7 +560,7 @@ export async function togglePublished(
     const supabase = await createClient();
     if (!supabase) return { error: 'אין חיבור למסד' };
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from(entity.table)
       .update({ is_published: next })
       .eq('id', id)
@@ -571,6 +571,9 @@ export async function togglePublished(
       console.error('[admin:publish]', error.code, error.message);
       return { error: describeDbError(error, entity).message };
     }
+    // אפס שורות בלי שגיאה — RLS סינן את הרשומה: בלי הבדיקה המתג בממשק
+    // היה מתהפך, המסד לא היה משתנה, והמצב "חוזר" ברענון הבא.
+    if (!data) return { error: 'הרשומה לא נמצאה או שאין הרשאה לעדכן אותה' };
 
     revalidateEntity(entityKey as EntityKey);
     return {};
@@ -992,7 +995,10 @@ export async function saveEventBlocks(
   }[],
 ): Promise<ActionResult> {
   try {
-    const session = await assertScreenPermission('books', 'edit');
+    // מסך האירועים, לא הספרים — אותו שער בדיוק כמו עמוד עריכת האירוע
+    // עצמו (requireScreenPermission('events','edit')), אחרת עורך אירועים
+    // בלי הרשאת ספרים נחסם, ועורך ספרים בלי הרשאת אירועים עובר.
+    const session = await assertScreenPermission('events', 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();

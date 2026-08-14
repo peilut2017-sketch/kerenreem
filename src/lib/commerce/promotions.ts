@@ -69,11 +69,10 @@ export async function findBestPromotion(cart: ValidatedCart): Promise<PromotionR
         : Math.min(round2(promo.value), amount);
     if (discount <= 0) continue;
 
-    if (
-      !best ||
-      discount > best.discountAmount ||
-      (discount === best.discountAmount && promo.priority > 0)
-    ) {
+    // שוויון בהנחה מוכרע לפי עדיפות: הרשימה כבר ממוינת priority DESC,
+    // ולכן הראשון שנקלט הוא בעל העדיפות הגבוהה — אין לדרוס אותו במבצע
+    // מאוחר (נמוך) שמקרה הנחה זהה.
+    if (!best || discount > best.discountAmount) {
       best = {
         promotion: {
           id: promo.id,

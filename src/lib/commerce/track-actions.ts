@@ -87,10 +87,12 @@ export async function findMyOrder(orderNumberRaw: string, contactRaw: string): P
   }
 
   const headerList = await headers();
-  if (!(await allowRequest(ipBucket('order-find', headerList), 8, 3600))) {
+  // fail-closed: איתור הזמנה מסובב את טוקן המעקב — לא לאפשר ניחוש
+  // מספר-הזמנה+מייל בקצב בלתי-מוגבל אם ההגבלה עצמה נופלת.
+  if (!(await allowRequest(ipBucket('order-find', headerList), 8, 3600, { failClosed: true }))) {
     return { ok: false, error: 'rate_limited' };
   }
-  if (!(await allowRequest(`order-find:${orderNumber}`, 5, 3600))) {
+  if (!(await allowRequest(`order-find:${orderNumber}`, 5, 3600, { failClosed: true }))) {
     return { ok: false, error: 'rate_limited' };
   }
 

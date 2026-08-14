@@ -193,17 +193,27 @@ async function applyTransactionUpdate(
     .eq('id', webhookEventId ?? '');
 
   if (normalized.status === 'paid') {
-    // אימות סכום מול הצילום — פער עוצר אישור אוטומטי ומסמן חריגה
-    if (normalized.amount != null && round2(normalized.amount) !== round2(order.total)) {
+    // אימות סכום מול הצילום — פער (או סכום חסר) עוצר אישור אוטומטי ומסמן
+    // חריגה. fail-closed על amount חסר: מבנה ה-payload של מורנינג מסומן
+    // כהנחה לא-מאומתת (A5/A8), ואי-התאמת שם-שדה הייתה משביתה בשקט את
+    // הגנת התמחור. עדיף לתייג לבדיקה ידנית מאשר לאשר בלי בדיקה.
+    const amountVerified =
+      normalized.amount != null && round2(normalized.amount) === round2(order.total);
+    if (!amountVerified) {
       await recordOrderEvent(service, order.id, 'webhook_amount_mismatch', MORNING_ACTOR, {
         expected: order.total,
-        received: normalized.amount,
+        received: normalized.amount ?? null,
       });
       await service
         .from('orders')
         .update({ tags: [...new Set([...(order.tags ?? []), 'amount-mismatch'])] })
         .eq('id', order.id);
-      await finalizeEvent(service, webhookEventId, 'failed', 'amount mismatch');
+      await finalizeEvent(
+        service,
+        webhookEventId,
+        'failed',
+        normalized.amount == null ? 'amount missing' : 'amount mismatch',
+      );
       return { status: 'amount_mismatch', httpStatus: 200 };
     }
     await handlePaymentSucceeded(service, order, payment.id, normalized.method, payload);
@@ -233,9 +243,10 @@ async function handlePaymentSucceeded(
     payment_id: paymentId,
     method,
   });
-  // כבר paid (אירוע כפול שחמק מה-dedupe) — לא ממשיכים להפחתה כפולה;
-  // ההפחתה עצמה ממילא idempotent במסד
-  const firstTime = paymentTransition.ok;
+  // כבר paid (אירוע כפול שחמק מה-dedupe) — לא שולחים מייל שוב.
+  // transitionOrder מחזיר ok:true גם כשהמצב כבר היה היעד (from===to),
+  // ולכן ok לבדו אינו "פעם ראשונה" — חובה לבדוק גם את המצב שנקרא לפני.
+  const firstTime = paymentTransition.ok && order.payment_state !== 'paid';
   await transitionOrder(service, order.id, 'state', 'confirmed', MORNING_ACTOR);
   await recordOrderEvent(service, order.id, 'payment_succeeded', MORNING_ACTOR, { method });
 
@@ -368,12 +379,15 @@ export async function releaseExpiredReservations(): Promise<number> {
   let released = 0;
   for (const payment of expired ?? []) {
     await service.from('payments').update({ status: 'expired' }).eq('id', payment.id);
+    // אותו סינון כמו בשמירה (createOrderFromSession): הזמנה מוקדמת לא
+    // שמרה מלאי ואין מה לשחרר לה. המסד ממילא no-op על שחרור בלי שמירה,
+    // אבל אין סיבה לירות RPC לכל שורה כזו.
     const { data: items } = await service
       .from('order_items')
-      .select('book_id, quantity')
+      .select('book_id, quantity, is_preorder')
       .eq('order_id', payment.order_id);
     for (const item of items ?? []) {
-      if (!item.book_id) continue;
+      if (!item.book_id || item.is_preorder) continue;
       await releaseStock(service, item.book_id, item.quantity, payment.order_id);
     }
     await recordOrderEvent(service, payment.order_id, 'stock_released', SYSTEM_ACTOR, {

@@ -29,7 +29,7 @@ export function KnowledgeSpace({
       <div className="grid gap-6 sm:grid-cols-2">
         {entries.map((tag, index) => (
           <Reveal key={tag.id} delay={index * 80}>
-            <div className="h-full rounded-[var(--radius-lg)] border border-rule bg-cream px-7 py-6 shadow-[var(--shadow-soft)]">
+            <div className="h-full rounded-[var(--radius-lg)] border border-rule/60 bg-white px-7 py-6 shadow-[var(--shadow-soft)]">
               <h3 className="font-serif text-lead text-ink">{localized(tag, 'name', locale)}</h3>
               <p className="mt-2 text-small leading-relaxed text-ink-soft">{tag.description_he}</p>
             </div>

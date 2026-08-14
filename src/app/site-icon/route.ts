@@ -1,4 +1,5 @@
 import { getSiteSettings } from '@/lib/data';
+import { isProjectStorageUrl } from '@/lib/image-src';
 
 /**
  * מגיש את הלוגו שהועלה ב-CMS כאייקון האתר (לשונית הדפדפן), עם נפילה
@@ -35,14 +36,26 @@ export async function GET() {
   const settings = await getSiteSettings();
   if (!settings.logo_url) return fallback();
 
+  // הלוגו חייב להיות מאחסון הפרויקט (Supabase/CDN) — לא כתובת חופשית.
+  // בלי המגבלה, שדה ניהולי היה הופך ל-SSRF (שליפת כתובת פנימית שרירותית
+  // עם החזרת הגוף) ולהזרקת HTML: כתובת שמחזירה text/html הייתה מוגשת
+  // מ-/site-icon על ה-origin שלנו, מריצה סקריפט תחת ה-CSP שלנו.
+  if (!isProjectStorageUrl(settings.logo_url)) return fallback();
+
   try {
     const upstream = await fetch(settings.logo_url, { next: { revalidate: 3600 } });
     if (!upstream.ok) return fallback();
 
+    // רק תמונות — אף פעם לא לשקף Content-Type אחר מהמקור. text/html
+    // מהמקור היה נשלף ומוגש כ-HTML על ה-origin שלנו.
+    const contentType = upstream.headers.get('content-type') ?? '';
+    if (!contentType.startsWith('image/')) return fallback();
+
     const bytes = await upstream.arrayBuffer();
     return new Response(bytes, {
       headers: {
-        'Content-Type': upstream.headers.get('content-type') ?? 'image/png',
+        'Content-Type': contentType,
+        'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'public, max-age=3600',
       },
     });

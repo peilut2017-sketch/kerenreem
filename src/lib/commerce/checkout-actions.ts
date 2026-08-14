@@ -18,7 +18,6 @@ import { isValidIsraeliPhone, normalizePhone } from './guest-token';
 import { allowRequest, ipBucket } from './rate-limit';
 import { startPayment } from './payments';
 import { sendOrderEmail } from './notifications';
-import { openServiceRequest } from './service-requests';
 import { recordRedemption, validateCoupon, type CouponError } from './coupons';
 import { findBestPromotion } from './promotions';
 import { getCustomerSession, getMyAddresses } from './account';
@@ -376,6 +375,7 @@ export interface CouponActionResult {
   ok: boolean;
   error?: CouponError;
   minTotal?: number;
+  minQuantity?: number;
   code?: string;
   discountAmount?: number;
   freeShipping?: boolean;
@@ -402,7 +402,12 @@ export async function applyCoupon(code: string): Promise<CouponActionResult> {
   );
   const result = await validateCoupon(code, cart, session.contact_phone, session.contact_email);
   if (!result.ok || !result.coupon) {
-    return { ok: false, error: result.error ?? 'invalid', minTotal: result.minTotal };
+    return {
+      ok: false,
+      error: result.error ?? 'invalid',
+      minTotal: result.minTotal,
+      minQuantity: result.minQuantity,
+    };
   }
 
   // [1.1] צבירת קופונים (הכרעה 13): קופון שני על session שכבר מחזיק קופון
@@ -769,22 +774,6 @@ export async function getResultState(): Promise<ResultState> {
   };
 }
 
-/** רישום ביטול מצד הלקוח מעמוד המעקב — פותח בקשה, אינו מבטל אוטומטית. */
-export async function requestCancelFromResult(reason: string): Promise<ActionResult> {
-  const sessionId = await readSessionId();
-  if (!sessionId) return { ok: false, error: 'session' };
-  const session = await loadSession(sessionId);
-  if (!session?.order_id) return { ok: false, error: 'session' };
-
-  const service = createServiceClient();
-  if (!service) return { ok: false, error: 'server' };
-  const result = await openServiceRequest(service, {
-    orderId: session.order_id,
-    kind: 'cancel',
-    reason: reason.slice(0, 300),
-    requestedBy: 'customer',
-    actor: { type: 'customer' },
-  });
-  if (!result.ok) return { ok: false, error: 'server' };
-  return { ok: true };
-}
+// ‏requestCancelFromResult הוסר: מסלול הביטול היחיד מהאתר הוא
+// requestCancelByToken (track-actions.ts) דרך עמוד המעקב — הפעולה כאן
+// מעולם לא חוברה לשום ממשק והייתה קוד מת.

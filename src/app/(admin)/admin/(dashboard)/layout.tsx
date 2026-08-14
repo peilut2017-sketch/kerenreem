@@ -27,14 +27,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const screenAccess = await getAllScreenAccess(session);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[var(--admin-canvas)]">
+    <div className="admin-canvas flex min-h-dvh flex-col">
       {/* מורכב פעם אחת ברמת הפריסה, לא בתוך עמוד — כך הודעת "נשמר" נשארת
           גלויה גם כש-EntityForm מנווט משם מיד אחרי, ראו toast-bus.ts. */}
       <ToastHost />
 
       {/* הכותרת נדבקת לראש החלון, כמו באתר הציבורי: בטבלה ארוכה הניווט
           היה נעלם למעלה וכל מעבר בין מסכים חייב גלילה חזרה. */}
-      <header className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/90 backdrop-blur-md">
+      <header className="admin-topbar sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-4 px-6 py-3.5">
           <div className="flex items-center gap-3">
             <Link href="/admin" className="flex items-center gap-2.5 font-serif text-[1.25rem] text-ink">

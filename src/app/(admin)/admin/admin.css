@@ -14,7 +14,8 @@
    ========================================================================== */
 
 :root {
-  --admin-accent: #4338ca;
+  --admin-accent: #4f46e5;
+  --admin-accent-2: #7c3aed;
   --admin-accent-soft: #eef2ff;
   --admin-success: #15803d;
   --admin-success-soft: #ecfdf5;
@@ -23,17 +24,48 @@
   --admin-danger: #b91c1c;
   --admin-danger-soft: #fef2f2;
   --admin-border: color-mix(in srgb, var(--color-rule) 70%, transparent);
-  --admin-radius-card: 1.25rem;
-  --admin-radius-btn: 0.75rem;
+  --admin-radius-card: 1.375rem;
+  --admin-radius-btn: 0.875rem;
   --admin-shadow: 0 1px 2px rgb(20 18 15 / 0.03), 0 10px 24px -18px rgb(20 18 15 / 0.12);
   --admin-shadow-hover: 0 2px 6px rgb(20 18 15 / 0.05), 0 22px 44px -18px rgb(20 18 15 / 0.18);
   /* [1.1] קנבס בהיר ואוורירי: המשטחים לבנים על רקע נייר עדין — פחות
-     "כבד" מגוני הקרם הרציפים, בלי לגעת בזהות האתר הציבורי */
-  --admin-canvas: #f8f7f4;
+     "כבד" מגוני הקרם הרציפים, בלי לגעת בזהות האתר הציבורי.
+     שתי הילות צבע רכות (אינדיגו למעלה, זהב בצד) שוברות את האפרוריות
+     בלי להפריע לקריאת תוכן — הן יושבות מאחורי משטחים לבנים אטומים. */
+  --admin-canvas: #f7f6f3;
+  --admin-canvas-glow:
+    radial-gradient(46rem 26rem at 85% -8%, color-mix(in srgb, var(--admin-accent) 7%, transparent), transparent 60%),
+    radial-gradient(40rem 24rem at 0% 22%, color-mix(in srgb, var(--color-gold) 9%, transparent), transparent 55%),
+    radial-gradient(36rem 26rem at 55% 110%, color-mix(in srgb, var(--admin-accent-2) 5%, transparent), transparent 60%);
   --admin-surface: #ffffff;
+
+  /* --- פלטת גוונים לשבבי אייקון ולכרטיסי סטטיסטיקה ---
+     גוון לכל תחום (ספרים/חנות/כספים/פניות...) — צבע כמידע, לא כקישוט:
+     הוא מה שמאפשר לזהות כרטיס במבט חטוף בלי לקרוא את התווית. */
+  --admin-hue-indigo: #4f46e5;
+  --admin-hue-indigo-soft: #eef2ff;
+  --admin-hue-violet: #7c3aed;
+  --admin-hue-violet-soft: #f5f3ff;
+  --admin-hue-emerald: #059669;
+  --admin-hue-emerald-soft: #ecfdf5;
+  --admin-hue-amber: #b45309;
+  --admin-hue-amber-soft: #fef3c7;
+  --admin-hue-rose: #be123c;
+  --admin-hue-rose-soft: #ffe4e6;
+  --admin-hue-sky: #0369a1;
+  --admin-hue-sky-soft: #e0f2fe;
+  --admin-hue-gold: #92680a;
+  --admin-hue-gold-soft: #fdf3d8;
 }
 
 @layer components {
+  /* --- קנבס: רקע העבודה של כל מסכי הניהול --- */
+  .admin-canvas {
+    background-color: var(--admin-canvas);
+    background-image: var(--admin-canvas-glow);
+    background-attachment: fixed;
+  }
+
   /* --- כרטיס --- */
   .admin-card {
     background: var(--admin-surface);
@@ -66,12 +98,17 @@
   .admin-btn:active { transform: scale(0.97); }
   .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  /* גרדיאנט אינדיגו→סגול: הפעולה הראשית היא הכתם הצבעוני של המסך.
+     ה-hover מבהיר דרך שכבת לבן שקופה ולא דרך גרדיאנט שני — מעבר חלק. */
   .admin-btn-solid {
-    background: var(--color-ink);
+    background: linear-gradient(135deg, var(--admin-accent), var(--admin-accent-2));
     color: #fff;
-    box-shadow: var(--admin-shadow);
+    box-shadow: 0 1px 2px rgb(20 18 15 / 0.06), 0 10px 22px -12px color-mix(in srgb, var(--admin-accent) 55%, transparent);
   }
-  .admin-btn-solid:hover { background: var(--admin-accent); box-shadow: var(--admin-shadow-hover); }
+  .admin-btn-solid:hover {
+    box-shadow: 0 2px 6px rgb(20 18 15 / 0.06), 0 16px 30px -12px color-mix(in srgb, var(--admin-accent) 65%, transparent);
+    filter: brightness(1.08);
+  }
 
   .admin-btn-quiet {
     background: var(--color-cream-2);
@@ -136,16 +173,26 @@
   .admin-badge-button:active { transform: scale(0.96); }
   .admin-badge-button:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  /* --- שבבי אייקון --- */
+  /* --- שבבי אייקון: גוון פר-תחום דרך משתני --chip --- */
   .admin-icon-chip {
+    --chip: var(--admin-hue-indigo);
+    --chip-soft: var(--admin-hue-indigo-soft);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 0.75rem;
-    background: var(--admin-accent-soft);
-    color: var(--admin-accent);
+    border-radius: 0.875rem;
+    background: var(--chip-soft);
+    color: var(--chip);
     flex-shrink: 0;
+    transition: transform 260ms var(--ease-spring), box-shadow 260ms var(--ease-spring);
   }
+  .admin-hue-indigo  { --chip: var(--admin-hue-indigo);  --chip-soft: var(--admin-hue-indigo-soft); }
+  .admin-hue-violet  { --chip: var(--admin-hue-violet);  --chip-soft: var(--admin-hue-violet-soft); }
+  .admin-hue-emerald { --chip: var(--admin-hue-emerald); --chip-soft: var(--admin-hue-emerald-soft); }
+  .admin-hue-amber   { --chip: var(--admin-hue-amber);   --chip-soft: var(--admin-hue-amber-soft); }
+  .admin-hue-rose    { --chip: var(--admin-hue-rose);    --chip-soft: var(--admin-hue-rose-soft); }
+  .admin-hue-sky     { --chip: var(--admin-hue-sky);     --chip-soft: var(--admin-hue-sky-soft); }
+  .admin-hue-gold    { --chip: var(--admin-hue-gold);    --chip-soft: var(--admin-hue-gold-soft); }
 
   /* --- שדות טופס --- */
   .admin-field-label {
@@ -197,7 +244,9 @@
   }
   .admin-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
   .admin-table thead {
-    background: var(--admin-surface);
+    /* גוון אינדיגו קלוש במקום לבן שטוח — שורת הכותרת נבדלת מהגוף גם
+       בלי לגלול, וגם כשה-thead הדביק שט מעל שורות התוכן. */
+    background: color-mix(in srgb, var(--admin-accent) 4%, var(--admin-surface));
     position: sticky;
     top: 0;
     z-index: 1;
@@ -213,6 +262,18 @@
   .admin-table td { padding: 0.9rem 1.1rem; border-top: 1px solid color-mix(in srgb, var(--color-rule) 45%, transparent); vertical-align: middle; }
   .admin-table tbody tr { transition: background-color 150ms ease; }
   .admin-table tbody tr:hover { background: color-mix(in srgb, var(--admin-accent) 3.5%, var(--admin-surface)); }
+
+  /* --- הכותרת העליונה: קו גרדיאנט דק בראש החלון ---
+     חתימת הצבע של המנשק — פס אינדיגו→סגול→זהב ברוחב מלא, גבוה 3px.
+     זה הפרט שהופך "עוד מסך לבן" למערכת עם זהות, במחיר של אפס רעש. */
+  .admin-topbar::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--admin-accent), var(--admin-accent-2) 45%, var(--color-gold));
+  }
 
   /* --- ניווט: קפסולה לבנה צפה, קלה --- */
   .admin-nav-shell {
@@ -238,20 +299,28 @@
     transition: background-color 200ms ease, color 200ms ease;
   }
   .admin-nav-link:hover { color: var(--admin-accent); background: color-mix(in srgb, var(--admin-accent) 8%, transparent); }
+  /* העמוד הפעיל: פיל גרדיאנט מלא ולא רק גוון רקע — עוגן חזותי אחד ברור
+     בסרגל, באותה שפה בדיוק כמו כפתור הפעולה הראשית. */
   .admin-nav-link-active {
-    color: var(--admin-accent);
-    font-weight: 700;
-    background: var(--admin-accent-soft);
+    color: #fff;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--admin-accent), var(--admin-accent-2));
+    box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--admin-accent) 70%, transparent);
+  }
+  .admin-nav-link-active:hover {
+    color: #fff;
+    background: linear-gradient(135deg, var(--admin-accent), var(--admin-accent-2));
+    filter: brightness(1.08);
   }
   .admin-nav-dropdown {
     position: absolute;
     inset-inline-start: 0;
     top: calc(100% + 0.5rem);
     min-width: 16rem;
-    padding: 0.4rem;
-    background: var(--color-cream);
+    padding: 0.45rem;
+    background: var(--admin-surface);
     border: 1px solid var(--admin-border);
-    border-radius: 1rem;
+    border-radius: 1.25rem;
     box-shadow: var(--admin-shadow-hover);
     z-index: 30;
   }
@@ -260,7 +329,7 @@
     align-items: center;
     gap: 0.65rem;
     padding: 0.65rem 0.8rem;
-    border-radius: 0.65rem;
+    border-radius: 0.875rem;
     font-size: 0.8125rem;
     color: var(--color-ink);
     transition: background-color 150ms ease, color 150ms ease;
@@ -271,20 +340,37 @@
   /* וריאנט שנפתח מהקצה הנגדי — לתפריטים שיושבים בקצה שמאל של הסרגל */
   .admin-nav-dropdown-end { inset-inline-start: auto; inset-inline-end: 0; }
 
-  /* --- כרטיס סטטיסטיקה בדשבורד --- */
+  /* --- כרטיס סטטיסטיקה בדשבורד ---
+     קו הגוון בראש הכרטיס יורש את גוון השבב שבתוכו (--chip מוגדר על
+     הכרטיס עצמו דרך admin-hue-*), כך שכרטיס וגוונו נקראים כיחידה. */
   .admin-stat {
+    --chip: var(--admin-hue-indigo);
+    --chip-soft: var(--admin-hue-indigo-soft);
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     gap: 0.9rem;
     padding: 1.15rem 1.3rem;
     background: var(--admin-surface);
     border: 1px solid var(--admin-border);
-    border-radius: 1.1rem;
+    border-radius: 1.25rem;
     transition: box-shadow 220ms ease, transform 220ms ease, border-color 220ms ease;
   }
-  .admin-stat:hover {
-    box-shadow: var(--admin-shadow-hover);
-    transform: translateY(-2px);
-    border-color: color-mix(in srgb, var(--admin-accent) 45%, transparent);
+  .admin-stat::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--chip) 70%, transparent), transparent 70%);
+    opacity: 0.85;
   }
+  .admin-stat:hover {
+    box-shadow: 0 2px 6px rgb(20 18 15 / 0.05), 0 22px 44px -18px color-mix(in srgb, var(--chip) 38%, rgb(20 18 15 / 0.4));
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--chip) 40%, transparent);
+  }
+  .admin-stat:hover .admin-icon-chip { transform: scale(1.06) rotate(-3deg); }
 }
