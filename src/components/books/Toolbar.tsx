@@ -116,7 +116,13 @@ export function Toolbar({
             </select>
           </div>
 
-          <div role="group" aria-label={t('view')} className="flex items-center gap-1">
+          {/* פקד מקטעים — משבצת רקע אחת עם שלושה מצבים, במקום שלושה
+              כפתורים מרחפים: קורא כרכיב אחד וקליל יותר. */}
+          <div
+            role="group"
+            aria-label={t('view')}
+            className="flex items-center gap-0.5 rounded-[var(--radius-pill)] bg-white/60 p-1"
+          >
             <ViewButton current={view} mode="grid" onSelect={onViewChange} label={t('viewGrid')} />
             <ViewButton current={view} mode="large" onSelect={onViewChange} label={t('viewLarge')} />
             <ViewButton current={view} mode="list" onSelect={onViewChange} label={t('viewList')} />
@@ -152,8 +158,10 @@ function ViewButton({
       onClick={() => onSelect(mode)}
       aria-pressed={selected}
       aria-label={label}
-      className={`rounded-[var(--radius-pill)] p-2 transition-colors ${
-        selected ? 'bg-white/80 text-burgundy' : 'text-muted hover:text-ink'
+      className={`rounded-[var(--radius-pill)] p-2 transition-all duration-200 ${
+        selected
+          ? 'bg-white text-burgundy shadow-[var(--shadow-soft)]'
+          : 'text-muted hover:bg-white/50 hover:text-ink'
       }`}
     >
       <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">
