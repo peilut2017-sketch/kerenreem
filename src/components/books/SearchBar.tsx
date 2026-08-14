@@ -146,6 +146,11 @@ export function SearchBar({
   }
 
   const listId = `${id}-list`;
+  // ה-listbox מרונדר רק כשהוא פתוח *ויש* הצעות. aria-expanded ו-
+  // aria-controls חייבים להתייחס למצב הזה בלבד: אחרת, בחיפוש בלי תוצאות
+  // (או קטלוג ריק), aria-expanded=true ו-aria-controls מצביע ל-id שלא
+  // קיים ב-DOM — הפרה של aria-valid-attr-value (axe critical).
+  const listboxVisible = open && suggestions.length > 0;
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -163,10 +168,10 @@ export function SearchBar({
           id={id}
           type="text"
           role="combobox"
-          aria-expanded={open}
-          aria-controls={listId}
+          aria-expanded={listboxVisible}
+          aria-controls={listboxVisible ? listId : undefined}
           aria-autocomplete="list"
-          aria-activedescendant={active >= 0 ? `${id}-option-${active}` : undefined}
+          aria-activedescendant={listboxVisible && active >= 0 ? `${id}-option-${active}` : undefined}
           autoComplete="off"
           value={value}
           placeholder={placeholder}
@@ -197,7 +202,7 @@ export function SearchBar({
         ) : null}
       </div>
 
-      {open && suggestions.length > 0 ? (
+      {listboxVisible ? (
         <ul
           id={listId}
           role="listbox"

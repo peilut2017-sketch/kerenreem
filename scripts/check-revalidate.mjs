@@ -49,9 +49,37 @@ function routeOf(file) {
 
 const getters = mapGettersToTables();
 
+/**
+ * עמוד force-dynamic נטען מחדש בכל בקשה ואינו נכנס למטמון ISR — לכן
+ * revalidatePath לא רלוונטי לו, והוא תמיד מציג נתונים טריים. ההצהרה
+ * יכולה לשבת בעמוד עצמו או ב-layout כלשהו מעליו (עד שורש הציבורי),
+ * ולכן בודקים את כל השרשרת. בלי ההחרגה הזו הבדיקה מדווחת פער-שווא על
+ * /account (עמוד אישי, force-dynamic) שאין לו מה לרענן.
+ */
+const FORCE_DYNAMIC = /export\s+const\s+dynamic\s*=\s*['"]force-dynamic['"]/;
+const hasForceDynamic = (file) => {
+  try {
+    return FORCE_DYNAMIC.test(readFileSync(file, 'utf8'));
+  } catch {
+    return false;
+  }
+};
+
 // הסינון נעשה על המחרוזת ולא בתבנית ה-glob: '[locale]' ו-'(public)' הם
 // תווים בעלי משמעות ב-glob, ותבנית שמכילה אותם מחזירה אפס קבצים בשקט.
 const PUBLIC_ROOT = 'src/app/(public)/[locale]';
+
+/** העמוד עצמו, או layout כלשהו מעליו עד שורש הציבורי, מצהיר force-dynamic. */
+function isForceDynamic(pageFile) {
+  if (hasForceDynamic(pageFile)) return true;
+  let dir = pageFile.slice(0, pageFile.lastIndexOf('/'));
+  while (dir.length >= PUBLIC_ROOT.length) {
+    if (hasForceDynamic(`${dir}/layout.tsx`)) return true;
+    if (dir === PUBLIC_ROOT) break;
+    dir = dir.slice(0, dir.lastIndexOf('/'));
+  }
+  return false;
+}
 const pages = globSync('src/app/**/page.tsx').filter((f) => f.startsWith(PUBLIC_ROOT));
 
 if (pages.length === 0) {
@@ -67,6 +95,10 @@ if (getters.size === 0) {
 const tableRoutes = new Map();
 
 for (const file of pages) {
+  // עמוד force-dynamic תמיד טרי — אין לו מטמון ISR לרענן, ולכן אינו
+  // מטיל דרישת revalidatePath על אף ישות שהוא מציג.
+  if (isForceDynamic(file)) continue;
+
   const source = readFileSync(file, 'utf8');
   const route = routeOf(file);
 

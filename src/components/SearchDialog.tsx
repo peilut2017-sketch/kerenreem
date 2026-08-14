@@ -115,7 +115,9 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
           role="combobox"
           aria-expanded={hasResults}
           aria-controls={`${titleId}-list`}
-          aria-activedescendant={active >= 0 ? `${titleId}-option-${active}` : undefined}
+          // רק כשיש תוצאות: אחרת ה-option שאליו active מצביע אינו ב-DOM
+          // (למשל active ישן בזמן שהחיפוש החדש עדיין נטען) — הפניה תלויה
+          aria-activedescendant={hasResults && active >= 0 ? `${titleId}-option-${active}` : undefined}
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={onKeyDown}
