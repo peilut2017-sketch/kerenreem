@@ -1124,11 +1124,20 @@ export async function setStaffDiscount(
     return { ok: false, error: 'ההזמנה כבר נארזה — לא ניתן לשנות את החשבון' };
   }
 
+  // הנחת הקופון/מבצע נגזרת מהמצב *לפני* עדכון ההנחה — כשהיא עדיין
+  // עקבית עם discount_total. אחרת recomputeOrderTotals היה מנסה לשחזר
+  // אותה מ-(discount_total הישן − staff_discount החדש), וההפרש מבטל
+  // בדיוק את ההנחה החדשה: discount_total = בסיס + הנחה חדשה − הנחה חדשה =
+  // הבסיס, וההנחה הראשונה לא משפיעה כלל על הסכום שנגבה.
+  const basePromoDiscount = Math.max(
+    Number(order.discount_total) - Number(order.staff_discount ?? 0),
+    0,
+  );
   await service
     .from('orders')
     .update({ staff_discount: amount, staff_discount_reason: reason.trim() || null })
     .eq('id', orderId);
-  await recomputeOrderTotals(service, orderId);
+  await recomputeOrderTotals(service, orderId, { basePromoDiscount, staffDiscount: amount });
 
   const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
   await recordOrderEvent(service, orderId, 'staff_discount_set', actor, { amount, reason });
@@ -1140,10 +1149,19 @@ export async function setStaffDiscount(
   return { ok: true };
 }
 
-/** חישוב מחדש של סכומי ההזמנה מהשורות + ההנחות שעל ההזמנה. */
+/**
+ * חישוב מחדש של סכומי ההזמנה מהשורות + ההנחות שעל ההזמנה.
+ *
+ * overrides — נדרש כשקוראים אחרי שינוי ההנחה עצמה: אז discount_total
+ * ו-staff_discount שבמסד אינם עקביים זה עם זה (הראשון עדיין ישן), ואי
+ * אפשר לשחזר מהם את הנחת הבסיס. הקורא (setStaffDiscount) מחשב את
+ * basePromoDiscount מהמצב העקבי שלפני העדכון ומעביר אותו במפורש.
+ * בלי overrides (editOrderItems) — שני הערכים עקביים והשחזור תקין.
+ */
 async function recomputeOrderTotals(
   service: NonNullable<ReturnType<typeof createServiceClient>>,
   orderId: string,
+  overrides?: { basePromoDiscount: number; staffDiscount: number },
 ): Promise<void> {
   const [{ data: order }, { data: items }] = await Promise.all([
     service.from('orders').select('*').eq('id', orderId).maybeSingle(),
@@ -1158,11 +1176,11 @@ async function recomputeOrderTotals(
     0,
   );
   // ההנחות הקיימות על ההזמנה נשמרות כמו שהן (קופון/מבצע צולמו ביצירה)
-  const couponAndPromo = Math.max(
-    Number(order.discount_total) - Number(order.staff_discount ?? 0),
-    0,
-  );
-  const discountTotal = Math.min(couponAndPromo + Number(order.staff_discount ?? 0), subtotal);
+  const staffDiscount = overrides?.staffDiscount ?? Number(order.staff_discount ?? 0);
+  const couponAndPromo =
+    overrides?.basePromoDiscount ??
+    Math.max(Number(order.discount_total) - Number(order.staff_discount ?? 0), 0);
+  const discountTotal = Math.min(couponAndPromo + staffDiscount, subtotal);
   const shippingTotal = Number(order.shipping_total ?? 0);
   // התרומה חלק מהסכום הכולל (computeTotals) — השמטתה כאן גרמה לפער בין
   // total מחושב-מחדש לבין הסכום שנשלח לחיוב.
