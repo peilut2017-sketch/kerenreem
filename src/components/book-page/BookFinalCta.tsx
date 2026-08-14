@@ -38,7 +38,9 @@ export function BookFinalCta({
     <section
       id="book-final-cta"
       aria-labelledby="book-final-cta-heading"
-      className="mx-auto max-w-[52rem] rounded-[var(--radius-xl)] border border-rule bg-cream-2/60 px-6 py-10 text-center sm:px-10"
+      /* משטח סיום עם דעיכת זהב עדינה מלמעלה — מרים את הקטע מהרקע בלי קו
+         כבד, באותה שפה של שאר המשטחים באתר. */
+      className="relative mx-auto max-w-[52rem] overflow-hidden rounded-[var(--radius-xl)] border border-rule/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-gold)_7%,#fff),#fff)] px-6 py-10 text-center shadow-[var(--shadow-soft)] sm:px-10"
     >
       <div className="mx-auto w-24">
         <BookCover src={cover} title={title} alt="" sizes="96px" />
