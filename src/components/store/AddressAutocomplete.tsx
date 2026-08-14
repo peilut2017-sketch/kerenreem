@@ -78,8 +78,11 @@ export function AddressAutocomplete({
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
-        aria-controls={`${id}-list`}
-        aria-activedescendant={highlight >= 0 ? `${id}-opt-${highlight}` : undefined}
+        // ‏open אמת רק כשיש אפשרויות (ראו setOpen), וה-listbox מרונדר רק
+        // אז. aria-controls/activedescendant חייבים להיות מותנים ב-open,
+        // אחרת כשסגור הם מצביעים ל-id שאינו ב-DOM — aria-valid-attr-value.
+        aria-controls={open ? `${id}-list` : undefined}
+        aria-activedescendant={open && highlight >= 0 ? `${id}-opt-${highlight}` : undefined}
         aria-invalid={invalid || undefined}
         value={value}
         disabled={disabled}
