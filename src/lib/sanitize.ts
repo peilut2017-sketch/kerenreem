@@ -75,9 +75,10 @@ const OPTIONS: IOptions = {
   // onerror, onload, onclick וכל שאר מאזיני האירועים אינם ברשימת
   // התכונות המותרות ולכן נופלים תמיד — ללא תלות ב-style. script מאבד
   // גם הוא את תוכנו, כי אינו ברשימת allowedTags.
-  // בלי http: ה-CSP ממילא משדרג בקשות ל-https (upgrade-insecure-requests),
-  // וקישור http מפורש הוא רק וקטור נוסף — https/mailto/tel מכסים הכול.
-  allowedSchemes: ['https', 'mailto', 'tel'],
+  // http נשאר מותר בכוונה: אינו וקטור הזרקה (javascript:/data: הם, ושניהם
+  // חסומים), ה-CSP ממילא משדרג תעבורה ל-https, והסרתו הייתה מוחקת את ה-
+  // href מכל קישור http קיים בתוכן — רגרסיית תוכן בלי תמורת אבטחה.
+  allowedSchemes: ['https', 'http', 'mailto', 'tel'],
   allowedSchemesAppliedToAttributes: ['href', 'src'],
 
   // חוסם //evil.com. הביטוי הרגולרי הקודם התיר אותו בטעות: הוא אישר כל
