@@ -249,7 +249,10 @@
     "journey": "Progress through the event",
     "closingGalleryLead": "You have seen the heart of the event",
     "showFullGallery": "Continue to the full gallery ({count} more photos)",
-    "imageCounter": "{index} of {total}"
+    "imageCounter": "{index} of {total}",
+    "momentsCount": "{count, plural, one {One moment from the event} other {# moments from the event}}",
+    "momentsCta": "Start watching",
+    "share": "Share"
   },
   "pages": {
     "about": "About",

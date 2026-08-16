@@ -428,6 +428,44 @@ export interface SiteSettings {
   updated_at: string;
 }
 
+/** [1.11] שלב באירוע (Event Story) — ראו supabase/48_event_media.sql */
+export interface EventChapter {
+  id: string;
+  event_id: string;
+  title_he: string;
+  title_en: string | null;
+  description_he: string | null;
+  description_en: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+/** [1.11] פריט מדיה בסיפור אירוע — תמונה או וידאו. */
+export interface EventMediaItem {
+  id: string;
+  event_id: string;
+  type: 'image' | 'video';
+  url: string;
+  thumbnail_url: string | null;
+  caption_he: string | null;
+  caption_en: string | null;
+  alt_he: string | null;
+  alt_en: string | null;
+  sort_order: number;
+  chapter_id: string | null;
+  is_featured: boolean;
+  is_visible: boolean;
+  focal_x: number;
+  focal_y: number;
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+  video_provider: 'youtube' | 'vimeo' | 'file' | null;
+  video_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** [1.11] גופן מותקן — ראו supabase/47_custom_fonts.sql */
 export interface CustomFont {
   id: string;

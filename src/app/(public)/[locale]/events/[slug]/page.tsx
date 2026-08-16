@@ -9,6 +9,7 @@ import { EventHero } from '@/components/events/EventHero';
 import { EventJourneyProgress } from '@/components/events/EventJourneyProgress';
 import { EventLightboxProvider } from '@/components/events/EventLightbox';
 import { EventBlockList } from '@/components/events/EventBlockList';
+import { EventStoryGallery } from '@/components/events/EventStoryGallery';
 import { MemoryStrip } from '@/components/events/MemoryStrip';
 import { EventClosingGallery } from '@/components/events/EventClosingGallery';
 import { getEventBySlug, getEventSlugs } from '@/lib/data';
@@ -78,6 +79,7 @@ export default async function EventPage({
 
   const gallery = buildEventGalleryIndex(event);
   const { labels: stages, blockStageIndex } = extractEventStages(blocks);
+  const storyMedia = event.media ?? [];
 
   /**
    * פס הזיכרונות הוא *טעימה* מהגלריה המסיימת, ולכן מוצג רק כשיש ממה
@@ -120,23 +122,39 @@ export default async function EventPage({
           </Container>
         ) : null}
 
-        {memoryImages.length > 0 && blocks.length > 0 ? (
-          <Container className="pb-6">
-            <MemoryStrip images={memoryImages} />
-          </Container>
-        ) : null}
-
-        {gallery.images.length > gallery.closingGalleryStart ? (
+        {/* [1.11] Event Story Gallery — כשלאירוע יש מדיה בטבלה החדשה
+            (event_media), היא מחליפה את הגלריה הישנה ואת פס הזיכרונות:
+            פריסה עריכתית עם שלבים במחשב, חוויית דפדוף (Reels) במובייל,
+            ו-Viewer מלא עם deep-link. אירוע ישן בלי מדיה חדשה ממשיך
+            להציג את גלריית ה-jsonb כפי שהיה. */}
+        {storyMedia.length > 0 ? (
           <Container className="pb-16 pt-6">
             <SectionHeading title={t('gallery')} />
             <div className="mt-6">
-              <EventClosingGallery
-                images={gallery.images.slice(gallery.closingGalleryStart)}
-                startIndex={gallery.closingGalleryStart}
-              />
+              <EventStoryGallery media={storyMedia} chapters={event.chapters ?? []} locale={locale} />
             </div>
           </Container>
-        ) : null}
+        ) : (
+          <>
+            {memoryImages.length > 0 && blocks.length > 0 ? (
+              <Container className="pb-6">
+                <MemoryStrip images={memoryImages} />
+              </Container>
+            ) : null}
+
+            {gallery.images.length > gallery.closingGalleryStart ? (
+              <Container className="pb-16 pt-6">
+                <SectionHeading title={t('gallery')} />
+                <div className="mt-6">
+                  <EventClosingGallery
+                    images={gallery.images.slice(gallery.closingGalleryStart)}
+                    startIndex={gallery.closingGalleryStart}
+                  />
+                </div>
+              </Container>
+            ) : null}
+          </>
+        )}
       </EventLightboxProvider>
     </article>
   );

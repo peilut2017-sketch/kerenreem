@@ -182,7 +182,10 @@ function LightboxOverlay({
         key={index}
         className="relative z-[1] mx-auto flex max-h-[85vh] w-full max-w-5xl flex-col items-center px-4"
       >
-        <div className="relative max-h-[75vh] w-full flex-1">
+        {/* [1.11] תוקן: גובה מפורש (h-[70vh]) במקום flex-1 — flex-1 מול
+            מכל שגובהו נגזר מהתוכן קרס ל-0, והתמונה (fill = absolute)
+            רונדרה בגודל אפס: רק הכיתוב והמונה נראו. */}
+        <div className="relative h-[70vh] w-full">
           <Image
             src={image.url}
             alt={image.alt}

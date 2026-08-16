@@ -20,6 +20,8 @@ import type {
   ContentPage,
   CustomFont,
   EventBlock,
+  EventChapter,
+  EventMediaItem,
   EventRecord,
   Profile,
   Series,
@@ -595,6 +597,27 @@ export async function getDashboardCounts() {
   ]);
 
   return { books, drafts, authors, events, messages };
+}
+
+/** מדיית סיפור האירוע — למסך העריכה (כולל פריטים מוסתרים). */
+export async function getEventMediaAdmin(eventId: string): Promise<EventMediaItem[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('event_media')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('sort_order');
+  return (data as EventMediaItem[] | null) ?? [];
+}
+
+export async function getEventChaptersAdmin(eventId: string): Promise<EventChapter[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('event_chapters')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('sort_order');
+  return (data as EventChapter[] | null) ?? [];
 }
 
 /** כל הגופנים המותקנים, גם כבויים — למסך ההגדרות. */
