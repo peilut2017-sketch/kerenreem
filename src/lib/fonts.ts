@@ -7,6 +7,8 @@ import {
   David_Libre,
   Secular_One,
   Alef,
+  Suez_One,
+  Bellefair,
 } from 'next/font/google';
 
 /**
@@ -86,6 +88,26 @@ const alef = Alef({
   display: 'swap',
 });
 
+/**
+ * [1.11] גופן התצוגה של כותרות עמוד הבית — Suez One: סריף עברי כבד
+ * ומרשים שנבנה במיוחד לכותרות (משקל יחיד). לא מחליף את Frank Ruhl
+ * בכלל הכותרות — רק בכותרות המקטעים הגדולות, דרך --font-display.
+ */
+const suezOne = Suez_One({
+  subsets: ['hebrew', 'latin'],
+  weight: '400',
+  variable: '--font-suez',
+  display: 'swap',
+});
+
+/** סריף חגיגי דק עם עברית — עוד אפשרות בעורך התוכן. */
+const bellefair = Bellefair({
+  subsets: ['hebrew', 'latin'],
+  weight: '400',
+  variable: '--font-bellefair',
+  display: 'swap',
+});
+
 /** מוחל על ה-<html> בשני ה-root layout — חושף את כל משתני הגופנים לכל עץ ה-DOM שמתחתיו. */
 export const FONT_VARIABLES = [
   frank.variable,
@@ -96,6 +118,8 @@ export const FONT_VARIABLES = [
   davidLibre.variable,
   secularOne.variable,
   alef.variable,
+  suezOne.variable,
+  bellefair.variable,
 ].join(' ');
 
 /**
@@ -111,4 +135,6 @@ export const EDITOR_FONT_CHOICES: { label: string; value: string }[] = [
   { label: 'David Libre', value: 'var(--font-david-libre)' },
   { label: 'Secular One', value: 'var(--font-secular-one)' },
   { label: 'Alef', value: 'var(--font-alef)' },
+  { label: 'Suez One (כותרות)', value: 'var(--font-suez)' },
+  { label: 'Bellefair', value: 'var(--font-bellefair)' },
 ];

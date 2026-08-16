@@ -56,14 +56,11 @@ export function BookCard({
           />
         </div>
 
-        {/* פינת הפתיחה שומרת לתגית (מבצע/רב מכר/בחירת המכון) — הפוכה
-            לפינת הסיום שבה יושב הלב, כדי ששתיהן לא יתנגשו. */}
+        {/* פינת הפתיחה שומרת לתגית (מבצע/רב מכר/בחירת המכון) — רצועה
+            אלכסונית שחוצה את פינת התמונה (ראו .book-ribbon ב-globals.css),
+            הפוכה לפינת הסיום שבה יושב הלב, כדי ששתיהן לא יתנגשו. */}
         {badge ? (
-          <span
-            className={`glass absolute start-3 top-3 z-10 rounded-[var(--radius-pill)] px-2.5 py-1 text-caption font-semibold ${
-              badge.tone === 'accent' ? 'text-gold-deep' : 'text-ink-soft'
-            }`}
-          >
+          <span className={`book-ribbon z-10 ${badge.tone === 'accent' ? 'book-ribbon-accent' : ''}`}>
             {badge.label}
           </span>
         ) : null}

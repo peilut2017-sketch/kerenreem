@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from 'react';
 import { Drawer } from '../Drawer';
 import { SelectField } from './Fields';
+import { QuickCreateOverlay } from './QuickCreateOverlay';
 
 interface Option {
   value: string;
@@ -10,12 +11,17 @@ interface Option {
 }
 
 /**
- * בחירה עם יצירה תוך כדי מילוי הטופס — למחבר ולקטגוריה בטופס הספר.
+ * בחירה עם יצירה תוך כדי מילוי הטופס — למחבר, לקטגוריה ולסדרה בטופס הספר.
  *
  * בלי זה, הוספת ספר למחבר או לקטגוריה שעוד לא קיימים דורשת לעזוב את
  * הטופס, ליצור אותם במסך נפרד ולחזור למלא הכול מחדש. השדה כאן מבוקר
  * (value/onChange) ולא מסתמך על defaultValue, כי הפריט החדש צריך
  * להיבחר מיד אחרי היצירה בלי לגעת בשאר הטופס.
+ *
+ * [1.11] שני מסלולי יצירה: כשמועבר createForm — לחצן ההוספה פותח את
+ * כרטיס היצירה *המלא* של הישות (כל השדות) מעל הטופס הפתוח, דרך
+ * QuickCreateOverlay; אחרת נפתחת המגירה המהירה עם שדה שם בלבד
+ * (onCreate) כפי שהיה.
  */
 export function QuickAddSelect({
   name,
@@ -28,6 +34,7 @@ export function QuickAddSelect({
   fieldLabel,
   onCreate,
   onChange,
+  createForm,
 }: {
   name: string;
   label: string;
@@ -37,11 +44,13 @@ export function QuickAddSelect({
   defaultValue?: string | null;
   /** תווית כפתור הפתיחה, למשל "+ מחבר חדש" */
   addLabel: string;
-  /** תווית שדה השם במגירה, למשל "שם המחבר" */
+  /** תווית שדה השם במגירה המהירה, למשל "שם המחבר" */
   fieldLabel: string;
   onCreate: (name: string) => Promise<Option | null>;
   /** נקרא בכל שינוי בחירה (כולל יצירה מהירה) — לרכיב הורה שצריך לדעת מה נבחר עכשיו, למשל SeriesOrderList */
   onChange?: (value: string) => void;
+  /** כרטיס יצירה מלא (למשל <AuthorForm author={null} …/>) — כשקיים, מחליף את המגירה המהירה */
+  createForm?: React.ReactNode;
 }) {
   const [extra, setExtra] = useState<Option[]>([]);
   const [selected, setSelectedState] = useState(defaultValue ?? '');
@@ -55,6 +64,13 @@ export function QuickAddSelect({
   const [error, setError] = useState<string | null>(null);
   const titleId = useId();
   const inputId = useId();
+
+  // רשימת הבחירה אחרי רענון מהשרת עלולה לכלול כבר את מה שנוצר הרגע —
+  // ההשלמות המקומיות (extra) מסוננות מכפילויות מולה
+  const mergedOptions = [
+    ...options,
+    ...extra.filter((option) => !options.some((existing) => existing.value === option.value)),
+  ];
 
   function submit() {
     const trimmed = draft.trim();
@@ -85,7 +101,7 @@ export function QuickAddSelect({
             emptyLabel={emptyLabel}
             value={selected}
             onChange={(event) => setSelected(event.target.value)}
-            options={[...options, ...extra]}
+            options={mergedOptions}
           />
         </div>
         <button
@@ -97,48 +113,62 @@ export function QuickAddSelect({
         </button>
       </div>
 
-      <Drawer
-        open={open}
-        onClose={() => setOpen(false)}
-        titleId={titleId}
-        title={addLabel}
-        widthClassName="max-w-sm"
-        footer={
-          <button
-            type="button"
-            disabled={pending || !draft.trim()}
-            onClick={submit}
-            className="btn btn-solid flex-1"
-          >
-            {pending ? 'שומר…' : 'יצירה ובחירה'}
-          </button>
-        }
-      >
-        <label htmlFor={inputId} className="field-label">
-          {fieldLabel}
-        </label>
-        <input
-          id={inputId}
-          type="text"
-          value={draft}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            setError(null);
+      {createForm ? (
+        <QuickCreateOverlay
+          title={addLabel.replace(/^\+\s*/, '')}
+          open={open}
+          onClose={() => setOpen(false)}
+          onCreated={(id, createdName) => {
+            setExtra((current) => [...current, { value: id, label: createdName ?? '(נוצר עתה)' }]);
+            setSelected(id);
           }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              submit();
-            }
-          }}
-          className="field-input"
-        />
-        {error ? (
-          <p role="alert" className="field-error mt-2">
-            {error}
-          </p>
-        ) : null}
-      </Drawer>
+        >
+          {createForm}
+        </QuickCreateOverlay>
+      ) : (
+        <Drawer
+          open={open}
+          onClose={() => setOpen(false)}
+          titleId={titleId}
+          title={addLabel}
+          widthClassName="max-w-sm"
+          footer={
+            <button
+              type="button"
+              disabled={pending || !draft.trim()}
+              onClick={submit}
+              className="btn btn-solid flex-1"
+            >
+              {pending ? 'שומר…' : 'יצירה ובחירה'}
+            </button>
+          }
+        >
+          <label htmlFor={inputId} className="field-label">
+            {fieldLabel}
+          </label>
+          <input
+            id={inputId}
+            type="text"
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                submit();
+              }
+            }}
+            className="field-input"
+          />
+          {error ? (
+            <p role="alert" className="field-error mt-2">
+              {error}
+            </p>
+          ) : null}
+        </Drawer>
+      )}
     </div>
   );
 }

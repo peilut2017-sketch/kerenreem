@@ -163,11 +163,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     }),
   );
 
-  // רקע המקטע הוא צילום מן הפעילות או מאירוע — לא כריכת ספר. כריכה היא
+  // [1.11] רקע המדף נשלט מהגדרות האתר (ניהול ← הגדרות ← עמוד הבית);
+  // בלי בחירה — צילום מן הפעילות או מאירוע, לא כריכת ספר: כריכה היא
   // טקסט, ומתוחה לרוחב המסך היא הופכת לרעש מאחורי המדף.
   const shelfBackdropUrl =
-    activities.find((activity) => activity.cover_image_url)?.cover_image_url ??
-    events.find((event) => event.cover_image_url)?.cover_image_url ??
+    (typeof extra.shelf_backdrop_url === 'string' && extra.shelf_backdrop_url) ||
+    activities.find((activity) => activity.cover_image_url)?.cover_image_url ||
+    events.find((event) => event.cover_image_url)?.cover_image_url ||
+    null;
+
+  // [1.11] תמונת מקטע "על המכון" — נשלטת גם היא מההגדרות, עם אותה נפילה
+  // חזרה לתמונת ציר הפעילות המוביל שהייתה עד כה.
+  const aboutImageUrl =
+    (typeof extra.about_image_url === 'string' && extra.about_image_url) ||
+    leadActivity?.cover_image_url ||
     null;
 
   return (
@@ -191,7 +200,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
             <header className="mb-10 text-center">
               <p className="eyebrow">{t('home.newBooksLead')}</p>
-              <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-white">
+              <h2 className="mt-2 font-display text-[clamp(1.625rem,3.2vw,2.125rem)] text-white">
                 {t('home.newBooksTitle')}
               </h2>
             </header>
@@ -238,9 +247,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <div className="relative isolate">
         <HomeBackgroundDecor />
 
-        {aboutExcerpt ? (
-          <AboutBand excerpt={aboutExcerpt} imageUrl={leadActivity?.cover_image_url ?? null} />
-        ) : null}
+        {aboutExcerpt ? <AboutBand excerpt={aboutExcerpt} imageUrl={aboutImageUrl} /> : null}
 
         {/* צירי הפעילות — רשימה ממוספרת. ארבעה צירים אינם ארבעה מוצרים,
             ולכן אין כאן כרטיסים עם אייקונים. */}
@@ -249,7 +256,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
               <header className="text-center">
                 <p className="eyebrow">{t('home.activitiesLead')}</p>
-                <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
+                <h2 className="mt-2 font-display text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
                   {t('home.activitiesTitle')}
                 </h2>
                 <Ornament />

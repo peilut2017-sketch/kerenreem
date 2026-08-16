@@ -67,7 +67,10 @@ const OPTIONS: IOptions = {
     '*': {
       'text-align': [/^(?:left|right|center|justify)$/],
       'font-family': [
-        /^var\(--font-(?:assistant|frank|heebo|rubik|noto-hebrew|david-libre|secular-one|alef)\)$/,
+        // הגופנים המובנים (fonts.ts) + גופנים מותקנים (custom_fonts,
+        // מיגרציה 47): לכל גופן מותקן משתנה --font-custom-<slug> שמוגדר
+        // ב-CustomFontsStyle — עדיין משתנה CSS סגור, לא שם גופן חופשי.
+        /^var\(--font-(?:assistant|frank|heebo|rubik|noto-hebrew|david-libre|secular-one|alef|suez|bellefair|custom-[a-z0-9-]{1,40})\)$/,
       ],
     },
   },

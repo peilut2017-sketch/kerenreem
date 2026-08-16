@@ -187,7 +187,7 @@ export default async function AdminDashboard({
     { label: 'טיוטות', value: counts.drafts, href: '/admin/books', icon: 'edit' },
     { label: 'מחברים', value: counts.authors, href: '/admin/authors', icon: 'authors' },
     { label: 'אירועים', value: counts.events, href: '/admin/events', icon: 'events' },
-    { label: 'פניות שלא טופלו', value: counts.messages, href: '/admin/messages', icon: 'messages' },
+    { label: 'פניות חדשות', value: counts.messages, href: '/admin/messages', icon: 'messages' },
   ];
 
   return (

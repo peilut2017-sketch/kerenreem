@@ -19,10 +19,15 @@ import { createContext, useContext } from 'react';
  * שימוש 2 — BookFormTabs: בתוך המגירה, סרגל הלשוניות הדביק לא צריך
  * להתחשב בגובה ה-header החיצוני (ראו שם) — תוכן המגירה גולל בפני
  * עצמו, בלי header מתחרה על אותו top:0.
+ *
+ * [1.11] הפונקציה מקבלת כעת (אופציונלית) את מזהה הרשומה שנשמרה —
+ * EntityForm מעביר אותו כדי שמעטפת "יצירה מהירה" (יצירת מחבר מלאה
+ * מתוך כרטיס ספר) תוכל לבחור את הפריט החדש בשדה שממנו נפתחה.
+ * מעטפות שלא זקוקות לכך (BookFormDrawer) פשוט מתעלמות מהפרמטר.
  */
-export const ModalCloseContext = createContext<(() => void) | null>(null);
+export const ModalCloseContext = createContext<((savedId?: string) => void) | null>(null);
 
 /** null כשלא בתוך מודאל — משמש גם כדגל "האם אנחנו בתוך כרטיס תצוגה". */
-export function useModalClose(): (() => void) | null {
+export function useModalClose(): ((savedId?: string) => void) | null {
   return useContext(ModalCloseContext);
 }

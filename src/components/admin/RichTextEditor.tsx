@@ -17,6 +17,7 @@ import { AdminIcon } from './AdminIcons';
 import { Spinner } from './SubmitButton';
 import { uploadToBucket } from './ImageField';
 import { EDITOR_FONT_CHOICES } from '@/lib/fonts';
+import { useCustomFontChoices } from './custom-fonts-context';
 
 /**
  * עורך טקסט עשיר מבוסס Tiptap.
@@ -83,6 +84,7 @@ export function RichTextEditor({
   placeholder?: string;
 }) {
   const id = useId();
+  const customFonts = useCustomFontChoices();
   const [html, setHtml] = useState(defaultValue ?? '');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -278,6 +280,12 @@ export function RichTextEditor({
           >
             <option value="">גופן ברירת מחדל</option>
             {EDITOR_FONT_CHOICES.map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
+            {/* [1.11] גופנים שהותקנו בהגדרות (custom_fonts) — ראו custom-fonts-context */}
+            {customFonts.map((choice) => (
               <option key={choice.value} value={choice.value}>
                 {choice.label}
               </option>

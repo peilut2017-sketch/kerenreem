@@ -49,6 +49,8 @@
 
   /* --- טיפוגרפיה --- */
   --font-serif: var(--font-frank), 'Frank Ruhl Libre', 'David Libre', Georgia, serif;
+  /* [1.11] גופן תצוגה לכותרות המקטעים הגדולות — Suez One, ראו fonts.ts */
+  --font-display: var(--font-suez), 'Suez One', var(--font-frank), Georgia, serif;
   --font-sans: var(--font-assistant), 'Assistant', system-ui, -apple-system, sans-serif;
 
   --text-caption: 0.8125rem;
@@ -345,6 +347,46 @@ body::before {
     color: var(--color-muted);
   }
 
+  /* --- רצועת תגית אלכסונית על פינת הכריכה --- */
+  /* [1.11] התגית (חדש / רב מכר / בחירת המכון) יושבת כרצועה אלכסונית
+     שחוצה את פינת הפתיחה של תמונת הספר — כמו סרט על ספר בחנות. הקצוות
+     נחתכים על ידי overflow-hidden של מעטפת הכריכה, וזה מה שיוצר את
+     צורת הפינה. הסיבוב תלוי-כיוון: בפינת ההתחלה RTL (ימין) הרצועה
+     נוטה כלפי מטה-שמאלה, ב-LTR להפך. */
+  .book-ribbon {
+    position: absolute;
+    top: 1.375rem;
+    inset-inline-start: -2.875rem;
+    width: 10.5rem;
+    padding-block: 0.3rem;
+    rotate: -45deg;
+    text-align: center;
+    font-family: var(--font-sans);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--color-cream);
+    background: linear-gradient(
+      to bottom,
+      var(--color-burgundy),
+      var(--color-burgundy-deep)
+    );
+    box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--color-ink) 45%, transparent);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    pointer-events: none;
+  }
+  [dir='rtl'] .book-ribbon { rotate: 45deg; }
+  .book-ribbon-accent {
+    color: var(--color-ink);
+    background: linear-gradient(
+      to bottom,
+      var(--color-gold),
+      color-mix(in srgb, var(--color-gold-deep) 72%, var(--color-gold))
+    );
+  }
+
   /* --- עיטור הזהב מתחת לכותרת מרכזית --- */
   /* קו דק, מעוין קטן, קו דק — לקוח משער של ספר. הרכיב היחיד באתר
      שקיים לשם עצמו, ולכן הוא מופיע רק בפתיחת מקטע מרכזי. */
@@ -372,6 +414,49 @@ body::before {
     height: 0.4375rem;
     rotate: 45deg;
     background-color: var(--color-gold);
+  }
+
+  /* --- מעבר רציף של סרגל הניווט (עוגן: --hp, ראו useHeaderState) ---
+     ‎--hp הוא פרוגרס הגלילה (0 בראש העמוד, 1 אחרי ~96px), נכתב ישירות
+     על אלמנט הכותרת. כל מאפייני "פס מלא ↔ קפסולה צפה" נגזרים ממנו
+     ב-calc, כך שהמעבר צמוד לגלילה עצמה ולא קופץ בין שני מצבים. */
+  .site-header-shell {
+    padding-inline: calc(var(--hp, 0) * 0.75rem);
+    padding-block-start: calc(var(--hp, 0) * 0.75rem);
+  }
+  @media (min-width: 640px) {
+    .site-header-shell {
+      padding-inline: calc(var(--hp, 0) * 1.25rem);
+      padding-block-start: calc(var(--hp, 0) * 1.25rem);
+    }
+  }
+  .site-header-surface {
+    max-width: calc(100% - var(--hp, 0) * (100% - min(100%, 82rem)));
+    border-radius: calc(var(--hp, 0) * var(--radius-xl));
+  }
+  .site-header-content {
+    max-width: calc(100% - var(--hp, 0) * (100% - min(100%, 82rem)));
+    padding-block: calc(1.25rem - var(--hp, 0) * 0.625rem);
+    padding-inline: calc(1.25rem - var(--hp, 0) * 0.25rem);
+  }
+  @media (min-width: 640px) {
+    .site-header-content { padding-inline: calc(2.25rem - var(--hp, 0) * 0.75rem); }
+  }
+  @media (min-width: 1024px) {
+    .site-header-content { padding-inline: calc(3rem - var(--hp, 0) * 1.5rem); }
+  }
+  .site-header-tint { opacity: calc(1 - var(--hp, 0)); }
+  .site-header-glass { opacity: var(--hp, 0); }
+  /* החלקה קצרה בין צעדי גלגלת בדידים — לא אנימציית מצב, רק ריכוך */
+  .site-header-smooth {
+    transition:
+      padding 180ms linear,
+      max-width 180ms linear,
+      border-radius 180ms linear,
+      opacity 180ms linear;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .site-header-smooth { transition: none; }
   }
 
   /* --- כותרת האתר: משטח יציב עם גוון זהב שדועך כלפי מטה ---

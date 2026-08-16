@@ -8,6 +8,7 @@ import { SubmitButton } from './SubmitButton';
 import { restoreFormValues } from '@/lib/restore-form';
 import { showAdminToast } from '@/lib/admin/toast-bus';
 import { useModalClose } from './modal-close-context';
+import { useUnsavedChangesReporter } from './unsaved-context';
 
 /** מזהה איזה משני כפתורי השמירה הפעיל את השליחה — ראו name="intent" למטה. */
 type Intent = 'save' | 'save-new';
@@ -52,8 +53,11 @@ export function EntityForm({
 }) {
   const router = useRouter();
   const closeModal = useModalClose();
+  const reportUnsaved = useUnsavedChangesReporter();
   const formRef = useRef<HTMLFormElement>(null);
   const submitted = useRef<FormData | null>(null);
+  // [1.11] חיווי "שינויים שלא נשמרו": נדלק בכל קלט, נכבה בשמירה מוצלחת.
+  const [dirty, setDirty] = useState(false);
   // משתנה כדי לאלץ מיחדוש (remount) מלא של הטופס אחרי "שמירה ופתיחת חדש"
   // בזמן שכבר נמצאים על מסך "חדש" — אין ניווט אמיתי (אותה כתובת בדיוק),
   // ולכן צריך דרך אחרת לאפס שדות שמנהלים state עצמאי (עורך טקסט עשיר,
@@ -80,6 +84,12 @@ export function EntityForm({
    */
   if (state !== handledState) {
     setHandledState(state);
+    if (state.status === 'saved') {
+      // הטופס חזר למצב שמור — כיבוי חיווי "שינויים שלא נשמרו" באותו
+      // דפוס רינדור בדיוק (לא באפקט); הדיווח למעטפת כותב ל-ref בלבד.
+      setDirty(false);
+      reportUnsaved?.(false);
+    }
     if (state.status === 'saved' && !id && state.intent === 'save-new') {
       setResetToken((count) => count + 1);
     }
@@ -134,14 +144,35 @@ export function EntityForm({
     }
 
     if (closeModal) {
-      closeModal();
+      closeModal(state.id ?? undefined);
       router.refresh();
       return;
     }
 
     router.replace(`/admin/${entity}`);
     router.refresh();
-  }, [state, entity, id, router, closeModal]);
+  }, [state, entity, id, router, closeModal, reportUnsaved]);
+
+  /*
+   * [1.11] סגירת לשונית/רענון עם שינויים שלא נשמרו — אזהרת דפדפן מקורית.
+   * סגירת *הכרטיס הצף* (X, רקע, Escape) מטופלת במעטפת (EntityFormDrawer)
+   * דרך UnsavedChangesContext — לדפדפן אין אירוע עבורה.
+   */
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  /** כל קלט בטופס מדליק את הדגל — פעם אחת, לא בכל הקשה. */
+  function markDirty() {
+    if (dirty) return;
+    setDirty(true);
+    reportUnsaved?.(true);
+  }
 
   /**
    * [1.10] Ctrl/Cmd+Enter שולח את הטופס כאילו נלחץ "שמירה" — בכל מקום
@@ -158,7 +189,15 @@ export function EntityForm({
   }
 
   return (
-    <form ref={formRef} action={action} onKeyDown={handleKeyDown} className="space-y-8" key={resetToken}>
+    <form
+      ref={formRef}
+      action={action}
+      onKeyDown={handleKeyDown}
+      onInput={markDirty}
+      onChange={markDirty}
+      className="space-y-8"
+      key={resetToken}
+    >
       <fieldset disabled={!canWrite} className="space-y-8 disabled:opacity-70">
         {children(state.fieldErrors ?? {})}
       </fieldset>
@@ -180,6 +219,14 @@ export function EntityForm({
             <SubmitButton name="intent" value="save">
               שמירה
             </SubmitButton>
+            {dirty ? (
+              <span
+                className="admin-badge admin-badge-warning order-first w-full justify-center sm:order-none sm:w-auto"
+                role="status"
+              >
+                יש שינויים שטרם נשמרו
+              </span>
+            ) : null}
             <SubmitButton name="intent" value="save-new" className="admin-btn admin-btn-quiet">
               שמירה ופתיחת חדש
             </SubmitButton>

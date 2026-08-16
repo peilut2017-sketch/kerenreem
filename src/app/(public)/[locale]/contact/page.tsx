@@ -3,8 +3,10 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
 import { PageHeader } from '@/components/PageHeader';
-import { ContactForm } from '@/components/ContactForm';
-import { getContactFields, getContactTopics, getSiteSettings } from '@/lib/data';
+import { ContactTabs } from '@/components/ContactTabs';
+import { localized } from '@/lib/localized';
+import { resolveBookAuthor } from '@/lib/books/author-display';
+import { getBooks, getContactFields, getContactTopics, getSiteSettings } from '@/lib/data';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -33,16 +35,24 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const [t, tPages, settings, topics, fields] = await Promise.all([
+  const [t, tPages, settings, topics, fields, books] = await Promise.all([
     getTranslations('contact'),
     getTranslations('pages'),
     getSiteSettings(),
     getContactTopics(),
     getContactFields(),
+    getBooks(),
   ]);
 
   const contact = settings.contact ?? {};
   const address = locale === 'en' ? contact.address_en || contact.address_he : contact.address_he;
+
+  // רשימה קומפקטית לבורר הספרים בטופס ההערות — שם ומחבר בלבד, לא הרשומה כולה
+  const bookOptions = books.map((book) => ({
+    id: book.id,
+    title: localized(book, 'title', locale),
+    author: resolveBookAuthor(book, locale)?.name ?? null,
+  }));
 
   return (
     <Container className="py-16 lg:py-20">
@@ -50,7 +60,7 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
       <div className="mt-12" />
 
       <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-20">
-        <ContactForm topics={topics} fields={fields} />
+        <ContactTabs topics={topics} fields={fields} books={bookOptions} />
 
         <aside className="lg:border-s lg:border-rule lg:ps-10">
           <h2 className="eyebrow mb-4">{t('details')}</h2>
