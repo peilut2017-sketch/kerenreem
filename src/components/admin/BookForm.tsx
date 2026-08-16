@@ -10,7 +10,10 @@ import { BookImagesEditor } from './BookImagesEditor';
 import { BookTocEditor } from './BookTocEditor';
 import { BookPreviewGenerator } from './books/BookPreviewGenerator';
 import { BookStorePreview } from './books/BookStorePreview';
+import { AuthorForm } from './AuthorForm';
+import { CategoryForm } from './CategoryForm';
 import { QuickAddSelect } from './QuickAddSelect';
+import { SeriesForm } from './SeriesForm';
 import { RepeatableTextField } from './RepeatableTextField';
 import { RichTextEditor } from './RichTextEditor';
 import { SeriesOrderList } from './SeriesOrderList';
@@ -103,6 +106,7 @@ export function BookForm({
       }, new Map())
     : null;
   const [selectedSeriesId, setSelectedSeriesId] = useState(book?.series_id ?? '');
+  const [selectedAuthorId, setSelectedAuthorId] = useState(book?.author_id ?? '');
 
   return (
     <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
@@ -193,20 +197,29 @@ export function BookForm({
                           options={authors.map((author) => ({ value: author.id, label: author.name_he }))}
                           addLabel="+ מחבר חדש"
                           fieldLabel="שם המחבר"
-                          hint="מחבר קיים בעל עמוד באתר. מתעלמים ממנו אם מולא שם מחבר כטקסט מימין."
+                          hint="מחבר קיים בעל עמוד באתר. לבחירת ״ללא״ ייפתח שדה שם חופשי."
                           onCreate={async (name) => {
                             const result = await createAuthorQuick(name);
                             return result.author
                               ? { value: result.author.id, label: result.author.name_he }
                               : null;
                           }}
+                          onChange={setSelectedAuthorId}
+                          createForm={<AuthorForm author={null} bookCount={0} canWrite={canWrite} />}
                         />
-                        <TextField
-                          name="author_name_he"
-                          label="שם מחבר כטקסט (עברית)"
-                          defaultValue={book?.author_name_he}
-                          hint="ללא שיוך לרשימת המחברים וללא קישור לעמוד מחבר. למילוי רק כשאין טעם ברשומת מחבר מלאה — עורך אורח, מחבר לא ידוע וכדו׳. אם מלא, מוצג במקום הבחירה משמאל."
-                        />
+                        {/* שדה השם החופשי מוצג רק כשנבחר "ללא" — מחבר מהרשימה
+                            תמיד גובר, והשדה הנסתר מנקה שם חופשי ישן כדי שלא
+                            ימשיך לעקוף את הבחירה בתצוגה. */}
+                        {selectedAuthorId === '' ? (
+                          <TextField
+                            name="author_name_he"
+                            label="שם מחבר כטקסט (עברית)"
+                            defaultValue={book?.author_name_he}
+                            hint="ללא שיוך לרשימת המחברים וללא קישור לעמוד מחבר. למילוי רק כשאין טעם ברשומת מחבר מלאה — עורך אורח, מחבר לא ידוע וכדו׳."
+                          />
+                        ) : (
+                          <input type="hidden" name="author_name_he" value="" />
+                        )}
                       </div>
 
                       <QuickAddSelect
@@ -227,6 +240,7 @@ export function BookForm({
                             ? { value: result.category.id, label: result.category.name_he }
                             : null;
                         }}
+                        createForm={<CategoryForm category={null} bookCount={0} canWrite={canWrite} />}
                       />
                     </FieldSet>
 
@@ -250,6 +264,7 @@ export function BookForm({
                             : null;
                         }}
                         onChange={setSelectedSeriesId}
+                        createForm={<SeriesForm series={null} bookCount={0} canWrite={canWrite} />}
                       />
                       {selectedSeriesId ? (
                         <div>

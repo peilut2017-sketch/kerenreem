@@ -25,6 +25,12 @@ interface SubLink extends NavAccess {
   href: string;
   label: string;
   icon: AdminIconName;
+  /**
+   * [1.11] יעד "יצירה מהירה" — מציג לחצן + בקצה השורה שפותח את כרטיס
+   * ההוספה של הישות (דרך המסלול המיורט). מוצג רק למי שיש הרשאת עריכה
+   * למסך, לא רק צפייה.
+   */
+  addHref?: string;
 }
 
 interface LinkEntry extends NavAccess {
@@ -56,11 +62,11 @@ const ITEMS: NavEntry[] = [
     icon: 'books',
     // ללא שער עצמי — הקבוצה מוצגת אם ולו פריט אחד בתוכה גלוי (ראו visible למטה)
     items: [
-      { href: '/admin/books', label: 'כל הספרים', icon: 'books', screen: 'books' },
-      { href: '/admin/authors', label: 'מחברים', icon: 'authors', screen: 'authors' },
-      { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', screen: 'categories' },
-      { href: '/admin/series', label: 'סדרות', icon: 'series', screen: 'series' },
-      { href: '/admin/tags', label: 'תגיות', icon: 'tags', screen: 'tags' },
+      { href: '/admin/books', label: 'כל הספרים', icon: 'books', screen: 'books', addHref: '/admin/books/new' },
+      { href: '/admin/authors', label: 'מחברים', icon: 'authors', screen: 'authors', addHref: '/admin/authors/new' },
+      { href: '/admin/categories', label: 'קטגוריות', icon: 'categories', screen: 'categories', addHref: '/admin/categories/new' },
+      { href: '/admin/series', label: 'סדרות', icon: 'series', screen: 'series', addHref: '/admin/series/new' },
+      { href: '/admin/tags', label: 'תגיות', icon: 'tags', screen: 'tags', addHref: '/admin/tags/new' },
       { href: '/admin/books/homepage-shelf', label: 'מדף בעמוד הבית', icon: 'settings', screen: 'homepage-shelf' },
     ],
   },
@@ -238,19 +244,35 @@ export function AdminNav({
                     const subActive = matchesLink(pathname, sub.href);
                     // הגדרות קטלוג/חנות מופרדת בקו — היא הגדרה, לא רשומת תוכן כמו השאר
                     const showDivider = sub.href === '/admin/books/settings' && index > 0;
+                    // לחצן + מוצג רק כשיש גם יעד יצירה וגם הרשאת עריכה למסך
+                    const canAdd = Boolean(
+                      sub.addHref && sub.screen && (screenAccess[sub.screen]?.edit ?? false),
+                    );
                     return (
-                      <div key={sub.href}>
+                      <div key={sub.href} className={canAdd ? 'flex items-stretch' : undefined}>
                         {showDivider ? <div className="admin-nav-dropdown-divider" /> : null}
                         <Link
                           href={sub.href}
                           role="menuitem"
                           aria-current={subActive ? 'page' : undefined}
                           onClick={() => setOpenGroup(null)}
-                          className={`admin-nav-dropdown-item ${subActive ? 'admin-nav-dropdown-item-active' : ''}`}
+                          className={`admin-nav-dropdown-item ${canAdd ? 'min-w-0 flex-1' : ''} ${subActive ? 'admin-nav-dropdown-item-active' : ''}`}
                         >
                           <AdminIcon name={sub.icon} className="h-4 w-4" />
                           {sub.label}
                         </Link>
+                        {canAdd ? (
+                          <Link
+                            href={sub.addHref!}
+                            role="menuitem"
+                            aria-label={`${sub.label} — הוספה מהירה`}
+                            title={`${sub.label} — הוספה מהירה`}
+                            onClick={() => setOpenGroup(null)}
+                            className="admin-nav-dropdown-item shrink-0 px-2.5 text-muted hover:text-[var(--admin-accent)]"
+                          >
+                            <AdminIcon name="plus" className="h-4 w-4" />
+                          </Link>
+                        ) : null}
                       </div>
                     );
                   })}
