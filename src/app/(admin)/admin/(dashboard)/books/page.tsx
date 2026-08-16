@@ -1,16 +1,24 @@
 import { requireRole } from '@/lib/admin/auth';
-import { listBookIdsWithTags, listBooks, listCategoriesAdmin } from '@/lib/admin/queries';
+import {
+  getUserPref,
+  listBookCompletionSignals,
+  listBooks,
+  listCategoriesAdmin,
+  listSeriesAdmin,
+} from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
-import { BooksDataGrid } from '@/components/admin/BooksDataGrid';
+import { BOOKS_COLUMNS_PREF_KEY, BooksDataGrid } from '@/components/admin/BooksDataGrid';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminBooksPage() {
   await requireRole('viewer');
-  const [books, bookIdsWithTags, categories] = await Promise.all([
+  const [books, completionSignals, categories, series, savedColumns] = await Promise.all([
     listBooks(),
-    listBookIdsWithTags(),
+    listBookCompletionSignals(),
     listCategoriesAdmin(),
+    listSeriesAdmin(),
+    getUserPref<string[]>(BOOKS_COLUMNS_PREF_KEY),
   ]);
 
   return (
@@ -25,11 +33,12 @@ export default async function AdminBooksPage() {
         ]}
       />
 
-      {/* Set אינו נשלח כפי שהוא לרכיב לקוח — ההמרה למערך כאן, לא שם */}
       <BooksDataGrid
         books={books}
-        bookIdsWithTags={[...bookIdsWithTags]}
+        completionSignals={completionSignals}
         categories={categories.map((c) => ({ id: c.id, name: c.name_he }))}
+        series={series.map((s) => ({ id: s.id, name: s.name_he }))}
+        initialVisibleColumns={Array.isArray(savedColumns) ? savedColumns : null}
       />
     </>
   );

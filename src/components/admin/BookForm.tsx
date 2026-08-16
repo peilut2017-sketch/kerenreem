@@ -16,7 +16,7 @@ import { RichTextEditor } from './RichTextEditor';
 import { SeriesOrderList } from './SeriesOrderList';
 import { TagPicker } from './TagPicker';
 import { createAuthorQuick, createCategoryQuick, createSeriesQuick, createTag } from '@/lib/admin/actions';
-import { computeCompletion } from '@/lib/completion';
+import { COMPLETION_TAB_LABELS, computeCompletion, type CompletionTab } from '@/lib/completion';
 import type { SeriesMemberBook } from '@/lib/admin/queries';
 import type {
   AttributeWithValues,
@@ -85,7 +85,23 @@ export function BookForm({
   stockOnHand: number | null;
 }) {
   const languages = book?.languages ?? ['he'];
-  const completion = book ? computeCompletion(book, relations) : null;
+  const completion = book
+    ? computeCompletion(book, {
+        ...relations,
+        galleryCount: images.length,
+        tocCount: toc.length,
+        previewCount: previewPages.length,
+      })
+    : null;
+  // "מה חסר" מקובץ לפי הלשונית שבה השדה נמצא — כך העורך יודע לאן לגשת
+  const missingByTab = completion
+    ? completion.missing.reduce<Map<CompletionTab, typeof completion.missing>>((map, item) => {
+        const list = map.get(item.tab) ?? [];
+        list.push(item);
+        map.set(item.tab, list);
+        return map;
+      }, new Map())
+    : null;
   const [selectedSeriesId, setSelectedSeriesId] = useState(book?.series_id ?? '');
 
   return (
@@ -102,12 +118,17 @@ export function BookForm({
                   שלמות הרשומה: {completion.percent}%
                 </span>
               </div>
-              {completion.missing.length > 0 ? (
-                <p className="mt-2 text-caption text-muted">
-                  {/* ממוין מהניקוד הגבוה לנמוך (ראו completion.ts) — מה שהכי
-                      משתלם להשלים קודם מופיע ראשון. */}
-                  חסר: {completion.missing.map((item) => `${item.label} (${item.weight} נק')`).join(', ')}
-                </p>
+              {missingByTab && missingByTab.size > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {/* בכל לשונית — ממוין מהניקוד הגבוה לנמוך (ראו completion.ts):
+                      מה שהכי משתלם להשלים קודם מופיע ראשון. */}
+                  {[...missingByTab.entries()].map(([tab, items]) => (
+                    <p key={tab} className="text-caption text-muted">
+                      <span className="font-semibold text-ink-soft">{COMPLETION_TAB_LABELS[tab]}:</span>{' '}
+                      {items.map((item) => `${item.label} (${item.weight} נק')`).join(', ')}
+                    </p>
+                  ))}
+                </div>
               ) : (
                 <p className="mt-2 text-caption text-muted">כל השדות שהמד בודק מולאו.</p>
               )}

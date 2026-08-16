@@ -60,6 +60,58 @@ export async function listBookIdsWithTags(): Promise<Set<string>> {
 }
 
 /**
+ * [1.11] אותות ההשלמה לכל טבלאות-הבת של ספר — יש/אין לכל ספר, בשליפה
+ * אחת לכל טבלה (book_id בלבד) ולא שאילתה מקוננת פר-ספר. מד ההשלמה
+ * מכסה כעת את כל הלשוניות, ולכן הרשימה ומסך המוכנות זקוקים גם לגלריה,
+ * לתוכן העניינים, לדפי הדפדוף, למדפים המשניים ולמאפיינים — לא רק לתגיות.
+ */
+export interface BookCompletionSignalIds {
+  tags: string[];
+  shelves: string[];
+  attributes: string[];
+  images: string[];
+  toc: string[];
+  previews: string[];
+}
+
+export async function listBookCompletionSignals(): Promise<BookCompletionSignalIds> {
+  const supabase = await client();
+  const pick = (data: { book_id: string }[] | null) => [
+    ...new Set((data ?? []).map((row) => row.book_id)),
+  ];
+  const [tags, shelves, attributes, images, toc, previews] = await Promise.all([
+    supabase.from('book_tags').select('book_id'),
+    supabase.from('book_categories').select('book_id'),
+    supabase.from('book_attributes').select('book_id'),
+    supabase.from('book_images').select('book_id'),
+    supabase.from('book_toc').select('book_id'),
+    supabase.from('book_preview_pages').select('book_id'),
+  ]);
+  return {
+    tags: pick(tags.data),
+    shelves: pick(shelves.data),
+    attributes: pick(attributes.data),
+    images: pick(images.data),
+    toc: pick(toc.data),
+    previews: pick(previews.data),
+  };
+}
+
+/**
+ * העדפת תצוגה אישית של המשתמש המחובר. ה-RLS מגביל את הקריאה לשורות
+ * של המשתמש עצמו, ולכן אין צורך בסינון user_id בצד האפליקציה.
+ */
+export async function getUserPref<T>(key: string): Promise<T | null> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('admin_user_prefs')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  return (data?.value as T | undefined) ?? null;
+}
+
+/**
  * שליפות ייעודיות לדשבורד.
  *
  * קודם לכן הדשבורד שלף את *כל* הספרים ואת *כל* האירועים רק כדי להציג חמש

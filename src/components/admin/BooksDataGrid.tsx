@@ -3,16 +3,15 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { bulkUpdateBooks } from '@/lib/admin/actions';
-import type { BookRow } from '@/lib/admin/queries';
-import { computeCompletion } from '@/lib/completion';
-import { useLocalList } from '@/lib/client-hooks';
+import { saveUserPref } from '@/lib/admin/prefs-actions';
+import type { BookCompletionSignalIds, BookRow } from '@/lib/admin/queries';
+import { computeCompletion, type CompletionSignals } from '@/lib/completion';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { toCdnUrl } from '@/lib/image-src';
 import { AdminIcon } from './AdminIcons';
 import { CompletionBadge } from './CompletionBadge';
 import { RowActions } from './RowActions';
 import { Spinner } from './SubmitButton';
-import type { BookRelations } from '@/lib/supabase/types';
 
 type ColumnId =
   | 'catalogue_number'
@@ -24,8 +23,28 @@ type ColumnId =
   | 'category'
   | 'price'
   | 'stock'
-  | 'purchasable';
+  | 'purchasable'
+  | 'series'
+  | 'publisher'
+  | 'edition'
+  | 'isbn'
+  | 'pages'
+  | 'format'
+  | 'binding'
+  | 'languages'
+  | 'volumes'
+  | 'barcode'
+  | 'weight'
+  | 'location'
+  | 'slug'
+  | 'created';
 
+/**
+ * כל העמודות שאפשר להציג. ברירת המחדל (DEFAULT_VISIBLE) היא בדיוק הסט
+ * שהוצג לפני ההרחבה — מי שלא בחר דבר רואה את המסך המוכר; מי שבחר
+ * עמודות נוספות, הבחירה נשמרת לו פר-משתמש (admin_user_prefs) ולא רק
+ * בדפדפן הנוכחי.
+ */
 const TOGGLEABLE: { id: ColumnId; label: string }[] = [
   { id: 'catalogue_number', label: '#' },
   { id: 'author', label: 'מחבר' },
@@ -37,7 +56,47 @@ const TOGGLEABLE: { id: ColumnId; label: string }[] = [
   { id: 'year', label: 'שנה' },
   { id: 'completion', label: 'השלמה' },
   { id: 'updated', label: 'עודכן' },
+  { id: 'series', label: 'סדרה' },
+  { id: 'publisher', label: 'הוצאה לאור' },
+  { id: 'edition', label: 'מהדורה' },
+  { id: 'isbn', label: 'מסת״ב' },
+  { id: 'pages', label: 'עמודים' },
+  { id: 'format', label: 'פורמט' },
+  { id: 'binding', label: 'כריכה (סוג)' },
+  { id: 'languages', label: 'שפות' },
+  { id: 'volumes', label: 'כרכים' },
+  { id: 'barcode', label: 'ברקוד' },
+  { id: 'weight', label: 'משקל' },
+  { id: 'location', label: 'מיקום מלאי' },
+  { id: 'slug', label: 'מזהה כתובת' },
+  { id: 'created', label: 'נוצר' },
 ];
+
+const DEFAULT_VISIBLE: ColumnId[] = [
+  'catalogue_number',
+  'author',
+  'category',
+  'sku',
+  'price',
+  'stock',
+  'purchasable',
+  'year',
+  'completion',
+  'updated',
+];
+
+const COLUMN_IDS = new Set<string>(TOGGLEABLE.map((column) => column.id));
+
+export const BOOKS_COLUMNS_PREF_KEY = 'books-visible-columns';
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  he: 'עברית',
+  en: 'אנגלית',
+  yi: 'יידיש',
+  fr: 'צרפתית',
+  ru: 'רוסית',
+  es: 'ספרדית',
+};
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeZone: 'Asia/Jerusalem' }).format(
@@ -90,13 +149,13 @@ type SortState = { key: SortKey; direction: 'asc' | 'desc' } | null;
 
 interface Row {
   book: BookRow;
-  relations: BookRelations;
+  signals: CompletionSignals;
   completionPercent: number;
 }
 
 /**
- * טבלת ספרים אינטראקטיבית: חיפוש בצד הלקוח, מיון לפי עמודה, הסתרת עמודות
- * (נשמרת מקומית) ובחירת שורות לפעולה מרוכזת.
+ * טבלת ספרים אינטראקטיבית: חיפוש בצד הלקוח, מיון לפי עמודה, בחירת
+ * עמודות (נשמרת פר-משתמש) ובחירת שורות לפעולה מרוכזת.
  *
  * הנתונים מגיעים מוכנים מהעמוד (Server Component) — הרכיב הזה רק מסדר,
  * מסנן ומציג אותם; אין כאן קריאה למסד. כל הספרים כבר בזיכרון (קטלוג של
@@ -104,23 +163,33 @@ interface Row {
  */
 export function BooksDataGrid({
   books,
-  bookIdsWithTags,
+  completionSignals,
   categories,
+  series,
+  initialVisibleColumns,
 }: {
   books: BookRow[];
-  bookIdsWithTags: string[];
+  completionSignals: BookCompletionSignalIds;
   categories: { id: string; name: string }[];
+  series: { id: string; name: string }[];
+  /** הבחירה השמורה של המשתמש; null = טרם נבחרה, מציגים את ברירת המחדל. */
+  initialVisibleColumns: string[] | null;
 }) {
-  const hiddenColumns = useLocalList('admin-books-hidden-columns');
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnId>>(() => {
+    const saved = initialVisibleColumns?.filter((id): id is ColumnId => COLUMN_IDS.has(id));
+    return new Set(saved && saved.length > 0 ? saved : DEFAULT_VISIBLE);
+  });
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortState>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsRef = useRef<HTMLDivElement>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [publishFilter, setPublishFilter] = useState<PublishFilter>('all');
   const [purchasableFilter, setPurchasableFilter] = useState<PurchasableFilter>('all');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const categoryName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+  const seriesName = useMemo(() => new Map(series.map((s) => [s.id, s.name])), [series]);
 
   useEffect(() => {
     if (!columnsOpen) return;
@@ -131,19 +200,47 @@ export function BooksDataGrid({
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [columnsOpen]);
 
-  const tagSet = useMemo(() => new Set(bookIdsWithTags), [bookIdsWithTags]);
+  function toggleColumn(id: ColumnId) {
+    setVisibleColumns((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      // שמירה מושהית פר-משתמש — לא קריאת שרת על כל קליק בדיאלוג
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        void saveUserPref(BOOKS_COLUMNS_PREF_KEY, [...next]);
+      }, 800);
+      return next;
+    });
+  }
+
+  const signalSets = useMemo(
+    () => ({
+      tags: new Set(completionSignals.tags),
+      shelves: new Set(completionSignals.shelves),
+      attributes: new Set(completionSignals.attributes),
+      images: new Set(completionSignals.images),
+      toc: new Set(completionSignals.toc),
+      previews: new Set(completionSignals.previews),
+    }),
+    [completionSignals],
+  );
 
   const rows: Row[] = useMemo(
     () =>
       books.map((book) => {
-        const relations: BookRelations = {
-          tagIds: tagSet.has(book.id) ? ['_'] : [],
-          categoryIds: [],
-          attributeValueIds: [],
+        // מד ההשלמה זקוק רק ל"יש/אין" מטבלאות הבת — ערך יחיד מספיק
+        const signals: CompletionSignals = {
+          tagIds: signalSets.tags.has(book.id) ? ['_'] : [],
+          categoryIds: signalSets.shelves.has(book.id) ? ['_'] : [],
+          attributeValueIds: signalSets.attributes.has(book.id) ? ['_'] : [],
+          galleryCount: signalSets.images.has(book.id) ? 1 : 0,
+          tocCount: signalSets.toc.has(book.id) ? 1 : 0,
+          previewCount: signalSets.previews.has(book.id) ? 1 : 0,
         };
-        return { book, relations, completionPercent: computeCompletion(book, relations).percent };
+        return { book, signals, completionPercent: computeCompletion(book, signals).percent };
       }),
-    [books, tagSet],
+    [books, signalSets],
   );
 
   const filtered = useMemo(() => {
@@ -156,6 +253,7 @@ export function BooksDataGrid({
           book.author_name_he,
           book.author?.name_he,
           book.sku,
+          book.isbn,
           String(book.catalogue_number),
         ]
           .filter(Boolean)
@@ -177,6 +275,7 @@ export function BooksDataGrid({
   const sorted = useMemo(() => {
     if (!sort) return filtered;
     const factor = sort.direction === 'asc' ? 1 : -1;
+    const text = (value: string | null | undefined) => value ?? '';
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
         case 'catalogue_number':
@@ -198,8 +297,10 @@ export function BooksDataGrid({
           return factor * (a.completionPercent - b.completionPercent);
         case 'updated':
           return factor * a.book.updated_at.localeCompare(b.book.updated_at);
+        case 'created':
+          return factor * a.book.created_at.localeCompare(b.book.created_at);
         case 'sku':
-          return factor * (a.book.sku ?? '').localeCompare(b.book.sku ?? '', 'he');
+          return factor * text(a.book.sku).localeCompare(text(b.book.sku), 'he');
         case 'category':
           return (
             factor *
@@ -208,6 +309,36 @@ export function BooksDataGrid({
               'he',
             )
           );
+        case 'series':
+          return (
+            factor *
+            (seriesName.get(a.book.series_id ?? '') ?? '').localeCompare(
+              seriesName.get(b.book.series_id ?? '') ?? '',
+              'he',
+            )
+          );
+        case 'publisher':
+          return factor * text(a.book.publisher_he).localeCompare(text(b.book.publisher_he), 'he');
+        case 'edition':
+          return factor * text(a.book.edition_he).localeCompare(text(b.book.edition_he), 'he');
+        case 'isbn':
+          return factor * text(a.book.isbn).localeCompare(text(b.book.isbn));
+        case 'pages':
+          return factor * ((a.book.pages ?? 0) - (b.book.pages ?? 0));
+        case 'format':
+          return factor * text(a.book.format).localeCompare(text(b.book.format), 'he');
+        case 'binding':
+          return factor * text(a.book.binding).localeCompare(text(b.book.binding), 'he');
+        case 'volumes':
+          return factor * ((a.book.volume_count ?? 1) - (b.book.volume_count ?? 1));
+        case 'barcode':
+          return factor * text(a.book.barcode).localeCompare(text(b.book.barcode));
+        case 'weight':
+          return factor * ((a.book.weight_grams ?? 0) - (b.book.weight_grams ?? 0));
+        case 'location':
+          return factor * text(a.book.stock_location).localeCompare(text(b.book.stock_location), 'he');
+        case 'slug':
+          return factor * a.book.slug.localeCompare(b.book.slug, 'he');
         case 'price':
           return factor * ((a.book.price ?? -1) - (b.book.price ?? -1));
         case 'stock':
@@ -218,7 +349,7 @@ export function BooksDataGrid({
           return 0;
       }
     });
-  }, [filtered, sort, categoryName]);
+  }, [filtered, sort, categoryName, seriesName]);
 
   const visibleIds = useMemo(() => sorted.map((row) => row.book.id), [sorted]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
@@ -264,7 +395,122 @@ export function BooksDataGrid({
     });
   }
 
-  const shown = (id: ColumnId) => !hiddenColumns.has(id);
+  const shown = (id: ColumnId) => visibleColumns.has(id);
+  const label = (id: ColumnId) => TOGGLEABLE.find((column) => column.id === id)?.label ?? id;
+
+  /** כל העמודות הפעילות, בסדר התצוגה הקבוע — כותרת ותא נבנים מאותה רשימה. */
+  const activeColumns = TOGGLEABLE.filter((column) => shown(column.id));
+
+  function cellFor(id: ColumnId, row: Row) {
+    const { book, signals } = row;
+    switch (id) {
+      case 'catalogue_number':
+        return <td key={id} className="text-muted tabular-nums">{book.catalogue_number}</td>;
+      case 'author':
+        return <td key={id} className="text-muted">{book.author_name_he ?? book.author?.name_he ?? '—'}</td>;
+      case 'category':
+        return <td key={id} className="text-muted">{categoryName.get(book.category_id ?? '') ?? '—'}</td>;
+      case 'series':
+        return <td key={id} className="text-muted">{seriesName.get(book.series_id ?? '') ?? '—'}</td>;
+      case 'sku':
+        return <td key={id} dir="ltr" className="text-start text-caption text-muted">{book.sku ?? '—'}</td>;
+      case 'price': {
+        const onSale = isSaleActive(book);
+        return (
+          <td key={id} className="tabular-nums">
+            {book.price == null ? (
+              <span className="text-[var(--admin-danger)]">ללא מחיר</span>
+            ) : onSale ? (
+              <>
+                <span className="text-caption text-muted line-through">
+                  {formatPrice(book.price, 'he')}
+                </span>{' '}
+                {formatPrice(book.sale_price as number, 'he')}
+              </>
+            ) : (
+              formatPrice(book.price, 'he')
+            )}
+          </td>
+        );
+      }
+      case 'stock': {
+        const status = stockStatus(book);
+        return (
+          <td key={id}>
+            <span className={`admin-badge ${STOCK_STATUS_BADGE[status]}`}>
+              {status === 'in_stock' || status === 'low_stock'
+                ? `${book.stock_quantity ?? 0} · ${STOCK_STATUS_LABEL[status]}`
+                : STOCK_STATUS_LABEL[status]}
+            </span>
+          </td>
+        );
+      }
+      case 'purchasable':
+        return (
+          <td key={id}>
+            <span className={`admin-badge ${book.is_purchasable ? 'admin-badge-success' : 'admin-badge-neutral'}`}>
+              {book.is_purchasable ? 'כן' : 'לא'}
+            </span>
+          </td>
+        );
+      case 'year':
+        return (
+          <td key={id} className="text-muted">
+            {book.publication_year_he || book.publication_year_ce || '—'}
+          </td>
+        );
+      case 'completion':
+        return (
+          <td key={id}>
+            <CompletionBadge book={book} signals={signals} />
+          </td>
+        );
+      case 'updated':
+        return (
+          <td key={id} className="text-caption text-muted tabular-nums" title={formatDate(book.created_at)}>
+            {formatDate(book.updated_at)}
+          </td>
+        );
+      case 'created':
+        return <td key={id} className="text-caption text-muted tabular-nums">{formatDate(book.created_at)}</td>;
+      case 'publisher':
+        return <td key={id} className="text-muted">{book.publisher_he ?? '—'}</td>;
+      case 'edition':
+        return <td key={id} className="text-muted">{book.edition_he ?? '—'}</td>;
+      case 'isbn':
+        return <td key={id} dir="ltr" className="text-start text-caption text-muted">{book.isbn ?? '—'}</td>;
+      case 'pages':
+        return <td key={id} className="text-muted tabular-nums">{book.pages ?? '—'}</td>;
+      case 'format':
+        return <td key={id} className="text-muted">{book.format ?? '—'}</td>;
+      case 'binding':
+        return <td key={id} className="text-muted">{book.binding ?? '—'}</td>;
+      case 'languages':
+        return (
+          <td key={id} className="text-caption text-muted">
+            {book.languages.length > 0
+              ? book.languages.map((code) => LANGUAGE_LABELS[code] ?? code).join(', ')
+              : '—'}
+          </td>
+        );
+      case 'volumes':
+        return <td key={id} className="text-muted tabular-nums">{book.volume_count ?? 1}</td>;
+      case 'barcode':
+        return <td key={id} dir="ltr" className="text-start text-caption text-muted">{book.barcode ?? '—'}</td>;
+      case 'weight':
+        return (
+          <td key={id} className="text-muted tabular-nums">
+            {book.weight_grams != null ? `${book.weight_grams} ג׳` : '—'}
+          </td>
+        );
+      case 'location':
+        return <td key={id} className="text-muted">{book.stock_location ?? '—'}</td>;
+      case 'slug':
+        return <td key={id} dir="auto" className="text-caption text-muted">{book.slug}</td>;
+      default:
+        return <td key={id} />;
+    }
+  }
 
   return (
     <div>
@@ -299,7 +545,7 @@ export function BooksDataGrid({
             עמודות
           </button>
           {columnsOpen ? (
-            <div className="admin-nav-dropdown admin-nav-dropdown-end">
+            <div className="admin-nav-dropdown admin-nav-dropdown-end max-h-80 overflow-y-auto">
               {TOGGLEABLE.map((column) => (
                 <label
                   key={column.id}
@@ -309,7 +555,7 @@ export function BooksDataGrid({
                   <input
                     type="checkbox"
                     checked={shown(column.id)}
-                    onChange={() => hiddenColumns.toggle(column.id)}
+                    onChange={() => toggleColumn(column.id)}
                     className="h-4 w-4 shrink-0 accent-[var(--admin-accent)]"
                   />
                 </label>
@@ -390,142 +636,69 @@ export function BooksDataGrid({
                 <SortableHeader label="#" active={sortIndicator('catalogue_number')} onClick={() => toggleSort('catalogue_number')} />
               ) : null}
               <SortableHeader label="שם הספר" active={sortIndicator('title')} onClick={() => toggleSort('title')} />
-              {shown('author') ? (
-                <SortableHeader label="מחבר" active={sortIndicator('author')} onClick={() => toggleSort('author')} />
-              ) : null}
-              {shown('category') ? (
-                <SortableHeader label="קטגוריה" active={sortIndicator('category')} onClick={() => toggleSort('category')} />
-              ) : null}
-              {shown('sku') ? (
-                <SortableHeader label="מק״ט" active={sortIndicator('sku')} onClick={() => toggleSort('sku')} />
-              ) : null}
-              {shown('price') ? (
-                <SortableHeader label="מחיר" active={sortIndicator('price')} onClick={() => toggleSort('price')} />
-              ) : null}
-              {shown('stock') ? (
-                <SortableHeader label="מלאי וזמינות" active={sortIndicator('stock')} onClick={() => toggleSort('stock')} />
-              ) : null}
-              {shown('purchasable') ? (
-                <SortableHeader label="ניתן לרכישה" active={sortIndicator('purchasable')} onClick={() => toggleSort('purchasable')} />
-              ) : null}
-              {shown('year') ? (
-                <SortableHeader label="שנה" active={sortIndicator('year')} onClick={() => toggleSort('year')} />
-              ) : null}
-              {shown('completion') ? (
-                <SortableHeader label="השלמה" active={sortIndicator('completion')} onClick={() => toggleSort('completion')} />
-              ) : null}
-              {shown('updated') ? (
-                <SortableHeader label="עודכן" active={sortIndicator('updated')} onClick={() => toggleSort('updated')} />
-              ) : null}
+              {activeColumns
+                .filter((column) => column.id !== 'catalogue_number')
+                .map((column) => (
+                  <SortableHeader
+                    key={column.id}
+                    label={label(column.id)}
+                    active={sortIndicator(column.id)}
+                    onClick={() => toggleSort(column.id)}
+                  />
+                ))}
               <th scope="col">מצב ופעולות</th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map(({ book, relations }) => {
-              const status = stockStatus(book);
-              const onSale = isSaleActive(book);
+            {sorted.map((row) => {
+              const { book } = row;
               return (
-              <tr key={book.id}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(book.id)}
-                    onChange={() => toggleRow(book.id)}
-                    aria-label={`בחירת ${book.title_he}`}
-                    className="h-4 w-4 accent-[var(--admin-accent)]"
-                  />
-                </td>
-                <td>
-                  {book.cover_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- תמונונת קטנה בטבלה; אין צורך באופטימיזציית next/image
-                    <img
-                      src={toCdnUrl(book.cover_image_url)}
-                      alt=""
-                      className="h-10 w-8 rounded-[4px] border border-rule object-cover"
+                <tr key={book.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(book.id)}
+                      onChange={() => toggleRow(book.id)}
+                      aria-label={`בחירת ${book.title_he}`}
+                      className="h-4 w-4 accent-[var(--admin-accent)]"
                     />
-                  ) : (
-                    <span className="flex h-10 w-8 items-center justify-center rounded-[4px] bg-cream-2 text-muted">
-                      <AdminIcon name="books" className="h-4 w-4" />
-                    </span>
-                  )}
-                </td>
-                {shown('catalogue_number') ? (
-                  <td className="text-muted tabular-nums">{book.catalogue_number}</td>
-                ) : null}
-                <td>
-                  <Link href={`/admin/books/${book.id}`} className="font-semibold hover:text-[var(--admin-accent)]">
-                    {book.title_he}
-                  </Link>
-                  {book.subtitle_he ? (
-                    <span className="mt-0.5 block text-caption text-muted">{book.subtitle_he}</span>
-                  ) : null}
-                </td>
-                {shown('author') ? (
-                  <td className="text-muted">{book.author_name_he ?? book.author?.name_he ?? '—'}</td>
-                ) : null}
-                {shown('category') ? (
-                  <td className="text-muted">{categoryName.get(book.category_id ?? '') ?? '—'}</td>
-                ) : null}
-                {shown('sku') ? (
-                  <td dir="ltr" className="text-start text-caption text-muted">{book.sku ?? '—'}</td>
-                ) : null}
-                {shown('price') ? (
-                  <td className="tabular-nums">
-                    {book.price == null ? (
-                      <span className="text-[var(--admin-danger)]">ללא מחיר</span>
-                    ) : onSale ? (
-                      <>
-                        <span className="text-caption text-muted line-through">
-                          {formatPrice(book.price, 'he')}
-                        </span>{' '}
-                        {formatPrice(book.sale_price as number, 'he')}
-                      </>
+                  </td>
+                  <td>
+                    {book.cover_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- תמונונת קטנה בטבלה; אין צורך באופטימיזציית next/image
+                      <img
+                        src={toCdnUrl(book.cover_image_url)}
+                        alt=""
+                        className="h-10 w-8 rounded-[4px] border border-rule object-cover"
+                      />
                     ) : (
-                      formatPrice(book.price, 'he')
+                      <span className="flex h-10 w-8 items-center justify-center rounded-[4px] bg-cream-2 text-muted">
+                        <AdminIcon name="books" className="h-4 w-4" />
+                      </span>
                     )}
                   </td>
-                ) : null}
-                {shown('stock') ? (
+                  {shown('catalogue_number') ? cellFor('catalogue_number', row) : null}
                   <td>
-                    <span className={`admin-badge ${STOCK_STATUS_BADGE[status]}`}>
-                      {status === 'in_stock' || status === 'low_stock'
-                        ? `${book.stock_quantity ?? 0} · ${STOCK_STATUS_LABEL[status]}`
-                        : STOCK_STATUS_LABEL[status]}
-                    </span>
+                    <Link href={`/admin/books/${book.id}`} className="font-semibold hover:text-[var(--admin-accent)]">
+                      {book.title_he}
+                    </Link>
+                    {book.subtitle_he ? (
+                      <span className="mt-0.5 block text-caption text-muted">{book.subtitle_he}</span>
+                    ) : null}
                   </td>
-                ) : null}
-                {shown('purchasable') ? (
+                  {activeColumns
+                    .filter((column) => column.id !== 'catalogue_number')
+                    .map((column) => cellFor(column.id, row))}
                   <td>
-                    <span className={`admin-badge ${book.is_purchasable ? 'admin-badge-success' : 'admin-badge-neutral'}`}>
-                      {book.is_purchasable ? 'כן' : 'לא'}
-                    </span>
+                    <RowActions
+                      entity="books"
+                      id={book.id}
+                      label={book.title_he}
+                      published={book.is_published}
+                      viewHref={`/books/${book.slug}`}
+                    />
                   </td>
-                ) : null}
-                {shown('year') ? (
-                  <td className="text-muted">
-                    {book.publication_year_he || book.publication_year_ce || '—'}
-                  </td>
-                ) : null}
-                {shown('completion') ? (
-                  <td>
-                    <CompletionBadge book={book} relations={relations} />
-                  </td>
-                ) : null}
-                {shown('updated') ? (
-                  <td className="text-caption text-muted tabular-nums" title={formatDate(book.created_at)}>
-                    {formatDate(book.updated_at)}
-                  </td>
-                ) : null}
-                <td>
-                  <RowActions
-                    entity="books"
-                    id={book.id}
-                    label={book.title_he}
-                    published={book.is_published}
-                    viewHref={`/books/${book.slug}`}
-                  />
-                </td>
-              </tr>
+                </tr>
               );
             })}
           </tbody>
@@ -552,7 +725,7 @@ function SortableHeader({
   const ariaSort = active === '↑' ? 'ascending' : active === '↓' ? 'descending' : 'none';
   return (
     <th scope="col" aria-sort={ariaSort}>
-      <button type="button" onClick={onClick} className="inline-flex items-center gap-1 hover:text-ink">
+      <button type="button" onClick={onClick} className="inline-flex items-center gap-1 whitespace-nowrap hover:text-ink">
         {label}
         <span aria-hidden="true">{active ?? ''}</span>
       </button>
