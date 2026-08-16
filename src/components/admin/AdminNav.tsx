@@ -141,9 +141,12 @@ function matchesLink(pathname: string, href: string): boolean {
 export function AdminNav({
   role,
   screenAccess,
+  unreadMessages = 0,
 }: {
   role: UserRole;
   screenAccess: Record<ScreenKey, ScreenAccess>;
+  /** [1.11] מספר הפניות החדשות — תג על לשונית "פניות מהאתר". */
+  unreadMessages?: number;
 }) {
   const pathname = usePathname();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -220,6 +223,7 @@ export function AdminNav({
 
           const active = item.items.some((sub) => matchesLink(pathname, sub.href));
           const open = openGroup === item.label;
+          const groupBadge = item.label === 'פניות מהאתר' && unreadMessages > 0 ? unreadMessages : null;
 
           return (
             <li key={item.label} className="relative shrink-0">
@@ -232,6 +236,14 @@ export function AdminNav({
               >
                 <AdminIcon name={item.icon} className="h-4 w-4" />
                 {item.label}
+                {groupBadge ? (
+                  <span
+                    className="admin-badge admin-badge-danger px-1.5 py-0 text-[0.7rem] tabular-nums"
+                    aria-label={`${groupBadge} פניות חדשות`}
+                  >
+                    {groupBadge}
+                  </span>
+                ) : null}
                 <AdminIcon
                   name="chevron-down"
                   className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
@@ -260,6 +272,11 @@ export function AdminNav({
                         >
                           <AdminIcon name={sub.icon} className="h-4 w-4" />
                           {sub.label}
+                          {sub.href === '/admin/messages' && unreadMessages > 0 ? (
+                            <span className="admin-badge admin-badge-danger ms-auto px-1.5 py-0 text-[0.7rem] tabular-nums">
+                              {unreadMessages}
+                            </span>
+                          ) : null}
                         </Link>
                         {canAdd ? (
                           <Link

@@ -444,6 +444,9 @@ export async function listScreenOverrides(): Promise<ScreenOverrideRow[]> {
   return (data as ScreenOverrideRow[] | null) ?? [];
 }
 
+export type InquiryKind = 'general' | 'book_feedback';
+export type InquiryStatus = 'new' | 'read' | 'in_progress' | 'todo' | 'resolved';
+
 export interface ContactMessage {
   id: string;
   name: string;
@@ -451,12 +454,30 @@ export interface ContactMessage {
   phone: string | null;
   subject: string | null;
   message: string;
+  /** גוף עשיר (הערות והארות על ספר) — מנוקה בשרת בזמן הקליטה. */
+  message_html: string | null;
   attachments: ContactAttachment[];
   topic_id: string | null;
   topic: { name_he: string; name_en: string | null } | null;
   /** מפתח = contact_fields.id, ערך = תשובת הפונה. */
   custom_field_values: Record<string, string | boolean>;
   is_handled: boolean;
+  kind: InquiryKind;
+  status: InquiryStatus;
+  book_id: string | null;
+  book: { title_he: string; slug: string } | null;
+  page_reference: string | null;
+  created_at: string;
+}
+
+export interface ContactReply {
+  id: string;
+  message_id: string;
+  user_id: string | null;
+  user_name?: string | null;
+  body_html: string;
+  sent_to: string;
+  delivery_status: 'sent' | 'skipped' | 'failed';
   created_at: string;
 }
 
@@ -464,10 +485,45 @@ export async function listContactMessages(): Promise<ContactMessage[]> {
   const supabase = await client();
   const { data } = await supabase
     .from('contact_messages')
-    .select('*, topic:contact_topics ( name_he, name_en )')
+    .select('*, topic:contact_topics ( name_he, name_en ), book:books ( title_he, slug )')
     .order('created_at', { ascending: false })
     .limit(200);
   return (data as ContactMessage[] | null) ?? [];
+}
+
+/**
+ * כל המענות לפניות שברשימה — שאילתה אחת, הקיבוץ לפי פנייה נעשה בלקוח.
+ * שמות המשיבים מצורפים כאן כדי שהשרשור בפנייה יציג "מי ענה" בלי
+ * שאילתה נוספת לכל מענה.
+ */
+export async function listContactReplies(): Promise<ContactReply[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('contact_replies')
+    .select('*')
+    .order('created_at', { ascending: true })
+    .limit(1000);
+  const replies = (data as ContactReply[] | null) ?? [];
+
+  const userIds = [...new Set(replies.map((reply) => reply.user_id).filter((id): id is string => Boolean(id)))];
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
+    const names = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
+    for (const reply of replies) {
+      reply.user_name = reply.user_id ? (names.get(reply.user_id) ?? null) : null;
+    }
+  }
+  return replies;
+}
+
+/** מספר הפניות החדשות — לתג שעל לשונית הפניות ולדשבורד הראשי. */
+export async function countNewInquiries(): Promise<number> {
+  const supabase = await client();
+  const { count } = await supabase
+    .from('contact_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new');
+  return count ?? 0;
 }
 
 export async function listContactTopics(): Promise<ContactTopic[]> {
@@ -533,7 +589,8 @@ export async function getDashboardCounts() {
     countRows('books', 'is_published', false),
     countRows('authors'),
     countRows('events'),
-    countRows('contact_messages', 'is_handled', false),
+    // "פניות חדשות" — במודל הסטטוסים החדש (מיגרציה 46), לא is_handled
+    countRows('contact_messages', 'status', 'new'),
   ]);
 
   return { books, drafts, authors, events, messages };
