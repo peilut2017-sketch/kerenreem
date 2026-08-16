@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { recordAdminUpload } from '@/lib/admin/activity-audit-actions';
 import { isProjectStorageUrl, toCdnUrl } from '@/lib/image-src';
 
 export type StorageBucket = 'covers' | 'events' | 'portraits' | 'samples' | 'site';
@@ -43,6 +44,10 @@ export async function uploadToBucket(
     upsert: false,
   });
   if (error) throw new Error(`ההעלאה נכשלה: ${error.message}`);
+
+  // [1.11] תיעוד ההעלאה ביומן הביקורת — fire-and-forget: התיעוד לא מעכב
+  // ולא מכשיל את ההעלאה שכבר הצליחה.
+  void recordAdminUpload(bucket, path);
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return toCdnUrl(data.publicUrl);

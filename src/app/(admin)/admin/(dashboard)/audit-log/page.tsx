@@ -1,20 +1,24 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { AdminHeader } from '@/components/admin/AdminList';
-import { AUDIT_TABLE_LABELS, listAuditLog } from '@/lib/admin/audit-log-queries';
+import {
+  AUDIT_ACTION_LABELS,
+  AUDIT_TABLE_LABELS,
+  listAuditActors,
+  listAuditLog,
+} from '@/lib/admin/audit-log-queries';
 
 export const dynamic = 'force-dynamic';
-
-const ACTION_LABELS: Record<string, string> = {
-  insert: 'יצירה',
-  update: 'עדכון',
-  delete: 'מחיקה',
-};
 
 const ACTION_BADGE: Record<string, string> = {
   insert: 'admin-badge-success',
   update: 'admin-badge-neutral',
   delete: 'admin-badge-danger',
+  login: 'admin-badge-accent',
+  upload: 'admin-badge-accent',
+  reorder: 'admin-badge-neutral',
+  reply: 'admin-badge-success',
+  status: 'admin-badge-neutral',
 };
 
 function formatDateTime(value: string): string {
@@ -45,19 +49,38 @@ function diffFields(oldValues: Record<string, unknown> | null, newValues: Record
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ table?: string; page?: string }>;
+  searchParams: Promise<{
+    table?: string;
+    page?: string;
+    action?: string;
+    user?: string;
+    q?: string;
+    sort?: string;
+  }>;
 }) {
   await requireRole('admin');
-  const filter = await searchParams;
-  const result = await listAuditLog(filter);
+  const params = await searchParams;
+  const filter = {
+    tableName: params.table,
+    page: params.page,
+    action: params.action,
+    userId: params.user,
+    q: params.q,
+    sort: params.sort,
+  };
+  const [result, actors] = await Promise.all([listAuditLog(filter), listAuditActors()]);
   const { rows, page, pageSize, total, error } = result;
   const totalPages = total != null ? Math.max(1, Math.ceil(total / pageSize)) : null;
 
   const pageHref = (targetPage: number) => {
-    const params = new URLSearchParams();
-    if (filter.table) params.set('table', filter.table);
-    if (targetPage > 1) params.set('page', String(targetPage));
-    const qs = params.toString();
+    const query = new URLSearchParams();
+    if (params.table) query.set('table', params.table);
+    if (params.action) query.set('action', params.action);
+    if (params.user) query.set('user', params.user);
+    if (params.q) query.set('q', params.q);
+    if (params.sort) query.set('sort', params.sort);
+    if (targetPage > 1) query.set('page', String(targetPage));
+    const qs = query.toString();
     return qs ? `/admin/audit-log?${qs}` : '/admin/audit-log';
   };
 
@@ -65,24 +88,79 @@ export default async function AuditLogPage({
     <>
       <AdminHeader
         title="יומן ביקורת"
-        description="מי שינה מה, ומתי — פעולות יצירה/עדכון/מחיקה בכל מסכי הניהול. מציג רק מה שכבר תועד בפועל; לא כל שינוי כולל את הערכים הישנים והחדשים."
+        description="כל פעולה שנשמרה בפאנל הניהול — מי, מתי, מהות הפעולה ופירוט השינוי: כניסות למערכת, הוספה ועריכה של ספרים ותוכן, שינוי הגדרות והעלאת קבצים. גישה למנהל-על בלבד."
       />
 
-      <form method="get" action="/admin/audit-log" className="mb-5 flex flex-wrap items-center gap-2">
-        <label htmlFor="audit-table" className="text-caption text-muted">
-          טבלה
-        </label>
-        <select id="audit-table" name="table" defaultValue={filter.table ?? ''} className="admin-field-input max-w-xs">
-          <option value="">הכל</option>
-          {Object.entries(AUDIT_TABLE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+      <form method="get" action="/admin/audit-log" className="mb-5 flex flex-wrap items-end gap-2">
+        <div>
+          <label htmlFor="audit-q" className="mb-1 block text-caption text-muted">
+            חיפוש חופשי
+          </label>
+          <input
+            id="audit-q"
+            type="search"
+            name="q"
+            defaultValue={params.q ?? ''}
+            placeholder="חיפוש בתיאור הפעולה"
+            className="admin-field-input w-56"
+          />
+        </div>
+        <div>
+          <label htmlFor="audit-action" className="mb-1 block text-caption text-muted">
+            סוג פעולה
+          </label>
+          <select id="audit-action" name="action" defaultValue={params.action ?? ''} className="admin-field-input w-40">
+            <option value="">הכל</option>
+            {Object.entries(AUDIT_ACTION_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="audit-user" className="mb-1 block text-caption text-muted">
+            מבצע
+          </label>
+          <select id="audit-user" name="user" defaultValue={params.user ?? ''} className="admin-field-input w-44">
+            <option value="">הכל</option>
+            {actors.map((actor) => (
+              <option key={actor.id} value={actor.id}>
+                {actor.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="audit-table" className="mb-1 block text-caption text-muted">
+            תחום
+          </label>
+          <select id="audit-table" name="table" defaultValue={params.table ?? ''} className="admin-field-input w-44">
+            <option value="">הכל</option>
+            {Object.entries(AUDIT_TABLE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="audit-sort" className="mb-1 block text-caption text-muted">
+            מיון
+          </label>
+          <select id="audit-sort" name="sort" defaultValue={params.sort ?? ''} className="admin-field-input w-36">
+            <option value="">מהחדש לישן</option>
+            <option value="asc">מהישן לחדש</option>
+          </select>
+        </div>
         <button type="submit" className="admin-btn admin-btn-quiet">
           סינון
         </button>
+        {params.table || params.action || params.user || params.q || params.sort ? (
+          <Link href="/admin/audit-log" className="admin-btn admin-btn-ghost">
+            איפוס
+          </Link>
+        ) : null}
       </form>
 
       {error ? (
@@ -118,7 +196,7 @@ export default async function AuditLogPage({
                     </td>
                     <td className="px-4 py-2.5">
                       <span className={`admin-badge ${ACTION_BADGE[row.action] ?? 'admin-badge-neutral'}`}>
-                        {ACTION_LABELS[row.action] ?? row.action}
+                        {AUDIT_ACTION_LABELS[row.action] ?? row.action}
                       </span>
                     </td>
                     <td className="px-4 py-2.5">
