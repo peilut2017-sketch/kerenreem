@@ -428,6 +428,18 @@ export interface SiteSettings {
   updated_at: string;
 }
 
+/** [1.11] גופן מותקן — ראו supabase/47_custom_fonts.sql */
+export interface CustomFont {
+  id: string;
+  name: string;
+  /** סיומת משתנה ה-CSS: ‏--font-custom-<slug> */
+  slug: string;
+  font_url: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Profile {
   id: string;
   full_name: string | null;

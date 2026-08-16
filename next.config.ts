@@ -77,7 +77,9 @@ const CSP = [
   "form-action 'self'",
   `script-src 'self' 'unsafe-inline'${GA_SCRIPT_SRC}${CAPTCHA_SCRIPT_SRC}`,
   "style-src 'self' 'unsafe-inline'",
-  "font-src 'self' data:",
+  // [1.11] גופנים מותקנים (custom_fonts) מוגשים מאחסון הפרויקט/CDN —
+  // הגופנים המובנים נשארים self (next/font מארח אותם מקומית).
+  `font-src 'self' data:${supabaseHost ? ` https://${supabaseHost}` : ''}${cdnHost ? ` https://${cdnHost}` : ''}`,
   `img-src 'self' data: blob:${supabaseHost ? ` https://${supabaseHost}` : ''}${cdnHost ? ` https://${cdnHost}` : ''} https://i.ytimg.com${GA_IMG_SRC}`,
   `connect-src 'self'${supabaseHost ? ` https://${supabaseHost} wss://${supabaseHost}` : ''}${GA_CONNECT_SRC}`,
   `frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com${CAPTCHA_FRAME_SRC}`,

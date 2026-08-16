@@ -40,7 +40,7 @@ export async function AboutBand({
           className="flex flex-col items-center justify-center px-6 py-16 text-center sm:px-12 lg:py-24"
         >
           <p className="eyebrow">{t('home.aboutLead')}</p>
-          <h2 className="mt-3 font-serif text-[clamp(1.625rem,3.4vw,2.25rem)] text-ink">
+          <h2 className="mt-3 font-display text-[clamp(1.625rem,3.4vw,2.25rem)] text-ink">
             {t('home.aboutTitle')}
           </h2>
           <Ornament />

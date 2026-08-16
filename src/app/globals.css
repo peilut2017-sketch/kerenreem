@@ -49,6 +49,8 @@
 
   /* --- טיפוגרפיה --- */
   --font-serif: var(--font-frank), 'Frank Ruhl Libre', 'David Libre', Georgia, serif;
+  /* [1.11] גופן תצוגה לכותרות המקטעים הגדולות — Suez One, ראו fonts.ts */
+  --font-display: var(--font-suez), 'Suez One', var(--font-frank), Georgia, serif;
   --font-sans: var(--font-assistant), 'Assistant', system-ui, -apple-system, sans-serif;
 
   --text-caption: 0.8125rem;

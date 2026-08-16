@@ -16,6 +16,7 @@ import type {
   ContactField,
   ContactTopic,
   ContentPage,
+  CustomFont,
   EventBlock,
   EventRecord,
   SiteSettings,
@@ -742,6 +743,22 @@ const EMPTY_SETTINGS: SiteSettings = {
  * ההגדרות נצרכות ב-layout (כותרת עליונה ותחתונה) וגם בכמה עמודים באותה
  * בקשה. cache() מונע שאילתה חוזרת לכל צרכן.
  */
+/**
+ * [1.11] הגופנים המותקנים הפעילים — ל-CustomFontsStyle בשני ה-root
+ * layouts ולבורר הגופנים בעורך. cache() כי נקרא בכל עמוד.
+ */
+export const getCustomFonts = cache(async (): Promise<CustomFont[]> => {
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('custom_fonts')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+  warn('getCustomFonts', error);
+  return (data as CustomFont[] | null) ?? [];
+});
+
 export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.settings() : EMPTY_SETTINGS;

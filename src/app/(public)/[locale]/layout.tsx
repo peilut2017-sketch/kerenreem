@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { FONT_VARIABLES } from '@/lib/fonts';
+import { CustomFontsStyle } from '@/components/CustomFontsStyle';
 import { routing, localeDirection, type Locale } from '@/i18n/routing';
 import { getSiteSettings } from '@/lib/data';
 import { getCommerceFlags } from '@/lib/commerce/settings';
@@ -83,6 +84,8 @@ export default async function PublicLayout({
       <head>
         {/* מוחל לפני הצביעה הראשונה — מונע הבזק אצל מי שבחר ניגודיות או הגדלה */}
         <script dangerouslySetInnerHTML={{ __html: A11Y_INIT_SCRIPT }} />
+        {/* גופנים מותקנים (ניהול ← הגדרות ← גופנים) — @font-face + משתני CSS */}
+        <CustomFontsStyle />
       </head>
       <body>
         <NextIntlClientProvider>

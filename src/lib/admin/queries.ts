@@ -18,6 +18,7 @@ import type {
   ContactTopic,
   Tag,
   ContentPage,
+  CustomFont,
   EventBlock,
   EventRecord,
   Profile,
@@ -594,6 +595,13 @@ export async function getDashboardCounts() {
   ]);
 
   return { books, drafts, authors, events, messages };
+}
+
+/** כל הגופנים המותקנים, גם כבויים — למסך ההגדרות. */
+export async function listCustomFontsAdmin(): Promise<CustomFont[]> {
+  const supabase = await client();
+  const { data } = await supabase.from('custom_fonts').select('*').order('created_at');
+  return (data as CustomFont[] | null) ?? [];
 }
 
 export async function listBanners(): Promise<Banner[]> {

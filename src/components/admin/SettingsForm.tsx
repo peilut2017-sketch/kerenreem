@@ -12,6 +12,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
   const [state, action, pending] = useActionState(saveSettings, INITIAL);
   const contact = settings.contact ?? {};
   const social = settings.social_links ?? {};
+  const extra = (settings.extra ?? {}) as Record<string, unknown>;
 
   return (
     <form action={action} className="space-y-8">
@@ -64,12 +65,35 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         </div>
       </FieldSet>
 
-      <FieldSet legend="רשתות">
+      <FieldSet
+        legend="עמוד הבית"
+        description="שתי התמונות הגדולות בעמוד הבית. ריק — נבחרת אוטומטית תמונה מציר פעילות או מאירוע שפורסמו."
+      >
+        <ImageField
+          name="about_image_url"
+          label="תמונת מקטע ״על המכון״"
+          bucket="site"
+          defaultValue={typeof extra.about_image_url === 'string' ? extra.about_image_url : null}
+          hint="התמונה שלצד הפירוט על המכון בעמוד הבית."
+        />
+        <ImageField
+          name="shelf_backdrop_url"
+          label="תמונת רקע למדף הספרים"
+          bucket="site"
+          defaultValue={typeof extra.shelf_backdrop_url === 'string' ? extra.shelf_backdrop_url : null}
+          hint="הרקע הכהה שמאחורי המדף האינטראקטיבי בכניסה לאתר. מוצג עם שכבת כהות מעליו."
+        />
+      </FieldSet>
+
+      <FieldSet legend="רשתות" description="הקישורים מוצגים בתחתית האתר כלוגו של הרשת המתאימה.">
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField name="social_facebook" label="Facebook" type="url" dir="ltr" defaultValue={social.facebook} />
           <TextField name="social_youtube" label="YouTube" type="url" dir="ltr" defaultValue={social.youtube} />
           <TextField name="social_instagram" label="Instagram" type="url" dir="ltr" defaultValue={social.instagram} />
-          <TextField name="social_x" label="X" type="url" dir="ltr" defaultValue={social.x} />
+          <TextField name="social_x" label="X (Twitter)" type="url" dir="ltr" defaultValue={social.x} />
+          <TextField name="social_linkedin" label="LinkedIn" type="url" dir="ltr" defaultValue={social.linkedin} />
+          <TextField name="social_whatsapp" label="WhatsApp" type="url" dir="ltr" defaultValue={social.whatsapp} />
+          <TextField name="social_telegram" label="Telegram" type="url" dir="ltr" defaultValue={social.telegram} />
         </div>
       </FieldSet>
 
