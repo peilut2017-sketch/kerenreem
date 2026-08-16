@@ -51,24 +51,19 @@ export function SiteHeaderClient({
   searchLabel: string;
   accountsEnabled?: boolean;
 }) {
-  const { isFloating } = useHeaderState();
+  const { isFloating, headerRef } = useHeaderState();
 
   return (
-    <header
-      className={`sticky top-0 z-50 transition-[padding] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-        isFloating ? 'px-3 pt-3 sm:px-5 sm:pt-5' : 'px-0 pt-0'
-      }`}
-    >
+    /* [1.11] המעבר בין הפס המלא לקפסולה הצפה רציף וצמוד-גלילה: כל
+       המאפיינים נגזרים מ---hp שנכתב ישירות על האלמנט (useHeaderState),
+       דרך המחלקות site-header-* ב-globals.css. ההחלקה הקצרה
+       (site-header-smooth) מגשרת על צעדי גלגלת בדידים בלי לנתק את
+       התחושה שהסרגל "נאסף" יחד עם הגלילה — כמו פתיחת אפליקציה. */
+    <header ref={headerRef} className="site-header-shell site-header-smooth sticky top-0 z-50">
       <SiteHeaderHeightVar />
 
       {/* המשטח: מלא-רוחב ואטום למעלה, קפסולת זכוכית ממורכזת בגלילה */}
-      <div
-        className={`relative mx-auto w-full transition-[max-width,border-radius] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-          isFloating
-            ? 'max-w-[82rem] rounded-[var(--radius-xl)]'
-            : 'max-w-none rounded-none'
-        }`}
-      >
+      <div className="site-header-surface site-header-smooth relative mx-auto w-full">
         {/* הזכוכית מונפשת ב-opacity בלבד — הנפשת backdrop-filter עצמו
             יקרה וקופצנית. מתחתיה משטח אטום בגוון זהב שדועך כלפי מטה, שנחוץ
             במצב היציב: עד סף הגלילה כבר נכנס תוכן מתחת לפס, ובלי אטימות
@@ -78,27 +73,17 @@ export function SiteHeaderClient({
             נותן את אותה הפרדה בעדינות, בלי קו. */}
         <span
           aria-hidden="true"
-          className={`header-surface-tint absolute inset-0 -z-10 transition-opacity duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-            isFloating ? 'opacity-0' : 'opacity-100'
-          }`}
+          className="header-surface-tint site-header-tint site-header-smooth absolute inset-0 -z-10"
         />
         <span
           aria-hidden="true"
-          className={`glass absolute inset-0 -z-10 rounded-[inherit] transition-opacity duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-            isFloating ? 'opacity-100' : 'opacity-0'
-          }`}
+          className="glass site-header-glass site-header-smooth absolute inset-0 -z-10 rounded-[inherit]"
         />
 
         {/* התוכן: קפסולה צפה נשארת ממורכזת ומוגבלת ברוחב; הסרגל היציב
             פרוש לרוחב המסך המלא כדי שהלוגו יישב בקצה הפיזי (ימין בעברית)
             והפעולות בקצה הנגדי, ולא רק בקצה גוש התוכן הממורכז. */}
-        <div
-          className={`mx-auto flex w-full items-center gap-4 transition-[padding,max-width] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none sm:gap-6 ${
-            isFloating
-              ? 'max-w-[82rem] px-4 py-2.5 sm:px-6'
-              : 'max-w-none px-5 py-5 sm:px-9 lg:px-12'
-          }`}
-        >
+        <div className="site-header-content site-header-smooth mx-auto flex w-full items-center gap-4 sm:gap-6">
           <Wordmark
             logoUrl={logoUrl}
             name={siteName}
