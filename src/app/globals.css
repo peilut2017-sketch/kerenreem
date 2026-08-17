@@ -416,49 +416,6 @@ body::before {
     background-color: var(--color-gold);
   }
 
-  /* --- מעבר רציף של סרגל הניווט (עוגן: --hp, ראו useHeaderState) ---
-     ‎--hp הוא פרוגרס הגלילה (0 בראש העמוד, 1 אחרי ~96px), נכתב ישירות
-     על אלמנט הכותרת. כל מאפייני "פס מלא ↔ קפסולה צפה" נגזרים ממנו
-     ב-calc, כך שהמעבר צמוד לגלילה עצמה ולא קופץ בין שני מצבים. */
-  .site-header-shell {
-    padding-inline: calc(var(--hp, 0) * 0.75rem);
-    padding-block-start: calc(var(--hp, 0) * 0.75rem);
-  }
-  @media (min-width: 640px) {
-    .site-header-shell {
-      padding-inline: calc(var(--hp, 0) * 1.25rem);
-      padding-block-start: calc(var(--hp, 0) * 1.25rem);
-    }
-  }
-  .site-header-surface {
-    max-width: calc(100% - var(--hp, 0) * (100% - min(100%, 82rem)));
-    border-radius: calc(var(--hp, 0) * var(--radius-xl));
-  }
-  .site-header-content {
-    max-width: calc(100% - var(--hp, 0) * (100% - min(100%, 82rem)));
-    padding-block: calc(1.25rem - var(--hp, 0) * 0.625rem);
-    padding-inline: calc(1.25rem - var(--hp, 0) * 0.25rem);
-  }
-  @media (min-width: 640px) {
-    .site-header-content { padding-inline: calc(2.25rem - var(--hp, 0) * 0.75rem); }
-  }
-  @media (min-width: 1024px) {
-    .site-header-content { padding-inline: calc(3rem - var(--hp, 0) * 1.5rem); }
-  }
-  .site-header-tint { opacity: calc(1 - var(--hp, 0)); }
-  .site-header-glass { opacity: var(--hp, 0); }
-  /* החלקה קצרה בין צעדי גלגלת בדידים — לא אנימציית מצב, רק ריכוך */
-  .site-header-smooth {
-    transition:
-      padding 180ms linear,
-      max-width 180ms linear,
-      border-radius 180ms linear,
-      opacity 180ms linear;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .site-header-smooth { transition: none; }
-  }
-
   /* --- כותרת האתר: משטח יציב עם גוון זהב שדועך כלפי מטה ---
      מחליף מילוי שטוח + קו הפרדה קשיח בתחתית: הדעיכה עצמה, יחד עם צל רך,
      היא ההפרדה מהתוכן שמתחתיה. box-shadow על משטח שממילא פרוש לכל רוחב

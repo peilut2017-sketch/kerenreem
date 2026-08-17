@@ -257,7 +257,7 @@ function Spine({ book }: { book: ShelfBook }) {
     return (
       <span className="relative flex h-full w-full items-start justify-center overflow-hidden">
         <Image src={baseSpineUrl} alt="" fill sizes="280px" quality={90} className="object-cover" />
-        <span className="relative mt-[16%] flex max-h-[48%] flex-col items-center gap-1">
+        <span className="relative mt-[20%] flex max-h-[45%] flex-col items-center gap-1">
           <span aria-hidden="true" className="h-px w-[70%] shrink-0 bg-gold/70" />
           <span
             className="overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 text-[0.6875rem] font-bold leading-none text-gold-bright"
@@ -281,7 +281,7 @@ function Spine({ book }: { book: ShelfBook }) {
         background: `linear-gradient(to left, ${book.spineEdge} 0%, ${book.spineBase} 22%, ${book.spineBase} 78%, ${book.spineEdge} 100%)`,
       }}
     >
-      <span className="mt-[16%] flex max-h-[48%] flex-col items-center gap-1">
+      <span className="mt-[20%] flex max-h-[45%] flex-col items-center gap-1">
         <span aria-hidden="true" className="h-px w-[62%] shrink-0 bg-gold/55" />
         <span className="overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 font-serif text-[0.6875rem] leading-none text-gold-bright/90">
           {book.title}
