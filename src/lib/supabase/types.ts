@@ -462,6 +462,8 @@ export interface EventMediaItem {
   duration: number | null;
   video_provider: 'youtube' | 'vimeo' | 'file' | null;
   video_id: string | null;
+  /** [1.14] מונה צפיות — עולה כשהפריט מוצג בפועל (סיפור/Reels/Viewer). */
+  view_count: number;
   created_at: string;
   updated_at: string;
 }

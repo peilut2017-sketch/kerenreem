@@ -187,9 +187,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
            רקע העמוד הרגיל. לפני הבאנרים בכוונה: זה מה שהמבקר פוגש קודם. */
         <section className="on-dark relative isolate overflow-hidden py-16 lg:py-20">
           {shelfBackdropUrl ? (
+            /* [1.13] בלי שכבת כהות מעל התמונה — התמונה שהועלתה בהגדרות
+               מוצגת נקייה, בלי טשטוש/האפלה. */
             <div className="media-backdrop absolute inset-0 -z-20">
               <Image src={shelfBackdropUrl} alt="" fill sizes="100vw" className="object-cover" />
-              <div className="absolute inset-0 bg-navy/88" />
             </div>
           ) : null}
           <div
@@ -199,8 +200,15 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
           <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
             <header className="mb-10 text-center">
-              <p className="eyebrow">{t('home.newBooksLead')}</p>
-              <h2 className="mt-2 font-display text-[clamp(1.625rem,3.2vw,2.125rem)] text-white">
+              {/* טקסט על גבי תמונה ללא שכבת כהות — צל טקסט שומר על קריאות
+                  בלי להאפיל שוב על התמונה עצמה. */}
+              <p className="eyebrow" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
+                {t('home.newBooksLead')}
+              </p>
+              <h2
+                className="mt-2 font-display text-[clamp(1.625rem,3.2vw,2.125rem)] text-white"
+                style={{ textShadow: '0 2px 6px rgba(0,0,0,0.65)' }}
+              >
                 {t('home.newBooksTitle')}
               </h2>
             </header>

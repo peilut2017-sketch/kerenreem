@@ -381,6 +381,36 @@ export async function getEvent(id: string): Promise<EventRecord | null> {
   return (data as EventRecord | null) ?? null;
 }
 
+/**
+ * [1.14] מונה צפיות לכל האירועים בבת אחת — נגזר מ-page_views הכללי
+ * (path = '/events/<slug>', שתי השפות יחד), לא מעמודה ייעודית: הביקור
+ * כבר מתועד שם בכל טעינת עמוד אירוע (AnalyticsBeacon), ואין טעם
+ * להחזיק שני מונים לאותו דבר. slug → מספר צפיות; אירוע בלי אף ביקור
+ * פשוט לא מופיע במפה (הצרכן נופל ל-0).
+ */
+export async function listEventViewCounts(): Promise<Map<string, number>> {
+  const supabase = await client();
+  // מכסה שריר: page_views אינה מתנקה אוטומטית (ראו 18_page_views.sql),
+  // ומאות אלפי שורות לא אמורות להאט את רשימת האירועים בניהול.
+  const { data } = await supabase.from('page_views').select('path').like('path', '/events/%').limit(20000);
+  const counts = new Map<string, number>();
+  for (const row of (data as { path: string }[] | null) ?? []) {
+    const slug = row.path.slice('/events/'.length);
+    counts.set(slug, (counts.get(slug) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** מונה צפיות לאירוע בודד — למסך העריכה. ראו listEventViewCounts. */
+export async function getEventViewCount(slug: string): Promise<number> {
+  const supabase = await client();
+  const { count } = await supabase
+    .from('page_views')
+    .select('id', { count: 'exact', head: true })
+    .eq('path', `/events/${slug}`);
+  return count ?? 0;
+}
+
 export async function getEventBlocks(eventId: string): Promise<EventBlock[]> {
   const supabase = await client();
   const { data } = await supabase
@@ -637,4 +667,49 @@ export async function getBanner(id: string): Promise<Banner | null> {
   const supabase = await client();
   const { data } = await supabase.from('banners').select('*').eq('id', id).maybeSingle();
   return (data as Banner | null) ?? null;
+}
+
+/** [1.19] קובץ באחסון האתר — תוצאת admin_list_storage_files (50_media_library.sql). */
+export interface AdminStorageFile {
+  id: string;
+  bucket_id: string;
+  path: string;
+  owner_id: string | null;
+  uploader_email: string | null;
+  uploader_name: string | null;
+  created_at: string;
+  updated_at: string;
+  size_bytes: number | null;
+  mime_type: string | null;
+}
+
+/**
+ * [1.19] כל הקבצים בחמשת ה-buckets הציבוריים של האתר — דרך פונקציית
+ * עזר ב-SQL (לא storage.list() לכל bucket בנפרד): storage.objects הוא
+ * טבלה שטוחה, כך שגם קבצים תחת תיקיית משנה (pathPrefix ב-ImageField)
+ * מוחזרים בקריאה אחת, בלי רקורסיה ידנית בצד הלקוח.
+ */
+export async function listStorageFiles(): Promise<AdminStorageFile[]> {
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('admin_list_storage_files');
+  if (error) {
+    console.error('[admin:mediaLibrary]', error.code, error.message);
+    return [];
+  }
+  return (data as AdminStorageFile[] | null) ?? [];
+}
+
+/**
+ * מונה צפיות פר-קובץ ב-bucket "events" בלבד — event_media.view_count
+ * הוא היחיד שקיים באמת (ראו 49_media_views.sql); שאר ה-buckets אין
+ * להם שום מונה פר-קובץ, ולכן אין מפה מקבילה עבורם.
+ */
+export async function getEventMediaViewsByUrl(): Promise<Map<string, number>> {
+  const supabase = await client();
+  const { data } = await supabase.from('event_media').select('url, view_count');
+  const map = new Map<string, number>();
+  for (const row of (data as { url: string; view_count: number }[] | null) ?? []) {
+    map.set(row.url, row.view_count);
+  }
+  return map;
 }

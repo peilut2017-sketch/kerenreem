@@ -1,13 +1,15 @@
-import type { EventBlock, EventRecord } from './supabase/types';
+import type { EventBlock, EventMediaItem, EventRecord, GalleryImage } from './supabase/types';
 import type { LightboxImage } from '@/components/events/EventLightbox';
 
 /**
- * מאחד את כל תמונות האירוע — בלוקי תמונה/שורת תמונות, ואחר כך הגלריה
- * המסיימת — לרשימה אחת עם אינדקס יציב. כך הבא/הקודם בתוך המגירה הצפה
- * עובר בין כל תמונות האירוע, לא רק בתוך הקבוצה שבה נלחץ.
+ * מאחד את תמונות בלוקי הסיפור (רצף הטקסט השזור) לרשימה אחת עם אינדקס
+ * יציב, לתצוגת Lightbox בלחיצה על תמונה בגוף הטקסט. [1.14] הגלריה
+ * המסיימת אינה חלק מהאינדקס הזה יותר — היא מוצגת כעת דרך
+ * EventStoryGallery (ראו legacyGalleryToMedia למטה), לא דרך ה-Lightbox
+ * הישן.
  *
- * מחושב פעם אחת בשרת (לא ב-Client Component): גם event.blocks וגם
- * event.gallery כבר בזיכרון בעמוד, ואין טעם לחשב את זה מחדש בלקוח.
+ * מחושב פעם אחת בשרת (לא ב-Client Component): event.blocks כבר בזיכרון
+ * בעמוד, ואין טעם לחשב את זה מחדש בלקוח.
  */
 export interface EventGalleryIndex {
   images: LightboxImage[];
@@ -15,8 +17,6 @@ export interface EventGalleryIndex {
   blockImageIndex: Map<string, number>;
   /** blockId (type='image_row') → אינדקס לכל תמונה בשורה, לפי סדר */
   blockRowIndexes: Map<string, number[]>;
-  /** האינדקס שבו מתחילות תמונות הגלריה המסיימת */
-  closingGalleryStart: number;
 }
 
 export function buildEventGalleryIndex(event: EventRecord): EventGalleryIndex {
@@ -38,12 +38,45 @@ export function buildEventGalleryIndex(event: EventRecord): EventGalleryIndex {
     }
   }
 
-  const closingGalleryStart = images.length;
-  for (const image of event.gallery ?? []) {
-    images.push({ url: image.url, alt: image.caption_he ?? '', caption: image.caption_he ?? null });
-  }
+  return { images, blockImageIndex, blockRowIndexes };
+}
 
-  return { images, blockImageIndex, blockRowIndexes, closingGalleryStart };
+/**
+ * [1.14] הגלריה הישנה (events.gallery jsonb) מותאמת בזמן קריאה לצורת
+ * EventMediaItem — כדי שאירוע שעדיין לא הועברה לו מדיה לטבלה החדשה
+ * (event_media) ימשיך להציג את תמונותיו דרך EventStoryGallery, ולא
+ * דרך רכיבי הגלריה הישנים (שהוסרו). ה-id הסינתטי יציב לפי סדר, כדי
+ * ש-deep link (?media=) יעבוד גם על אירוע כזה בתוך ביקור בודד.
+ */
+export function legacyGalleryToMedia(eventId: string, gallery: GalleryImage[]): EventMediaItem[] {
+  const now = '';
+  return gallery
+    .filter((image) => image.url)
+    .map((image, index) => ({
+      id: `legacy-${eventId}-${index}`,
+      event_id: eventId,
+      type: 'image',
+      url: image.url,
+      thumbnail_url: null,
+      caption_he: image.caption_he ?? null,
+      caption_en: image.caption_en ?? null,
+      alt_he: image.caption_he ?? null,
+      alt_en: image.caption_en ?? null,
+      sort_order: index,
+      chapter_id: null,
+      is_featured: false,
+      is_visible: true,
+      focal_x: 0.5,
+      focal_y: 0.5,
+      width: null,
+      height: null,
+      duration: null,
+      video_provider: null,
+      video_id: null,
+      view_count: 0,
+      created_at: now,
+      updated_at: now,
+    }));
 }
 
 /**

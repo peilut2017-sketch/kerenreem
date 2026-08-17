@@ -198,13 +198,14 @@ function BookOnShelf({
               src={book.coverUrl}
               alt={book.coverAlt}
               fill
-              sizes="152px"
+              sizes="280px"
+              quality={90}
               className="object-cover"
             />
           ) : baseCoverUrl ? (
             /* [1.12] חזית מבוססת תמונת הבסיס — שם הספר בזהב בתוך הקשת */
             <span className="relative flex h-full w-full items-center justify-center overflow-hidden">
-              <Image src={baseCoverUrl} alt="" fill sizes="152px" className="object-cover" />
+              <Image src={baseCoverUrl} alt="" fill sizes="280px" quality={90} className="object-cover" />
               <span
                 className="relative line-clamp-4 px-[18%] text-center font-bold leading-snug text-gold-bright"
                 style={{
@@ -222,12 +223,6 @@ function BookOnShelf({
             </span>
           )}
         </span>
-
-        {/* ברק אלכסוני עדין — נותן לנייר תחושת חומר ולא מלבן שטוח */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,color-mix(in_srgb,#fff_22%,transparent)_50%,transparent_62%)]"
-        />
       </Link>
     </li>
   );
@@ -235,31 +230,45 @@ function BookOnShelf({
 
 /**
  * השדרה. צילום אמיתי אם הועלה, ואחרת שדרה שנבנית מצבעי הכריכה: גוף
- * בצבע הספר, קווי זהב למעלה ולמטה כמו על כריכה אמיתית, והשם מוטבע
- * לאורך. writing-mode אנכי ולא rotate — כך הטקסט נשאר טקסט אמיתי
- * שנבחר, נקרא בקורא מסך ומתפצל לשורות אם צריך.
+ * בצבע הספר, קווי זהב והשם מוטבעים בשליש העליון — כמו תווית מוטבעת
+ * ליד ראש שדרת ספר אמיתי, לא לכל האורך. writing-mode אנכי ולא rotate —
+ * כך הטקסט נשאר טקסט אמיתי שנבחר, נקרא בקורא מסך ומתפצל לשורות אם צריך.
+ *
+ * [1.13] בלי שכבת ברק/טשטוש מעל התמונה — התמונה (שצולמה או תמונת
+ * הבסיס) מוצגת נקייה; רק צל טקסט עדין שומר על קריאות הכיתוב.
  */
 function Spine({ book }: { book: ShelfBook }) {
   const { spineUrl: baseSpineUrl } = usePlaceholderArt();
 
   if (book.spineUrl) {
-    return <Image src={book.spineUrl} alt="" fill sizes="36px" className="object-cover" />;
+    // [1.14] sizes מכוון לרוחב בלבד היה גורם ל-next/image להוריד תמונה
+    // קטנה גם בגובה (יחס-רוחב-גובה של המקור), ו-object-cover על תיבה
+    // צרה וגבוהה כל-כך נאלץ אז למתוח אותה כלפי מעלה — זו הייתה סיבת
+    // ה"טשטוש": לא שכבה עיצובית אלא הגדלה (upscale) של תמונה קטנה מדי.
+    // sizes נדיב יותר, קרוב לגובה המדף בפועל, מבטיח רזולוציה מספקת.
+    return <Image src={book.spineUrl} alt="" fill sizes="280px" quality={90} className="object-cover" />;
   }
 
   // [1.12] שדרת בסיס מההגדרות: תמונת שדרת העור הגנרית, ושם הספר מוטבע
-  // לאורכה בזהב ובגופן תורני — במקום השדרה הצבעונית הנגזרת מהכריכה.
+  // בשליש העליון-אמצעי בזהב ובגופן תורני — במקום השדרה הצבעונית הנגזרת
+  // מהכריכה. [1.14] הכיתוב יורד מעט מקצה השדרה ומשתרע עד גבול שני-
+  // השליש העליונים (לא נכנס לשליש התחתון).
   if (baseSpineUrl) {
     return (
-      <span className="relative flex h-full w-full items-center justify-center overflow-hidden">
-        <Image src={baseSpineUrl} alt="" fill sizes="44px" className="object-cover" />
-        <span
-          className="relative max-h-[68%] overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 text-[0.6875rem] font-bold leading-none text-gold-bright"
-          style={{
-            fontFamily: "var(--font-david-libre), 'David Libre', serif",
-            textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-          }}
-        >
-          {book.title}
+      <span className="relative flex h-full w-full items-start justify-center overflow-hidden">
+        <Image src={baseSpineUrl} alt="" fill sizes="280px" quality={90} className="object-cover" />
+        <span className="relative mt-[20%] flex max-h-[45%] flex-col items-center gap-1">
+          <span aria-hidden="true" className="h-px w-[70%] shrink-0 bg-gold/70" />
+          <span
+            className="overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 text-[0.6875rem] font-bold leading-none text-gold-bright"
+            style={{
+              fontFamily: "var(--font-david-libre), 'David Libre', serif",
+              textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+            }}
+          >
+            {book.title}
+          </span>
+          <span aria-hidden="true" className="h-px w-[70%] shrink-0 bg-gold/70" />
         </span>
       </span>
     );
@@ -267,18 +276,18 @@ function Spine({ book }: { book: ShelfBook }) {
 
   return (
     <span
-      className="flex h-full w-full flex-col items-center justify-between py-2.5"
+      className="flex h-full w-full items-start justify-center overflow-hidden"
       style={{
         background: `linear-gradient(to left, ${book.spineEdge} 0%, ${book.spineBase} 22%, ${book.spineBase} 78%, ${book.spineEdge} 100%)`,
       }}
     >
-      <span aria-hidden="true" className="h-px w-[62%] bg-gold/55" />
-      <span
-        className="[writing-mode:vertical-rl] max-h-[78%] overflow-hidden text-ellipsis whitespace-nowrap rotate-180 font-serif text-[0.6875rem] leading-none text-gold-bright/90"
-      >
-        {book.title}
+      <span className="mt-[20%] flex max-h-[45%] flex-col items-center gap-1">
+        <span aria-hidden="true" className="h-px w-[62%] shrink-0 bg-gold/55" />
+        <span className="overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 font-serif text-[0.6875rem] leading-none text-gold-bright/90">
+          {book.title}
+        </span>
+        <span aria-hidden="true" className="h-px w-[62%] shrink-0 bg-gold/55" />
       </span>
-      <span aria-hidden="true" className="h-px w-[62%] bg-gold/55" />
     </span>
   );
 }

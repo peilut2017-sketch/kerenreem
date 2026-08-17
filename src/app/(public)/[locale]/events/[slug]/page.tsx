@@ -10,10 +10,8 @@ import { EventJourneyProgress } from '@/components/events/EventJourneyProgress';
 import { EventLightboxProvider } from '@/components/events/EventLightbox';
 import { EventBlockList } from '@/components/events/EventBlockList';
 import { EventStoryGallery } from '@/components/events/EventStoryGallery';
-import { MemoryStrip } from '@/components/events/MemoryStrip';
-import { EventClosingGallery } from '@/components/events/EventClosingGallery';
-import { getEventBySlug, getEventSlugs } from '@/lib/data';
-import { buildEventGalleryIndex, extractEventStages } from '@/lib/event-gallery';
+import { getEventBySlug, getEventSlugs, getOtherEventWithMedia } from '@/lib/data';
+import { buildEventGalleryIndex, extractEventStages, legacyGalleryToMedia } from '@/lib/event-gallery';
 import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
@@ -79,19 +77,14 @@ export default async function EventPage({
 
   const gallery = buildEventGalleryIndex(event);
   const { labels: stages, blockStageIndex } = extractEventStages(blocks);
-  const storyMedia = event.media ?? [];
-
-  /**
-   * פס הזיכרונות הוא *טעימה* מהגלריה המסיימת, ולכן מוצג רק כשיש ממה
-   * לטעום: בגלריה קטנה הוא הציג בדיוק את אותן תמונות שמופיעות שורה
-   * אחת מתחתיו — כפילות מלאה, לא קדימון. הסף (12) מבטיח שהפס תמיד
-   * מראה פחות ממה שמחכה בהמשך.
-   */
-  const closingCount = gallery.images.length - gallery.closingGalleryStart;
-  const memoryImages =
-    closingCount >= 12
-      ? gallery.images.slice(gallery.closingGalleryStart, gallery.closingGalleryStart + 8)
-      : [];
+  // [1.14] מדיה מהטבלה החדשה (event_media) קודמת; אירוע שעדיין לא
+  // הועברה לו מדיה מוצג דרך אותו רכיב בדיוק, עם הגלריה הישנה (jsonb)
+  // מותאמת לאותה צורה — כך "הגלריה הישנה" (הרשת/הפס הנפרדים) הוסרה
+  // כליל, ואין עוד שני מסלולי תצוגה.
+  const storyMedia = event.media?.length ? event.media : legacyGalleryToMedia(event.id, event.gallery ?? []);
+  // [1.14] הצעת "מעבר לגלריה אחרת" בסיום דפדוף ה-Reels — נטען רק כשיש
+  // בכלל מה להציע (מדיה קיימת), לא סתם על כל טעינת עמוד.
+  const suggestedEvent = storyMedia.length > 0 ? await getOtherEventWithMedia(event.id, slug) : null;
 
   return (
     <article>
@@ -122,39 +115,23 @@ export default async function EventPage({
           </Container>
         ) : null}
 
-        {/* [1.11] Event Story Gallery — כשלאירוע יש מדיה בטבלה החדשה
-            (event_media), היא מחליפה את הגלריה הישנה ואת פס הזיכרונות:
+        {/* [1.14] Event Story Gallery — מסלול התצוגה היחיד לגלריית האירוע:
             פריסה עריכתית עם שלבים במחשב, חוויית דפדוף (Reels) במובייל,
-            ו-Viewer מלא עם deep-link. אירוע ישן בלי מדיה חדשה ממשיך
-            להציג את גלריית ה-jsonb כפי שהיה. */}
+            ו-Viewer מלא עם deep-link. גם אירוע שטרם הועברה לו מדיה
+            לטבלה החדשה מוצג דרך אותו רכיב (ראו legacyGalleryToMedia). */}
         {storyMedia.length > 0 ? (
           <Container className="pb-16 pt-6">
             <SectionHeading title={t('gallery')} />
             <div className="mt-6">
-              <EventStoryGallery media={storyMedia} chapters={event.chapters ?? []} locale={locale} />
+              <EventStoryGallery
+                media={storyMedia}
+                chapters={event.chapters ?? []}
+                locale={locale}
+                suggestedEvent={suggestedEvent}
+              />
             </div>
           </Container>
-        ) : (
-          <>
-            {memoryImages.length > 0 && blocks.length > 0 ? (
-              <Container className="pb-6">
-                <MemoryStrip images={memoryImages} />
-              </Container>
-            ) : null}
-
-            {gallery.images.length > gallery.closingGalleryStart ? (
-              <Container className="pb-16 pt-6">
-                <SectionHeading title={t('gallery')} />
-                <div className="mt-6">
-                  <EventClosingGallery
-                    images={gallery.images.slice(gallery.closingGalleryStart)}
-                    startIndex={gallery.closingGalleryStart}
-                  />
-                </div>
-              </Container>
-            ) : null}
-          </>
-        )}
+        ) : null}
       </EventLightboxProvider>
     </article>
   );

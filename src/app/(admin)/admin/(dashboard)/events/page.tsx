@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireScreenPermission } from '@/lib/admin/auth';
-import { listEventsAdmin } from '@/lib/admin/queries';
+import { listEventsAdmin, listEventViewCounts } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
 import { formatDate, parseDateOnly } from '@/lib/hebrew-date';
@@ -9,13 +9,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminEventsPage() {
   await requireScreenPermission('events', 'view');
-  const events = await listEventsAdmin();
+  const [events, viewCounts] = await Promise.all([listEventsAdmin(), listEventViewCounts()]);
 
   return (
     <>
       <AdminHeader title="אירועים" action={{ href: '/admin/events/new', label: 'אירוע חדש' }} />
       <AdminTable
-        columns={['שם האירוע', 'תאריך', 'מצב ופעולות']}
+        columns={['שם האירוע', 'תאריך', 'צפיות', 'מצב ופעולות']}
         empty={events.length === 0 ? 'טרם נוספו אירועים.' : undefined}
       >
         {events.map((event) => {
@@ -32,6 +32,9 @@ export default async function AdminEventsPage() {
                   <span className="block">{event.event_date_he}</span>
                 ) : null}
                 {date ? formatDate(date, 'he', event.event_date_he ? 'gregorian' : 'both') : '—'}
+              </AdminCell>
+              <AdminCell className="text-muted tabular-nums">
+                {(viewCounts.get(event.slug) ?? 0).toLocaleString('he-IL')}
               </AdminCell>
               <AdminCell>
                 <RowActions

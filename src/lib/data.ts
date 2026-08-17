@@ -724,6 +724,54 @@ export async function getEventSlugs(): Promise<string[]> {
   return (data ?? []).map((row: Pick<EventRecord, 'slug'>) => row.slug);
 }
 
+export interface SuggestedEvent {
+  slug: string;
+  title_he: string;
+  title_en: string | null;
+  cover_image_url: string | null;
+}
+
+/**
+ * [1.14] אירוע אחר עם גלריה — להצעת "מעבר לגלריה אחרת" בסיום דפדוף
+ * ה-Reels. עדיפות לאירועים עם מדיה בטבלה החדשה (event_media); אירוע
+ * ישן עם גלריית jsonb בלבד עדיין נספר כמועמד. לוקחים כמה מועמדים
+ * (הקרובים ביותר בתאריך) ובוחרים את הראשון שבאמת יש לו מה להראות —
+ * בקטלוג אירועים מוסדי (לא זרם חדשות), אין טעם בשאילתה מורכבת יותר.
+ */
+export async function getOtherEventWithMedia(
+  currentEventId: string,
+  currentSlug: string,
+): Promise<SuggestedEvent | null> {
+  const supabase = createStaticClient();
+  if (!supabase) return null;
+
+  const { data: candidates, error } = await supabase
+    .from('events')
+    .select('id, slug, title_he, title_en, cover_image_url, gallery')
+    .eq('is_published', true)
+    .neq('slug', currentSlug)
+    .order('event_date', { ascending: false, nullsFirst: false })
+    .limit(8);
+  warn('getOtherEventWithMedia', error);
+  if (!candidates || candidates.length === 0) return null;
+
+  const ids = candidates.map((row) => row.id);
+  const { data: mediaRows } = await supabase.from('event_media').select('event_id').in('event_id', ids);
+  const idsWithMedia = new Set((mediaRows ?? []).map((row) => row.event_id as string));
+
+  const match = candidates.find(
+    (row) => row.id !== currentEventId && (idsWithMedia.has(row.id) || (row.gallery?.length ?? 0) > 0),
+  );
+  if (!match) return null;
+
+  return {
+    slug: match.slug,
+    title_he: match.title_he,
+    title_en: match.title_en,
+    cover_image_url: match.cover_image_url,
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /* עמודי תוכן והגדרות                                                          */
 /* -------------------------------------------------------------------------- */

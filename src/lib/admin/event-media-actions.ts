@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { writeAuditLog } from './audit';
 import { assertScreenPermission } from './auth';
 import type { ActionResult } from './actions';
+import type { EventMediaItem } from '@/lib/supabase/types';
 
 /**
  * [1.11] פעולות ה-CMS של Event Story Gallery — מדיית אירועים ושלבים.
@@ -27,8 +28,13 @@ export interface NewMediaItem {
   video_id?: string | null;
 }
 
+export interface AddMediaResult extends ActionResult {
+  /** הרשומות שנוצרו בפועל — כדי שהלקוח יוכל להציג אותן מיד, בלי לחכות לרענון. */
+  items?: EventMediaItem[];
+}
+
 /** הוספת פריטי מדיה (אחרי שההעלאה לאחסון כבר הצליחה בצד הלקוח). */
-export async function addEventMedia(eventId: string, items: NewMediaItem[]): Promise<ActionResult> {
+export async function addEventMedia(eventId: string, items: NewMediaItem[]): Promise<AddMediaResult> {
   const session = await assertScreenPermission('events', 'edit');
   if ('error' in session) return session;
   if (items.length === 0) return {};
@@ -61,14 +67,17 @@ export async function addEventMedia(eventId: string, items: NewMediaItem[]): Pro
       sort_order: base + index,
     }));
 
-  const { error } = await supabase.from('event_media').insert(rows);
+  // [1.14] מחזיר את הרשומות שנוצרו (עם ה-id שהמסד הקצה) — כך הלקוח
+  // מציג אותן מיד באופן אופטימי, בלי להמתין לרענון מהשרת שהיה קודם
+  // הדרך היחידה לראות מדיה שהועלתה זה עתה.
+  const { data, error } = await supabase.from('event_media').insert(rows).select('*');
   if (error) return { error: `ההוספה נכשלה: ${error.message}` };
 
   await writeAuditLog(supabase, session.userId, 'insert', 'event_media', eventId, {
     context: `הוספת ${rows.length} פריטי מדיה לאירוע`,
   });
   revalidateEvent(eventId);
-  return {};
+  return { items: (data as EventMediaItem[] | null) ?? [] };
 }
 
 export interface MediaPatch {

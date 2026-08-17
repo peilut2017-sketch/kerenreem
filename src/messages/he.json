@@ -248,12 +248,14 @@
     "nextImage": "התמונה הבאה",
     "prevImage": "התמונה הקודמת",
     "journey": "התקדמות באירוע",
-    "closingGalleryLead": "כבר ראיתם את עיקר האירוע",
-    "showFullGallery": "המשך לגלריה המלאה ({count} תמונות נוספות)",
     "imageCounter": "{index} מתוך {total}",
+    "goToImage": "עבור לתמונה {index}",
     "momentsCount": "{count, plural, one {רגע אחד מהאירוע} two {שני רגעים מהאירוע} other {# רגעים מהאירוע}}",
     "momentsCta": "התחילו לצפות",
-    "share": "שיתוף"
+    "share": "שיתוף",
+    "scrollDown": "גלול למטה",
+    "discoverAnotherEvent": "גלריה נוספת",
+    "viewOtherGallery": "צפייה בגלריה ←"
   },
   "pages": {
     "about": "אודות",

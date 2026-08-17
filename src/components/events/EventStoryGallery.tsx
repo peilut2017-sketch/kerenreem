@@ -2,9 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { AnimatePresence } from 'motion/react';
 import { Img } from '@/components/Img';
+import { Link } from '@/i18n/navigation';
+import { ContextualFilmstrip } from '@/components/events/viewer/ContextualFilmstrip';
+import { useViewerActivity } from '@/components/events/viewer/useViewerActivity';
+import { useReducedMotion } from '@/lib/client-hooks';
+import { recordEventMediaView } from '@/lib/events/view-actions';
 import { toCdnUrl } from '@/lib/image-src';
-import { localizedOrNull } from '@/lib/localized';
+import { localized, localizedOrNull } from '@/lib/localized';
+import type { SuggestedEvent } from '@/lib/data';
 import type { EventChapter, EventMediaItem } from '@/lib/supabase/types';
 
 /**
@@ -24,6 +31,43 @@ import type { EventChapter, EventMediaItem } from '@/lib/supabase/types';
  */
 
 type Media = EventMediaItem;
+
+/**
+ * [1.14] מונה צפיות פר-פריט — נספר פעם אחת לכל ביקור (Set בזיכרון
+ * הרכיב, לא ב-storage) בכל תצוגה שבה הפריט אכן נצפה בפועל: אריח
+ * בפריסה העריכתית שנכנס לתצוגה, פריט Reels שהופך פעיל, או אינדקס
+ * ה-Viewer הנוכחי. fire-and-forget — אינו חוסם ואינו מציג שגיאה.
+ */
+function useMediaViewTracker() {
+  const seen = useRef<Set<string>>(new Set());
+  return useCallback((id: string) => {
+    if (seen.current.has(id)) return;
+    seen.current.add(id);
+    void recordEventMediaView(id);
+  }, []);
+}
+
+/** עוקב אחרי כניסת האלמנט לתצוגה, פעם אחת בלבד, ואז מפסיק להאזין. */
+function useInViewOnce<T extends HTMLElement>(onView: () => void) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          onView();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onView יציב (useCallback ב-useMediaViewTracker)
+  }, []);
+  return ref;
+}
 
 const ratio = (item: Media) =>
   item.width && item.height && item.height > 0 ? item.width / item.height : 4 / 3;
@@ -77,15 +121,19 @@ export function EventStoryGallery({
   media,
   chapters,
   locale,
+  suggestedEvent = null,
 }: {
   media: Media[];
   chapters: EventChapter[];
   locale: string;
+  /** [1.14] אירוע אחר עם גלריה — מוצע בכרטיס בסיום דפדוף ה-Reels. */
+  suggestedEvent?: SuggestedEvent | null;
 }) {
   const t = useTranslations('events');
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [reelsOpen, setReelsOpen] = useState(false);
   const [reelsStart, setReelsStart] = useState(0);
+  const trackView = useMediaViewTracker();
 
   const chapterName = useMemo(() => {
     const map = new Map<string, string>();
@@ -215,15 +263,21 @@ export function EventStoryGallery({
                 >
                   {row.length === 3 ? (
                     <>
-                      <StoryTile item={row[0]} tall onOpen={openViewer} />
+                      <StoryTile item={row[0]} tall onOpen={openViewer} onView={trackView} />
                       <div className="grid gap-4">
-                        <StoryTile item={row[1]} onOpen={openViewer} />
-                        <StoryTile item={row[2]} onOpen={openViewer} />
+                        <StoryTile item={row[1]} onOpen={openViewer} onView={trackView} />
+                        <StoryTile item={row[2]} onOpen={openViewer} onView={trackView} />
                       </div>
                     </>
                   ) : (
                     row.map((item) => (
-                      <StoryTile key={item.id} item={item} solo={row.length === 1} onOpen={openViewer} />
+                      <StoryTile
+                        key={item.id}
+                        item={item}
+                        solo={row.length === 1}
+                        onOpen={openViewer}
+                        onView={trackView}
+                      />
                     ))
                   )}
                 </div>
@@ -240,6 +294,7 @@ export function EventStoryGallery({
           chapterName={chapterName}
           onNavigate={setViewerIndex}
           onClose={closeViewer}
+          onView={trackView}
         />
       ) : null}
 
@@ -249,6 +304,9 @@ export function EventStoryGallery({
           startIndex={reelsStart}
           chapterName={chapterName}
           onClose={() => setReelsOpen(false)}
+          onView={trackView}
+          suggestedEvent={suggestedEvent}
+          locale={locale}
         />
       ) : null}
     </section>
@@ -262,23 +320,32 @@ function StoryTile({
   solo,
   tall,
   onOpen,
+  onView,
 }: {
   item: Media;
   solo?: boolean;
   tall?: boolean;
   onOpen: (item: Media) => void;
+  /** [1.14] מונה צפיות — נקרא פעם אחת כשהאריח נכנס לתצוגה בגלילה. */
+  onView: (id: string) => void;
 }) {
   const t = useTranslations('events');
+  const viewRef = useInViewOnce<HTMLElement>(() => onView(item.id));
   const ar = ratio(item);
 
   if (item.type === 'video') {
-    return <StoryVideo item={item} />;
+    return (
+      <div ref={viewRef as React.RefObject<HTMLDivElement>}>
+        <StoryVideo item={item} />
+      </div>
+    );
   }
 
   // סולו רחבה — נשמר היחס המקורי (בלי חיתוך); בקומפוזיציות — object-cover
   // עם נקודת המיקוד שנבחרה בניהול.
   return (
     <button
+      ref={viewRef as React.RefObject<HTMLButtonElement>}
       type="button"
       onClick={() => onOpen(item)}
       className="group relative w-full overflow-hidden rounded-[var(--radius-lg)] bg-cream-2 text-start focus-visible:ring-2 focus-visible:ring-gold/60"
@@ -363,16 +430,27 @@ function MediaViewer({
   chapterName,
   onNavigate,
   onClose,
+  onView,
 }: {
   media: Media[];
   index: number;
   chapterName: Map<string, string>;
   onNavigate: (index: number) => void;
   onClose: () => void;
+  onView: (id: string) => void;
 }) {
   const t = useTranslations('events');
   const item = media[index];
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const wheelAccum = useRef(0);
+  const wheelCooldown = useRef(false);
+  const activity = useViewerActivity();
+  const reducedMotion = useReducedMotion();
+
+  // [1.14] מונה צפיות — כל אינדקס שמוצג בפועל ב-Viewer נספר
+  useEffect(() => {
+    onView(item.id);
+  }, [item.id, onView]);
 
   const step = useCallback(
     (delta: number) => {
@@ -385,9 +463,14 @@ function MediaViewer({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
-      // RTL: חץ שמאלה מתקדם
-      else if (event.key === 'ArrowLeft') step(1);
-      else if (event.key === 'ArrowRight') step(-1);
+      // RTL: חץ שמאלה מתקדם. ניווט מקלדת מציג את הפילם-סטריפ לרגע כמשוב.
+      else if (event.key === 'ArrowLeft') {
+        step(1);
+        activity.wakeBriefly();
+      } else if (event.key === 'ArrowRight') {
+        step(-1);
+        activity.wakeBriefly();
+      }
     };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
@@ -395,7 +478,24 @@ function MediaViewer({
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activity.wakeBriefly יציב (useCallback)
   }, [onClose, step]);
+
+  // [1.20] החלקת טראק-פד אופקית מעל התמונה הראשית מנווטת בין תמונות —
+  // סף גבוה כדי לא לתפוס גלגלת רגילה/אנכית בטעות ("לא לחטוף" אותה).
+  function handleStageWheel(event: React.WheelEvent<HTMLDivElement>) {
+    if (Math.abs(event.deltaX) < Math.abs(event.deltaY) * 1.5) return;
+    if (wheelCooldown.current) return;
+    wheelAccum.current += event.deltaX;
+    if (Math.abs(wheelAccum.current) < 70) return;
+    const direction = wheelAccum.current > 0 ? 1 : -1;
+    wheelAccum.current = 0;
+    step(direction);
+    wheelCooldown.current = true;
+    setTimeout(() => {
+      wheelCooldown.current = false;
+    }, 260);
+  }
 
   async function share() {
     const url = new URL(window.location.href);
@@ -425,7 +525,14 @@ function MediaViewer({
         if (Math.abs(dx) > 60) step(dx > 0 ? -1 : 1);
       }}
     >
-      <div className="flex items-center justify-between px-4 py-3 text-cream">
+      {/* [1.20] "מצב קולנוע" — כל בקרת ה-Viewer (סרגל עליון, חצים,
+          הפילם-סטריפ) נעלמת יחד אחרי שנייה בלי תנועת עכבר. הכתובית
+          נשארת (בעמעום), כי היא תוכן־סיפור ולא בקרה. */}
+      <div
+        className={`flex items-center justify-between px-4 py-3 text-cream transition-opacity duration-300 ${
+          activity.controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      >
         <span className="text-caption tabular-nums">
           {t('imageCounter', { index: index + 1, total: media.length })}
           {item.chapter_id && chapterName.get(item.chapter_id) ? (
@@ -456,7 +563,7 @@ function MediaViewer({
         </span>
       </div>
 
-      <div className="relative min-h-0 flex-1 px-3">
+      <div className="relative min-h-0 flex-1 px-3" onWheel={handleStageWheel}>
         {item.type === 'video' ? (
           <iframe
             src={videoEmbedSrc(item, true)}
@@ -480,15 +587,41 @@ function MediaViewer({
           </div>
         )}
 
-        {index > 0 ? (
-          <ViewerArrow dir="prev" label={t('prevImage')} onClick={() => step(-1)} />
-        ) : null}
-        {index < media.length - 1 ? (
-          <ViewerArrow dir="next" label={t('nextImage')} onClick={() => step(1)} />
-        ) : null}
+        <div
+          className={`transition-opacity duration-300 ${
+            activity.controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+        >
+          {index > 0 ? (
+            <ViewerArrow dir="prev" label={t('prevImage')} onClick={() => step(-1)} />
+          ) : null}
+          {index < media.length - 1 ? (
+            <ViewerArrow dir="next" label={t('nextImage')} onClick={() => step(1)} />
+          ) : null}
+        </div>
+
+        <AnimatePresence>
+          {activity.controlsVisible ? (
+            <ContextualFilmstrip
+              media={media}
+              activeIndex={index}
+              onSelect={onNavigate}
+              onHoverPause={activity.pause}
+              onHoverResume={activity.resume}
+              reducedMotion={reducedMotion}
+            />
+          ) : null}
+        </AnimatePresence>
       </div>
 
-      <p className="min-h-12 px-6 py-3 text-center text-small text-cream/90">{item.caption_he ?? ''}</p>
+      {/* כתובית — תוכן־סיפור, לא בקרה: נשארת גלויה גם ב"מצב קולנוע", רק מתעמעמת */}
+      <p
+        className={`min-h-12 px-6 py-3 text-center text-small text-cream/90 transition-opacity duration-300 ${
+          activity.controlsVisible ? 'opacity-100' : 'opacity-45'
+        }`}
+      >
+        {item.caption_he ?? ''}
+      </p>
     </div>
   );
 }
@@ -530,15 +663,27 @@ function EventReels({
   startIndex,
   chapterName,
   onClose,
+  onView,
+  suggestedEvent,
+  locale,
 }: {
   media: Media[];
   startIndex: number;
   chapterName: Map<string, string>;
   onClose: () => void;
+  onView: (id: string) => void;
+  suggestedEvent: SuggestedEvent | null;
+  locale: string;
 }) {
   const t = useTranslations('events');
   const containerRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(startIndex);
+  // [1.14] רמז "גלול למטה" — עד שהמשתמש גולל בפועל או אחרי זמן קצר,
+  // כדי שברור מהרגע הראשון שהגלילה (לא הקשה) היא הדרך להתקדם. "גלל
+  // בפועל" נגזר ישירות מ-active (לא state נפרד) — רק הפקיעה בזמן היא
+  // אפקט אמיתי.
+  const [hintTimedOut, setHintTimedOut] = useState(false);
+  const showHint = active === startIndex && !hintTimedOut;
 
   // הפריט הפעיל נקבע לפי מה שתפוס במרכז המסך — scroll-snap עושה את השאר
   useEffect(() => {
@@ -552,7 +697,12 @@ function EventReels({
         for (const entry of entries) {
           if (entry.isIntersecting) {
             const index = Number((entry.target as HTMLElement).dataset.index);
-            if (!Number.isNaN(index)) setActive(index);
+            if (!Number.isNaN(index)) {
+              setActive(index);
+              // [1.14] מונה צפיות — פריט Reels שהופך פעיל נחשב "נצפה"
+              const viewedItem = media[index];
+              if (viewedItem) onView(viewedItem.id);
+            }
           }
         }
       },
@@ -564,18 +714,31 @@ function EventReels({
       observer.disconnect();
       document.body.style.overflow = '';
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- media/onView יציבים לאורך חיי ה-Reels
   }, [startIndex]);
 
+  // הרמז פוקע מעצמו אחרי 3 שניות (גם אם המשתמש לא גלל) — showHint עצמו
+  // כבר נכבה מייד כשהוא גולל בפועל, כנגזרת של active מול startIndex
+  useEffect(() => {
+    const timeout = setTimeout(() => setHintTimedOut(true), 3000);
+    return () => clearTimeout(timeout);
+  }, []);
+
   const activeItem = media[active];
+  const onSuggestionSlide = active >= media.length;
 
   return (
     <div role="dialog" aria-modal="true" aria-label={t('gallery')} className="fixed inset-0 z-[70] bg-navy">
       {/* התקדמות + סגירה — מעל הרצף */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between bg-gradient-to-b from-navy/70 to-transparent px-4 pb-8 pt-3 text-cream">
         <span className="text-caption tabular-nums">
-          {t('imageCounter', { index: active + 1, total: media.length })}
-          {activeItem?.chapter_id && chapterName.get(activeItem.chapter_id) ? (
-            <span className="ms-2 text-cream/75">· {chapterName.get(activeItem.chapter_id)}</span>
+          {!onSuggestionSlide ? (
+            <>
+              {t('imageCounter', { index: active + 1, total: media.length })}
+              {activeItem?.chapter_id && chapterName.get(activeItem.chapter_id) ? (
+                <span className="ms-2 text-cream/75">· {chapterName.get(activeItem.chapter_id)}</span>
+              ) : null}
+            </>
           ) : null}
         </span>
         <button
@@ -588,6 +751,26 @@ function EventReels({
             <path d="m5 5 10 10M15 5 5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
+      </div>
+
+      {/* [1.14] רמז גלילה בכניסה — חץ פועם למטה + כיתוב, נעלם בגלילה
+          הראשונה או אחרי 3 שניות. pointer-events-none כדי שלא יחסום מגע. */}
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-x-0 bottom-24 z-10 flex flex-col items-center gap-1.5 text-cream transition-opacity duration-500 ${
+          showHint ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <span className="text-caption font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
+          {t('scrollDown')}
+        </span>
+        <svg
+          viewBox="0 0 20 20"
+          className="h-5 w-5 animate-bounce drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+          fill="none"
+        >
+          <path d="m5 8 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
 
       <div
@@ -645,6 +828,38 @@ function EventReels({
             ) : null}
           </div>
         ))}
+
+        {/* [1.14] הצעת "מעבר לגלריה אחרת" — שקופית אחרונה באותו רצף
+            הגלילה, לא מסך נפרד: ממשיכה את תחושת הדפדוף הטבעית. */}
+        {suggestedEvent ? (
+          <div
+            data-index={media.length}
+            className="relative flex h-dvh snap-start flex-col items-center justify-center gap-6 overflow-hidden bg-navy px-8 text-center"
+          >
+            {suggestedEvent.cover_image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- שכבת רקע מטושטשת
+              <img
+                src={toCdnUrl(suggestedEvent.cover_image_url)}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-30 blur-2xl"
+              />
+            ) : null}
+            <div className="absolute inset-0 bg-navy/55" aria-hidden="true" />
+            <div className="relative z-10 max-w-xs">
+              <p className="eyebrow text-gold">{t('discoverAnotherEvent')}</p>
+              <h3 className="mt-3 font-display text-[1.5rem] leading-snug text-cream">
+                {localized(suggestedEvent, 'title', locale)}
+              </h3>
+              <Link
+                href={`/events/${suggestedEvent.slug}`}
+                className="btn btn-solid mt-6 inline-flex"
+              >
+                {t('viewOtherGallery')}
+              </Link>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

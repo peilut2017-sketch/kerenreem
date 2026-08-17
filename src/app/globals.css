@@ -339,6 +339,69 @@ body::before {
   }
   .card-interactive:active { transform: translateY(-2px) scale(0.998); }
 
+  /* --- כרטיס ספר בסגנון "זכוכית נוזלית" (Liquid Glass) ---
+     [1.14] תחליף עצמאי ל-.card + .card-interactive עבור כרטיסי הספר:
+     משטח שקוף-למחצה עם backdrop-blur (לא לובן אטום כמו .card הרגיל),
+     שכבת "ברק" אלכסונית עדינה שמדמה שבירת אור על זכוכית (::before),
+     ומסגרת עליונה בהירה שנותנת לקצה תחושת מוצקות זכוכיתית — בדיוק
+     הרכיבים שמרכיבים Liquid Glass של אפל, אבל בגווני האתר (קרם/זהב)
+     ולא בגווני iOS. build-on: אותה משפחת המשתנים כמו .glass, לא שפה
+     חדשה — --surface-glass-bg/--surface-glass-blur כבר מכוילים לאתר. */
+  .book-card-glass {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in srgb, #fff 66%, transparent);
+    background:
+      linear-gradient(
+        165deg,
+        color-mix(in srgb, #fff 50%, var(--surface-glass-bg)) 0%,
+        var(--surface-glass-bg) 55%,
+        color-mix(in srgb, var(--color-cream) 90%, transparent) 100%
+      );
+    backdrop-filter: blur(18px) saturate(1.6);
+    box-shadow:
+      var(--surface-card-shadow),
+      inset 0 1px 0 color-mix(in srgb, #fff 78%, transparent),
+      inset 0 -14px 26px -18px color-mix(in srgb, var(--color-gold) 22%, transparent);
+    transition:
+      transform 420ms var(--ease-spring),
+      box-shadow 420ms var(--ease-spring),
+      border-color 300ms ease;
+    will-change: transform;
+  }
+  .book-card-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    background: linear-gradient(
+      120deg,
+      transparent 28%,
+      color-mix(in srgb, #fff 55%, transparent) 45%,
+      transparent 64%
+    );
+    opacity: 0.55;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  .book-card-glass:hover {
+    transform: translateY(-6px) scale(1.008);
+    border-color: color-mix(in srgb, var(--color-gold) 50%, transparent);
+    box-shadow:
+      var(--surface-card-shadow-hover),
+      inset 0 1px 0 color-mix(in srgb, #fff 88%, transparent),
+      inset 0 -16px 30px -16px color-mix(in srgb, var(--color-gold) 32%, transparent);
+  }
+  .book-card-glass:active { transform: translateY(-2px) scale(0.998); }
+  @media (prefers-reduced-motion: reduce) {
+    .book-card-glass { transition: box-shadow 200ms ease, border-color 200ms ease; }
+    .book-card-glass:hover, .book-card-glass:active { transform: none; }
+  }
+
   .eyebrow {
     font-family: var(--font-sans);
     font-size: var(--text-caption);
@@ -414,49 +477,6 @@ body::before {
     height: 0.4375rem;
     rotate: 45deg;
     background-color: var(--color-gold);
-  }
-
-  /* --- מעבר רציף של סרגל הניווט (עוגן: --hp, ראו useHeaderState) ---
-     ‎--hp הוא פרוגרס הגלילה (0 בראש העמוד, 1 אחרי ~96px), נכתב ישירות
-     על אלמנט הכותרת. כל מאפייני "פס מלא ↔ קפסולה צפה" נגזרים ממנו
-     ב-calc, כך שהמעבר צמוד לגלילה עצמה ולא קופץ בין שני מצבים. */
-  .site-header-shell {
-    padding-inline: calc(var(--hp, 0) * 0.75rem);
-    padding-block-start: calc(var(--hp, 0) * 0.75rem);
-  }
-  @media (min-width: 640px) {
-    .site-header-shell {
-      padding-inline: calc(var(--hp, 0) * 1.25rem);
-      padding-block-start: calc(var(--hp, 0) * 1.25rem);
-    }
-  }
-  .site-header-surface {
-    max-width: calc(100% - var(--hp, 0) * (100% - min(100%, 82rem)));
-    border-radius: calc(var(--hp, 0) * var(--radius-xl));
-  }
-  .site-header-content {
-    max-width: calc(100% - var(--hp, 0) * (100% - min(100%, 82rem)));
-    padding-block: calc(1.25rem - var(--hp, 0) * 0.625rem);
-    padding-inline: calc(1.25rem - var(--hp, 0) * 0.25rem);
-  }
-  @media (min-width: 640px) {
-    .site-header-content { padding-inline: calc(2.25rem - var(--hp, 0) * 0.75rem); }
-  }
-  @media (min-width: 1024px) {
-    .site-header-content { padding-inline: calc(3rem - var(--hp, 0) * 1.5rem); }
-  }
-  .site-header-tint { opacity: calc(1 - var(--hp, 0)); }
-  .site-header-glass { opacity: var(--hp, 0); }
-  /* החלקה קצרה בין צעדי גלגלת בדידים — לא אנימציית מצב, רק ריכוך */
-  .site-header-smooth {
-    transition:
-      padding 180ms linear,
-      max-width 180ms linear,
-      border-radius 180ms linear,
-      opacity 180ms linear;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .site-header-smooth { transition: none; }
   }
 
   /* --- כותרת האתר: משטח יציב עם גוון זהב שדועך כלפי מטה ---

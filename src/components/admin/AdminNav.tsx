@@ -102,6 +102,7 @@ const ITEMS: NavEntry[] = [
   },
   { type: 'link', href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
   { type: 'link', href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'manager' },
+  { type: 'link', href: '/admin/media-library', label: 'ספריית מדיה', icon: 'image', screen: 'media-library' },
   { type: 'link', href: '/admin/audit-log', label: 'יומן ביקורת', icon: 'list', minRole: 'admin' },
   { type: 'link', href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
 ];

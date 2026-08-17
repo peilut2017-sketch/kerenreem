@@ -162,7 +162,13 @@ export function EventStoryMediaManager({
     if (items.length > 0) {
       startTransition(async () => {
         const result = await addEventMedia(eventId, items);
-        if (result?.error) setError(result.error);
+        if (result?.error) {
+          setError(result.error);
+        } else if (result?.items?.length) {
+          // [1.14] הצגה מיידית — לא ממתינים ל-router.refresh() כדי לראות
+          // את הפריטים שהועלו הרגע; הפעולה כבר מחזירה אותם עם ה-id שלהם
+          setMedia((rows) => [...rows, ...result.items!]);
+        }
         router.refresh();
       });
     }
@@ -186,8 +192,12 @@ export function EventStoryMediaManager({
             parsed.provider === 'youtube' ? `https://i.ytimg.com/vi/${parsed.id}/hqdefault.jpg` : null,
         },
       ]);
-      if (result?.error) setError(result.error);
-      else setVideoUrl('');
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        if (result?.items?.length) setMedia((rows) => [...rows, ...result.items!]);
+        setVideoUrl('');
+      }
       router.refresh();
     });
   }
@@ -470,6 +480,13 @@ function SortableMediaCard({
             וידאו
           </span>
         ) : null}
+        {/* [1.14] מונה צפיות — נספר בכל תצוגה בפועל (סיפור/Reels/Viewer) */}
+        <span
+          className="absolute bottom-1.5 end-1.5 rounded-[var(--radius-pill)] bg-black/60 px-2 py-0.5 text-[0.7rem] text-white"
+          title="מספר הצפיות בפריט"
+        >
+          👁 {row.view_count.toLocaleString('he-IL')}
+        </span>
       </div>
 
       <div className="mt-2 space-y-1.5">

@@ -44,8 +44,13 @@ export function BookCard({
   const availability = getBookAvailability(book, storeEnabled);
 
   return (
-    <article className="card card-interactive group relative flex h-full flex-col focus-within:ring-2 focus-within:ring-gold/50">
-      <div className="relative overflow-hidden rounded-t-[var(--radius-lg)] bg-cream-2 p-5">
+    // [1.14] "זכוכית נוזלית" בהשראת Apple Liquid Glass — ראו .book-card-glass
+    // ב-globals.css: משטח שקוף-למחצה עם backdrop-blur, ברק אלכסוני עדין
+    // ומסגרת עליונה בהירה, בגווני האתר (קרם/זהב) במקום גווני iOS.
+    <article className="book-card-glass group relative flex h-full flex-col focus-within:ring-2 focus-within:ring-gold/50">
+      {/* [1.14] מחצית-שקופה, לא bg-cream-2 אטום — כדי שה-blur/הברק של
+          .book-card-glass ייראה גם מאחורי מרבית הכרטיס, לא רק בשוליים */}
+      <div className="relative overflow-hidden rounded-t-[var(--radius-lg)] bg-cream-2/55 p-5">
         <div className="transition-transform duration-500 ease-[var(--ease-spring)] group-hover:-translate-y-0.5 group-hover:scale-[1.02] motion-reduce:transform-none">
           <BookCover
             src={book.cover_image_url}
@@ -72,7 +77,9 @@ export function BookCard({
         />
       </div>
 
-      <div className="flex flex-1 flex-col p-5 pt-4">
+      {/* relative z-[2] — יושב מעל שכבת הברק העדינה של .book-card-glass::before,
+          כדי שהיא תיראה מעל שולי הכרטיס אך לא תעמעם את הטקסט הקריא */}
+      <div className="relative z-[2] flex flex-1 flex-col p-5 pt-4">
         <h3 className="font-serif text-[1.0625rem] leading-snug text-ink">
           {/* הקישור פרוש על כל הכרטיס, כך שכל השטח לחיץ ובכל זאת יש רק
               יעד אחד בסדר הטאב — כרטיס עם שלושה קישורים לאותו מקום מכפיל
