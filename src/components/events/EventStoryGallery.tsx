@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { AnimatePresence } from 'motion/react';
 import { Img } from '@/components/Img';
 import { Link } from '@/i18n/navigation';
+import { ContextualFilmstrip } from '@/components/events/viewer/ContextualFilmstrip';
+import { useViewerActivity } from '@/components/events/viewer/useViewerActivity';
+import { useReducedMotion } from '@/lib/client-hooks';
 import { recordEventMediaView } from '@/lib/events/view-actions';
 import { toCdnUrl } from '@/lib/image-src';
 import { localized, localizedOrNull } from '@/lib/localized';
@@ -438,6 +442,10 @@ function MediaViewer({
   const t = useTranslations('events');
   const item = media[index];
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const wheelAccum = useRef(0);
+  const wheelCooldown = useRef(false);
+  const activity = useViewerActivity();
+  const reducedMotion = useReducedMotion();
 
   // [1.14] מונה צפיות — כל אינדקס שמוצג בפועל ב-Viewer נספר
   useEffect(() => {
@@ -455,9 +463,14 @@ function MediaViewer({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
-      // RTL: חץ שמאלה מתקדם
-      else if (event.key === 'ArrowLeft') step(1);
-      else if (event.key === 'ArrowRight') step(-1);
+      // RTL: חץ שמאלה מתקדם. ניווט מקלדת מציג את הפילם-סטריפ לרגע כמשוב.
+      else if (event.key === 'ArrowLeft') {
+        step(1);
+        activity.wakeBriefly();
+      } else if (event.key === 'ArrowRight') {
+        step(-1);
+        activity.wakeBriefly();
+      }
     };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
@@ -465,7 +478,24 @@ function MediaViewer({
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activity.wakeBriefly יציב (useCallback)
   }, [onClose, step]);
+
+  // [1.20] החלקת טראק-פד אופקית מעל התמונה הראשית מנווטת בין תמונות —
+  // סף גבוה כדי לא לתפוס גלגלת רגילה/אנכית בטעות ("לא לחטוף" אותה).
+  function handleStageWheel(event: React.WheelEvent<HTMLDivElement>) {
+    if (Math.abs(event.deltaX) < Math.abs(event.deltaY) * 1.5) return;
+    if (wheelCooldown.current) return;
+    wheelAccum.current += event.deltaX;
+    if (Math.abs(wheelAccum.current) < 70) return;
+    const direction = wheelAccum.current > 0 ? 1 : -1;
+    wheelAccum.current = 0;
+    step(direction);
+    wheelCooldown.current = true;
+    setTimeout(() => {
+      wheelCooldown.current = false;
+    }, 260);
+  }
 
   async function share() {
     const url = new URL(window.location.href);
@@ -495,7 +525,14 @@ function MediaViewer({
         if (Math.abs(dx) > 60) step(dx > 0 ? -1 : 1);
       }}
     >
-      <div className="flex items-center justify-between px-4 py-3 text-cream">
+      {/* [1.20] "מצב קולנוע" — כל בקרת ה-Viewer (סרגל עליון, חצים,
+          הפילם-סטריפ) נעלמת יחד אחרי שנייה בלי תנועת עכבר. הכתובית
+          נשארת (בעמעום), כי היא תוכן־סיפור ולא בקרה. */}
+      <div
+        className={`flex items-center justify-between px-4 py-3 text-cream transition-opacity duration-300 ${
+          activity.controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      >
         <span className="text-caption tabular-nums">
           {t('imageCounter', { index: index + 1, total: media.length })}
           {item.chapter_id && chapterName.get(item.chapter_id) ? (
@@ -526,7 +563,7 @@ function MediaViewer({
         </span>
       </div>
 
-      <div className="relative min-h-0 flex-1 px-3">
+      <div className="relative min-h-0 flex-1 px-3" onWheel={handleStageWheel}>
         {item.type === 'video' ? (
           <iframe
             src={videoEmbedSrc(item, true)}
@@ -550,15 +587,41 @@ function MediaViewer({
           </div>
         )}
 
-        {index > 0 ? (
-          <ViewerArrow dir="prev" label={t('prevImage')} onClick={() => step(-1)} />
-        ) : null}
-        {index < media.length - 1 ? (
-          <ViewerArrow dir="next" label={t('nextImage')} onClick={() => step(1)} />
-        ) : null}
+        <div
+          className={`transition-opacity duration-300 ${
+            activity.controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+        >
+          {index > 0 ? (
+            <ViewerArrow dir="prev" label={t('prevImage')} onClick={() => step(-1)} />
+          ) : null}
+          {index < media.length - 1 ? (
+            <ViewerArrow dir="next" label={t('nextImage')} onClick={() => step(1)} />
+          ) : null}
+        </div>
+
+        <AnimatePresence>
+          {activity.controlsVisible ? (
+            <ContextualFilmstrip
+              media={media}
+              activeIndex={index}
+              onSelect={onNavigate}
+              onHoverPause={activity.pause}
+              onHoverResume={activity.resume}
+              reducedMotion={reducedMotion}
+            />
+          ) : null}
+        </AnimatePresence>
       </div>
 
-      <p className="min-h-12 px-6 py-3 text-center text-small text-cream/90">{item.caption_he ?? ''}</p>
+      {/* כתובית — תוכן־סיפור, לא בקרה: נשארת גלויה גם ב"מצב קולנוע", רק מתעמעמת */}
+      <p
+        className={`min-h-12 px-6 py-3 text-center text-small text-cream/90 transition-opacity duration-300 ${
+          activity.controlsVisible ? 'opacity-100' : 'opacity-45'
+        }`}
+      >
+        {item.caption_he ?? ''}
+      </p>
     </div>
   );
 }
