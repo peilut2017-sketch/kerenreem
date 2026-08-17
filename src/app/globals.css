@@ -339,6 +339,69 @@ body::before {
   }
   .card-interactive:active { transform: translateY(-2px) scale(0.998); }
 
+  /* --- כרטיס ספר בסגנון "זכוכית נוזלית" (Liquid Glass) ---
+     [1.14] תחליף עצמאי ל-.card + .card-interactive עבור כרטיסי הספר:
+     משטח שקוף-למחצה עם backdrop-blur (לא לובן אטום כמו .card הרגיל),
+     שכבת "ברק" אלכסונית עדינה שמדמה שבירת אור על זכוכית (::before),
+     ומסגרת עליונה בהירה שנותנת לקצה תחושת מוצקות זכוכיתית — בדיוק
+     הרכיבים שמרכיבים Liquid Glass של אפל, אבל בגווני האתר (קרם/זהב)
+     ולא בגווני iOS. build-on: אותה משפחת המשתנים כמו .glass, לא שפה
+     חדשה — --surface-glass-bg/--surface-glass-blur כבר מכוילים לאתר. */
+  .book-card-glass {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in srgb, #fff 66%, transparent);
+    background:
+      linear-gradient(
+        165deg,
+        color-mix(in srgb, #fff 50%, var(--surface-glass-bg)) 0%,
+        var(--surface-glass-bg) 55%,
+        color-mix(in srgb, var(--color-cream) 90%, transparent) 100%
+      );
+    backdrop-filter: blur(18px) saturate(1.6);
+    box-shadow:
+      var(--surface-card-shadow),
+      inset 0 1px 0 color-mix(in srgb, #fff 78%, transparent),
+      inset 0 -14px 26px -18px color-mix(in srgb, var(--color-gold) 22%, transparent);
+    transition:
+      transform 420ms var(--ease-spring),
+      box-shadow 420ms var(--ease-spring),
+      border-color 300ms ease;
+    will-change: transform;
+  }
+  .book-card-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    background: linear-gradient(
+      120deg,
+      transparent 28%,
+      color-mix(in srgb, #fff 55%, transparent) 45%,
+      transparent 64%
+    );
+    opacity: 0.55;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  .book-card-glass:hover {
+    transform: translateY(-6px) scale(1.008);
+    border-color: color-mix(in srgb, var(--color-gold) 50%, transparent);
+    box-shadow:
+      var(--surface-card-shadow-hover),
+      inset 0 1px 0 color-mix(in srgb, #fff 88%, transparent),
+      inset 0 -16px 30px -16px color-mix(in srgb, var(--color-gold) 32%, transparent);
+  }
+  .book-card-glass:active { transform: translateY(-2px) scale(0.998); }
+  @media (prefers-reduced-motion: reduce) {
+    .book-card-glass { transition: box-shadow 200ms ease, border-color 200ms ease; }
+    .book-card-glass:hover, .book-card-glass:active { transform: none; }
+  }
+
   .eyebrow {
     font-family: var(--font-sans);
     font-size: var(--text-caption);
