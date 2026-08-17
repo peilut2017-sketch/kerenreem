@@ -381,6 +381,36 @@ export async function getEvent(id: string): Promise<EventRecord | null> {
   return (data as EventRecord | null) ?? null;
 }
 
+/**
+ * [1.14] מונה צפיות לכל האירועים בבת אחת — נגזר מ-page_views הכללי
+ * (path = '/events/<slug>', שתי השפות יחד), לא מעמודה ייעודית: הביקור
+ * כבר מתועד שם בכל טעינת עמוד אירוע (AnalyticsBeacon), ואין טעם
+ * להחזיק שני מונים לאותו דבר. slug → מספר צפיות; אירוע בלי אף ביקור
+ * פשוט לא מופיע במפה (הצרכן נופל ל-0).
+ */
+export async function listEventViewCounts(): Promise<Map<string, number>> {
+  const supabase = await client();
+  // מכסה שריר: page_views אינה מתנקה אוטומטית (ראו 18_page_views.sql),
+  // ומאות אלפי שורות לא אמורות להאט את רשימת האירועים בניהול.
+  const { data } = await supabase.from('page_views').select('path').like('path', '/events/%').limit(20000);
+  const counts = new Map<string, number>();
+  for (const row of (data as { path: string }[] | null) ?? []) {
+    const slug = row.path.slice('/events/'.length);
+    counts.set(slug, (counts.get(slug) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** מונה צפיות לאירוע בודד — למסך העריכה. ראו listEventViewCounts. */
+export async function getEventViewCount(slug: string): Promise<number> {
+  const supabase = await client();
+  const { count } = await supabase
+    .from('page_views')
+    .select('id', { count: 'exact', head: true })
+    .eq('path', `/events/${slug}`);
+  return count ?? 0;
+}
+
 export async function getEventBlocks(eventId: string): Promise<EventBlock[]> {
   const supabase = await client();
   const { data } = await supabase

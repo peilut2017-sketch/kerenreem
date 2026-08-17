@@ -5,6 +5,7 @@ import {
   getEventBlocks,
   getEventChaptersAdmin,
   getEventMediaAdmin,
+  getEventViewCount,
 } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { EventForm } from '@/components/admin/EventForm';
@@ -23,10 +24,16 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     getEventChaptersAdmin(id),
   ]);
   if (!event) notFound();
+  const viewCount = await getEventViewCount(event.slug);
 
   return (
     <>
-      <AdminHeader title={event.title_he} />
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <AdminHeader title={event.title_he} />
+        <span className="admin-badge admin-badge-neutral shrink-0" title="צפיות בעמוד האירוע (משתי השפות)">
+          {viewCount.toLocaleString('he-IL')} צפיות
+        </span>
+      </div>
       <EventForm event={event} canWrite={canWrite} />
 
       {/* [1.11] Event Story Gallery — מדיית האירוע: העלאה מרובה, גרירה

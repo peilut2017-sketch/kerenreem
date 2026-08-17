@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Img } from '@/components/Img';
+import { recordEventMediaView } from '@/lib/events/view-actions';
 import { toCdnUrl } from '@/lib/image-src';
 import { localizedOrNull } from '@/lib/localized';
 import type { EventChapter, EventMediaItem } from '@/lib/supabase/types';
@@ -24,6 +25,43 @@ import type { EventChapter, EventMediaItem } from '@/lib/supabase/types';
  */
 
 type Media = EventMediaItem;
+
+/**
+ * [1.14] מונה צפיות פר-פריט — נספר פעם אחת לכל ביקור (Set בזיכרון
+ * הרכיב, לא ב-storage) בכל תצוגה שבה הפריט אכן נצפה בפועל: אריח
+ * בפריסה העריכתית שנכנס לתצוגה, פריט Reels שהופך פעיל, או אינדקס
+ * ה-Viewer הנוכחי. fire-and-forget — אינו חוסם ואינו מציג שגיאה.
+ */
+function useMediaViewTracker() {
+  const seen = useRef<Set<string>>(new Set());
+  return useCallback((id: string) => {
+    if (seen.current.has(id)) return;
+    seen.current.add(id);
+    void recordEventMediaView(id);
+  }, []);
+}
+
+/** עוקב אחרי כניסת האלמנט לתצוגה, פעם אחת בלבד, ואז מפסיק להאזין. */
+function useInViewOnce<T extends HTMLElement>(onView: () => void) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          onView();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onView יציב (useCallback ב-useMediaViewTracker)
+  }, []);
+  return ref;
+}
 
 const ratio = (item: Media) =>
   item.width && item.height && item.height > 0 ? item.width / item.height : 4 / 3;
@@ -86,6 +124,7 @@ export function EventStoryGallery({
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [reelsOpen, setReelsOpen] = useState(false);
   const [reelsStart, setReelsStart] = useState(0);
+  const trackView = useMediaViewTracker();
 
   const chapterName = useMemo(() => {
     const map = new Map<string, string>();
@@ -215,15 +254,21 @@ export function EventStoryGallery({
                 >
                   {row.length === 3 ? (
                     <>
-                      <StoryTile item={row[0]} tall onOpen={openViewer} />
+                      <StoryTile item={row[0]} tall onOpen={openViewer} onView={trackView} />
                       <div className="grid gap-4">
-                        <StoryTile item={row[1]} onOpen={openViewer} />
-                        <StoryTile item={row[2]} onOpen={openViewer} />
+                        <StoryTile item={row[1]} onOpen={openViewer} onView={trackView} />
+                        <StoryTile item={row[2]} onOpen={openViewer} onView={trackView} />
                       </div>
                     </>
                   ) : (
                     row.map((item) => (
-                      <StoryTile key={item.id} item={item} solo={row.length === 1} onOpen={openViewer} />
+                      <StoryTile
+                        key={item.id}
+                        item={item}
+                        solo={row.length === 1}
+                        onOpen={openViewer}
+                        onView={trackView}
+                      />
                     ))
                   )}
                 </div>
@@ -240,6 +285,7 @@ export function EventStoryGallery({
           chapterName={chapterName}
           onNavigate={setViewerIndex}
           onClose={closeViewer}
+          onView={trackView}
         />
       ) : null}
 
@@ -249,6 +295,7 @@ export function EventStoryGallery({
           startIndex={reelsStart}
           chapterName={chapterName}
           onClose={() => setReelsOpen(false)}
+          onView={trackView}
         />
       ) : null}
     </section>
@@ -262,23 +309,32 @@ function StoryTile({
   solo,
   tall,
   onOpen,
+  onView,
 }: {
   item: Media;
   solo?: boolean;
   tall?: boolean;
   onOpen: (item: Media) => void;
+  /** [1.14] מונה צפיות — נקרא פעם אחת כשהאריח נכנס לתצוגה בגלילה. */
+  onView: (id: string) => void;
 }) {
   const t = useTranslations('events');
+  const viewRef = useInViewOnce<HTMLElement>(() => onView(item.id));
   const ar = ratio(item);
 
   if (item.type === 'video') {
-    return <StoryVideo item={item} />;
+    return (
+      <div ref={viewRef as React.RefObject<HTMLDivElement>}>
+        <StoryVideo item={item} />
+      </div>
+    );
   }
 
   // סולו רחבה — נשמר היחס המקורי (בלי חיתוך); בקומפוזיציות — object-cover
   // עם נקודת המיקוד שנבחרה בניהול.
   return (
     <button
+      ref={viewRef as React.RefObject<HTMLButtonElement>}
       type="button"
       onClick={() => onOpen(item)}
       className="group relative w-full overflow-hidden rounded-[var(--radius-lg)] bg-cream-2 text-start focus-visible:ring-2 focus-visible:ring-gold/60"
@@ -363,16 +419,23 @@ function MediaViewer({
   chapterName,
   onNavigate,
   onClose,
+  onView,
 }: {
   media: Media[];
   index: number;
   chapterName: Map<string, string>;
   onNavigate: (index: number) => void;
   onClose: () => void;
+  onView: (id: string) => void;
 }) {
   const t = useTranslations('events');
   const item = media[index];
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  // [1.14] מונה צפיות — כל אינדקס שמוצג בפועל ב-Viewer נספר
+  useEffect(() => {
+    onView(item.id);
+  }, [item.id, onView]);
 
   const step = useCallback(
     (delta: number) => {
@@ -530,11 +593,13 @@ function EventReels({
   startIndex,
   chapterName,
   onClose,
+  onView,
 }: {
   media: Media[];
   startIndex: number;
   chapterName: Map<string, string>;
   onClose: () => void;
+  onView: (id: string) => void;
 }) {
   const t = useTranslations('events');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -552,7 +617,12 @@ function EventReels({
         for (const entry of entries) {
           if (entry.isIntersecting) {
             const index = Number((entry.target as HTMLElement).dataset.index);
-            if (!Number.isNaN(index)) setActive(index);
+            if (!Number.isNaN(index)) {
+              setActive(index);
+              // [1.14] מונה צפיות — פריט Reels שהופך פעיל נחשב "נצפה"
+              const viewedItem = media[index];
+              if (viewedItem) onView(viewedItem.id);
+            }
           }
         }
       },
@@ -564,6 +634,7 @@ function EventReels({
       observer.disconnect();
       document.body.style.overflow = '';
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- media/onView יציבים לאורך חיי ה-Reels
   }, [startIndex]);
 
   const activeItem = media[active];

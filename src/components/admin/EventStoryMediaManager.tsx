@@ -480,6 +480,13 @@ function SortableMediaCard({
             וידאו
           </span>
         ) : null}
+        {/* [1.14] מונה צפיות — נספר בכל תצוגה בפועל (סיפור/Reels/Viewer) */}
+        <span
+          className="absolute bottom-1.5 end-1.5 rounded-[var(--radius-pill)] bg-black/60 px-2 py-0.5 text-[0.7rem] text-white"
+          title="מספר הצפיות בפריט"
+        >
+          👁 {row.view_count.toLocaleString('he-IL')}
+        </span>
       </div>
 
       <div className="mt-2 space-y-1.5">

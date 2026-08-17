@@ -73,6 +73,7 @@ export function legacyGalleryToMedia(eventId: string, gallery: GalleryImage[]): 
       duration: null,
       video_provider: null,
       video_id: null,
+      view_count: 0,
       created_at: now,
       updated_at: now,
     }));
