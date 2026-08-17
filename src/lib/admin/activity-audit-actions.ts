@@ -40,3 +40,22 @@ export async function recordAdminUpload(bucket: string, path: string): Promise<v
     console.error('[admin:auditUpload]', error);
   }
 }
+
+/**
+ * [1.19] החלפת קובץ קיים בספריית המדיה — ההעלאה עצמה קורית בצד הלקוח
+ * (upsert על אותו path, בדיוק כמו uploadToBucket) כדי שקובץ גדול לא
+ * יעבור דרך גוף הבקשה של Server Action; זה רק התיעוד ביומן אחריה.
+ */
+export async function recordAdminStorageReplace(bucket: string, path: string): Promise<void> {
+  try {
+    const session = await getAdminSession();
+    if (!session) return;
+    const supabase = await createClient();
+    if (!supabase) return;
+    await writeAuditLog(supabase, session.userId, 'update', 'storage', null, {
+      context: `החלפת קובץ בספריית המדיה: ${bucket}/${path}`,
+    });
+  } catch (error) {
+    console.error('[admin:auditStorageReplace]', error);
+  }
+}

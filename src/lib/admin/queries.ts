@@ -668,3 +668,48 @@ export async function getBanner(id: string): Promise<Banner | null> {
   const { data } = await supabase.from('banners').select('*').eq('id', id).maybeSingle();
   return (data as Banner | null) ?? null;
 }
+
+/** [1.19] קובץ באחסון האתר — תוצאת admin_list_storage_files (50_media_library.sql). */
+export interface AdminStorageFile {
+  id: string;
+  bucket_id: string;
+  path: string;
+  owner_id: string | null;
+  uploader_email: string | null;
+  uploader_name: string | null;
+  created_at: string;
+  updated_at: string;
+  size_bytes: number | null;
+  mime_type: string | null;
+}
+
+/**
+ * [1.19] כל הקבצים בחמשת ה-buckets הציבוריים של האתר — דרך פונקציית
+ * עזר ב-SQL (לא storage.list() לכל bucket בנפרד): storage.objects הוא
+ * טבלה שטוחה, כך שגם קבצים תחת תיקיית משנה (pathPrefix ב-ImageField)
+ * מוחזרים בקריאה אחת, בלי רקורסיה ידנית בצד הלקוח.
+ */
+export async function listStorageFiles(): Promise<AdminStorageFile[]> {
+  const supabase = await client();
+  const { data, error } = await supabase.rpc('admin_list_storage_files');
+  if (error) {
+    console.error('[admin:mediaLibrary]', error.code, error.message);
+    return [];
+  }
+  return (data as AdminStorageFile[] | null) ?? [];
+}
+
+/**
+ * מונה צפיות פר-קובץ ב-bucket "events" בלבד — event_media.view_count
+ * הוא היחיד שקיים באמת (ראו 49_media_views.sql); שאר ה-buckets אין
+ * להם שום מונה פר-קובץ, ולכן אין מפה מקבילה עבורם.
+ */
+export async function getEventMediaViewsByUrl(): Promise<Map<string, number>> {
+  const supabase = await client();
+  const { data } = await supabase.from('event_media').select('url, view_count');
+  const map = new Map<string, number>();
+  for (const row of (data as { url: string; view_count: number }[] | null) ?? []) {
+    map.set(row.url, row.view_count);
+  }
+  return map;
+}

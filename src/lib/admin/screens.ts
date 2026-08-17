@@ -42,7 +42,8 @@ export type ScreenKey =
   | 'team'
   | 'org-settings'
   | 'audit-log'
-  | 'diagnostics';
+  | 'diagnostics'
+  | 'media-library';
 
 export interface ScreenDef {
   key: ScreenKey;
@@ -80,17 +81,20 @@ export const SCREENS: readonly ScreenDef[] = [
   { key: 'org-settings', label: 'הגדרות ארגון', family: 'system' },
   { key: 'audit-log', label: 'יומן ביקורת', family: 'system' },
   { key: 'diagnostics', label: 'אבחון', family: 'system' },
+  { key: 'media-library', label: 'ספריית מדיה', family: 'system' },
 ] as const;
 
 /**
- * שלושת המסכים האלה נשארים admin-בלבד תמיד, בלי אפשרות override — ניהול
+ * ארבעת המסכים האלה נשארים admin-בלבד תמיד, בלי אפשרות override — ניהול
  * צוות (הזמנת/הדחת אנשי צוות ושינוי תפקידים) לא ניתן להאציל בכוונה, ויומן
  * הביקורת/האבחון עוקבים גם אחרי admin עצמו ונשארים ברגישות הקיימת שלהם היום
- * (requireRole('admin')). "הגדרות ארגון" (org-settings) *לא* ברשימה הזו —
- * בעל האתר הגדיר מפורשות שמנהל ראשי מקבל "גישה לכל ההגדרות, לא כולל הוספת
- * משתמשים", וזהות הארגון היא הגדרה, לא ניהול צוות.
+ * (requireRole('admin')). ספריית המדיה מצטרפת לקבוצה הזו כי היא חושפת מייל
+ * מעלה (PII קל) ומאפשרת מחיקת קובץ מכל bucket באתר — פעולה הרסנית חוצת-ישויות
+ * שאין לה "מסך בעלים" משלה כמו books/events. "הגדרות ארגון" (org-settings)
+ * *לא* ברשימה הזו — בעל האתר הגדיר מפורשות שמנהל ראשי מקבל "גישה לכל
+ * ההגדרות, לא כולל הוספת משתמשים", וזהות הארגון היא הגדרה, לא ניהול צוות.
  */
-export const ADMIN_ONLY_SCREENS = new Set<ScreenKey>(['team', 'audit-log', 'diagnostics']);
+export const ADMIN_ONLY_SCREENS = new Set<ScreenKey>(['team', 'audit-log', 'diagnostics', 'media-library']);
 
 const CONTENT_SCREENS = SCREENS.filter((s) => s.family === 'content').map((s) => s.key);
 const STORE_SCREENS = SCREENS.filter((s) => s.family === 'store').map((s) => s.key);
