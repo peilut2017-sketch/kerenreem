@@ -992,7 +992,12 @@ export async function saveEventBlocks(
   }[],
 ): Promise<ActionResult> {
   try {
-    const session = await assertScreenPermission('books', 'edit');
+    // 'events' ולא 'books': הבדיקה כאן חייבת להתיישר עם השער של עמוד עריכת
+    // האירוע (events/[id]/page.tsx). בדיקת 'books' — שריד העתקה מהפונקציות
+    // של הספרים למעלה — חסמה עורכי אירועים שהרשאת הספרים שלהם בוטלה:
+    // ההעלאה ל-Storage הצליחה (נבדקת לפי תפקיד), אבל השמירה כאן נכשלה
+    // ב"אין הרשאה", והתמונות לא הופיעו לא בניהול ולא באתר.
+    const session = await assertScreenPermission('events', 'edit');
     if ('error' in session) return session;
 
     const supabase = await createClient();
@@ -1027,6 +1032,10 @@ export async function saveEventBlocks(
         return { error: describeDbError(insertion.error).message };
       }
     }
+
+    // תיעוד ביומן הפעולות — record_id הוא האירוע, כי הבלוקים מוחלפים
+    // כמקשה אחת ואין להם זהות יציבה משלהם בין שמירות.
+    await writeAudit(supabase, session.userId, 'update', 'event_blocks', eventId);
 
     revalidatePath(`/[locale]/events/[slug]`, 'page');
     revalidatePath(`/admin/events/${eventId}`);
