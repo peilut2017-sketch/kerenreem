@@ -253,7 +253,10 @@
     "imageCounter": "{index} of {total}",
     "momentsCount": "{count, plural, one {One moment from the event} other {# moments from the event}}",
     "momentsCta": "Start watching",
-    "share": "Share"
+    "share": "Share",
+    "scrollDown": "Scroll down",
+    "discoverAnotherEvent": "Another gallery",
+    "viewOtherGallery": "View gallery ←"
   },
   "pages": {
     "about": "About",

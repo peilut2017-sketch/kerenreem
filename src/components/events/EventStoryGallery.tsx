@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Img } from '@/components/Img';
+import { Link } from '@/i18n/navigation';
 import { recordEventMediaView } from '@/lib/events/view-actions';
 import { toCdnUrl } from '@/lib/image-src';
-import { localizedOrNull } from '@/lib/localized';
+import { localized, localizedOrNull } from '@/lib/localized';
+import type { SuggestedEvent } from '@/lib/data';
 import type { EventChapter, EventMediaItem } from '@/lib/supabase/types';
 
 /**
@@ -115,10 +117,13 @@ export function EventStoryGallery({
   media,
   chapters,
   locale,
+  suggestedEvent = null,
 }: {
   media: Media[];
   chapters: EventChapter[];
   locale: string;
+  /** [1.14] אירוע אחר עם גלריה — מוצע בכרטיס בסיום דפדוף ה-Reels. */
+  suggestedEvent?: SuggestedEvent | null;
 }) {
   const t = useTranslations('events');
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
@@ -296,6 +301,8 @@ export function EventStoryGallery({
           chapterName={chapterName}
           onClose={() => setReelsOpen(false)}
           onView={trackView}
+          suggestedEvent={suggestedEvent}
+          locale={locale}
         />
       ) : null}
     </section>
@@ -594,16 +601,26 @@ function EventReels({
   chapterName,
   onClose,
   onView,
+  suggestedEvent,
+  locale,
 }: {
   media: Media[];
   startIndex: number;
   chapterName: Map<string, string>;
   onClose: () => void;
   onView: (id: string) => void;
+  suggestedEvent: SuggestedEvent | null;
+  locale: string;
 }) {
   const t = useTranslations('events');
   const containerRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(startIndex);
+  // [1.14] רמז "גלול למטה" — עד שהמשתמש גולל בפועל או אחרי זמן קצר,
+  // כדי שברור מהרגע הראשון שהגלילה (לא הקשה) היא הדרך להתקדם. "גלל
+  // בפועל" נגזר ישירות מ-active (לא state נפרד) — רק הפקיעה בזמן היא
+  // אפקט אמיתי.
+  const [hintTimedOut, setHintTimedOut] = useState(false);
+  const showHint = active === startIndex && !hintTimedOut;
 
   // הפריט הפעיל נקבע לפי מה שתפוס במרכז המסך — scroll-snap עושה את השאר
   useEffect(() => {
@@ -637,16 +654,28 @@ function EventReels({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- media/onView יציבים לאורך חיי ה-Reels
   }, [startIndex]);
 
+  // הרמז פוקע מעצמו אחרי 3 שניות (גם אם המשתמש לא גלל) — showHint עצמו
+  // כבר נכבה מייד כשהוא גולל בפועל, כנגזרת של active מול startIndex
+  useEffect(() => {
+    const timeout = setTimeout(() => setHintTimedOut(true), 3000);
+    return () => clearTimeout(timeout);
+  }, []);
+
   const activeItem = media[active];
+  const onSuggestionSlide = active >= media.length;
 
   return (
     <div role="dialog" aria-modal="true" aria-label={t('gallery')} className="fixed inset-0 z-[70] bg-navy">
       {/* התקדמות + סגירה — מעל הרצף */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between bg-gradient-to-b from-navy/70 to-transparent px-4 pb-8 pt-3 text-cream">
         <span className="text-caption tabular-nums">
-          {t('imageCounter', { index: active + 1, total: media.length })}
-          {activeItem?.chapter_id && chapterName.get(activeItem.chapter_id) ? (
-            <span className="ms-2 text-cream/75">· {chapterName.get(activeItem.chapter_id)}</span>
+          {!onSuggestionSlide ? (
+            <>
+              {t('imageCounter', { index: active + 1, total: media.length })}
+              {activeItem?.chapter_id && chapterName.get(activeItem.chapter_id) ? (
+                <span className="ms-2 text-cream/75">· {chapterName.get(activeItem.chapter_id)}</span>
+              ) : null}
+            </>
           ) : null}
         </span>
         <button
@@ -659,6 +688,26 @@ function EventReels({
             <path d="m5 5 10 10M15 5 5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
+      </div>
+
+      {/* [1.14] רמז גלילה בכניסה — חץ פועם למטה + כיתוב, נעלם בגלילה
+          הראשונה או אחרי 3 שניות. pointer-events-none כדי שלא יחסום מגע. */}
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-x-0 bottom-24 z-10 flex flex-col items-center gap-1.5 text-cream transition-opacity duration-500 ${
+          showHint ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <span className="text-caption font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
+          {t('scrollDown')}
+        </span>
+        <svg
+          viewBox="0 0 20 20"
+          className="h-5 w-5 animate-bounce drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+          fill="none"
+        >
+          <path d="m5 8 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
 
       <div
@@ -716,6 +765,38 @@ function EventReels({
             ) : null}
           </div>
         ))}
+
+        {/* [1.14] הצעת "מעבר לגלריה אחרת" — שקופית אחרונה באותו רצף
+            הגלילה, לא מסך נפרד: ממשיכה את תחושת הדפדוף הטבעית. */}
+        {suggestedEvent ? (
+          <div
+            data-index={media.length}
+            className="relative flex h-dvh snap-start flex-col items-center justify-center gap-6 overflow-hidden bg-navy px-8 text-center"
+          >
+            {suggestedEvent.cover_image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- שכבת רקע מטושטשת
+              <img
+                src={toCdnUrl(suggestedEvent.cover_image_url)}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-30 blur-2xl"
+              />
+            ) : null}
+            <div className="absolute inset-0 bg-navy/55" aria-hidden="true" />
+            <div className="relative z-10 max-w-xs">
+              <p className="eyebrow text-gold">{t('discoverAnotherEvent')}</p>
+              <h3 className="mt-3 font-display text-[1.5rem] leading-snug text-cream">
+                {localized(suggestedEvent, 'title', locale)}
+              </h3>
+              <Link
+                href={`/events/${suggestedEvent.slug}`}
+                className="btn btn-solid mt-6 inline-flex"
+              >
+                {t('viewOtherGallery')}
+              </Link>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

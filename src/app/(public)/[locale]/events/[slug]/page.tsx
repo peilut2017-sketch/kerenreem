@@ -10,7 +10,7 @@ import { EventJourneyProgress } from '@/components/events/EventJourneyProgress';
 import { EventLightboxProvider } from '@/components/events/EventLightbox';
 import { EventBlockList } from '@/components/events/EventBlockList';
 import { EventStoryGallery } from '@/components/events/EventStoryGallery';
-import { getEventBySlug, getEventSlugs } from '@/lib/data';
+import { getEventBySlug, getEventSlugs, getOtherEventWithMedia } from '@/lib/data';
 import { buildEventGalleryIndex, extractEventStages, legacyGalleryToMedia } from '@/lib/event-gallery';
 import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
@@ -82,6 +82,9 @@ export default async function EventPage({
   // מותאמת לאותה צורה — כך "הגלריה הישנה" (הרשת/הפס הנפרדים) הוסרה
   // כליל, ואין עוד שני מסלולי תצוגה.
   const storyMedia = event.media?.length ? event.media : legacyGalleryToMedia(event.id, event.gallery ?? []);
+  // [1.14] הצעת "מעבר לגלריה אחרת" בסיום דפדוף ה-Reels — נטען רק כשיש
+  // בכלל מה להציע (מדיה קיימת), לא סתם על כל טעינת עמוד.
+  const suggestedEvent = storyMedia.length > 0 ? await getOtherEventWithMedia(event.id, slug) : null;
 
   return (
     <article>
@@ -120,7 +123,12 @@ export default async function EventPage({
           <Container className="pb-16 pt-6">
             <SectionHeading title={t('gallery')} />
             <div className="mt-6">
-              <EventStoryGallery media={storyMedia} chapters={event.chapters ?? []} locale={locale} />
+              <EventStoryGallery
+                media={storyMedia}
+                chapters={event.chapters ?? []}
+                locale={locale}
+                suggestedEvent={suggestedEvent}
+              />
             </div>
           </Container>
         ) : null}

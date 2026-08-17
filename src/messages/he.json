@@ -253,7 +253,10 @@
     "imageCounter": "{index} מתוך {total}",
     "momentsCount": "{count, plural, one {רגע אחד מהאירוע} two {שני רגעים מהאירוע} other {# רגעים מהאירוע}}",
     "momentsCta": "התחילו לצפות",
-    "share": "שיתוף"
+    "share": "שיתוף",
+    "scrollDown": "גלול למטה",
+    "discoverAnotherEvent": "גלריה נוספת",
+    "viewOtherGallery": "צפייה בגלריה ←"
   },
   "pages": {
     "about": "אודות",
