@@ -162,7 +162,13 @@ export function EventStoryMediaManager({
     if (items.length > 0) {
       startTransition(async () => {
         const result = await addEventMedia(eventId, items);
-        if (result?.error) setError(result.error);
+        if (result?.error) {
+          setError(result.error);
+        } else if (result?.items?.length) {
+          // [1.14] הצגה מיידית — לא ממתינים ל-router.refresh() כדי לראות
+          // את הפריטים שהועלו הרגע; הפעולה כבר מחזירה אותם עם ה-id שלהם
+          setMedia((rows) => [...rows, ...result.items!]);
+        }
         router.refresh();
       });
     }
@@ -186,8 +192,12 @@ export function EventStoryMediaManager({
             parsed.provider === 'youtube' ? `https://i.ytimg.com/vi/${parsed.id}/hqdefault.jpg` : null,
         },
       ]);
-      if (result?.error) setError(result.error);
-      else setVideoUrl('');
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        if (result?.items?.length) setMedia((rows) => [...rows, ...result.items!]);
+        setVideoUrl('');
+      }
       router.refresh();
     });
   }

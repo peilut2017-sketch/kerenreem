@@ -78,49 +78,57 @@ export function EventJourneyProgress({ stages, heroId }: { stages: string[]; her
   if (stages.length === 0) return null;
 
   return (
+    // [1.14] הרצועה הזו מוצגת רק אחרי שגללו מעבר לכל ה-Hero — כלומר תמיד
+    // כשה-header כבר במצב צף (קפסולה ממורכזת, מוזחת מקצוות המסך —
+    // useHeaderState). בלי ההתאמה כאן היא נשארת ברוחב מלא-מסך בעוד
+    // הכותרת מעליה כבר מצומצמת, וזה בדיוק מה שגרם לה "לברוח" ברוחב
+    // ממנה. אותם קבועים בדיוק (px-3/sm:px-5 בשכבה החיצונית,
+    // mx-auto max-w-[82rem] בפנימית) כמו SiteHeaderClient במצב צף.
     <div
       style={{ top: headerHeight }}
-      className={`sticky z-30 border-b border-rule bg-cream/90 backdrop-blur transition-all duration-500 ${
+      className={`sticky z-30 px-3 transition-all duration-500 sm:px-5 ${
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
       }`}
     >
-      <nav aria-label={t('journey')} className="mx-auto max-w-4xl overflow-x-auto px-4 py-2.5 sm:px-6">
-        <ul ref={listRef} className="relative flex w-max items-center gap-1">
-          <span
-            ref={markerRef}
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-1 left-0 rounded-[var(--radius-pill)] bg-cream-2 transition-[transform,width] duration-300 ease-[var(--ease-spring)]"
-          />
-          {stages.map((stage, index) => (
-            <li
-              key={stage}
-              ref={(node) => {
-                itemRefs.current[index] = node;
-              }}
-            >
-              <span
-                aria-current={active === index ? 'true' : undefined}
-                className={`relative z-10 flex items-center gap-2 whitespace-nowrap rounded-[var(--radius-pill)] px-3.5 py-1.5 text-caption transition-colors ${
-                  active === index ? 'font-semibold text-burgundy' : 'text-ink-soft'
-                }`}
+      <div className="mx-auto max-w-[82rem] rounded-b-[var(--radius-lg)] border-b border-rule bg-cream/90 backdrop-blur">
+        <nav aria-label={t('journey')} className="mx-auto max-w-4xl overflow-x-auto px-4 py-2.5 sm:px-6">
+          <ul ref={listRef} className="relative flex w-max items-center gap-1">
+            <span
+              ref={markerRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-1 left-0 rounded-[var(--radius-pill)] bg-cream-2 transition-[transform,width] duration-300 ease-[var(--ease-spring)]"
+            />
+            {stages.map((stage, index) => (
+              <li
+                key={stage}
+                ref={(node) => {
+                  itemRefs.current[index] = node;
+                }}
               >
                 <span
-                  aria-hidden="true"
-                  className={`h-1.5 w-1.5 rounded-[var(--radius-pill)] transition-colors ${
-                    active >= index ? 'bg-burgundy' : 'bg-rule-strong'
+                  aria-current={active === index ? 'true' : undefined}
+                  className={`relative z-10 flex items-center gap-2 whitespace-nowrap rounded-[var(--radius-pill)] px-3.5 py-1.5 text-caption transition-colors ${
+                    active === index ? 'font-semibold text-burgundy' : 'text-ink-soft'
                   }`}
-                />
-                {stage}
-                {index < stages.length - 1 ? (
-                  <span aria-hidden="true" className="mx-1 text-rule-strong">
-                    ―
-                  </span>
-                ) : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </nav>
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-[var(--radius-pill)] transition-colors ${
+                      active >= index ? 'bg-burgundy' : 'bg-rule-strong'
+                    }`}
+                  />
+                  {stage}
+                  {index < stages.length - 1 ? (
+                    <span aria-hidden="true" className="mx-1 text-rule-strong">
+                      ―
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
     </div>
   );
 }
