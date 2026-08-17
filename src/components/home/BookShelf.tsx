@@ -198,13 +198,14 @@ function BookOnShelf({
               src={book.coverUrl}
               alt={book.coverAlt}
               fill
-              sizes="152px"
+              sizes="280px"
+              quality={90}
               className="object-cover"
             />
           ) : baseCoverUrl ? (
             /* [1.12] חזית מבוססת תמונת הבסיס — שם הספר בזהב בתוך הקשת */
             <span className="relative flex h-full w-full items-center justify-center overflow-hidden">
-              <Image src={baseCoverUrl} alt="" fill sizes="152px" className="object-cover" />
+              <Image src={baseCoverUrl} alt="" fill sizes="280px" quality={90} className="object-cover" />
               <span
                 className="relative line-clamp-4 px-[18%] text-center font-bold leading-snug text-gold-bright"
                 style={{
@@ -240,16 +241,23 @@ function Spine({ book }: { book: ShelfBook }) {
   const { spineUrl: baseSpineUrl } = usePlaceholderArt();
 
   if (book.spineUrl) {
-    return <Image src={book.spineUrl} alt="" fill sizes="36px" className="object-cover" />;
+    // [1.14] sizes מכוון לרוחב בלבד היה גורם ל-next/image להוריד תמונה
+    // קטנה גם בגובה (יחס-רוחב-גובה של המקור), ו-object-cover על תיבה
+    // צרה וגבוהה כל-כך נאלץ אז למתוח אותה כלפי מעלה — זו הייתה סיבת
+    // ה"טשטוש": לא שכבה עיצובית אלא הגדלה (upscale) של תמונה קטנה מדי.
+    // sizes נדיב יותר, קרוב לגובה המדף בפועל, מבטיח רזולוציה מספקת.
+    return <Image src={book.spineUrl} alt="" fill sizes="280px" quality={90} className="object-cover" />;
   }
 
   // [1.12] שדרת בסיס מההגדרות: תמונת שדרת העור הגנרית, ושם הספר מוטבע
-  // בשליש העליון בזהב ובגופן תורני — במקום השדרה הצבעונית הנגזרת מהכריכה.
+  // בשליש העליון-אמצעי בזהב ובגופן תורני — במקום השדרה הצבעונית הנגזרת
+  // מהכריכה. [1.14] הכיתוב יורד מעט מקצה השדרה ומשתרע עד גבול שני-
+  // השליש העליונים (לא נכנס לשליש התחתון).
   if (baseSpineUrl) {
     return (
       <span className="relative flex h-full w-full items-start justify-center overflow-hidden">
-        <Image src={baseSpineUrl} alt="" fill sizes="44px" className="object-cover" />
-        <span className="relative mt-[9%] flex max-h-[26%] flex-col items-center gap-1">
+        <Image src={baseSpineUrl} alt="" fill sizes="280px" quality={90} className="object-cover" />
+        <span className="relative mt-[16%] flex max-h-[48%] flex-col items-center gap-1">
           <span aria-hidden="true" className="h-px w-[70%] shrink-0 bg-gold/70" />
           <span
             className="overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 text-[0.6875rem] font-bold leading-none text-gold-bright"
@@ -273,7 +281,7 @@ function Spine({ book }: { book: ShelfBook }) {
         background: `linear-gradient(to left, ${book.spineEdge} 0%, ${book.spineBase} 22%, ${book.spineBase} 78%, ${book.spineEdge} 100%)`,
       }}
     >
-      <span className="mt-[9%] flex max-h-[26%] flex-col items-center gap-1">
+      <span className="mt-[16%] flex max-h-[48%] flex-col items-center gap-1">
         <span aria-hidden="true" className="h-px w-[62%] shrink-0 bg-gold/55" />
         <span className="overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 font-serif text-[0.6875rem] leading-none text-gold-bright/90">
           {book.title}
