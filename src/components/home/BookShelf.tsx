@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Img as Image } from '@/components/Img';
+import { usePlaceholderArt } from '@/components/placeholder-art-context';
 import { Link } from '@/i18n/navigation';
 
 export interface ShelfBook {
@@ -143,6 +144,8 @@ function BookOnShelf({
   onEnter: () => void;
   onFocus: () => void;
 }) {
+  const { coverUrl: baseCoverUrl } = usePlaceholderArt();
+
   // גובה משתנה קלות לפי המיקום — ספרים אמיתיים על מדף אינם באותו גובה
   // בדיוק. נגזר מהאינדקס ולא מ-random, כדי שהשרת והלקוח יסכימו.
   const heights = [
@@ -198,6 +201,21 @@ function BookOnShelf({
               sizes="152px"
               className="object-cover"
             />
+          ) : baseCoverUrl ? (
+            /* [1.12] חזית מבוססת תמונת הבסיס — שם הספר בזהב בתוך הקשת */
+            <span className="relative flex h-full w-full items-center justify-center overflow-hidden">
+              <Image src={baseCoverUrl} alt="" fill sizes="152px" className="object-cover" />
+              <span
+                className="relative line-clamp-4 px-[18%] text-center font-bold leading-snug text-gold-bright"
+                style={{
+                  fontFamily: "var(--font-david-libre), 'David Libre', serif",
+                  fontSize: '0.8rem',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                }}
+              >
+                {book.title}
+              </span>
+            </span>
           ) : (
             <span className="flex h-full w-full items-center justify-center bg-navy px-2 text-center font-serif text-caption text-cream">
               {book.title}
@@ -222,8 +240,29 @@ function BookOnShelf({
  * שנבחר, נקרא בקורא מסך ומתפצל לשורות אם צריך.
  */
 function Spine({ book }: { book: ShelfBook }) {
+  const { spineUrl: baseSpineUrl } = usePlaceholderArt();
+
   if (book.spineUrl) {
     return <Image src={book.spineUrl} alt="" fill sizes="36px" className="object-cover" />;
+  }
+
+  // [1.12] שדרת בסיס מההגדרות: תמונת שדרת העור הגנרית, ושם הספר מוטבע
+  // לאורכה בזהב ובגופן תורני — במקום השדרה הצבעונית הנגזרת מהכריכה.
+  if (baseSpineUrl) {
+    return (
+      <span className="relative flex h-full w-full items-center justify-center overflow-hidden">
+        <Image src={baseSpineUrl} alt="" fill sizes="44px" className="object-cover" />
+        <span
+          className="relative max-h-[68%] overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 text-[0.6875rem] font-bold leading-none text-gold-bright"
+          style={{
+            fontFamily: "var(--font-david-libre), 'David Libre', serif",
+            textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+          }}
+        >
+          {book.title}
+        </span>
+      </span>
+    );
   }
 
   return (
