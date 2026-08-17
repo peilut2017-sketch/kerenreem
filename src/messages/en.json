@@ -209,6 +209,7 @@
     "publisher": "Publisher",
     "edition": "Edition",
     "badgeFeatured": "Editors' pick",
+    "illustrativeImage": "Illustrative image",
     "flipAriaLabel": "Page through {title}",
     "flipPageAlt": "Page {page} of {title}",
     "flipEnlarge": "Enlarged reading",

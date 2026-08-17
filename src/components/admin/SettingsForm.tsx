@@ -85,6 +85,26 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         />
       </FieldSet>
 
+      <FieldSet
+        legend="תמונות בסיס לספרים"
+        description="ספר שאין לו תמונת כריכה, הדמיה או תמונת שדרה יוצג על גבי תמונות הבסיס האלה — שם הספר יוטבע עליהן בזהב בגופן תורני, עם כיתוב מוקטן שזו תמונת המחשה. ריק — הכריכה הגנרית המצוירת תשמש כברירת מחדל."
+      >
+        <ImageField
+          name="book_base_cover_url"
+          label="כריכת בסיס"
+          bucket="site"
+          defaultValue={typeof extra.book_base_cover_url === 'string' ? extra.book_base_cover_url : null}
+          hint="תמונת כריכת עור גנרית ביחס עומד (למשל 3:4). שם הספר ימוקם במרכז, בתוך הקשת."
+        />
+        <ImageField
+          name="book_base_spine_url"
+          label="שדרת בסיס"
+          bucket="site"
+          defaultValue={typeof extra.book_base_spine_url === 'string' ? extra.book_base_spine_url : null}
+          hint="תמונת שדרת עור גנרית — מומלץ חתוכה צמוד לשדרה עצמה, בלי רקע לבן מסביב. שם הספר יוטבע לאורכה במדף שבעמוד הבית."
+        />
+      </FieldSet>
+
       <FieldSet legend="רשתות" description="הקישורים מוצגים בתחתית האתר כלוגו של הרשת המתאימה.">
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField name="social_facebook" label="Facebook" type="url" dir="ltr" defaultValue={social.facebook} />

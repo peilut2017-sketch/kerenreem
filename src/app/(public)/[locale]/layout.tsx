@@ -4,6 +4,7 @@ import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { FONT_VARIABLES } from '@/lib/fonts';
 import { CustomFontsStyle } from '@/components/CustomFontsStyle';
+import { PlaceholderArtProvider } from '@/components/placeholder-art-context';
 import { routing, localeDirection, type Locale } from '@/i18n/routing';
 import { getSiteSettings } from '@/lib/data';
 import { getCommerceFlags } from '@/lib/commerce/settings';
@@ -72,12 +73,22 @@ export default async function PublicLayout({
 
   setRequestLocale(locale);
 
-  const [settings, flags, t] = await Promise.all([
+  const [settings, flags, t, tBooks] = await Promise.all([
     getSiteSettings(),
     getCommerceFlags(),
     getTranslations('site'),
+    getTranslations('books'),
   ]);
   const dir = localeDirection[locale as Locale];
+
+  // [1.12] תמונות הבסיס לספרים חסרי-תמונה (ניהול ← הגדרות) — ראו
+  // placeholder-art-context.tsx
+  const extra = settings.extra ?? {};
+  const placeholderArt = {
+    coverUrl: typeof extra.book_base_cover_url === 'string' ? extra.book_base_cover_url : null,
+    spineUrl: typeof extra.book_base_spine_url === 'string' ? extra.book_base_spine_url : null,
+    captionLabel: tBooks('illustrativeImage'),
+  };
 
   return (
     <html lang={locale} dir={dir} className={FONT_VARIABLES}>
@@ -89,6 +100,7 @@ export default async function PublicLayout({
       </head>
       <body>
         <NextIntlClientProvider>
+          <PlaceholderArtProvider value={placeholderArt}>
           <CartProvider enabled={flags.cartEnabled} locale={locale}>
             <a href="#main" className="skip-link">
               {t('skipToContent')}
@@ -117,6 +129,7 @@ export default async function PublicLayout({
             <AnalyticsBeacon />
             <MiniCart />
           </CartProvider>
+          </PlaceholderArtProvider>
         </NextIntlClientProvider>
         <GoogleAnalytics />
       </body>

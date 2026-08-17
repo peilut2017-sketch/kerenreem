@@ -68,6 +68,9 @@ export async function saveSettings(
   const extraError = await mergeExtra(supabase, {
     about_image_url: text(formData, 'about_image_url') || null,
     shelf_backdrop_url: text(formData, 'shelf_backdrop_url') || null,
+    // [1.12] תמונות הבסיס לספרים חסרי-תמונה — ראו placeholder-art-context
+    book_base_cover_url: text(formData, 'book_base_cover_url') || null,
+    book_base_spine_url: text(formData, 'book_base_spine_url') || null,
   });
   if (extraError) return { status: 'error', message: extraError.error };
 
