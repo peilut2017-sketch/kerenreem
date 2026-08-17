@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { recordAdminLogin } from '@/lib/admin/activity-audit-actions';
 
 /**
  * התחברות בדואר אלקטרוני וסיסמה מול Supabase Auth.
@@ -55,6 +56,14 @@ export function LoginForm({ next }: { next?: string }) {
       setError('פרטי ההתחברות שגויים.');
       setPending(false);
       return;
+    }
+
+    // [1.11] תיעוד הכניסה ביומן הביקורת — הזהות נקראת מה-session בשרת,
+    // וכשל בתיעוד אינו חוסם את ההתחברות שכבר הצליחה.
+    try {
+      await recordAdminLogin();
+    } catch {
+      /* best-effort */
     }
 
     // ההפניה מוגבלת לנתיבים פנימיים תחת /admin, כדי שפרמטר next

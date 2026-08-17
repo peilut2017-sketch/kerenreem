@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { MAIN_NAV } from './SiteHeader';
+import { SocialIcon, SOCIAL_NAMES } from './SocialIcon';
 import { Wordmark } from './Wordmark';
 import { CookieSettingsButton } from './CookieConsentBanner';
 import type { SiteSettings } from '@/lib/supabase/types';
@@ -10,13 +11,6 @@ const LEGAL_NAV = [
   { href: '/privacy', key: 'privacy' },
   { href: '/accessibility', key: 'accessibility' },
 ] as const;
-
-const SOCIAL_LABELS: Record<string, string> = {
-  facebook: 'Facebook',
-  youtube: 'YouTube',
-  instagram: 'Instagram',
-  x: 'X',
-};
 
 export async function SiteFooter({ settings, locale }: { settings: SiteSettings; locale: string }) {
   const t = await getTranslations();
@@ -108,17 +102,20 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
               ) : null}
             </address>
 
+            {/* [1.11] לוגו הרשת במקום שם הרשת כטקסט — SocialIcon.tsx */}
             {social.length > 0 ? (
-              <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-2">
+              <ul className="mt-5 flex flex-wrap gap-2.5">
                 {social.map(([name, url]) => (
                   <li key={name}>
                     <a
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-caption text-cream-2/70 underline underline-offset-4 transition-colors hover:text-gold"
+                      aria-label={SOCIAL_NAMES[name] ?? name}
+                      title={SOCIAL_NAMES[name] ?? name}
+                      className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-pill)] border border-white/15 text-cream-2/70 transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/60 hover:text-gold motion-reduce:transform-none"
                     >
-                      {SOCIAL_LABELS[name] ?? name}
+                      <SocialIcon name={name} className="h-4.5 w-4.5" />
                     </a>
                   </li>
                 ))}

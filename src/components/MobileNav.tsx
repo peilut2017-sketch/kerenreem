@@ -87,8 +87,8 @@ export function MobileNav({
         // absolute עם top:100% נגד ancestor כזה חישב מיקום שגוי. fixed
         // עם --site-header-h (אותו משתנה שמזין את שאר האתר) עצמאי
         // מהמבנה של ה-header ונכון בשני מצביו.
-        className={`glass fixed inset-x-0 top-[calc(var(--site-header-h,4.75rem)+0.5rem)] z-40 origin-top rounded-[var(--radius-xl)] transition-[opacity,transform] duration-300 ease-[var(--ease-spring)] motion-reduce:transition-none ${
-          open ? 'translate-y-0 scale-100 opacity-100' : '-translate-y-2 scale-[0.97] opacity-0'
+        className={`glass fixed inset-x-0 top-[calc(var(--site-header-h,4.75rem)+0.5rem)] z-40 origin-top rounded-[var(--radius-xl)] transition-[opacity,transform] duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
+          open ? 'translate-y-0 scale-100 opacity-100' : '-translate-y-2 scale-[0.96] opacity-0'
         }`}
       >
         <div className="mx-auto w-full max-w-[82rem] px-5 py-6 sm:px-6">

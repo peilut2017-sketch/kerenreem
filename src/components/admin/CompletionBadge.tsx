@@ -1,5 +1,5 @@
-import { computeCompletion } from '@/lib/completion';
-import type { Book, BookRelations } from '@/lib/supabase/types';
+import { computeCompletion, type CompletionSignals } from '@/lib/completion';
+import type { Book } from '@/lib/supabase/types';
 
 /**
  * תגית אחוז ההשלמה. הצבע משתנה רק ב-100% — לא מדרג בין 40 ל-70: האחוז
@@ -7,8 +7,8 @@ import type { Book, BookRelations } from '@/lib/supabase/types';
  * ואין לדרגות ביניים משמעות אחידה שמצדיקה עוד צבעים — טווח האחוזים
  * עצמו כבר משקף חשיבות, לא רק כמות.
  */
-export function CompletionBadge({ book, relations }: { book: Book; relations: BookRelations }) {
-  const { percent, missing } = computeCompletion(book, relations);
+export function CompletionBadge({ book, signals }: { book: Book; signals: CompletionSignals }) {
+  const { percent, missing } = computeCompletion(book, signals);
   const complete = percent === 100;
 
   return (

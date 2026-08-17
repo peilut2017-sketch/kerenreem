@@ -24,6 +24,9 @@
     "check:colors": "node --experimental-strip-types scripts/check-cover-colors.mjs"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@hebcal/core": "^6.8.2",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.95.3",

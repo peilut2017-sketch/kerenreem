@@ -12,13 +12,26 @@ export function EventForm({ event, canWrite }: { event: EventRecord | null; canW
     <EntityForm entity="events" id={event?.id ?? null} canWrite={canWrite} backHref="/admin/events">
       {(errors) => (
         <>
-          <FieldSet legend="זיהוי">
+          {/* [1.11] תהליך ההוספה ממוקד סיקור: אירוע כאן הוא תיעוד של מה
+              שכבר התקיים — לא אירוע עתידי ביומן. שלושה צעדים: פרטי יסוד
+              (המסך הזה) → שמירה → העלאת המדיה וחלוקה לשלבים באזור
+              "מדיה וסיפור האירוע" שנפתח מיד אחרי. */}
+          {!event ? (
+            <p className="border-s-2 border-gold-deep bg-cream-2 px-4 py-3 text-small text-ink-soft">
+              כאן מתעדים אירוע <strong>שכבר התקיים</strong> — סיקור, לא יומן. מלאו את פרטי
+              היסוד ושמרו; מיד אחרי השמירה ייפתח אזור ״מדיה וסיפור האירוע״ להעלאת התמונות
+              והסרטונים, סידורם בגרירה וחלוקתם לשלבים.
+            </p>
+          ) : null}
+
+          <FieldSet legend="פרטי יסוד">
             <TextField
               name="title_he"
               label="שם האירוע (עברית)"
               required
               defaultValue={event?.title_he}
               error={errors.title_he}
+              hint="למשל: מעמד הכנסת ספר תורה, כנס השקת הספר…"
             />
             <TextField
               name="slug"
@@ -33,7 +46,7 @@ export function EventForm({ event, canWrite }: { event: EventRecord | null; canW
           </FieldSet>
 
           <FieldSet
-            legend="תאריך"
+            legend="מתי התקיים"
             description="התאריך הלועזי הוא מקור האמת — לפיו האתר ממיין ומחשב את התאריך העברי אוטומטית. שדה התאריך העברי נועד לאירוע שנתי חוזר (למשל ט״ו באב), שבו התאריך העברי קבוע והלועזי משתנה משנה לשנה."
           >
             <div className="grid gap-5 sm:grid-cols-2">
@@ -77,12 +90,17 @@ export function EventForm({ event, canWrite }: { event: EventRecord | null; canW
               defaultValue={event?.featured_video_url}
               hint="כתובת YouTube או Vimeo. אם יש גם וידאו ברצף הסיפור למטה, זה נוסף עליו ולא מחליף אותו."
             />
-            <GalleryField
-              name="gallery"
-              label="גלריה מסיימת"
-              defaultValue={event?.gallery}
-              hint="תמונות שלא שובצו ידנית לתוך רצף הסיפור — מוצגות בהדרגה בסוף העמוד."
-            />
+            {/* הגלריה הישנה (jsonb) מוצגת רק לאירוע שכבר יש בה תוכן —
+                מהמעבר ל-Event Story Gallery, המדיה מנוהלת באזור "מדיה
+                וסיפור האירוע" (טבלת event_media, עם גרירה ושלבים). */}
+            {event && Array.isArray(event.gallery) && event.gallery.length > 0 ? (
+              <GalleryField
+                name="gallery"
+                label="גלריה ישנה (לפני מערכת הסיפור)"
+                defaultValue={event.gallery}
+                hint="תמונות מהמערכת הקודמת. מוצגות באתר רק כל עוד לא הועלתה מדיה באזור ״מדיה וסיפור האירוע״ למטה — שם מומלץ לנהל את התמונות מעתה."
+              />
+            ) : null}
           </FieldSet>
 
           <FieldSet legend="פרסום">

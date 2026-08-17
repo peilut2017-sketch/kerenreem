@@ -23,8 +23,8 @@
   "home": {
     "catalogueLead": "From the catalogue",
     "catalogueAll": "All books",
-    "activitiesLead": "What we do",
-    "eventsLead": "Events",
+    "activitiesLead": "The institute at work",
+    "eventsLead": "Moments and coverage",
     "eventsAll": "All events",
     "aboutLead": "About the institute",
     "aboutMore": "Continue reading",
@@ -249,7 +249,10 @@
     "journey": "Progress through the event",
     "closingGalleryLead": "You have seen the heart of the event",
     "showFullGallery": "Continue to the full gallery ({count} more photos)",
-    "imageCounter": "{index} of {total}"
+    "imageCounter": "{index} of {total}",
+    "momentsCount": "{count, plural, one {One moment from the event} other {# moments from the event}}",
+    "momentsCta": "Start watching",
+    "share": "Share"
   },
   "pages": {
     "about": "About",
@@ -296,7 +299,24 @@
     "emailLabel": "Email",
     "lead": "Get in touch",
     "goToForm": "Go to the contact form",
-    "tooMany": "Too many messages sent in a short time. Please wait a minute and try again."
+    "tooMany": "Too many messages sent in a short time. Please wait a minute and try again.",
+    "tabGeneral": "General inquiry",
+    "tabGeneralHint": "Questions, collaborations and anything else",
+    "tabBook": "Notes on our books",
+    "tabBookHint": "Found a note, insight or correction in one of the books? We'd love to hear",
+    "bookLabel": "Book",
+    "bookEmpty": "Choose a book from the catalogue",
+    "bookSearch": "Search by title or author…",
+    "bookRequired": "Please choose a book from the catalogue",
+    "pageLabel": "Page",
+    "pageHint": "e.g. 124",
+    "feedbackLabel": "Your note",
+    "feedbackHint": "Write your note — you can emphasise, use lists and quote.",
+    "rtBold": "Bold",
+    "rtItalic": "Italic",
+    "rtBulletList": "Bullet list",
+    "rtOrderedList": "Numbered list",
+    "rtQuote": "Quote"
   },
   "footer": {
     "navHeading": "Navigation",

@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { requireRole, getAllScreenAccess } from '@/lib/admin/auth';
+import { countNewInquiries } from '@/lib/admin/queries';
+import { getCustomFonts } from '@/lib/data';
 import { AdminNav } from '@/components/admin/AdminNav';
+import { CustomFontsProvider } from '@/components/admin/custom-fonts-context';
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import { ROLE_LABELS } from '@/lib/admin/permissions';
 import { SignOutButton } from '@/components/admin/SignOutButton';
@@ -25,8 +28,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const session = await requireRole('viewer');
   const screenAccess = await getAllScreenAccess(session);
+  // תג "פניות חדשות" על לשונית הפניות — נטען רק למי שרואה את המסך
+  const unreadMessages = screenAccess.messages?.view ? await countNewInquiries() : 0;
+  // גופנים מותקנים — לבורר הגופנים בעורכי הטקסט, ראו custom-fonts-context
+  const customFontChoices = (await getCustomFonts()).map((font) => ({
+    label: font.name,
+    value: `var(--font-custom-${font.slug})`,
+  }));
 
   return (
+    <CustomFontsProvider fonts={customFontChoices}>
     <div className="flex min-h-dvh flex-col bg-[var(--admin-canvas)]">
       {/* מורכב פעם אחת ברמת הפריסה, לא בתוך עמוד — כך הודעת "נשמר" נשארת
           גלויה גם כש-EntityForm מנווט משם מיד אחרי, ראו toast-bus.ts. */}
@@ -69,7 +80,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
 
         <div className="mx-auto w-full max-w-[80rem] px-6 pb-3">
-          <AdminNav role={session.profile.role} screenAccess={screenAccess} />
+          <AdminNav role={session.profile.role} screenAccess={screenAccess} unreadMessages={unreadMessages} />
         </div>
       </header>
 
@@ -77,5 +88,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <main className="min-w-0">{children}</main>
       </div>
     </div>
+    </CustomFontsProvider>
   );
 }

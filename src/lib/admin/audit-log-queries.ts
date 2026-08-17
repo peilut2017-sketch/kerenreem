@@ -33,6 +33,14 @@ export interface AuditLogRow {
 export interface AuditLogFilter {
   tableName?: string;
   page?: string;
+  /** סינון לפי סוג פעולה (insert/update/delete/login/upload/reorder…). */
+  action?: string;
+  /** סינון לפי מבצע הפעולה. */
+  userId?: string;
+  /** חיפוש טקסט חופשי בשדה ההקשר. */
+  q?: string;
+  /** 'asc' — מהישן לחדש; ברירת המחדל מהחדש לישן. */
+  sort?: string;
 }
 
 export interface AuditLogResult {
@@ -55,6 +63,7 @@ export const AUDIT_TABLE_LABELS: Record<string, string> = {
   tags: 'תגיות',
   contact_topics: 'נושאי פנייה',
   contact_fields: 'שדות פנייה',
+  contact_messages: 'פניות',
   shipping_methods: 'שיטות משלוח',
   store_settings: 'הגדרות חנות',
   site_settings: 'הגדרות אתר',
@@ -62,7 +71,34 @@ export const AUDIT_TABLE_LABELS: Record<string, string> = {
   profiles: 'צוות',
   orders: 'הזמנות',
   book_costs: 'עלויות ספרים',
+  book_images: 'גלריות ספרים',
+  book_toc: 'תוכן עניינים',
+  book_preview_pages: 'דפי דפדוף',
+  event_blocks: 'סיפורי אירועים',
+  event_media: 'מדיית אירועים',
+  event_chapters: 'שלבי אירועים',
+  auth: 'התחברות',
+  storage: 'קבצים',
 };
+
+export const AUDIT_ACTION_LABELS: Record<string, string> = {
+  insert: 'יצירה',
+  update: 'עדכון',
+  delete: 'מחיקה',
+  login: 'כניסה למערכת',
+  upload: 'העלאת קובץ',
+  reorder: 'סידור מחדש',
+  reply: 'מענה',
+  status: 'שינוי סטטוס',
+};
+
+/** רשימת המבצעים שמופיעים ביומן — לסינון "לפי מי". */
+export async function listAuditActors(): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase.from('profiles').select('id, full_name').order('full_name');
+  return (data ?? []).map((row) => ({ id: row.id, name: row.full_name ?? row.id.slice(0, 8) }));
+}
 
 export async function listAuditLog(filter: AuditLogFilter): Promise<AuditLogResult> {
   const page = Math.max(1, Math.floor(Number(filter.page) || 1));
@@ -77,10 +113,17 @@ export async function listAuditLog(filter: AuditLogFilter): Promise<AuditLogResu
     .select('id, user_id, action, table_name, record_id, actor_type, context, old_values, new_values, created_at', {
       count: 'exact',
     })
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: filter.sort === 'asc' })
     .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (filter.tableName) query = query.eq('table_name', filter.tableName);
+  if (filter.action) query = query.eq('action', filter.action);
+  if (filter.userId) query = query.eq('user_id', filter.userId);
+  if (filter.q?.trim()) {
+    // חיפוש טקסט חופשי בהקשר — התווים % ו-_ מנוטרלים כדי שלא יתפרשו כתבנית
+    const needle = filter.q.trim().replace(/[%_]/g, '\\$&');
+    query = query.ilike('context', `%${needle}%`);
+  }
 
   const { data, error, count } = await query;
   if (error) {

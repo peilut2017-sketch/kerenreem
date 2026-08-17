@@ -2,6 +2,7 @@
 
 import { headers } from 'next/headers';
 import { getTranslations } from 'next-intl/server';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -195,10 +196,125 @@ export async function submitContact(
     attachments,
     topic_id: topicId || null,
     custom_field_values: customFieldValues,
+    kind: 'general',
   });
 
   if (error) {
     console.error('[contact] insert failed', error);
+    return { status: 'error', message: t('error') };
+  }
+
+  return { status: 'success' };
+}
+
+/** גוף עשיר → טקסט פשוט, לעמודת message (חיפוש, תצוגות ישנות, מייל טקסט). */
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<(?:br|\/p|\/li|\/h[1-6]|\/blockquote)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * [1.11] פנייה בנושא הערות והארות על ספר — הטופס השני במערכת הפניות:
+ * בחירת ספר מהקטלוג, מספר עמוד, גוף עשיר (מנוקה כאן, בשרת) וקבצים.
+ * אותן הגנות בדיוק כמו הטופס הכללי: מלכודת בוטים, הגבלת קצב, קאפצ'ה.
+ */
+export async function submitBookFeedback(
+  _prev: ContactFormState,
+  formData: FormData,
+): Promise<ContactFormState> {
+  const t = await getTranslations('contact');
+
+  if (String(formData.get('website') ?? '').trim() !== '') {
+    return { status: 'success' };
+  }
+
+  const requestHeaders = await headers();
+  const ip =
+    requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    requestHeaders.get('x-real-ip') ||
+    'unknown';
+
+  if (rateLimited(ip)) {
+    return { status: 'error', message: t('tooMany') };
+  }
+
+  const name = String(formData.get('name') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim();
+  const phone = String(formData.get('phone') ?? '').trim();
+  const bookId = String(formData.get('book_id') ?? '').trim();
+  const pageReference = String(formData.get('page_reference') ?? '').trim();
+  const rawHtml = String(formData.get('message_html') ?? '');
+  const consent = formData.get('consent') === 'on';
+  const attachments = parseAttachments(formData.get('attachments'));
+
+  const supabase = await createClient();
+  if (!supabase) {
+    return { status: 'error', message: t('error') };
+  }
+
+  const messageHtml = sanitizeHtml(rawHtml);
+  const messageText = htmlToPlainText(messageHtml);
+
+  const fieldErrors: Record<string, string> = {};
+  if (!name) fieldErrors.name = t('required');
+  if (!email) fieldErrors.email = t('required');
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) fieldErrors.email = t('invalidEmail');
+  if (!bookId) fieldErrors.book_id = t('bookRequired');
+  if (!messageText) fieldErrors.message_html = t('required');
+  if (!consent) fieldErrors.consent = t('consentRequired');
+  if (name.length > MAX.name || email.length > MAX.email || phone.length > MAX.phone) {
+    return { status: 'error', message: t('error') };
+  }
+  if (pageReference.length > 40) fieldErrors.page_reference = t('error');
+  if (messageHtml.length > 20000) fieldErrors.message_html = t('error');
+
+  // הספר נבדק מול המסד — לא סומכים על מזהה שהגיע מהדפדפן
+  let bookTitle = '';
+  if (bookId) {
+    const { data: book } = await supabase
+      .from('books')
+      .select('id, title_he')
+      .eq('id', bookId)
+      .eq('is_published', true)
+      .maybeSingle();
+    if (!book) fieldErrors.book_id = t('bookRequired');
+    else bookTitle = book.title_he;
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { status: 'error', fieldErrors };
+  }
+
+  if (captchaEnabled) {
+    const token = String(formData.get('g-recaptcha-response') ?? '');
+    if (!token || !(await verifyCaptcha(token, ip))) {
+      return { status: 'error', message: t('captchaRequired') };
+    }
+  }
+
+  const { error } = await supabase.from('contact_messages').insert({
+    name,
+    email,
+    phone: phone || null,
+    subject: bookTitle ? `הערות והארות: ${bookTitle}`.slice(0, 160) : null,
+    message: messageText.slice(0, 4000),
+    message_html: messageHtml,
+    attachments,
+    kind: 'book_feedback',
+    book_id: bookId,
+    page_reference: pageReference || null,
+  });
+
+  if (error) {
+    console.error('[contact] book feedback insert failed', error);
     return { status: 'error', message: t('error') };
   }
 

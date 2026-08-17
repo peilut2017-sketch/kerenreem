@@ -39,7 +39,7 @@ export async function saveSettings(
     accessibility_officer: text(formData, 'accessibility_officer'),
   };
 
-  const socialKeys = ['facebook', 'youtube', 'instagram', 'x'];
+  const socialKeys = ['facebook', 'youtube', 'instagram', 'x', 'linkedin', 'whatsapp', 'telegram'];
   const social_links = Object.fromEntries(
     socialKeys.map((key) => [key, text(formData, `social_${key}`)]).filter(([, value]) => value),
   );
@@ -62,11 +62,21 @@ export async function saveSettings(
 
   if (error) return { status: 'error', message: `השמירה נכשלה: ${error.message}` };
 
+  // [1.11] תמונות עמוד הבית — מקטע "על המכון" ורקע המדף. חיות ב-extra
+  // (jsonb) כמו שאר הדגלים הנקודתיים; ריק = חזרה לנגזרת האוטומטית
+  // (תמונת ציר פעילות/אירוע), ולכן המפתח נמחק ולא נשמר כמחרוזת ריקה.
+  const extraError = await mergeExtra(supabase, {
+    about_image_url: text(formData, 'about_image_url') || null,
+    shelf_backdrop_url: text(formData, 'shelf_backdrop_url') || null,
+  });
+  if (extraError) return { status: 'error', message: extraError.error };
+
   await supabase.from('audit_log').insert({
     user_id: session.userId,
     action: 'update',
     table_name: 'site_settings',
     record_id: null,
+    context: 'עדכון הגדרות האתר',
   });
 
   // הגדרות נצרכות בכל עמוד (כותרת, כותרת תחתונה) ולכן מרעננים את כל האתר.

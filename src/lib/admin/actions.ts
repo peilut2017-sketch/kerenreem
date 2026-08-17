@@ -4,6 +4,7 @@ import { reconcileBookStockFromForm } from '@/lib/commerce/inventory';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { auditDisplayName, diffForAudit, writeAuditLog, type AuditDetails } from './audit';
 import { assertRole, assertScreenPermission } from './auth';
 import {
   ENTITIES,
@@ -153,23 +154,19 @@ export async function revalidateAllPublicPages(): Promise<ActionResult> {
 }
 
 /**
- * תיעוד הפעולה ב-audit_log.
- *
- * best-effort במכוון: אם הטבלה חסומה או חסרה, זו אינה סיבה להכשיל שמירה
- * שכבר הצליחה. הכשל נרשם לקונסול כדי שלא ייעלם בשקט.
+ * תיעוד הפעולה ב-audit_log — כולל פירוט (ערכים לפני/אחרי והקשר קריא),
+ * ראו lib/admin/audit.ts. best-effort במכוון: אם הטבלה חסומה או חסרה,
+ * זו אינה סיבה להכשיל שמירה שכבר הצליחה.
  */
 async function writeAudit(
   supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
   userId: string,
-  action: 'insert' | 'update' | 'delete',
+  action: string,
   table: string,
   recordId: string | null,
+  details?: AuditDetails,
 ) {
-  const { error } = await supabase
-    .from('audit_log')
-    .insert({ user_id: userId, action, table_name: table, record_id: recordId });
-
-  if (error) console.error('[admin:audit]', error.code, error.message);
+  await writeAuditLog(supabase, userId, action, table, recordId, details);
 }
 
 /**
@@ -332,6 +329,14 @@ export async function saveEntity(
       delete payload.stock_quantity;
     }
 
+    // [1.11] המצב שלפני העדכון — ליומן הביקורת (ערכים ישן←חדש). שליפה
+    // אחת לפני הכתיבה; ביצירה אין "לפני" ונרשם ה-payload בלבד.
+    let oldRecord: Record<string, unknown> | null = null;
+    if (id) {
+      const { data: before } = await supabase.from(entity.table).select('*').eq('id', id).maybeSingle();
+      oldRecord = (before as Record<string, unknown> | null) ?? null;
+    }
+
     // רק id. הקוד הזה משרת את כל הישויות, ולכן אסור לו לנקוב בעמודה
     // שקיימת רק בחלקן: בקשת slug הפילה כל שמירת באנר ב-42703, כי לבאנרים
     // אין מזהה כתובת. ה-slug גם לא נקרא כאן מעולם.
@@ -370,7 +375,14 @@ export async function saveEntity(
       if (relationError) return { status: 'error', message: relationError };
     }
 
-    await writeAudit(supabase, session.userId, id ? 'update' : 'insert', entity.table, savedId);
+    {
+      const diff = diffForAudit(oldRecord, payload);
+      await writeAudit(supabase, session.userId, id ? 'update' : 'insert', entity.table, savedId, {
+        oldValues: id ? diff.oldValues : null,
+        newValues: diff.newValues,
+        context: auditDisplayName(payload, oldRecord),
+      });
+    }
     revalidateEntity(entityKey as EntityKey);
 
     // הניווט אחרי שמירה מוכרע בלקוח (ראו EntityForm.tsx), לא כאן בשרת:
@@ -445,7 +457,10 @@ export async function toggleEntityField(
     if (error) return { ok: false, error: describeDbError(error, entity).message };
     if (!data) return { ok: false, error: 'העדכון לא נשמר: הרשומה לא נמצאה או שאין לך הרשאה לערוך אותה.' };
 
-    await writeAudit(supabase, session.userId, 'update', entity.table, id);
+    await writeAudit(supabase, session.userId, 'update', entity.table, id, {
+      newValues: { [fieldName]: value },
+      context: `שינוי מהיר של ${fieldName}`,
+    });
     revalidateEntity(entityKey as EntityKey);
     return { ok: true };
   } catch (error) {
@@ -519,13 +534,19 @@ export async function deleteEntity(entityKey: string, id: string): Promise<Actio
       if (tag?.is_system) return { error: 'תגית מערכת — אי אפשר למחוק אותה מהממשק.' };
     }
 
+    // הרשומה שעומדת להימחק — נשמרת ביומן הביקורת, אחרון עדותה
+    const { data: doomed } = await supabase.from(entity.table).select('*').eq('id', id).maybeSingle();
+
     const { error } = await supabase.from(entity.table).delete().eq('id', id);
     if (error) {
       console.error('[admin:delete]', error.code, error.message);
       return { error: describeDbError(error, entity).message };
     }
 
-    await writeAudit(supabase, session.userId, 'delete', entity.table, id);
+    await writeAudit(supabase, session.userId, 'delete', entity.table, id, {
+      oldValues: (doomed as Record<string, unknown> | null) ?? null,
+      context: auditDisplayName(doomed as Record<string, unknown> | null),
+    });
     revalidateEntity(entityKey as EntityKey);
     done = true;
   } catch (error) {
@@ -572,6 +593,10 @@ export async function togglePublished(
       return { error: describeDbError(error, entity).message };
     }
 
+    await writeAudit(supabase, session.userId, 'update', entity.table, id, {
+      newValues: { is_published: next },
+      context: next ? 'פרסום מהרשימה' : 'ביטול פרסום מהרשימה',
+    });
     revalidateEntity(entityKey as EntityKey);
     return {};
   } catch (error) {
@@ -616,7 +641,12 @@ export async function bulkUpdateBooks(
 
     await Promise.all(
       ids.map((id) =>
-        writeAudit(supabase, session.userId, action === 'delete' ? 'delete' : 'update', entity.table, id),
+        writeAudit(supabase, session.userId, action === 'delete' ? 'delete' : 'update', entity.table, id, {
+          newValues: action === 'delete' ? null : { is_published: action === 'publish' },
+          context: `פעולה מרוכזת (${ids.length} ספרים): ${
+            action === 'delete' ? 'מחיקה' : action === 'publish' ? 'פרסום' : 'ביטול פרסום'
+          }`,
+        }),
       ),
     );
 
@@ -657,6 +687,12 @@ export async function createTag(name: string): Promise<{ tag?: Tag; error?: stri
       return { error: describeDbError(error).message };
     }
 
+    if (data) {
+      await writeAudit(supabase, session.userId, 'insert', 'tags', data.id, {
+        newValues: { name_he: trimmed },
+        context: `${trimmed} — יצירה מהירה מטופס הספר`,
+      });
+    }
     revalidatePath('/admin/books');
     return { tag: (data as Tag) ?? undefined };
   } catch (error) {
@@ -698,6 +734,12 @@ export async function createAuthorQuick(name: string): Promise<{ author?: Author
       return { error: describeDbError(error, ENTITIES.authors).message };
     }
 
+    if (data) {
+      await writeAudit(supabase, session.userId, 'insert', 'authors', data.id, {
+        newValues: { name_he: trimmed },
+        context: `${trimmed} — יצירה מהירה מטופס הספר`,
+      });
+    }
     revalidatePath('/admin/books');
     revalidatePath('/admin/authors');
     return { author: (data as Author) ?? undefined };
@@ -729,6 +771,12 @@ export async function createCategoryQuick(name: string): Promise<{ category?: Ca
       return { error: describeDbError(error, ENTITIES.categories).message };
     }
 
+    if (data) {
+      await writeAudit(supabase, session.userId, 'insert', 'categories', data.id, {
+        newValues: { name_he: trimmed },
+        context: `${trimmed} — יצירה מהירה מטופס הספר`,
+      });
+    }
     revalidatePath('/admin/books');
     revalidatePath('/admin/categories');
     return { category: (data as Category) ?? undefined };
@@ -760,6 +808,12 @@ export async function createSeriesQuick(name: string): Promise<{ series?: Series
       return { error: describeDbError(error, ENTITIES.series).message };
     }
 
+    if (data) {
+      await writeAudit(supabase, session.userId, 'insert', 'series', data.id, {
+        newValues: { name_he: trimmed },
+        context: `${trimmed} — יצירה מהירה מטופס הספר`,
+      });
+    }
     revalidatePath('/admin/books');
     revalidatePath('/admin/series');
     return { series: (data as Series) ?? undefined };
@@ -801,7 +855,9 @@ export async function saveSeriesOrder(seriesId: string, bookIds: string[]): Prom
       if (error) return { error: error.message };
     }
 
-    await writeAudit(supabase, session.userId, 'update', 'series', seriesId);
+    await writeAudit(supabase, session.userId, 'reorder', 'series', seriesId, {
+      context: `סידור מחדש של ${ordered.length} כרכים בסדרה`,
+    });
     revalidatePath('/admin/series');
     revalidateEntity('books');
     return {};
@@ -853,6 +909,9 @@ export async function saveBookImages(
       }
     }
 
+    await writeAudit(supabase, session.userId, 'update', 'book_images', bookId, {
+      context: `עדכון גלריית ספר — ${rows.length} תמונות`,
+    });
     revalidatePath(`/[locale]/books/[slug]`, 'page');
     revalidatePath(`/admin/books/${bookId}`);
     return {};
@@ -898,6 +957,9 @@ export async function saveBookToc(
       }
     }
 
+    await writeAudit(supabase, session.userId, 'update', 'book_toc', bookId, {
+      context: `עדכון תוכן עניינים — ${rows.length} שורות`,
+    });
     revalidatePath(`/[locale]/books/[slug]`, 'page');
     revalidatePath(`/admin/books/${bookId}`);
     return {};
@@ -961,6 +1023,9 @@ export async function saveBookPreviewPages(
       return { error: describeDbError(removal.error).message };
     }
 
+    await writeAudit(supabase, session.userId, 'update', 'book_preview_pages', bookId, {
+      context: `עדכון דפי דפדוף — ${rows.length} עמודים`,
+    });
     revalidatePath(`/[locale]/books/[slug]`, 'page');
     revalidatePath(`/admin/books/${bookId}`);
     return {};
@@ -992,11 +1057,9 @@ export async function saveEventBlocks(
   }[],
 ): Promise<ActionResult> {
   try {
-    // 'events' ולא 'books': הבדיקה כאן חייבת להתיישר עם השער של עמוד עריכת
-    // האירוע (events/[id]/page.tsx). בדיקת 'books' — שריד העתקה מהפונקציות
-    // של הספרים למעלה — חסמה עורכי אירועים שהרשאת הספרים שלהם בוטלה:
-    // ההעלאה ל-Storage הצליחה (נבדקת לפי תפקיד), אבל השמירה כאן נכשלה
-    // ב"אין הרשאה", והתמונות לא הופיעו לא בניהול ולא באתר.
+    // [1.11] תוקן: המסך הנבדק הוא events — לא books; העמוד שמפעיל את
+    // הפעולה בודק requireScreenPermission('events'), והפעולה חייבת לבדוק
+    // את אותו שער בדיוק.
     const session = await assertScreenPermission('events', 'edit');
     if ('error' in session) return session;
 
@@ -1033,10 +1096,9 @@ export async function saveEventBlocks(
       }
     }
 
-    // תיעוד ביומן הפעולות — record_id הוא האירוע, כי הבלוקים מוחלפים
-    // כמקשה אחת ואין להם זהות יציבה משלהם בין שמירות.
-    await writeAudit(supabase, session.userId, 'update', 'event_blocks', eventId);
-
+    await writeAudit(supabase, session.userId, 'update', 'event_blocks', eventId, {
+      context: `עדכון רצף סיפור האירוע — ${rows.length} בלוקים`,
+    });
     revalidatePath(`/[locale]/events/[slug]`, 'page');
     revalidatePath(`/admin/events/${eventId}`);
     return {};

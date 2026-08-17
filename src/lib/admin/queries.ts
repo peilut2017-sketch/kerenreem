@@ -18,7 +18,10 @@ import type {
   ContactTopic,
   Tag,
   ContentPage,
+  CustomFont,
   EventBlock,
+  EventChapter,
+  EventMediaItem,
   EventRecord,
   Profile,
   Series,
@@ -57,6 +60,58 @@ export async function listBookIdsWithTags(): Promise<Set<string>> {
   const supabase = await client();
   const { data } = await supabase.from('book_tags').select('book_id');
   return new Set((data as { book_id: string }[] | null)?.map((row) => row.book_id) ?? []);
+}
+
+/**
+ * [1.11] אותות ההשלמה לכל טבלאות-הבת של ספר — יש/אין לכל ספר, בשליפה
+ * אחת לכל טבלה (book_id בלבד) ולא שאילתה מקוננת פר-ספר. מד ההשלמה
+ * מכסה כעת את כל הלשוניות, ולכן הרשימה ומסך המוכנות זקוקים גם לגלריה,
+ * לתוכן העניינים, לדפי הדפדוף, למדפים המשניים ולמאפיינים — לא רק לתגיות.
+ */
+export interface BookCompletionSignalIds {
+  tags: string[];
+  shelves: string[];
+  attributes: string[];
+  images: string[];
+  toc: string[];
+  previews: string[];
+}
+
+export async function listBookCompletionSignals(): Promise<BookCompletionSignalIds> {
+  const supabase = await client();
+  const pick = (data: { book_id: string }[] | null) => [
+    ...new Set((data ?? []).map((row) => row.book_id)),
+  ];
+  const [tags, shelves, attributes, images, toc, previews] = await Promise.all([
+    supabase.from('book_tags').select('book_id'),
+    supabase.from('book_categories').select('book_id'),
+    supabase.from('book_attributes').select('book_id'),
+    supabase.from('book_images').select('book_id'),
+    supabase.from('book_toc').select('book_id'),
+    supabase.from('book_preview_pages').select('book_id'),
+  ]);
+  return {
+    tags: pick(tags.data),
+    shelves: pick(shelves.data),
+    attributes: pick(attributes.data),
+    images: pick(images.data),
+    toc: pick(toc.data),
+    previews: pick(previews.data),
+  };
+}
+
+/**
+ * העדפת תצוגה אישית של המשתמש המחובר. ה-RLS מגביל את הקריאה לשורות
+ * של המשתמש עצמו, ולכן אין צורך בסינון user_id בצד האפליקציה.
+ */
+export async function getUserPref<T>(key: string): Promise<T | null> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('admin_user_prefs')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  return (data?.value as T | undefined) ?? null;
 }
 
 /**
@@ -392,6 +447,9 @@ export async function listScreenOverrides(): Promise<ScreenOverrideRow[]> {
   return (data as ScreenOverrideRow[] | null) ?? [];
 }
 
+export type InquiryKind = 'general' | 'book_feedback';
+export type InquiryStatus = 'new' | 'read' | 'in_progress' | 'todo' | 'resolved';
+
 export interface ContactMessage {
   id: string;
   name: string;
@@ -399,12 +457,30 @@ export interface ContactMessage {
   phone: string | null;
   subject: string | null;
   message: string;
+  /** גוף עשיר (הערות והארות על ספר) — מנוקה בשרת בזמן הקליטה. */
+  message_html: string | null;
   attachments: ContactAttachment[];
   topic_id: string | null;
   topic: { name_he: string; name_en: string | null } | null;
   /** מפתח = contact_fields.id, ערך = תשובת הפונה. */
   custom_field_values: Record<string, string | boolean>;
   is_handled: boolean;
+  kind: InquiryKind;
+  status: InquiryStatus;
+  book_id: string | null;
+  book: { title_he: string; slug: string } | null;
+  page_reference: string | null;
+  created_at: string;
+}
+
+export interface ContactReply {
+  id: string;
+  message_id: string;
+  user_id: string | null;
+  user_name?: string | null;
+  body_html: string;
+  sent_to: string;
+  delivery_status: 'sent' | 'skipped' | 'failed';
   created_at: string;
 }
 
@@ -412,10 +488,45 @@ export async function listContactMessages(): Promise<ContactMessage[]> {
   const supabase = await client();
   const { data } = await supabase
     .from('contact_messages')
-    .select('*, topic:contact_topics ( name_he, name_en )')
+    .select('*, topic:contact_topics ( name_he, name_en ), book:books ( title_he, slug )')
     .order('created_at', { ascending: false })
     .limit(200);
   return (data as ContactMessage[] | null) ?? [];
+}
+
+/**
+ * כל המענות לפניות שברשימה — שאילתה אחת, הקיבוץ לפי פנייה נעשה בלקוח.
+ * שמות המשיבים מצורפים כאן כדי שהשרשור בפנייה יציג "מי ענה" בלי
+ * שאילתה נוספת לכל מענה.
+ */
+export async function listContactReplies(): Promise<ContactReply[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('contact_replies')
+    .select('*')
+    .order('created_at', { ascending: true })
+    .limit(1000);
+  const replies = (data as ContactReply[] | null) ?? [];
+
+  const userIds = [...new Set(replies.map((reply) => reply.user_id).filter((id): id is string => Boolean(id)))];
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
+    const names = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
+    for (const reply of replies) {
+      reply.user_name = reply.user_id ? (names.get(reply.user_id) ?? null) : null;
+    }
+  }
+  return replies;
+}
+
+/** מספר הפניות החדשות — לתג שעל לשונית הפניות ולדשבורד הראשי. */
+export async function countNewInquiries(): Promise<number> {
+  const supabase = await client();
+  const { count } = await supabase
+    .from('contact_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new');
+  return count ?? 0;
 }
 
 export async function listContactTopics(): Promise<ContactTopic[]> {
@@ -481,10 +592,39 @@ export async function getDashboardCounts() {
     countRows('books', 'is_published', false),
     countRows('authors'),
     countRows('events'),
-    countRows('contact_messages', 'is_handled', false),
+    // "פניות חדשות" — במודל הסטטוסים החדש (מיגרציה 46), לא is_handled
+    countRows('contact_messages', 'status', 'new'),
   ]);
 
   return { books, drafts, authors, events, messages };
+}
+
+/** מדיית סיפור האירוע — למסך העריכה (כולל פריטים מוסתרים). */
+export async function getEventMediaAdmin(eventId: string): Promise<EventMediaItem[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('event_media')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('sort_order');
+  return (data as EventMediaItem[] | null) ?? [];
+}
+
+export async function getEventChaptersAdmin(eventId: string): Promise<EventChapter[]> {
+  const supabase = await client();
+  const { data } = await supabase
+    .from('event_chapters')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('sort_order');
+  return (data as EventChapter[] | null) ?? [];
+}
+
+/** כל הגופנים המותקנים, גם כבויים — למסך ההגדרות. */
+export async function listCustomFontsAdmin(): Promise<CustomFont[]> {
+  const supabase = await client();
+  const { data } = await supabase.from('custom_fonts').select('*').order('created_at');
+  return (data as CustomFont[] | null) ?? [];
 }
 
 export async function listBanners(): Promise<Banner[]> {

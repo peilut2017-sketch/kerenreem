@@ -16,7 +16,10 @@ import type {
   ContactField,
   ContactTopic,
   ContentPage,
+  CustomFont,
   EventBlock,
+  EventChapter,
+  EventMediaItem,
   EventRecord,
   SiteSettings,
   Tag,
@@ -679,9 +682,16 @@ export async function getEvents(): Promise<EventRecord[]> {
  * ששלב חדש הוסיף, אחרת מיגרציה שטרם רצתה מפילה את כל הרשימה ולא רק את
  * העמוד הבודד. getEvents() ממשיך להשתמש ב-'*' פשוט ואינו מושפע כלל.
  */
-const EVENT_DETAIL_SELECT = `*, blocks:event_blocks ( * )`;
+const EVENT_DETAIL_SELECT = `*, blocks:event_blocks ( * ), media:event_media ( * ), chapters:event_chapters ( * )`;
+const EVENT_DETAIL_SELECT_LEGACY = `*, blocks:event_blocks ( * )`;
 
-export async function getEventBySlug(slug: string): Promise<EventRecord | null> {
+/** אירוע מלא לעמוד התצוגה — כולל מדיית הסיפור והשלבים (מיגרציה 48). */
+export type EventDetail = EventRecord & {
+  media?: EventMediaItem[];
+  chapters?: EventChapter[];
+};
+
+export async function getEventBySlug(slug: string): Promise<EventDetail | null> {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.eventBySlug(slug) : null;
 
@@ -689,16 +699,22 @@ export async function getEventBySlug(slug: string): Promise<EventRecord | null> 
     (select) =>
       supabase.from('events').select(select).eq('slug', slug).eq('is_published', true).maybeSingle(),
     'getEventBySlug',
-    [EVENT_DETAIL_SELECT, '*'],
+    [EVENT_DETAIL_SELECT, EVENT_DETAIL_SELECT_LEGACY, '*'],
   );
 
   if (!raw) return null;
 
-  const event = raw as EventRecord & { blocks?: unknown };
+  const event = raw as EventDetail & { blocks?: unknown };
   const blocks = Array.isArray(event.blocks)
     ? [...(event.blocks as EventBlock[])].sort((a, b) => a.sort_order - b.sort_order)
     : undefined;
-  return { ...event, blocks };
+  const media = Array.isArray(event.media)
+    ? [...event.media].filter((item) => item.is_visible).sort((a, b) => a.sort_order - b.sort_order)
+    : undefined;
+  const chapters = Array.isArray(event.chapters)
+    ? [...event.chapters].sort((a, b) => a.sort_order - b.sort_order)
+    : undefined;
+  return { ...event, blocks, media, chapters };
 }
 
 export async function getEventSlugs(): Promise<string[]> {
@@ -742,6 +758,22 @@ const EMPTY_SETTINGS: SiteSettings = {
  * ההגדרות נצרכות ב-layout (כותרת עליונה ותחתונה) וגם בכמה עמודים באותה
  * בקשה. cache() מונע שאילתה חוזרת לכל צרכן.
  */
+/**
+ * [1.11] הגופנים המותקנים הפעילים — ל-CustomFontsStyle בשני ה-root
+ * layouts ולבורר הגופנים בעורך. cache() כי נקרא בכל עמוד.
+ */
+export const getCustomFonts = cache(async (): Promise<CustomFont[]> => {
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('custom_fonts')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+  warn('getCustomFonts', error);
+  return (data as CustomFont[] | null) ?? [];
+});
+
 export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.settings() : EMPTY_SETTINGS;

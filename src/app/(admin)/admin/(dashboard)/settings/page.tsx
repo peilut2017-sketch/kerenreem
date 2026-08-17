@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
-import { getSettings } from '@/lib/admin/queries';
+import { getSettings, listCustomFontsAdmin } from '@/lib/admin/queries';
 import { AdminHeader } from '@/components/admin/AdminList';
+import { FontsManager } from '@/components/admin/FontsManager';
 import { SettingsForm } from '@/components/admin/SettingsForm';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export default async function AdminSettingsPage() {
   // settings-actions.ts, שירדו לאותה דרגה, וscreens.ts (org-settings אינו
   // ב-ADMIN_ONLY_SCREENS).
   await requireRole('manager');
-  const settings = await getSettings();
+  const [settings, customFonts] = await Promise.all([getSettings(), listCustomFontsAdmin()]);
 
   return (
     <>
@@ -35,6 +36,10 @@ export default async function AdminSettingsPage() {
       ) : (
         <p className="text-muted">לא נמצאה שורת הגדרות. יש להריץ את סכימת ה-SQL.</p>
       )}
+
+      <div className="mt-10">
+        <FontsManager fonts={customFonts} />
+      </div>
     </>
   );
 }

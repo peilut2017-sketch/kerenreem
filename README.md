@@ -61,6 +61,12 @@ npm run dev                    # http://localhost:3000
 | 17 | `19_book_author_freetext.sql` | מחבר ספר כטקסט חופשי, לצד שיוך למחבר קיים |
 | 18 | `20_contact_attachments.sql` | קבצים מצורפים לפניית יצירת קשר |
 | 19 | `21_contact_topics_fields.sql` | תחומי פנייה ושדות מותאמים בטופס יצירת קשר |
+| … | `22`–`43` | מסחר, מלאי, הזמנות, הרשאות פר-מסך — ראו docs/commerce |
+| 42 | `44_user_prefs.sql` | העדפות תצוגה אישיות לצוות (בחירת עמודות) |
+| 43 | `45_audit_login.sql` | רישום כניסות למערכת ביומן הביקורת |
+| 44 | `46_inquiries_v2.sql` | מערכת פניות v2: סוגים, סטטוסים, הערות על ספר, מענות |
+| 45 | `47_custom_fonts.sql` | גופנים מותקנים לאתר ולעורכי הטקסט |
+| 46 | `48_event_media.sql` | Event Story Gallery: מדיית אירועים ושלבים |
 
 `05_repair_profiles.sql` ו-`06_restore_grants.sql` אינם חלק מההתקנה —
 הם כלי תיקון. ראו "תקלות נפוצות" למטה.

@@ -6,6 +6,14 @@ import { useEffect, useRef, useState } from 'react';
 const TRANSITION_MS = 200;
 
 /**
+ * [1.11] ערימת הדיאלוגים הפתוחים — כשדיאלוג נפתח מעל דיאלוג (יצירת מחבר
+ * מלאה מעל כרטיס ספר), שניהם מאזינים ל-Escape ברמת document; בלי הערימה
+ * לחיצה אחת הייתה סוגרת את שניהם בבת אחת. רק הדיאלוג העליון מגיב
+ * ל-Escape וללכידת Tab.
+ */
+const dialogStack: symbol[] = [];
+
+/**
  * מגירה צפה — הפאנל עצמו, בלי הכפתור שפותח אותו.
  *
  * חולץ מ-FilterDrawer כדי לשמש גם את מגירת עריכת הספר: שתיהן זקוקות
@@ -96,11 +104,16 @@ export function Drawer({
   useEffect(() => {
     if (!open) return;
 
+    const token = Symbol('drawer');
+    dialogStack.push(token);
+    const isTop = () => dialogStack[dialogStack.length - 1] === token;
+
     const panel = panelRef.current;
     const previouslyFocused = returnFocusTo ?? (document.activeElement as HTMLElement | null);
     panel?.querySelector<HTMLElement>('input, button, select, a[href]')?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
+      if (!isTop()) return;
       if (event.key === 'Escape') {
         onCloseRef.current();
         return;
@@ -126,6 +139,8 @@ export function Drawer({
 
     document.addEventListener('keydown', onKeyDown);
     return () => {
+      const index = dialogStack.indexOf(token);
+      if (index !== -1) dialogStack.splice(index, 1);
       document.removeEventListener('keydown', onKeyDown);
       previouslyFocused?.focus?.();
     };

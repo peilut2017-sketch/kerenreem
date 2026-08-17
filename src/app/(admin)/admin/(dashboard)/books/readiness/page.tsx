@@ -1,11 +1,10 @@
 import Link from 'next/link';
 import { requireScreenPermission } from '@/lib/admin/auth';
-import { listBookIdsWithTags, listBooks } from '@/lib/admin/queries';
-import { computeCompletion } from '@/lib/completion';
+import { listBookCompletionSignals, listBooks } from '@/lib/admin/queries';
+import { computeCompletion, type CompletionSignals } from '@/lib/completion';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { StatTile } from '@/components/admin/analytics/StatTile';
 import { BookReadinessList, type ReadinessRow } from '@/components/admin/books/BookReadinessList';
-import type { BookRelations } from '@/lib/supabase/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,18 +17,28 @@ export const dynamic = 'force-dynamic';
  */
 export default async function BooksReadinessPage() {
   await requireScreenPermission('books-readiness', 'view');
-  const [books, bookIdsWithTags] = await Promise.all([listBooks(), listBookIdsWithTags()]);
-  const tagSet = new Set(bookIdsWithTags);
+  const [books, signalIds] = await Promise.all([listBooks(), listBookCompletionSignals()]);
+  const sets = {
+    tags: new Set(signalIds.tags),
+    shelves: new Set(signalIds.shelves),
+    attributes: new Set(signalIds.attributes),
+    images: new Set(signalIds.images),
+    toc: new Set(signalIds.toc),
+    previews: new Set(signalIds.previews),
+  };
 
   const purchasable = books.filter((book) => book.is_purchasable);
   const rows: ReadinessRow[] = purchasable
     .map((book) => {
-      const relations: BookRelations = {
-        tagIds: tagSet.has(book.id) ? ['_'] : [],
-        categoryIds: [],
-        attributeValueIds: [],
+      const signals: CompletionSignals = {
+        tagIds: sets.tags.has(book.id) ? ['_'] : [],
+        categoryIds: sets.shelves.has(book.id) ? ['_'] : [],
+        attributeValueIds: sets.attributes.has(book.id) ? ['_'] : [],
+        galleryCount: sets.images.has(book.id) ? 1 : 0,
+        tocCount: sets.toc.has(book.id) ? 1 : 0,
+        previewCount: sets.previews.has(book.id) ? 1 : 0,
       };
-      const completion = computeCompletion(book, relations);
+      const completion = computeCompletion(book, signals);
       return { book, missing: completion.missing, percent: completion.percent };
     })
     .filter((row) => row.missing.length > 0)

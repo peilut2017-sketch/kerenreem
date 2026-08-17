@@ -17,7 +17,7 @@ export async function EventsRow({ events, locale }: { events: EventRecord[]; loc
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="eyebrow">{t('home.eventsLead')}</p>
-            <h2 className="mt-2 font-serif text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
+            <h2 className="mt-2 font-display text-[clamp(1.625rem,3.2vw,2.125rem)] text-ink">
               {t('home.eventsTitle')}
             </h2>
           </div>

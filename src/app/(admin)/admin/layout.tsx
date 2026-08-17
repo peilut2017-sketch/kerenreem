@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { FONT_VARIABLES } from '@/lib/fonts';
+import { CustomFontsStyle } from '@/components/CustomFontsStyle';
 import '../../globals.css';
 import './admin.css';
 
@@ -18,6 +19,10 @@ export const metadata: Metadata = {
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={FONT_VARIABLES}>
+      <head>
+        {/* גופנים מותקנים — גם בניהול, כדי שהעורך יציג אותם בתצוגה נכונה */}
+        <CustomFontsStyle />
+      </head>
       <body className="bg-cream">{children}</body>
     </html>
   );
