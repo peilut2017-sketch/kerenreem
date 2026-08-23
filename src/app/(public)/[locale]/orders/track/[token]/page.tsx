@@ -65,7 +65,20 @@ export default async function TrackOrderPage({
 
   const headerList = await headers();
   const allowed = await allowRequest(ipBucket('order-track', headerList), 30, 60);
-  const tracked = allowed ? await getTrackedOrder(token) : null;
+
+  if (!allowed) {
+    /* חריגת קצב אינה "ההזמנה לא נמצאה": לקוח מאחורי NAT ארגוני/סלולרי
+       שקיבל "הקישור פג" חשב שההזמנה שלו נעלמה. אומרים את האמת —
+       הקישור תקין, פשוט לחכות רגע. */
+    return (
+      <Container className="py-20 text-center">
+        <h1 className="font-serif text-h2 text-ink">{t('trackRateLimitTitle')}</h1>
+        <p className="mt-3 text-lead text-muted">{t('trackRateLimitBody')}</p>
+      </Container>
+    );
+  }
+
+  const tracked = await getTrackedOrder(token);
 
   if (!tracked) {
     return (
@@ -102,9 +115,13 @@ export default async function TrackOrderPage({
       </header>
 
       {!cancelled ? (
-        <ol className="mx-auto mt-8 flex max-w-xl items-center justify-between gap-1" aria-label={t('trackTitle')}>
+        <ol className="mx-auto mt-8 flex max-w-xl items-start justify-between gap-1" aria-label={t('trackTitle')}>
           {steps.map((step, index) => (
-            <li key={step.key} className="flex flex-1 items-center gap-1 last:flex-none">
+            <li
+              key={step.key}
+              aria-current={step.state === 'current' ? 'step' : undefined}
+              className="flex flex-1 items-center gap-1 last:flex-none"
+            >
               <span className="flex flex-col items-center gap-1.5 text-center">
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-caption font-bold ${
@@ -118,8 +135,13 @@ export default async function TrackOrderPage({
                 >
                   {step.state === 'done' ? '✓' : step.state === 'current' ? '●' : index + 1}
                 </span>
+                {/* במובייל רק תווית השלב הנוכחי גלויה — חמש תוויות עבריות
+                    על 360px נשברו לשלוש-ארבע שורות ושברו את יישור הציר.
+                    לקורא מסך כל התוויות קיימות תמיד (sr-only). */}
                 <span
-                  className={`text-caption ${step.state === 'upcoming' ? 'text-muted' : 'text-ink'} ${step.state === 'current' ? 'font-semibold' : ''}`}
+                  className={`text-caption ${step.state === 'upcoming' ? 'text-muted' : 'text-ink'} ${
+                    step.state === 'current' ? 'font-semibold' : 'max-sm:sr-only'
+                  }`}
                 >
                   {t(step.key as 'stepOrdered')}
                 </span>
@@ -127,7 +149,7 @@ export default async function TrackOrderPage({
               {index < steps.length - 1 ? (
                 <span
                   aria-hidden="true"
-                  className={`mx-1 h-0.5 flex-1 rounded ${step.state === 'done' ? 'bg-gold' : 'bg-cream-2'}`}
+                  className={`mx-1 mt-4 h-0.5 flex-1 rounded ${step.state === 'done' ? 'bg-gold' : 'bg-cream-2'}`}
                 />
               ) : null}
             </li>
@@ -158,10 +180,24 @@ export default async function TrackOrderPage({
           ))}
         </ul>
         <dl className="mt-4 space-y-1.5 border-t border-rule pt-3 text-small text-ink-soft">
-          {order.shipping_total > 0 ? (
+          <div className="flex justify-between">
+            <dt>{t('subtotal')}</dt>
+            <dd className="tabular-nums">{formatPrice(order.subtotal, locale)}</dd>
+          </div>
+          {order.discount_total > 0 ? (
+            /* שורת ההנחה חייבת להופיע — בלעדיה הלקוח לא יכול לאמת שהקופון חל */
+            <div className="flex justify-between text-gold-deep">
+              <dt>{t('discount')}</dt>
+              <dd className="tabular-nums">−{formatPrice(order.discount_total, locale)}</dd>
+            </div>
+          ) : null}
+          {!isPickup ? (
+            /* משלוח חינם מוצג כ"חינם", לא נעלם — זה ערך שסופק, לא שורה מיותרת */
             <div className="flex justify-between">
               <dt>{t('shipping')}</dt>
-              <dd className="tabular-nums">{formatPrice(order.shipping_total, locale)}</dd>
+              <dd className="tabular-nums">
+                {order.shipping_total > 0 ? formatPrice(order.shipping_total, locale) : t('free')}
+              </dd>
             </div>
           ) : null}
           <div className="flex justify-between text-ink">

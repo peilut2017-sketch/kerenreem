@@ -20,6 +20,8 @@ export function LoginClient({
   const t = useTranslations('store');
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'error' | 'rate'>('idle');
+  // השהיית שליחה חוזרת — נגד הצפה, ומסונכרנת עם ההגבלה בשרת
+  const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
     if (!claimToken) return;
@@ -30,13 +32,34 @@ export function LoginClient({
     }
   }, [claimToken]);
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((n) => n - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  async function send() {
+    setState('busy');
+    try {
+      const result = await sendLoginLink(email);
+      if (result.ok) {
+        setState('sent');
+        setCooldown(60);
+      } else {
+        setState(result.error === 'rate_limited' ? 'rate' : 'error');
+      }
+    } catch {
+      // בלי catch, כשל רשת אמיתי (throw) השאיר את state על 'busy' לנצח —
+      // כפתור מושבת בלי שום הודעה. אותו דפוס [1.4] כמו בטפסי הקופה.
+      setState('error');
+    }
+  }
+
   return (
     <form
-      onSubmit={async (event) => {
+      onSubmit={(event) => {
         event.preventDefault();
-        setState('busy');
-        const result = await sendLoginLink(email);
-        setState(result.ok ? 'sent' : result.error === 'rate_limited' ? 'rate' : 'error');
+        void send();
       }}
       className="mt-8 space-y-4"
     >
@@ -47,9 +70,33 @@ export function LoginClient({
       ) : null}
 
       {state === 'sent' ? (
-        <p role="status" className="rounded-[var(--radius-md)] bg-cream-2/80 px-4 py-4 text-center text-small text-ink">
-          {t('accountLoginSent')}
-        </p>
+        /* לא מסך סופי: טעות הקלדה במייל ("gmial") הייתה מבוי סתום — אין
+           תיקון כתובת ואין שליחה חוזרת בלי רענון ידני של העמוד. */
+        <div className="rounded-[var(--radius-md)] bg-cream-2/80 px-4 py-4 text-center text-small text-ink">
+          <p role="status">{t('accountLoginSent')}</p>
+          <p className="mt-1.5 text-caption text-muted" dir="ltr">
+            {email}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+            <button
+              type="button"
+              onClick={() => setState('idle')}
+              className="text-caption text-burgundy underline underline-offset-2"
+            >
+              {t('accountLoginChangeEmail')}
+            </button>
+            <button
+              type="button"
+              disabled={cooldown > 0}
+              onClick={() => void send()}
+              className="text-caption text-muted underline underline-offset-2 hover:text-ink disabled:no-underline disabled:opacity-70"
+            >
+              {cooldown > 0
+                ? t('accountLoginResendIn', { seconds: cooldown })
+                : t('accountLoginResend')}
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <div>

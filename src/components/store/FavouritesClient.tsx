@@ -24,6 +24,8 @@ export function FavouritesClient({
   const t = useTranslations('store');
   const { list: favouriteIds, toggle } = useLocalList('kr:favourites');
   const [books, setBooks] = useState<BookWithRelations[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
 
   // הכרטיסים נטענים כשקבוצת המזהים משתנה (כולל ההידרציה מהאחסון);
   // הסרות מן העמוד מסוננות מקומית — הקריאה חוזרת רק על תוספות
@@ -39,11 +41,37 @@ export function FavouritesClient({
     void (favouriteIds.length === 0
       ? Promise.resolve<BookWithRelations[]>([])
       : fetchFavouriteBooks(favouriteIds)
-    ).then(setBooks);
-  }, [favouriteIds]);
+    )
+      .then((result) => {
+        setBooks(result);
+        setLoadError(false);
+      })
+      .catch(() => {
+        // בלי catch, כשל רשת (יש באנר אופליין באתר!) השאיר שלד טעינה
+        // פועם לנצח. מציגים שגיאה עם ניסיון חוזר במקום.
+        fetchedFor.current = null; // הניסיון הבא ישלוף מחדש
+        setLoadError(true);
+        setBooks((current) => current ?? []);
+      });
+  }, [favouriteIds, retryTick]);
 
   const current = new Set(favouriteIds);
   const visible = (books ?? []).filter((book) => current.has(book.id));
+
+  if (loadError) {
+    return (
+      <div role="alert" className="mx-auto max-w-md py-14 text-center">
+        <p className="text-small text-muted">{t('favouritesLoadError')}</p>
+        <button
+          type="button"
+          onClick={() => setRetryTick((n) => n + 1)}
+          className="btn btn-quiet mt-5"
+        >
+          {t('errRetry')}
+        </button>
+      </div>
+    );
+  }
 
   if (books === null) {
     return (

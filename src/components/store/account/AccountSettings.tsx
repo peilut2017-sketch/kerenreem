@@ -39,6 +39,8 @@ export function AccountSettings({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<'saved' | 'emailSent' | 'error' | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleteWord, setDeleteWord] = useState('');
 
   const [marketingEmail, setMarketingEmail] = useState(initialMarketingEmail);
   const [channelSms, setChannelSms] = useState(initialChannelSms);
@@ -58,6 +60,10 @@ export function AccountSettings({
       }
       setNotice(result.emailConfirmationSent ? 'emailSent' : 'saved');
       router.refresh();
+    } catch {
+      // בלי catch: כשל רשת אמיתי (throw) שחרר את הכפתור בלי שום הודעה —
+      // הלקוח לא ידע אם הפרטים נשמרו. אותו דפוס [1.4] כמו בקופה.
+      setNotice('error');
     } finally {
       setBusy(false);
     }
@@ -74,15 +80,14 @@ export function AccountSettings({
         channelWhatsapp,
       });
       setNotifNotice(result.ok ? 'saved' : 'error');
+    } catch {
+      setNotifNotice('error');
     } finally {
       setNotifBusy(false);
     }
   }
 
   async function removeAccount() {
-    if (!window.confirm(t('accountDeleteConfirm1'))) return;
-    const typed = window.prompt(t('accountDeleteConfirm2', { word: t('accountDeleteWord') }));
-    if (typed?.trim() !== t('accountDeleteWord')) return;
     setDeleting(true);
     try {
       const result = await deleteMyAccount();
@@ -92,6 +97,8 @@ export function AccountSettings({
       } else {
         setNotice('error');
       }
+    } catch {
+      setNotice('error');
     } finally {
       setDeleting(false);
     }
@@ -215,17 +222,58 @@ export function AccountSettings({
           {t('accountDeleteTitle')}
         </h2>
         <p className="mt-2 text-small text-ink-soft">{t('accountDeleteBody')}</p>
-        <button
-          type="button"
-          disabled={deleting}
-          onClick={removeAccount}
-          className="mt-4 inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-burgundy px-5 py-2 text-small font-semibold text-burgundy transition-colors hover:bg-burgundy hover:text-white disabled:opacity-50"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6" />
-          </svg>
-          {deleting ? t('accountDeleting') : t('accountDeleteCta')}
-        </button>
+
+        {/* אישור מוטמע במקום window.confirm + window.prompt: דיאלוגי
+            הדפדפן אינם נגישים לקורא מסך, אינם בשפת העיצוב, וכשההקלדה
+            הייתה שגויה — שום דבר לא קרה, בלי שום הודעה. כאן ההתאמה
+            נבדקת חיה והכפתור נפתח רק כשמילת האישור הוקלדה במדויק. */}
+        {!deleteArmed ? (
+          <button
+            type="button"
+            onClick={() => setDeleteArmed(true)}
+            className="mt-4 inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-burgundy px-5 py-2 text-small font-semibold text-burgundy transition-colors hover:bg-burgundy hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6" />
+            </svg>
+            {t('accountDeleteCta')}
+          </button>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <p className="text-small font-semibold text-ink">{t('accountDeleteConfirm1')}</p>
+            <label htmlFor="delete-word" className="block text-caption text-ink-soft">
+              {t('accountDeleteConfirm2', { word: t('accountDeleteWord') })}
+            </label>
+            <input
+              id="delete-word"
+              type="text"
+              value={deleteWord}
+              onChange={(e) => setDeleteWord(e.target.value)}
+              autoComplete="off"
+              className={`${inputCls} max-w-56`}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={deleting || deleteWord.trim() !== t('accountDeleteWord')}
+                onClick={removeAccount}
+                className="inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-burgundy bg-burgundy px-5 py-2 text-small font-semibold text-white transition-opacity disabled:opacity-40"
+              >
+                {deleting ? t('accountDeleting') : t('accountDeleteCta')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteArmed(false);
+                  setDeleteWord('');
+                }}
+                className="text-small text-muted underline underline-offset-2 hover:text-ink"
+              >
+                {t('cancel')}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

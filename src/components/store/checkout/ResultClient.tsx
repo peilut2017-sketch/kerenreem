@@ -71,7 +71,17 @@ export function ResultClient({ outcome }: { outcome: string }) {
     // מיצוי הניסיונות עדיף תצוגת "לא ידוע" עם קישור למעקב, לא שלד נצחי
     if (timedOut) {
       return (
-        <Shell tone="neutral" title={t('resultUnknownTitle')} body={t('resultUnknownBody', { number: '—' })} t={t} />
+        <Shell
+          tone="neutral"
+          title={t('resultUnknownTitle')}
+          body={t('resultUnknownBody', { number: '—' })}
+          extra={
+          <Link href="/orders/find" className="btn btn-quiet">
+            {t('trackFindOrderCta')}
+          </Link>
+        }
+        t={t}
+        />
       );
     }
     return (
@@ -91,6 +101,11 @@ export function ResultClient({ outcome }: { outcome: string }) {
         tone="neutral"
         title={t('resultUnknownTitle')}
         body={t('resultUnknownBody', { number: '—' })}
+        extra={
+          <Link href="/orders/find" className="btn btn-quiet">
+            {t('trackFindOrderCta')}
+          </Link>
+        }
         t={t}
       />
     );
@@ -161,7 +176,17 @@ export function ResultClient({ outcome }: { outcome: string }) {
 
   if (timedOut) {
     return (
-      <Shell tone="neutral" title={t('resultUnknownTitle')} body={t('resultUnknownBody', { number })} t={t} />
+      <Shell
+        tone="neutral"
+        title={t('resultUnknownTitle')}
+        body={t('resultUnknownBody', { number })}
+        extra={
+          <Link href="/orders/find" className="btn btn-quiet">
+            {t('trackFindOrderCta')}
+          </Link>
+        }
+        t={t}
+      />
     );
   }
 
@@ -192,7 +217,12 @@ function Shell({
   t: ReturnType<typeof useTranslations<'store'>>;
 }) {
   return (
-    <div role="status" aria-live="polite" className="mx-auto flex max-w-lg flex-col items-center gap-4 text-center">
+    <div className="mx-auto flex max-w-lg flex-col items-center gap-4 text-center">
+      {/* אזור ההכרזה מצומצם לכותרת בלבד — role/aria-live על כל העמוד גרמו
+          לקורא מסך להכריז את הכול מחדש בכל סבב polling (עד 20 בדקה) */}
+      <span role="status" className="sr-only">
+        {title}
+      </span>
       <span
         aria-hidden="true"
         className={`flex h-14 w-14 items-center justify-center rounded-full text-2xl ${

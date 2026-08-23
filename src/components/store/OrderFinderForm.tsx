@@ -46,7 +46,12 @@ export function OrderFinderForm() {
           dir="ltr"
           required
           value={orderNumber}
-          onChange={(e) => setOrderNumber(e.target.value)}
+          onChange={(e) => {
+            setOrderNumber(e.target.value);
+            setState('idle'); // השגיאה מתנקה בהקלדה — לא נשארת בזמן שמתקנים
+          }}
+          placeholder="1042"
+          autoComplete="off"
           className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
         />
       </div>
@@ -58,9 +63,14 @@ export function OrderFinderForm() {
           id="find-order-contact"
           type="text"
           dir="ltr"
+          inputMode="email"
           required
           value={contact}
-          onChange={(e) => setContact(e.target.value)}
+          onChange={(e) => {
+            setContact(e.target.value);
+            setState('idle');
+          }}
+          placeholder="050-1234567 / name@example.com"
           className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
         />
       </div>
@@ -74,7 +84,7 @@ export function OrderFinderForm() {
         <p role="alert" className="text-caption text-burgundy">{t('findOrderInvalid')}</p>
       ) : null}
       <button type="submit" disabled={state === 'busy'} className="btn btn-solid w-full">
-        {t('findOrderSubmit')}
+        {state === 'busy' ? t('findOrderSearching') : t('findOrderSubmit')}
       </button>
     </form>
   );

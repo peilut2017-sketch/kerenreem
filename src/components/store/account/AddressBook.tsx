@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { AddressAutocomplete } from '@/components/store/AddressAutocomplete';
@@ -75,9 +75,20 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
   // [1.4] remove/makeDefault לא בדקו תוצאה ולא היה להם catch בכלל —
   // כשל (עסקי או רשת) היה חוזר ל-idle בלי שום סימן שהפעולה לא הצליחה
   const [listError, setListError] = useState(false);
+  // מזהה הכתובת שממתינה לאישור מחיקה — לחיצה ראשונה חושפת אישור מוטמע
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const set = <K extends keyof AddressInput>(key: K, value: AddressInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  useEffect(() => {
+    if (editing === null) return;
+    const node = formRef.current;
+    if (!node) return;
+    node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    node.querySelector<HTMLElement>('input')?.focus({ preventScroll: true });
+  }, [editing]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -104,7 +115,7 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
   }
 
   async function remove(address: CustomerAddress) {
-    if (!window.confirm(t('addressDeleteConfirm'))) return;
+    setConfirmDelete(null);
     setBusy(true);
     setListError(false);
     try {
@@ -218,17 +229,39 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
                     {t('addressMakeDefault')}
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => remove(address)}
-                  className="ms-auto inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] px-3 py-1.5 text-caption text-muted transition-colors hover:text-burgundy"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6" />
-                  </svg>
-                  {t('addressDelete')}
-                </button>
+                {confirmDelete === address.id ? (
+                  /* אישור מוטמע במקום window.confirm — נגיש, מתורגם ובשפת העיצוב */
+                  <span className="ms-auto flex items-center gap-2 text-caption">
+                    <span className="text-ink-soft">{t('addressDeleteConfirm')}</span>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => remove(address)}
+                      className="font-semibold text-burgundy underline underline-offset-2"
+                    >
+                      {t('addressDelete')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(null)}
+                      className="text-muted underline underline-offset-2 hover:text-ink"
+                    >
+                      {t('cancel')}
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setConfirmDelete(address.id)}
+                    className="ms-auto inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] px-3 py-1.5 text-caption text-muted transition-colors hover:text-burgundy"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6" />
+                    </svg>
+                    {t('addressDelete')}
+                  </button>
+                )}
               </div>
             </li>
           ))}
@@ -252,9 +285,10 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
         </button>
       ) : (
         <form
+          ref={formRef}
           onSubmit={submit}
           noValidate
-          className="space-y-4 rounded-[var(--radius-lg)] border border-rule bg-cream p-5 shadow-[var(--shadow-soft)] sm:p-6"
+          className="scroll-mt-24 space-y-4 rounded-[var(--radius-lg)] border border-rule bg-cream p-5 shadow-[var(--shadow-soft)] sm:p-6"
         >
           <h2 className="font-serif text-h3 text-ink">
             {editing === 'new' ? t('addressAdd') : t('addressEdit')}
