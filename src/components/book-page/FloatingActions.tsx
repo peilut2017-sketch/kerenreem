@@ -95,12 +95,15 @@ export function FloatingActions({
 
   return (
     <div
-      className={`on-dark fixed bottom-6 end-6 z-40 flex flex-col gap-1.5 rounded-[var(--radius-lg)] bg-navy p-2.5 shadow-[var(--shadow-float)] transition-all duration-500 ${
+      // bottom מפנה מקום לרצועת הסכמת העוגיות (--consent-h): בביקור
+      // הראשון — בדיוק כשהרצועה מוצגת — הסרגל הזה הוא כפתור הרכישה,
+      // ואסור שיוסתר מאחוריה.
+      className={`on-dark fixed bottom-[calc(1.5rem+var(--consent-h,0px))] end-6 z-40 flex flex-col gap-1.5 rounded-[var(--radius-lg)] bg-navy p-2.5 shadow-[var(--shadow-float)] transition-all duration-500 ${
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
       }`}
     >
       {price ? (
-        <p className="truncate px-3 pt-1 text-caption text-cream-2/75">
+        <p className="px-3 pt-1 text-caption text-cream-2/75">
           <span className="block max-w-40 truncate">{title}</span>
           <span className="font-serif text-small text-cream">{price}</span>
         </p>

@@ -11,6 +11,14 @@
    ותאורה עדינה — ולא ממסגרות. כרטיס הוא אובייקט פיזי עם פינות רכות
    שמתרומם במגע. התנועה תמיד יוצאת בקפיץ, לעולם לא קופצת.
 
+   סולם השכבות (z-index) — מקור אמת יחיד לכל רכיב צף:
+   • 30 — חזרה-לראש · 40 — סרגלי פעולה צפים ורצועת העוגיות
+   • 50 — כותרת האתר ומגירות/דיאלוגים · 60 — רצועת אופליין וטוסט העגלה
+   • וידג'ט הנגישות (9999) נקבע בחבילה החיצונית.
+   שכבה חדשה משתבצת בסולם הזה — לא ממציאה מספר משלה. מיקומי פינות הם
+   תמיד לוגיים (start/end); רכיבי התחתית מפנים מקום זה לזה דרך
+   המשתנים --consent-h (רצועת העוגיות) ו---offline-h (רצועת האופליין).
+
    כללי הזהב (תרתי משמע):
    • זהב הוא קו והדגשה, לא שטח.
    • זהב על נייר אינו עומד ביחס ניגודיות לטקסט. לכן על רקע בהיר הוא
@@ -299,6 +307,39 @@ body::before {
     background-color: color-mix(in srgb, #fff 20%, transparent);
     border-color: color-mix(in srgb, var(--color-gold) 70%, transparent);
   }
+
+  /* --- כרטיס לבן בתוך רצועה כהה: הכרטיס הוא גבול לירושת on-dark. ---
+     on-dark מוגדר כירושה עמוקה (ראו @custom-variant למעלה), ולכן כפתור
+     שקט בתוך .card שיושב ברצועה כהה קיבל את גרסת הזכוכית הכהה — טקסט
+     לבן על רקע הכרטיס הלבן. הכללים כאן מחזירים לכל מה שיושב על משטח
+     כרטיס בהיר את גרסת "על נייר" שלו, בכל רצועה כהה באתר. */
+  .on-dark .card { color: var(--color-ink); }
+  .on-dark .card h1, .on-dark .card h2, .on-dark .card h3 { color: var(--color-ink); }
+  .on-dark .card .eyebrow { color: var(--color-muted); }
+  .on-dark .card .btn-solid {
+    background-color: var(--color-navy);
+    color: var(--color-cream);
+  }
+  .on-dark .card .btn-solid:hover { background-color: var(--color-navy-2); }
+  .on-dark .card .btn-quiet {
+    background-color: var(--surface-quiet-bg);
+    color: var(--color-ink);
+    border-color: color-mix(in srgb, var(--color-rule-strong) 70%, transparent);
+  }
+  .on-dark .card .btn-quiet:hover {
+    background-color: color-mix(in srgb, #fff 78%, transparent);
+    border-color: var(--color-rule-strong);
+  }
+  .on-dark .card .link {
+    text-decoration-color: var(--color-rule-strong);
+  }
+  .on-dark .card .link:hover {
+    color: var(--color-burgundy);
+    text-decoration-color: var(--color-burgundy);
+  }
+  .on-dark .card .link-more { color: var(--color-gold-deep); }
+  .on-dark .card .link-more:hover { color: var(--color-burgundy); }
+  .on-dark .card :focus-visible { outline-color: var(--color-burgundy); }
 
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 

@@ -73,9 +73,31 @@ export function BookShelf({ books, label }: { books: ShelfBook[]; label: string 
       return best;
     };
 
+    // ההחלטה "דפדוף במדף או גלילת עמוד" נופלת פעם אחת לכל מחווה, לפי
+    // הכיוון הדומיננטי של תחילת התנועה. בלי זה כל נגיעה ברצועת המדף —
+    // שהוא האלמנט הראשון בעמוד — בלמה גם גלילה אנכית רגילה, והמבקר
+    // נתקע בלי יכולת לגלול הלאה.
+    let start: { x: number; y: number } | null = null;
+    let intent: 'browse' | 'scroll' | null = null;
+
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      start = touch ? { x: touch.clientX, y: touch.clientY } : null;
+      intent = null;
+    };
+
     const onTouchMove = (event: TouchEvent) => {
       const touch = event.touches[0];
-      if (!touch) return;
+      if (!touch || !start) return;
+
+      if (intent === null) {
+        const dx = Math.abs(touch.clientX - start.x);
+        const dy = Math.abs(touch.clientY - start.y);
+        if (dx < 6 && dy < 6) return; // עדיין אין כיוון מובהק
+        intent = dx > dy * 1.2 ? 'browse' : 'scroll';
+      }
+      if (intent !== 'browse') return; // גלילה אנכית — עוברת לדפדפן
+
       const index = nearestIndex(touch.clientX, touch.clientY);
       if (index !== null) {
         event.preventDefault();
@@ -83,8 +105,12 @@ export function BookShelf({ books, label }: { books: ShelfBook[]; label: string 
       }
     };
 
+    shelf.addEventListener('touchstart', onTouchStart, { passive: true });
     shelf.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => shelf.removeEventListener('touchmove', onTouchMove);
+    return () => {
+      shelf.removeEventListener('touchstart', onTouchStart);
+      shelf.removeEventListener('touchmove', onTouchMove);
+    };
   }, []);
 
   // מקלדת: מיקוד על ספר פותח אותו, כמו הצבעה. בלי זה המדף קיים
@@ -145,12 +171,17 @@ function BookOnShelf({
 }) {
   // גובה משתנה קלות לפי המיקום — ספרים אמיתיים על מדף אינם באותו גובה
   // בדיוק. נגזר מהאינדקס ולא מ-random, כדי שהשרת והלקוח יסכימו.
+  // שבעה ערכים ולא חמישה: 7 זר ל-10 (מספר הספרים המרבי), כך שהמחזור
+  // אינו חוזר על עצמו בתוך מדף אחד — עם 5 ערכים, ספרים 6–10 קיבלו
+  // בדיוק את צללית 1–5 והאקראיות המדומה נראתה כדפוס.
   const heights = [
     'h-[11rem] sm:h-[15rem]',
     'h-[12rem] sm:h-[16.5rem]',
     'h-[11.5rem] sm:h-[15.75rem]',
     'h-[12.5rem] sm:h-[17rem]',
     'h-[11.75rem] sm:h-[16rem]',
+    'h-[12.25rem] sm:h-[16.75rem]',
+    'h-[11.25rem] sm:h-[15.5rem]',
   ];
   const height = heights[index % heights.length];
 

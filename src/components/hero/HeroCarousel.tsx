@@ -67,9 +67,11 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
         {/* שכנה קודמת — נרמזת בלבד, מוסתרת מהנגישות כי היא כפילות */}
         <NeighbourPanel slide={previous} onClick={() => go(index - 1)} label={t('previous')} />
 
-        {/* ההחלפה יזומה תמיד, ולכן בטוח להכריז עליה */}
-        <div aria-live="polite" aria-atomic="true" className="relative">
-          <ActivePanel slide={active} position={index + 1} total={count} />
+        {/* בלי aria-live כאן: ההכרזה על ההחלפה נעשית פעם אחת, באזור
+            ה-sr-only שלמטה — שני אזורים חיים על אותה החלפה גרמו לקורא
+            מסך להכריז את כל תוכן הפאנל ואז שוב את המונה. */}
+        <div className="relative">
+          <ActivePanel slide={active} label={t('status', { index: index + 1, total: count })} />
         </div>
 
         <NeighbourPanel slide={next} onClick={() => go(index + 1)} label={t('next')} />
@@ -112,19 +114,18 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
 function ActivePanel({
   slide,
-  position,
-  total,
+  label,
 }: {
   slide: HeroSlide;
-  position: number;
-  total: number;
+  /** תווית מתורגמת ("מוצג X מתוך Y") — מגיעה מההורה, ששם יש גישה ל-t. */
+  label: string;
 }) {
   const isBook = slide.kind === 'book';
 
   return (
     <article
       aria-roledescription="slide"
-      aria-label={`${position} מתוך ${total}`}
+      aria-label={label}
       className="relative flex h-full flex-col justify-center overflow-hidden px-6 py-16 text-center sm:px-10 lg:py-20"
     >
       {/* רקע: לספר — כהה ונקי, כדי שהכריכה תישא את המסגרת.

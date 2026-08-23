@@ -59,7 +59,13 @@ export function SiteHeaderClient({
        דרך המחלקות site-header-* ב-globals.css. ההחלקה הקצרה
        (site-header-smooth) מגשרת על צעדי גלגלת בדידים בלי לנתק את
        התחושה שהסרגל "נאסף" יחד עם הגלילה — כמו פתיחת אפליקציה. */
-    <header ref={headerRef} className="site-header-shell site-header-smooth sticky top-0 z-50">
+    /* top לפי --offline-h ולא 0 קבוע: כשרצועת האופליין מוצגת (גם היא
+       sticky top-0, עם z גבוה יותר) הכותרת נצמדת מתחתיה במקום להיבלע
+       תחתיה. כשאין רצועה המשתנה לא קיים והנפילה היא 0 — כמו קודם. */
+    <header
+      ref={headerRef}
+      className="site-header-shell site-header-smooth sticky top-[var(--offline-h,0px)] z-50"
+    >
       <SiteHeaderHeightVar />
 
       {/* המשטח: מלא-רוחב ואטום למעלה, קפסולת זכוכית ממורכזת בגלילה */}

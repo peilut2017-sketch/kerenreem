@@ -653,6 +653,8 @@
     "play": "המשך החלפה אוטומטית",
     "goTo": "מעבר למוצג {index}: {title}",
     "status": "מוצג {index} מתוך {total}",
+    "bannerGoTo": "מעבר לבאנר {index} מתוך {total}",
+    "bannerStatus": "באנר {index} מתוך {total}",
     "bookEyebrow": "מן הקטלוג",
     "eventEyebrow": "אירועי הקרן",
     "activityEyebrow": "פעילות הקרן",

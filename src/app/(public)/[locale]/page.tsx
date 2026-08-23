@@ -181,10 +181,17 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   return (
     <>
-      {shelfBooks.length > 0 ? (
+      {/* הכותרת הראשית של המסמך. העמוד נפתח במדף ובבאנרים — שניהם
+          חזותיים — ולכן ה-h1 סמוי: בלעדיו עמוד הבית מוגש למנועי חיפוש
+          ולקוראי מסך בלי כותרת ראשית כלל, ומבנה הכותרות מתחיל מ-h2. */}
+      <h1 className="sr-only">{`${t('site.name')} — ${t('site.tagline')}`}</h1>
+
+      {shelfBooks.length > 0 || mostViewedBooks.length > 0 ? (
         /* רצועה כהה בגווני הלוגו (כחול עמוק + זהב), כמו יתר הרצועות
            הכהות בעמוד — כך שהמדף קורא כפינה משלו ולא כרשימה שיושבת על
-           רקע העמוד הרגיל. לפני הבאנרים בכוונה: זה מה שהמבקר פוגש קודם. */
+           רקע העמוד הרגיל. לפני הבאנרים בכוונה: זה מה שהמבקר פוגש קודם.
+           הרצועה מוצגת גם כשהמדף עצמו ריק אך יש "נצפים ביותר" — הקישור
+           לקטלוג לא נעלם יחד עם המדף. */
         <section className="on-dark relative isolate overflow-hidden py-16 lg:py-20">
           {shelfBackdropUrl ? (
             <div className="media-backdrop absolute inset-0 -z-20">
@@ -197,16 +204,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             className="absolute inset-0 -z-10 bg-[radial-gradient(64rem_28rem_at_50%_-12%,color-mix(in_srgb,var(--color-gold)_22%,transparent),transparent_65%)]"
           />
 
-          <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
-            <header className="mb-10 text-center">
-              <p className="eyebrow">{t('home.newBooksLead')}</p>
-              <h2 className="mt-2 font-display text-[clamp(1.625rem,3.2vw,2.125rem)] text-white">
-                {t('home.newBooksTitle')}
-              </h2>
-            </header>
-          </div>
+          {shelfBooks.length > 0 ? (
+            <>
+              <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
+                <header className="mb-10 text-center">
+                  <p className="eyebrow">{t('home.newBooksLead')}</p>
+                  <h2 className="mt-2 font-display text-[clamp(1.625rem,3.2vw,2.125rem)] text-white">
+                    {t('home.newBooksTitle')}
+                  </h2>
+                </header>
+              </div>
 
-          <BookShelf books={shelfBooks} label={t('home.shelfLabel')} />
+              <BookShelf books={shelfBooks} label={t('home.shelfLabel')} />
+            </>
+          ) : null}
 
           <div className="mx-auto mt-12 w-full max-w-[82rem] px-5 sm:px-8">
             <MostViewedRow books={mostViewedBooks} locale={locale} storeEnabled={flags.showPrices} />
@@ -234,9 +245,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
            טיפוגרפית שעומדת בפני עצמה. */
         <section className="on-dark px-6 py-24 text-center lg:py-32">
           <p className="eyebrow">{t('site.tagline')}</p>
-          <h1 className="mx-auto mt-4 max-w-[22ch] font-serif text-[clamp(1.875rem,5vw,3rem)] leading-[1.2] text-white">
+          {/* p ולא h1 — הכותרת הראשית של העמוד כבר קיימת (sr-only למעלה),
+              ושתי h1 באותו מסמך מבלבלות קורא מסך ומנוע חיפוש כאחד. */}
+          <p className="mx-auto mt-4 max-w-[22ch] font-serif text-[clamp(1.875rem,5vw,3rem)] leading-[1.2] text-white">
             {opening}
-          </h1>
+          </p>
           <Ornament />
         </section>
       )}

@@ -1,18 +1,25 @@
 'use client';
 
 import { Img as Image } from '@/components/Img';
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { isRtl } from '@/i18n/routing';
 import { toCdnUrl } from '@/lib/image-src';
 import type { Banner } from '@/lib/supabase/types';
 
-/** מיפוי נקודת המיקוד למחלקת object-position. */
-const FOCAL_CLASS: Record<string, string> = {
-  center: 'object-center',
-  top: 'object-top',
-  bottom: 'object-bottom',
-  start: 'object-right',
-  end: 'object-left',
+/**
+ * מיפוי נקודת המיקוד למחלקת object-position — מ-sm ומעלה, כשהתמונה
+ * עוברת ל-object-cover ובאמת נחתכת. המחרוזות מלאות וליטרליות בכוונה:
+ * Tailwind סורק טקסט, ו-`sm:${cls}` שמורכב בזמן ריצה מייצר מחלקה שלא
+ * נכללה בבנייה — נקודת המיקוד שהוגדרה בניהול פשוט לא חלה.
+ */
+const FOCAL_CLASS_SM: Record<string, string> = {
+  center: 'sm:object-center',
+  top: 'sm:object-top',
+  bottom: 'sm:object-bottom',
+  start: 'sm:object-right',
+  end: 'sm:object-left',
 };
 
 /**
@@ -38,11 +45,34 @@ export function BannerStrip({
   locale: string;
   label: string;
 }) {
+  const t = useTranslations('hero');
   const [index, setIndex] = useState(0);
   const id = useId();
 
   const count = banners.length;
   const go = useCallback((next: number) => setIndex(((next % count) + count) % count), [count]);
+
+  // החלקה במגע: במסך מגע אין hover, וה"קרוסלה" בלעדיה היא תמונה בודדת.
+  // ההחלטה נופלת פעם אחת למחווה — רק כשהתנועה אופקית במובהק, כדי לא
+  // לגנוב גלילה אנכית של העמוד.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const rtl = isRtl(locale);
+  const onTouchStart = (event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+  const onTouchEnd = (event: React.TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    // החלקה "אל הבא" נעה בכיוון הקריאה: שמאלה ב-LTR, ימינה ב-RTL.
+    const forward = rtl ? dx > 0 : dx < 0;
+    go(index + (forward ? 1 : -1));
+  };
 
   if (count === 0) return null;
 
@@ -62,7 +92,7 @@ export function BannerStrip({
           <img
             src={toCdnUrl(active.image_mobile_url)}
             alt={alt}
-            className="h-full w-full object-contain sm:object-cover"
+            className={`h-full w-full object-contain sm:object-cover ${FOCAL_CLASS_SM[active.focal_point ?? 'center']}`}
           />
         </picture>
       ) : active.image_url ? (
@@ -72,7 +102,7 @@ export function BannerStrip({
           fill
           priority
           sizes="100vw"
-          className={`object-contain sm:object-cover sm:${FOCAL_CLASS[active.focal_point ?? 'center']}`}
+          className={`object-contain sm:object-cover ${FOCAL_CLASS_SM[active.focal_point ?? 'center']}`}
         />
       ) : null}
     </>
@@ -94,14 +124,15 @@ export function BannerStrip({
           go(index - 1);
         }
       }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
       className="group relative isolate mx-auto mt-5 w-[calc(100%-2.5rem)] max-w-[82rem] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mt-7 sm:w-[calc(100%-4rem)]"
     >
       {/* אותו יחס גובה-רוחב בכל המסכים — אותה תמונה משמשת לשניהם (ראו
           object-contain למעלה), אז הרצועה עצמה נשארת ברוחב הרחב
           המומלץ בניהול, ופשוט קטנה יותר על מסך צר. */}
       <div className="relative aspect-16/7 w-full">
-        {/* ההחלפה יזומה תמיד, ולכן בטוח להכריז עליה */}
-        <div aria-live="polite" aria-atomic="true" className="absolute inset-0">
+        <div className="absolute inset-0">
           {href ? (
             href.startsWith('http') ? (
               <a
@@ -125,18 +156,19 @@ export function BannerStrip({
 
       {count > 1 ? (
         <>
-          <Arrow side="start" onClick={() => go(index - 1)} label="הבאנר הקודם" />
-          <Arrow side="end" onClick={() => go(index + 1)} label="הבאנר הבא" />
+          <Arrow side="start" onClick={() => go(index - 1)} label={t('previous')} />
+          <Arrow side="end" onClick={() => go(index + 1)} label={t('next')} />
 
-          {/* מחווני מיקום — מופיעים יחד עם החצים ובאותו תנאי */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100">
+          {/* מחווני מיקום — גלויים תמיד: הם העדות היחידה לכך שיש עוד
+              באנרים, ובמגע (בלי hover) פקד נסתר פשוט אינו קיים. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center">
             <div className="glass-dark pointer-events-auto flex items-center gap-2 rounded-[var(--radius-pill)] px-3 py-2">
               {banners.map((banner, position) => (
                 <button
                   key={banner.id}
                   type="button"
                   onClick={() => go(position)}
-                  aria-label={`מעבר לבאנר ${position + 1} מתוך ${count}`}
+                  aria-label={t('bannerGoTo', { index: position + 1, total: count })}
                   aria-current={position === index ? 'true' : undefined}
                   className={`h-1.5 rounded-full transition-all duration-500 ease-[var(--ease-spring)] ${
                     position === index ? 'w-7 bg-gold' : 'w-1.5 bg-white/50 hover:bg-white/80'
@@ -149,7 +181,8 @@ export function BannerStrip({
       ) : null}
 
       <span id={`${id}-status`} className="sr-only" aria-live="polite">
-        באנר {index + 1} מתוך {count}
+        {t('bannerStatus', { index: index + 1, total: count })}
+        {alt ? `: ${alt}` : ''}
       </span>
     </section>
   );
@@ -169,7 +202,9 @@ function Arrow({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`glass-dark absolute top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-[var(--radius-pill)] text-white/85 opacity-0 transition-[opacity,transform,color] duration-300 ease-[var(--ease-spring)] group-hover:opacity-100 group-focus-within:opacity-100 hover:scale-105 hover:text-gold focus-visible:opacity-100 motion-reduce:transition-none ${
+      // במסכים ללא hover (מגע) החצים גלויים תמיד; מ-md ומעלה הם שומרים
+      // על ההתנהגות הקודמת — נגלים בקרבת העכבר או במיקוד מקלדת.
+      className={`glass-dark absolute top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-[var(--radius-pill)] text-white/85 opacity-100 transition-[opacity,transform,color] duration-300 ease-[var(--ease-spring)] md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:focus-visible:opacity-100 hover:scale-105 hover:text-gold motion-reduce:transition-none ${
         side === 'start' ? 'start-3 lg:start-6' : 'end-3 lg:end-6'
       }`}
     >

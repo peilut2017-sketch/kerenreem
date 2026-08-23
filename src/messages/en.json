@@ -653,6 +653,8 @@
     "play": "Resume automatic rotation",
     "goTo": "Go to slide {index}: {title}",
     "status": "Slide {index} of {total}",
+    "bannerGoTo": "Go to banner {index} of {total}",
+    "bannerStatus": "Banner {index} of {total}",
     "bookEyebrow": "From the catalogue",
     "eventEyebrow": "Events",
     "activityEyebrow": "What we do",

@@ -37,7 +37,8 @@ export function BackToTop() {
         window.scrollTo({ top: 0, behavior: reduced ? 'instant' : 'smooth' });
       }}
       aria-label={t('backToTop')}
-      className="glass fixed bottom-28 start-4 z-30 flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft shadow-[var(--shadow-float)] transition-[transform,color] duration-300 ease-[var(--ease-spring)] hover:scale-110 hover:text-burgundy"
+      // bottom מפנה מקום לרצועת הסכמת העוגיות (--consent-h) כשהיא פתוחה
+      className="glass fixed bottom-[calc(7rem+var(--consent-h,0px))] start-4 z-30 flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft shadow-[var(--shadow-float)] transition-[transform,color] duration-300 ease-[var(--ease-spring)] hover:scale-110 hover:text-burgundy"
     >
       <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">
         <path d="M10 16V5m0 0-5 5m5-5 5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
