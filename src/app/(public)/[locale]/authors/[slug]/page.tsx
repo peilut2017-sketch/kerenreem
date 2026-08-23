@@ -73,23 +73,34 @@ export default async function AuthorPage({
   return (
     <Container className="py-14">
       <article>
-        <header className="grid gap-8 border-b border-rule pb-10 sm:grid-cols-[9rem_1fr] sm:gap-10">
+        {/* עמודת הדיוקן קיימת רק כשיש דיוקן: ה-span הריק הקודם תפס את
+            עמודת ה-9rem במלואה, ומחבר בלי תמונה (נפוץ בדמויות היסטוריות)
+            קיבל שקע ריק של ~180px לפני שמו — עמוד שנראה שבור. */}
+        <header
+          className={`grid gap-8 border-b border-rule pb-10 ${
+            author.portrait_url ? 'sm:grid-cols-[9rem_1fr] sm:gap-10' : ''
+          }`}
+        >
           {author.portrait_url ? (
             <Image
               src={author.portrait_url}
               alt={t('portraitAlt', { name })}
-              width={144}
-              height={188}
+              width={288}
+              height={376}
               sizes="144px"
-              className="w-36 border border-rule object-cover"
+              className="w-36 rounded-[var(--radius-md)] border border-rule object-cover"
               priority
             />
-          ) : (
-            <span aria-hidden="true" className="hidden sm:block" />
-          )}
+          ) : null}
           <div>
             <h1 className="text-h1 text-ink">{name}</h1>
-            {years ? <p className="mt-2 text-lead text-muted">{years}</p> : null}
+            {/* bdi: טווח שנים הוא טקסט דו-כיווני בתוך RTL — בלי בידוד
+                המקף והמספרים עלולים להתהפך ויזואלית */}
+            {years ? (
+              <p className="mt-2 text-lead text-muted">
+                <bdi dir="ltr">{years}</bdi>
+              </p>
+            ) : null}
           </div>
         </header>
 
@@ -105,7 +116,13 @@ export default async function AuthorPage({
             <h2 id="author-timeline" className="eyebrow mb-5">
               {t('timelineHeading')}
             </h2>
-            <ol className="flex gap-6 overflow-x-auto pb-1">
+            {/* tabIndex — אזור גלילה אופקי חייב להיות נגיש למקלדת (WCAG
+                2.1.1): בלעדיו משתמש מקלדת לא יכול לגלול את הציר כלל */}
+            <ol
+              tabIndex={0}
+              aria-labelledby="author-timeline"
+              className="flex snap-x gap-6 overflow-x-auto pb-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-burgundy"
+            >
               {author.timeline.map((entry, index) => (
                 <li key={index} className="relative min-w-32 shrink-0 border-t border-rule pt-3.5">
                   <span

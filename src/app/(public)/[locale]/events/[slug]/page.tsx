@@ -118,6 +118,7 @@ export default async function EventPage({
               gallery={gallery}
               eventTitle={title}
               blockStageIndex={blockStageIndex}
+              locale={locale}
             />
           </Container>
         ) : null}

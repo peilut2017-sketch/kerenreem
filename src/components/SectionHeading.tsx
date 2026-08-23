@@ -36,9 +36,12 @@ export function SectionHeading({
         >
           {title}
         </Heading>
+        {/* הזהב יוצא מהכותרת ודועך אל הקצה — כיוון הדעיכה מתהפך עם כיוון
+            הקריאה: גרדיאנט פיזי קבוע הציב באנגלית את הזהב בקצה הרחוק
+            והשקוף דווקא ליד הכותרת. */}
         <span
           aria-hidden="true"
-          className="h-px flex-1 translate-y-[-0.35em] bg-linear-to-l from-gold to-transparent"
+          className="h-px flex-1 translate-y-[-0.35em] bg-linear-to-l from-gold to-transparent ltr:bg-linear-to-r"
         />
         {action ? (
           <Link href={action.href} className="link-more shrink-0">

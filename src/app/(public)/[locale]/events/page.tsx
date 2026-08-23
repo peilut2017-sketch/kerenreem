@@ -37,11 +37,19 @@ export default async function EventsPage({ params }: { params: Promise<{ locale:
   const t = await getTranslations('events');
   const events = await getEvents();
 
-  const upcoming = events.filter((event) => {
-    const date = parseDateOnly(event.event_date ?? '');
-    return date ? isUpcoming(date) : false;
-  });
-  const past = events.filter((event) => !upcoming.includes(event));
+  /* שלושה דליים, לא שניים:
+     • קרובים — תאריך לועזי עתידי.
+     • שנתיים — תאריך עברי קבוע בלי תאריך לועזי (ט״ו באב וכדומה): קודם
+       לכן הם נפלו לנצח אל "שהיו", למרות שזה בדיוק המצב שהטופס בניהול
+       מגדיר כ"אירוע שנתי חוזר".
+     • שהיו — כל השאר. ההשוואה דרך Set של מזהים ולא includes על מערך —
+       ‎O(n)‎ במקום ‎O(n²)‎ בארכיון של מאות אירועים. */
+  const dated = events.filter((event) => parseDateOnly(event.event_date ?? '') !== null);
+  const annual = events.filter((event) => !event.event_date && event.event_date_he);
+  const upcoming = dated.filter((event) => isUpcoming(parseDateOnly(event.event_date ?? '')!));
+  const upcomingIds = new Set(upcoming.map((event) => event.id));
+  const annualIds = new Set(annual.map((event) => event.id));
+  const past = events.filter((event) => !upcomingIds.has(event.id) && !annualIds.has(event.id));
 
   return (
     <Container className="py-16 lg:py-20">
@@ -71,9 +79,23 @@ export default async function EventsPage({ params }: { params: Promise<{ locale:
         </section>
       ) : null}
 
+      {annual.length > 0 ? (
+        <section className="mb-16">
+          <SectionHeading title={t('annual')} />
+          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {annual.map((event, index) => (
+              <EventCard key={event.id} event={event} locale={locale} delay={index * 70} showExcerpt />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {past.length > 0 ? (
         <section>
-          {upcoming.length > 0 ? <SectionHeading title={t('past')} /> : null}
+          {/* הכותרת מוצגת תמיד — לא רק כשיש גם קרובים. בלעדיה, ברוב ימות
+              השנה (אין אירוע עתידי) הארכיון הוצג בלי שום כותרת ונראה
+              כאילו כל האירועים שבו עתידיים. */}
+          <SectionHeading title={t('past')} />
           <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {past.map((event, index) => (
               <EventCard
@@ -81,7 +103,7 @@ export default async function EventsPage({ params }: { params: Promise<{ locale:
                 event={event}
                 locale={locale}
                 delay={index * 70}
-                priority={upcoming.length === 0 && index < 3}
+                priority={upcoming.length === 0 && annual.length === 0 && index < 3}
                 showExcerpt
               />
             ))}

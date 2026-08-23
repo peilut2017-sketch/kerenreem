@@ -65,12 +65,14 @@ export default async function AuthorsPage({ params }: { params: Promise<{ locale
                   className="card card-interactive group h-full flex-row items-center gap-5 p-6 focus-visible:outline-offset-4"
                 >
                   {author.portrait_url ? (
+                    /* 128×160 ולא 56×72: הדיוקן מוצג ב-64px רוחב CSS —
+                       בקשה ל-56px נמתחה, ובמסך retina הוגשה בחצי מהחדות */
                     <Image
                       src={author.portrait_url}
                       alt={t('portraitAlt', { name })}
-                      width={56}
-                      height={72}
-                      sizes="56px"
+                      width={128}
+                      height={160}
+                      sizes="64px"
                       className="h-20 w-16 shrink-0 rounded-[var(--radius-sm)] object-cover"
                     />
                   ) : (
@@ -86,7 +88,16 @@ export default async function AuthorsPage({ params }: { params: Promise<{ locale
                     <span className="block font-serif text-h3 text-ink group-hover:text-burgundy">
                       {name}
                     </span>
-                    {years ? <span className="mt-1 block text-small text-muted">{years}</span> : null}
+                    {years ? (
+                      <span className="mt-1 block text-small text-muted">
+                        <bdi dir="ltr">{years}</bdi>
+                      </span>
+                    ) : null}
+                    {/* במובייל הספירה יורדת לשורה משנית במקום להיעלם —
+                        זה המידע היחיד שמצדיק כניסה לעמוד המחבר */}
+                    <span className="mt-1 block text-caption text-muted sm:hidden">
+                      {t('bookCount', { count: bookCounts.get(author.id) ?? 0 })}
+                    </span>
                   </span>
 
                   <span className="hidden text-small text-muted sm:block">

@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { isRtl } from '@/i18n/routing';
 import { Img as Image } from '@/components/Img';
 
 export interface LightboxImage {
@@ -97,23 +98,60 @@ function LightboxOverlay({
   onStep: (delta: number) => void;
 }) {
   const t = useTranslations('events');
+  const locale = useLocale();
+  const rtl = isRtl(locale);
   const touchStartX = useRef<number | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const image = images[index];
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
-      // RTL: ← חזותית הוא "הבא" (ימין לשמאל), חץ מקלדת נשאר לפי כיוונו הפיזי
-      else if (event.key === 'ArrowRight') onStep(-1);
-      else if (event.key === 'ArrowLeft') onStep(1);
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      // החצים לפי כיוון הקריאה: ב-RTL "הבא" יושב משמאל (חץ שמאלה מתקדם),
+      // ב-LTR להפך. הבדיקה הקודמת הניחה RTL תמיד — באתר האנגלי חץ ימינה
+      // חזר אחורה.
+      if (event.key === 'ArrowRight') {
+        onStep(rtl ? -1 : 1);
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        onStep(rtl ? 1 : -1);
+        return;
+      }
+      // מלכודת מיקוד: הדיאלוג מודאלי (aria-modal), וטאב שבורח אל העמוד
+      // שמאחור משוטט בתוכן מוסתר
+      if (event.key !== 'Tab') return;
+      const panel = dialogRef.current;
+      if (!panel) return;
+      const focusable = panel.querySelectorAll<HTMLElement>('button:not([disabled])');
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener('keydown', onKeyDown);
     const previouslyFocused = document.activeElement as HTMLElement | null;
+    // המיקוד נכנס לדיאלוג (aria-modal בלי מיקוד בפנים הוא הצהרה ריקה),
+    // וגלילת הרקע ננעלת — גלגלת שמחליפה תמונה גם גללה את העמוד שמאחור,
+    // ובסגירה המבקר מצא את עצמו במקום אחר.
+    dialogRef.current?.focus();
+    const savedOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = savedOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [onClose, onStep]);
+  }, [onClose, onStep, rtl]);
 
   function onWheel(event: React.WheelEvent) {
     if (Math.abs(event.deltaY) < 24) return;
@@ -136,15 +174,20 @@ function LightboxOverlay({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={image.caption ?? image.alt}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/85 backdrop-blur-md"
+      tabIndex={-1}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/85 backdrop-blur-md outline-none"
       onWheel={onWheel}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <button type="button" aria-label={t('close')} onClick={onClose} className="absolute inset-0" />
+      {/* div ולא button: כפתור סמוי בגודל מסך היה ראשון בסדר הטאב וקורא
+          המסך הכריז "סגירה, לחצן" לפני התמונה; הסגירה במקלדת היא Escape
+          וכפתור ה-X הגלוי */}
+      <div aria-hidden="true" onClick={onClose} className="absolute inset-0" />
 
       <button
         type="button"

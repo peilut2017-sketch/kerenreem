@@ -5,6 +5,7 @@ import {
   EventTextBlock,
   EventVideoBlock,
 } from './EventBlocks';
+import { localized } from '@/lib/localized';
 import type { EventGalleryIndex } from '@/lib/event-gallery';
 import type { EventBlock } from '@/lib/supabase/types';
 
@@ -21,23 +22,27 @@ export function EventBlockList({
   gallery,
   eventTitle,
   blockStageIndex,
+  locale,
 }: {
   blocks: EventBlock[];
   gallery: EventGalleryIndex;
   eventTitle: string;
   blockStageIndex: Map<string, number>;
+  locale: string;
 }) {
   return (
     <div className="space-y-10 sm:space-y-14">
       {blocks.map((block) => {
-        const content = renderBlock(block, gallery, eventTitle);
+        const content = renderBlock(block, gallery, eventTitle, locale);
         if (!content) return null;
 
         const stageIndex = blockStageIndex.get(block.id);
         if (stageIndex === undefined) return <div key={block.id}>{content}</div>;
 
         return (
-          <div key={block.id} data-stage-index={stageIndex}>
+          /* id — יעד הקפיצה של תחנות מד ההתקדמות (EventJourneyProgress);
+             scroll-mt מפנה מקום לכותרת ולמד הדביקים מעל העוגן */
+          <div key={block.id} id={`stage-${stageIndex}`} data-stage-index={stageIndex} className="scroll-mt-32">
             {content}
           </div>
         );
@@ -46,10 +51,19 @@ export function EventBlockList({
   );
 }
 
-function renderBlock(block: EventBlock, gallery: EventGalleryIndex, eventTitle: string): React.ReactNode {
+function renderBlock(
+  block: EventBlock,
+  gallery: EventGalleryIndex,
+  eventTitle: string,
+  locale: string,
+): React.ReactNode {
   switch (block.type) {
-    case 'text':
-      return block.body_he ? <EventTextBlock text={block.body_he} /> : null;
+    case 'text': {
+      // localized ולא body_he ישירות: שדה body_en קיים במודל ופשוט לא
+      // נקרא — באתר האנגלי כל סיפור האירוע הוצג בעברית.
+      const text = localized(block, 'body', locale);
+      return text ? <EventTextBlock text={text} /> : null;
+    }
 
     case 'image': {
       const imageIndex = gallery.blockImageIndex.get(block.id);

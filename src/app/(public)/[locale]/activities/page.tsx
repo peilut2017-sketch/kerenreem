@@ -45,15 +45,18 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ loc
       {activities.length === 0 ? (
         <p className="text-muted">{t('empty')}</p>
       ) : (
-        /* רשימה ממוספרת ולא כרטיסים: ארבעה צירים אינם ארבעה מוצרים. */
-        <ol className="grid gap-6 sm:grid-cols-2">
+        /* הכרטיס כולו הוא הקישור — באותו דפוס כמו כרטיסי הצירים בעמוד
+           הבית וכרטיסי הספרים: קודם לכן רק שורת הכותרת הייתה לחיצה,
+           והכרטיס — בלי hover ובלי חץ — לא נראה לחיץ בכלל. ul ולא ol:
+           הסדר אינו נושא משמעות (המספר מוצג רק כשאין אייקון). */
+        <ul className="grid gap-6 sm:grid-cols-2">
           {activities.map((activity, index) => (
-            <li key={activity.id} className="card p-7">
-              <div className="flex gap-5">
-                <span
-                  aria-hidden="true"
-                  className="icon-chip h-14 w-14"
-                >
+            <li key={activity.id}>
+              <Link
+                href={`/activities/${activity.slug}`}
+                className="card card-interactive group flex h-full flex-row gap-5 p-7 focus-visible:outline-offset-4"
+              >
+                <span aria-hidden="true" className="icon-chip h-14 w-14 shrink-0">
                   {hasIcon(activity.icon) ? (
                     <Icon name={activity.icon} className="h-6 w-6" />
                   ) : (
@@ -62,20 +65,21 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ loc
                     </span>
                   )}
                 </span>
-                <div>
-                  <h2 className="text-h2">
-                    <Link href={`/activities/${activity.slug}`} className="text-ink hover:text-burgundy">
-                      {localized(activity, 'title', locale)}
-                    </Link>
-                  </h2>
-                  <p className="mt-3 max-w-[60ch] text-ink-soft">
+                <span className="block">
+                  {/* text-h3 ולא text-h2: כותרת בגודל כותרת-מקטע בתוך כרטיס
+                      משני שברה את המדרג מול ה-PageHeader שמעל */}
+                  <span className="block font-serif text-h3 leading-snug text-ink transition-colors group-hover:text-burgundy">
+                    {localized(activity, 'title', locale)}
+                  </span>
+                  <span className="mt-3 block max-w-[60ch] text-small leading-relaxed text-ink-soft">
                     {localized(activity, 'summary', locale)}
-                  </p>
-                </div>
-              </div>
+                  </span>
+                  <span className="link-more mt-4">{t('readMore')}</span>
+                </span>
+              </Link>
             </li>
           ))}
-        </ol>
+        </ul>
       )}
     </Container>
   );

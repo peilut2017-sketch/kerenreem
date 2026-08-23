@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { Container } from './Container';
 import { RichText } from './RichText';
 import { getPageBySlug } from '@/lib/data';
@@ -28,10 +29,16 @@ export async function ContentPageView({
   ]);
 
   if (!page) {
+    /* הודעה ציבורית ניטרלית + נתיב המשך — לא "העמוד טרם נערך במערכת
+       הניהול": זו הודעה פנימית שהוצגה לציבור, ותחת "תקנון" באתר עם
+       חנות פעילה היא גם חשיפה משפטית. */
     return (
       <Container width="text" className="py-14">
         <h1 className="text-h1 text-ink">{fallbackTitle}</h1>
         <p className="mt-4 text-muted">{t('missing')}</p>
+        <Link href="/contact" className="link-more mt-6">
+          {t('missingContactCta')}
+        </Link>
       </Container>
     );
   }

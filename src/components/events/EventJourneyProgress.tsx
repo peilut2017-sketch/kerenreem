@@ -98,9 +98,13 @@ export function EventJourneyProgress({ stages, heroId }: { stages: string[]; her
                 itemRefs.current[index] = node;
               }}
             >
-              <span
+              {/* קישור אמיתי, לא span: nav שכל תחנותיו אינן לחיצות הוא
+                  landmark ריק לקורא מסך והבטחה שנראית לחיצה ואינה —
+                  העוגנים (id="stage-N") נכתבים ב-EventBlockList. */}
+              <a
+                href={`#stage-${index}`}
                 aria-current={active === index ? 'true' : undefined}
-                className={`relative z-10 flex items-center gap-2 whitespace-nowrap rounded-[var(--radius-pill)] px-3.5 py-1.5 text-caption transition-colors ${
+                className={`relative z-10 flex items-center gap-2 whitespace-nowrap rounded-[var(--radius-pill)] px-3.5 py-1.5 text-caption transition-colors hover:text-burgundy ${
                   active === index ? 'font-semibold text-burgundy' : 'text-ink-soft'
                 }`}
               >
@@ -116,7 +120,7 @@ export function EventJourneyProgress({ stages, heroId }: { stages: string[]; her
                     ―
                   </span>
                 ) : null}
-              </span>
+              </a>
             </li>
           ))}
         </ul>

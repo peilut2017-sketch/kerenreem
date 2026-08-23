@@ -240,13 +240,18 @@ body::before {
     color: var(--color-gold-deep);
     transition: color 160ms ease, gap 160ms ease;
   }
+  /* החץ ממשיך בכיוון הקריאה: שמאלה בעברית, ימינה באנגלית. הגלייף
+     הקשיח (←) הצביע "אחורה" בגרסה האנגלית, והתנועה ב-hover ברחה
+     מהטקסט במקום להוביל ממנו והלאה. */
   .link-more::after {
     content: '←';
     font-size: 0.9em;
     transition: transform 200ms ease;
   }
+  [dir='ltr'] .link-more::after { content: '→'; }
   .link-more:hover { color: var(--color-burgundy); }
   .link-more:hover::after { transform: translateX(-0.2em); }
+  [dir='ltr'] .link-more:hover::after { transform: translateX(0.2em); }
   .on-dark .link-more { color: var(--color-gold); }
   .on-dark .link-more:hover { color: var(--color-gold-bright); }
 
@@ -693,11 +698,11 @@ body::before {
       will-change: transform, filter;
     }
   }
-  /* הכיתוב אף פעם לא נעלם לגמרי: 0.55 ברצפה גם כשהתמונה אינה במוקד.
-     כיתוב הוא מידע ("מי בתמונה", "מתי"), ולא קישוט שאפשר להעלים. */
+  /* הכיתוב אינו מעומעם כלל — לא רק "לא נעלם": ב-0.55 טקסט muted על קרם
+     צנח מיחס 5.7:1 ל-~2.5:1, מתחת לסף AA. כיתוב הוא מידע ("מי בתמונה",
+     "מתי"); אפקט המוקד שייך למדיה (--focus על .scroll-focus), לא לטקסט. */
   .scroll-focus-caption {
-    opacity: calc(0.55 + var(--focus) * 0.45);
-    transition: opacity 300ms var(--ease-spring);
+    opacity: 1;
   }
 
   /* --- מרווח מקטע: אזורים נושמים --- */

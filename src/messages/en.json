@@ -230,6 +230,7 @@
     "timelineHeading": "Life events"
   },
   "activities": {
+    "readMore": "Read more",
     "title": "Activities",
     "intro": "Four areas in which the institute works.",
     "empty": "No activities have been added yet."
@@ -242,7 +243,7 @@
     "gallery": "Gallery",
     "galleryImageAlt": "Gallery image {index}",
     "empty": "No events are currently documented on the site.",
-    "annual": "Annual event",
+    "annual": "Annual events",
     "videoTitle": "Video from the event",
     "close": "Close",
     "nextImage": "Next image",
@@ -261,8 +262,9 @@
     "terms": "Terms of use",
     "privacy": "Privacy policy",
     "accessibility": "Accessibility statement",
+    "missingContactCta": "Contact us",
     "lastUpdated": "Last updated: {date}",
-    "missing": "This page has not been edited in the content system yet."
+    "missing": "This page's content is coming soon. In the meantime, we are happy to help via the contact page."
   },
   "contact": {
     "title": "Contact",
@@ -668,6 +670,8 @@
     "backHome": "Back to the home page",
     "genericTitle": "Something went wrong",
     "genericBody": "We could not load this content. Please refresh the page.",
+    "contactUs": "Contact us",
+    "errorCode": "Error code for support: {code}",
     "retry": "Try again",
     "offline": "No internet connection — cart, checkout and payment actions won't work until it's back.",
     "backOnline": "Connection restored.",
