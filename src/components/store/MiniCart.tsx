@@ -48,13 +48,21 @@ export function MiniCart() {
                     <span className="tabular-nums">−{formatPrice(view.coupon.discountAmount, locale)}</span>
                   </div>
                 ) : null}
+                {view.promotion ? (
+                  <div className="flex items-baseline justify-between text-caption text-gold-deep">
+                    <span>
+                      {t('promotionLabel')} · {view.promotion.name}
+                    </span>
+                    <span className="tabular-nums">−{formatPrice(view.promotion.discountAmount, locale)}</span>
+                  </div>
+                ) : null}
                 <div className="flex items-baseline justify-between text-small text-ink">
                   <span>{t('subtotal')}</span>
                   <strong className="font-serif text-h3">
-                    {formatPrice(
-                      Math.max(view.cart.subtotal - (view.coupon?.ok ? view.coupon.discountAmount : 0), 0),
-                      locale,
-                    )}
+                    {/* הסכום מהשרת — אותו מספר כמו בעמוד הסל. החישוב המקומי
+                        הקודם שכח את המבצע האוטומטי, והמיני-סל הציג סכום
+                        גבוה מזה שבעמוד הסל. */}
+                    {formatPrice(view.estimatedSubtotalAfterDiscounts, locale)}
                   </strong>
                 </div>
               </div>
@@ -92,6 +100,29 @@ export function MiniCart() {
           </Link>
         </div>
       ) : (
+        <>
+        {view && view.cart.changes.length > 0 ? (
+          /* שינויים שהתגלו (מחיר/כמות/זמינות) — מוצגים גם כאן: המיני-סל
+             הוא המסך שנפתח אוטומטית בכל הוספה, והוא חייב לשאת את אותו
+             מידע כמו עמוד הסל. */
+          <div role="status" className="mb-4 rounded-[var(--radius-md)] border border-gold-deep/50 bg-gold/10 px-3.5 py-2.5 text-caption text-ink">
+            <ul className="space-y-1">
+              {view.cart.changes.map((change) => (
+                <li key={`${change.bookId}-${change.kind}`}>
+                  {change.kind === 'price' && change.previousPrice != null && change.newPrice != null
+                    ? t('priceChangedNoteAmounts', {
+                        title: change.title,
+                        oldPrice: formatPrice(change.previousPrice, locale),
+                        newPrice: formatPrice(change.newPrice, locale),
+                      })
+                    : change.kind === 'quantity' && change.availableQuantity != null
+                      ? t('quantityAdjustedAmounts', { title: change.title, available: change.availableQuantity })
+                      : `${change.title}: ${t('unavailableLine')}`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <ul className="space-y-5">
           {lines.map((line, index) => (
             <li
@@ -131,7 +162,7 @@ export function MiniCart() {
                 <button
                   type="button"
                   onClick={() => cart.remove(line.bookId)}
-                  className="mt-1.5 text-caption text-muted underline-offset-2 hover:text-burgundy hover:underline"
+                  className="-mx-2 mt-0.5 inline-flex min-h-9 items-center rounded-[var(--radius-pill)] px-2 text-caption text-muted underline-offset-2 hover:text-burgundy hover:underline"
                 >
                   {t('remove')}
                 </button>
@@ -139,6 +170,7 @@ export function MiniCart() {
             </li>
           ))}
         </ul>
+        </>
       )}
 
       {view && cart.count > 0 ? (
@@ -177,11 +209,13 @@ export function QuantityStepper({
         type="button"
         aria-label={t('decreaseQty')}
         onClick={() => onChange(quantity - 1)}
-        className="px-2.5 py-1 text-ink-soft hover:text-burgundy"
+        className="flex min-h-10 min-w-10 items-center justify-center px-2 text-ink-soft hover:text-burgundy"
       >
         −
       </button>
-      <span aria-live="polite" className="min-w-6 text-center text-small tabular-nums">
+      {/* בלי aria-live: שלושה אזורים חיים הוכרזו יחד על כל לחיצת "+" —
+          די בהכרזת הטוסט של ספק העגלה */}
+      <span className="min-w-6 text-center text-small tabular-nums">
         {quantity}
       </span>
       <button
@@ -189,7 +223,7 @@ export function QuantityStepper({
         aria-label={t('increaseQty')}
         disabled={quantity >= max}
         onClick={() => onChange(quantity + 1)}
-        className="px-2.5 py-1 text-ink-soft hover:text-burgundy disabled:opacity-40"
+        className="flex min-h-10 min-w-10 items-center justify-center px-2 text-ink-soft hover:text-burgundy disabled:opacity-40"
       >
         +
       </button>

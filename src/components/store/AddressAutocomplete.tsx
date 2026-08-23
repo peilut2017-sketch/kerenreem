@@ -47,11 +47,20 @@ export function AddressAutocomplete({
     }
     const requestNumber = ++requestId.current;
     const timer = setTimeout(async () => {
-      const results = await fetcher(q);
+      let results: string[];
+      try {
+        results = await fetcher(q);
+      } catch {
+        // כשל רשת אינו חוסם את ההקלדה — פשוט אין הצעות. בלי ה-catch זו
+        // הייתה unhandled rejection והרשימה נשארה תקועה על המצב הקודם.
+        results = [];
+      }
       if (requestId.current !== requestNumber) return;
       setOptions(results);
       setOpen(results.length > 0);
-      setHighlight(-1);
+      // ההצעה הראשונה מודגשת מראש (דפוס combobox מקובל): Enter בוחר
+      // אותה במקום ליפול אל שליחת הטופס העוטף.
+      setHighlight(results.length > 0 ? 0 : -1);
     }, 220);
     return () => clearTimeout(timer);
   }, [value, fetcher]);
@@ -91,16 +100,28 @@ export function AddressAutocomplete({
           onChange(e.target.value);
         }}
         onKeyDown={(e) => {
-          if (!open) return;
+          if (!open) {
+            // חץ למטה פותח מחדש רשימה שנסגרה ב-Escape — בלי למחוק ולהקליד שוב
+            if (e.key === 'ArrowDown' && options.length > 0) {
+              e.preventDefault();
+              setOpen(true);
+              setHighlight(0);
+            }
+            return;
+          }
           if (e.key === 'ArrowDown') {
             e.preventDefault();
             setHighlight((h) => Math.min(h + 1, options.length - 1));
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setHighlight((h) => Math.max(h - 1, 0));
-          } else if (e.key === 'Enter' && highlight >= 0) {
+          } else if (e.key === 'Enter') {
+            // כשהרשימה פתוחה Enter לעולם אינו שולח את הטופס העוטף:
+            // בלי preventDefault גורף, Enter בלי הדגשה שלח את טופס
+            // האספקה עם עיר חלקית ("תל אב") — והשרת קיבל אותה.
             e.preventDefault();
-            choose(options[highlight]);
+            if (highlight >= 0) choose(options[highlight]);
+            else if (options.length === 1) choose(options[0]);
           } else if (e.key === 'Escape') {
             setOpen(false);
           }
@@ -111,23 +132,27 @@ export function AddressAutocomplete({
         <ul
           id={`${id}-list`}
           role="listbox"
-          className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-[var(--radius-md)] border border-rule bg-white shadow-[var(--shadow-float)]"
+          className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-[var(--radius-md)] border border-rule bg-white shadow-[var(--shadow-float)]"
         >
+          {/* ה-option עצמו הוא היעד הלחיץ — button בתוך option הוא מבנה
+              ARIA אסור (option אינו רשאי להכיל אלמנט אינטראקטיבי), וקוראי
+              מסך הכריזו אותו פעמיים או דילגו עליו. */}
           {options.map((option, index) => (
-            <li key={option} id={`${id}-opt-${index}`} role="option" aria-selected={index === highlight}>
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  choose(option);
-                }}
-                onMouseEnter={() => setHighlight(index)}
-                className={`block w-full px-4 py-2 text-start text-small ${
-                  index === highlight ? 'bg-gold/15 text-ink' : 'text-ink-soft'
-                }`}
-              >
-                {option}
-              </button>
+            <li
+              key={option}
+              id={`${id}-opt-${index}`}
+              role="option"
+              aria-selected={index === highlight}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                choose(option);
+              }}
+              onMouseEnter={() => setHighlight(index)}
+              className={`cursor-pointer px-4 py-2 text-start text-small ${
+                index === highlight ? 'bg-gold/15 text-ink' : 'text-ink-soft'
+              }`}
+            >
+              {option}
             </li>
           ))}
         </ul>

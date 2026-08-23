@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
@@ -50,16 +50,12 @@ export function CartPageClient() {
   const appliedCoupon = coupon && coupon.ok ? coupon : null;
   const discount = appliedCoupon?.discountAmount ?? 0;
   const freeShippingByCoupon = Boolean(appliedCoupon?.freeShipping);
-  const shippingShown =
-    view?.freeShipping.achieved || freeShippingByCoupon ? 0 : (view?.estimatedShipping ?? 0);
-  const promoDiscount = view?.promotion?.discountAmount ?? 0;
-  const totalEstimated = Math.max(
-    (view?.cart.subtotal ?? 0) - discount - promoDiscount + shippingShown,
-    0,
-  );
+  // הסכום מהשרת — אותו מספר בדיוק בעמוד הסל, במיני-סל ובקופה; החישוב
+  // המקומי הקודם שוכפל בשלושה מסכים וכבר סטה ביניהם.
+  const totalEstimated = view?.estimatedTotal ?? 0;
 
   return (
-    <div className="mt-8 grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_22rem]">
+    <div className="mt-8 grid grid-cols-1 items-start gap-8 pb-24 lg:grid-cols-[1fr_22rem] lg:pb-0">
       <div>
         {changes.length > 0 ? (
           <div role="status" className="mb-6 rounded-[var(--radius-md)] border border-gold/40 bg-gold/10 px-4 py-3 text-small text-ink">
@@ -131,21 +127,23 @@ export function CartPageClient() {
                       </span>
                     ) : null}
                     {line.isPreorder ? (
-                      <span className="text-caption text-muted">{t('statusPendingPayment')}</span>
+                      /* preorderLine ולא statusPendingPayment: זה תיאור פריט
+                         ("בהזמנה מוקדמת"), לא סטטוס הזמנה ("ממתינה לתשלום") */
+                      <span className="text-caption text-muted">{t('preorderLine')}</span>
                     ) : null}
                     <span className="ms-auto flex items-center gap-1">
-                      {!favourites.has(line.bookId) ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            favourites.toggle(line.bookId);
-                            cart.remove(line.bookId);
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1.5 text-caption text-muted transition-colors hover:bg-gold/10 hover:text-burgundy"
-                        >
-                          {t('saveForLater')}
-                        </button>
-                      ) : null}
+                      {/* הכפתור קבוע: שורה שהספר שלה כבר במועדפים איבדה אותו
+                          בלי הסבר ונראתה שונה משכנותיה בלי סיבה נראית לעין */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!favourites.has(line.bookId)) favourites.toggle(line.bookId);
+                          cart.remove(line.bookId);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1.5 text-caption text-muted transition-colors hover:bg-gold/10 hover:text-burgundy"
+                      >
+                        {t('saveForLater')}
+                      </button>
                       <button
                         type="button"
                         onClick={() => cart.remove(line.bookId)}
@@ -167,17 +165,9 @@ export function CartPageClient() {
 
         <div className="mt-5 flex items-center justify-between">
           <Link href="/books" className="text-small text-muted hover:text-burgundy">
-            ← {t('continueShopping')}
+            <span aria-hidden="true" className="inline-block ltr:-scale-x-100">→</span> {t('continueShopping')}
           </Link>
-          <button
-            type="button"
-            onClick={() => {
-              if (window.confirm(t('clearCartConfirm'))) cart.clear();
-            }}
-            className="text-caption text-muted underline-offset-2 hover:text-burgundy hover:underline"
-          >
-            {t('clearCart')}
-          </button>
+          <ClearCartButton onConfirm={cart.clear} />
         </div>
       </div>
 
@@ -232,6 +222,7 @@ export function CartPageClient() {
                 appliedCode={appliedCoupon?.code ?? null}
                 freeShipping={freeShippingByCoupon}
                 error={coupon && !coupon.ok ? coupon : null}
+                busy={cart.loading}
                 onApply={cart.setCouponCode}
                 onRemove={cart.clearCoupon}
               />
@@ -247,15 +238,38 @@ export function CartPageClient() {
               </p>
             ) : null}
 
+            {cart.stale ? (
+              /* האימות האחרון נכשל — הסכומים עלולים להיות ישנים. המעבר
+                 לתשלום נחסם עד רענון מוצלח: אסור להתחיל קופה על סכומים
+                 שלא אומתו. */
+              <div role="alert" className="mt-4 rounded-[var(--radius-md)] border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-small text-ink">
+                {t('cartStaleNotice')}{' '}
+                <button
+                  type="button"
+                  onClick={cart.refresh}
+                  className="font-semibold text-burgundy underline underline-offset-2"
+                >
+                  {t('cartStaleRefresh')}
+                </button>
+              </div>
+            ) : null}
+
             {view.flags.checkoutEnabled ? (
               <button
                 type="button"
+                disabled={cart.stale}
                 onClick={() => router.push('/checkout')}
                 className="btn btn-solid mt-5 w-full"
               >
                 {t('toCheckout')}
               </button>
-            ) : null}
+            ) : (
+              /* הקופה כבויה: הודעה + טלפון במקום כפתור שפשוט נעלם —
+                 סיכום מלא עם סכום ואפס דרך להתקדם נראה כמו אתר שבור */
+              <p className="mt-5 rounded-[var(--radius-md)] bg-cream-2/80 px-4 py-3 text-center text-small text-ink-soft">
+                {t('checkoutDisabledNotice')}
+              </p>
+            )}
 
             <p className="mt-4 text-center text-caption leading-relaxed text-muted">{t('cartTrust')}</p>
 
@@ -266,14 +280,94 @@ export function CartPageClient() {
             ) : null}
           </>
         ) : (
-          <div aria-hidden="true" className="mt-4 space-y-3">
-            <div className="h-4 animate-pulse rounded bg-cream-2" />
-            <div className="h-4 w-2/3 animate-pulse rounded bg-cream-2" />
-            <div className="h-10 animate-pulse rounded bg-cream-2" />
-          </div>
+          <>
+            <span role="status" className="sr-only">
+              {t('loading')}
+            </span>
+            <div aria-hidden="true" className="mt-4 space-y-3">
+              <div className="h-4 animate-pulse rounded bg-cream-2" />
+              <div className="h-4 w-2/3 animate-pulse rounded bg-cream-2" />
+              <div className="h-10 animate-pulse rounded bg-cream-2" />
+            </div>
+          </>
         )}
       </aside>
+
+      {/* CTA דביק במובייל: הסיכום יושב אחרי רשימת הפריטים — בעגלה של
+          כמה ספרים "מעבר לתשלום" היה שלושה מסכי גלילה מתחת לקיפול.
+          bottom לפי --consent-h, כדי לא להתנגש ברצועת העוגיות. */}
+      {view && view.flags.checkoutEnabled ? (
+        <div className="fixed inset-x-0 bottom-[var(--consent-h,0px)] z-40 border-t border-rule bg-cream/95 px-4 py-3 shadow-[0_-10px_30px_-18px_rgb(11_21_32/0.3)] backdrop-blur lg:hidden">
+          <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-4">
+            <span className="text-small text-ink-soft">
+              {t('totalEstimated')}{' '}
+              <strong className="font-serif text-[1.125rem] text-ink tabular-nums">
+                {formatPrice(totalEstimated, locale)}
+              </strong>
+            </span>
+            <button
+              type="button"
+              disabled={cart.stale}
+              onClick={() => router.push('/checkout')}
+              className="btn btn-solid shrink-0 px-6 py-2.5"
+            >
+              {t('toCheckout')}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * ריקון הסל באישור דו-שלבי במקום window.confirm — דיאלוג הדפדפן אינו
+ * נגיש לקורא מסך, אינו מתורגם ואינו בשפת העיצוב. לחיצה ראשונה חושפת
+ * אישור מפורש; בלי אישור תוך 5 שניות — חוזר לרגיל.
+ */
+function ClearCartButton({ onConfirm }: { onConfirm: () => void }) {
+  const t = useTranslations('store');
+  const [armed, setArmed] = useState(false);
+
+  useEffect(() => {
+    if (!armed) return;
+    const timer = setTimeout(() => setArmed(false), 5000);
+    return () => clearTimeout(timer);
+  }, [armed]);
+
+  if (armed) {
+    return (
+      <span className="flex items-center gap-2 text-caption">
+        <span className="text-ink-soft">{t('clearCartConfirm')}</span>
+        <button
+          type="button"
+          onClick={() => {
+            onConfirm();
+            setArmed(false);
+          }}
+          className="font-semibold text-burgundy underline underline-offset-2"
+        >
+          {t('clearCart')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setArmed(false)}
+          className="text-muted underline underline-offset-2 hover:text-ink"
+        >
+          {t('cancel')}
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setArmed(true)}
+      className="text-caption text-muted underline-offset-2 hover:text-burgundy hover:underline"
+    >
+      {t('clearCart')}
+    </button>
   );
 }
 
@@ -281,12 +375,15 @@ function CartCouponField({
   appliedCode,
   freeShipping,
   error,
+  busy,
   onApply,
   onRemove,
 }: {
   appliedCode: string | null;
   freeShipping: boolean;
   error: { error?: string; minTotal?: number; code: string } | null;
+  /** אימות שרת בעיצומו — הכפתור מציג "בודק…" במקום לשתוק עד שנייה וחצי */
+  busy: boolean;
   onApply: (code: string) => void;
   onRemove: () => void;
 }) {
@@ -294,6 +391,14 @@ function CartCouponField({
   const locale = useLocale();
   const [open, setOpen] = useState(Boolean(appliedCode || error));
   const [code, setCode] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  // התוצאה חזרה (busy ירד) — מזוהה בזמן הרינדור עצמו, כמו דפוס seenPathname
+  const [prevBusy, setPrevBusy] = useState(busy);
+  if (busy !== prevBusy) {
+    setPrevBusy(busy);
+    if (!busy && submitted) setSubmitted(false);
+  }
+  const checking = submitted && busy;
 
   if (appliedCode) {
     return (
@@ -328,7 +433,10 @@ function CartCouponField({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (code.trim()) onApply(code);
+            if (code.trim()) {
+              setSubmitted(true);
+              onApply(code);
+            }
           }}
           className="flex gap-2"
         >
@@ -343,8 +451,8 @@ function CartCouponField({
             placeholder={t('coupon')}
             className="min-w-0 flex-1 rounded-[var(--radius-md)] border border-rule bg-white/70 px-3 py-2 text-small uppercase tracking-wide text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
           />
-          <button type="submit" className="btn btn-quiet shrink-0 px-4 py-2 text-small">
-            {t('couponApply')}
+          <button type="submit" disabled={checking} className="btn btn-quiet shrink-0 px-4 py-2 text-small">
+            {checking ? t('couponChecking') : t('couponApply')}
           </button>
         </form>
       )}

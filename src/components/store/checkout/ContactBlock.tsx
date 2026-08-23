@@ -40,6 +40,18 @@ export function ContactBlock({
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState(false);
 
+  const setField = (key: keyof ContactValues) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value;
+    setValues((v) => ({ ...v, [key]: next }));
+    // השגיאה מתנקה תוך כדי הקלדה — לא נשארת אדומה בזמן שהמשתמש מתקן
+    setErrors((current) => {
+      if (!current[key]) return current;
+      const rest = { ...current };
+      delete rest[key];
+      return rest;
+    });
+  };
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -75,7 +87,9 @@ export function ContactBlock({
       open={open}
       done={done}
       onOpen={onOpen}
-      summary={done ? `${initial.name || values.name} · ${values.phone || initial.phone}` : undefined}
+      // values לפני initial: initial הוא צילום קפוא מה-bootstrap — לקוח
+      // חוזר שעדכן את שמו ראה בתקציר את השם הישן.
+      summary={done ? `${values.name || initial.name} · ${values.phone || initial.phone}` : undefined}
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <p className="text-caption text-muted">
@@ -97,7 +111,7 @@ export function ContactBlock({
               autoComplete="tel"
               required
               value={values.phone}
-              onChange={(e) => setValues((v) => ({ ...v, phone: e.target.value }))}
+              onChange={setField('phone')}
               aria-invalid={errors.phone ? true : undefined}
               aria-describedby={errors.phone ? 'checkout-phone-error' : undefined}
               className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
@@ -115,7 +129,7 @@ export function ContactBlock({
               autoComplete="name"
               required
               value={values.name}
-              onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
+              onChange={setField('name')}
               aria-invalid={errors.name ? true : undefined}
               aria-describedby={errors.name ? 'checkout-name-error' : undefined}
               className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
@@ -136,7 +150,7 @@ export function ContactBlock({
               autoComplete="email"
               required
               value={values.email}
-              onChange={(e) => setValues((v) => ({ ...v, email: e.target.value }))}
+              onChange={setField('email')}
               aria-invalid={errors.email ? true : undefined}
               aria-describedby={errors.email ? 'checkout-email-error' : 'checkout-email-hint'}
               className="w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
@@ -155,7 +169,7 @@ export function ContactBlock({
         ) : null}
 
         <button type="submit" disabled={busy} className="btn btn-solid">
-          {t('continueButton')}
+          {busy ? t('saving') : t('continueButton')}
         </button>
       </form>
     </BlockShell>

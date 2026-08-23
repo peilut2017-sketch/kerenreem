@@ -69,7 +69,9 @@ export function ExpressStrip({
             aria-pressed={selected === 'apple_pay'}
             className={`${base} ${selected === 'apple_pay' ? active : idle}`}
           >
-             Pay
+            {/* "Apple Pay" בטקסט — תו הלוגו של אפל () אינו קיים מחוץ
+                למכשירי אפל ומרונדר כריבוע שבור בכל מקום אחר */}
+            Apple Pay
           </button>
         ) : null}
         <button

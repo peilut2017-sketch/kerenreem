@@ -330,6 +330,9 @@ export async function saveFulfillment(input: {
     const a = input.address ?? {};
     const fieldErrors: Record<string, string> = {};
     if (!a.recipient_name?.trim()) fieldErrors.recipient_name = 'required';
+    // טלפון המקבל חובה במשלוח — חברות השילוח דורשות אותו, והזמנה בלעדיו
+    // נתקעת אצל השליח ולא אצלנו.
+    if (!a.phone?.trim() || !isValidIsraeliPhone(a.phone)) fieldErrors.phone = 'invalid';
     if (!a.city?.trim()) fieldErrors.city = 'required';
     if (!a.street?.trim()) fieldErrors.street = 'required';
     if (!a.house_number?.trim()) fieldErrors.house_number = 'required';
@@ -346,6 +349,30 @@ export async function saveFulfillment(input: {
     },
   });
   return { ok: Boolean(updated) };
+}
+
+/**
+ * שיטות המשלוח הזמינות לעיר נתונה — נקרא מבלוק האספקה ברגע שהוזנה עיר.
+ * startCheckout בונה את הרשימה לפני שכתובת ידועה, ולכן שיטה שמוגבלת
+ * לאזור (או שמחירה תלוי-אזור) הוצגה ללקוח עד שבחר — והכשל התגלה רק
+ * ב-placeOrder, כ"משהו השתבש" בלולאה. הרענון כאן סוגר את הפער: הרשימה
+ * והמחירים מתעדכנים ברגע שהעיר ידועה, ו-placeOrder נשאר קו ההגנה האחרון.
+ */
+export async function getMethodsForCity(city: string): Promise<MethodOption[] | null> {
+  const sessionId = await readSessionId();
+  if (!sessionId) return null;
+
+  const headerList = await headers();
+  if (!(await allowRequest(ipBucket('checkout-methods', headerList), 30, 60))) return null;
+
+  const session = await loadSession(sessionId);
+  if (!session) return null;
+
+  const cart = await validateCart(
+    session.items.map((item) => ({ bookId: item.book_id, quantity: item.quantity })),
+    session.locale,
+  );
+  return buildMethodOptions(cart, session.locale, city.trim() || null);
 }
 
 /** בלוק 3 — מתנה, ערוץ נייד, אישור תקנון. */

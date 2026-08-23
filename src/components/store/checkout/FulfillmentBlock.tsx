@@ -2,12 +2,13 @@
 import { AddressAutocomplete } from '../AddressAutocomplete';
 import { searchCities, searchStreets } from '@/lib/commerce/address-actions';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { formatPrice } from '@/lib/commerce/pricing';
+import { isValidIsraeliPhone } from '@/lib/commerce/phone';
 import { BlockShell } from './BlockShell';
 import { Field } from './ContactBlock';
-import type { ActionResult, MethodOption } from '@/lib/commerce/checkout-actions';
+import { getMethodsForCity, type ActionResult, type MethodOption } from '@/lib/commerce/checkout-actions';
 import type { ShippingAddress } from '@/lib/supabase/types';
 
 /**
@@ -45,18 +46,71 @@ export function FulfillmentBlock({
 }) {
   const t = useTranslations('store');
   const locale = useLocale();
+  // הרשימה חיה: מתעדכנת לפי העיר (ראו getMethodsForCity) — לא רק הצילום מה-bootstrap
+  const [methodList, setMethodList] = useState<MethodOption[]>(methods);
   const [methodId, setMethodId] = useState<string | null>(initialMethodId ?? methods[0]?.id ?? null);
+  const [methodNotice, setMethodNotice] = useState<string | null>(null);
   const [address, setAddress] = useState<Partial<ShippingAddress>>(initialAddress);
   const [courierNotes, setCourierNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState(false);
+  const methodsRequest = useRef(0);
+  // הפניה טרייה ל-methodId עבור ה-callback המתוזמן — בלי להפוך את
+  // ה-debounce לתלוי בבחירה (כל החלפת שיטה הייתה מפעילה רענון מיותר)
+  const methodIdRef = useRef(methodId);
+  useEffect(() => {
+    methodIdRef.current = methodId;
+  });
 
-  const selected = methods.find((m) => m.id === methodId) ?? null;
+  const selected = methodList.find((m) => m.id === methodId) ?? null;
+
+  // רענון שיטות לפי העיר: startCheckout בנה את הרשימה לפני שכתובת ידועה,
+  // כך ששיטה מוגבלת-אזור הוצגה (ולעיתים במחיר שגוי) והכשל התגלה רק
+  // בלחיצת התשלום. debounce קצר — העיר מגיעה לרוב בבחירה מההשלמה.
+  const city = address.city?.trim() ?? '';
+  useEffect(() => {
+    if (city.length < 2) return;
+    const requestNumber = ++methodsRequest.current;
+    const timer = setTimeout(async () => {
+      let next: MethodOption[] | null;
+      try {
+        next = await getMethodsForCity(city);
+      } catch {
+        next = null; // כשל רשת — נשארים עם הרשימה הנוכחית; placeOrder עדיין אוכף
+      }
+      if (next === null || methodsRequest.current !== requestNumber) return;
+      setMethodList(next);
+      const current = methodIdRef.current;
+      if (current !== null && next.some((m) => m.id === current)) {
+        setMethodNotice(null);
+      } else {
+        // השיטה שנבחרה אינה זמינה לעיר הזו — מודיעים ובוחרים את הראשונה הזמינה
+        setMethodNotice(t('errFulfillmentZone'));
+        setMethodId(next[0]?.id ?? null);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [city, t]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!selected) return;
+
+    // ולידציית לקוח בסיסית לפני סבב שרת — טלפון המקבל נדרש בפועל על ידי
+    // כל חברות המשלוחים; שגיאת מיקוד מוצגת כבר כאן.
+    if (!selected.isPickup) {
+      const clientErrors: Record<string, string> = {};
+      if (!address.phone?.trim() || !isValidIsraeliPhone(address.phone)) {
+        clientErrors.phone = t('errPhone');
+      }
+      if (address.zip && !/^\d{5,7}$/.test(address.zip.trim())) clientErrors.zip = t('errZip');
+      if (Object.keys(clientErrors).length > 0) {
+        setErrors(clientErrors);
+        return;
+      }
+    }
+
     setBusy(true);
     setFormError(false);
     try {
@@ -72,7 +126,18 @@ export function FulfillmentBlock({
       setErrors(
         result.fieldErrors
           ? Object.fromEntries(
-              Object.entries(result.fieldErrors).map(([key]) => [key, t('errRequired')]),
+              // סוג השגיאה נשמר: "מיקוד לא תקין" אינו "שדה חובה" — המיפוי
+              // הקודם זרק את ה-kind והציג "שדה חובה" על שדה מלא.
+              Object.entries(result.fieldErrors).map(([key, kind]) => [
+                key,
+                kind === 'invalid'
+                  ? key === 'zip'
+                    ? t('errZip')
+                    : key === 'phone'
+                      ? t('errPhone')
+                      : t('errRequired')
+                  : t('errRequired'),
+              ]),
             )
           : {},
       );
@@ -84,8 +149,18 @@ export function FulfillmentBlock({
     }
   }
 
-  const set = (key: keyof ShippingAddress) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setAddress((a) => ({ ...a, [key]: e.target.value }));
+  const set = (key: keyof ShippingAddress) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value;
+    setAddress((a) => ({ ...a, [key]: next }));
+    // השגיאה מתנקה תוך כדי תיקון — הודעה אדומה שנשארת בזמן שהמשתמש כבר
+    // מתקן אותה קוראת כ"עדיין שגוי"
+    setErrors((current) => {
+      if (!current[key]) return current;
+      const rest = { ...current };
+      delete rest[key];
+      return rest;
+    });
+  };
 
   const inputCls =
     'w-full rounded-[var(--radius-md)] border border-rule bg-white/70 px-4 py-2.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60';
@@ -107,8 +182,13 @@ export function FulfillmentBlock({
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <fieldset>
           <legend className="sr-only">{t('fulfillmentTitle')}</legend>
+          {methodNotice ? (
+            <p role="alert" className="mb-3 rounded-[var(--radius-md)] border border-gold-deep/50 bg-gold/10 px-4 py-2.5 text-small text-ink">
+              {methodNotice}
+            </p>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
-            {methods.map((method) => (
+            {methodList.map((method) => (
               <label
                 key={method.id}
                 className={`flex cursor-pointer flex-col gap-1 rounded-[var(--radius-md)] border px-4 py-3 transition-colors ${
@@ -130,6 +210,9 @@ export function FulfillmentBlock({
                     {method.price === 0 ? t('free') : formatPrice(method.price, locale)}
                   </span>
                 </span>
+                {method.description ? (
+                  <span className="ps-6 text-caption text-ink-soft">{method.description}</span>
+                ) : null}
                 <span className="ps-6 text-caption text-muted">
                   {t('deliveryEstimate', { date: method.promisedDateLabel })}
                 </span>
@@ -167,8 +250,9 @@ export function FulfillmentBlock({
               <Field
                 id="addr-phone"
                 label={t('recipientPhone')}
+                error={errors.phone}
                 input={
-                  <input id="addr-phone" type="tel" dir="ltr" autoComplete="shipping tel" value={address.phone ?? ''} onChange={set('phone')} className={inputCls} />
+                  <input id="addr-phone" type="tel" dir="ltr" autoComplete="shipping tel" required value={address.phone ?? ''} onChange={set('phone')} aria-invalid={errors.phone ? true : undefined} className={inputCls} />
                 }
               />
             </div>
@@ -178,7 +262,23 @@ export function FulfillmentBlock({
                 label={t('city')}
                 error={errors.city}
                 input={
-                  <AddressAutocomplete id="addr-city" autoComplete="shipping address-level2" required value={address.city ?? ''} onChange={(next) => setAddress((v) => ({ ...v, city: next }))} fetcher={searchCities} invalid={Boolean(errors.city)} className={inputCls} />
+                  <AddressAutocomplete
+                    id="addr-city"
+                    autoComplete="shipping address-level2"
+                    required
+                    value={address.city ?? ''}
+                    onChange={(next) => {
+                      setAddress((v) => ({ ...v, city: next }));
+                      setErrors((current) => {
+                        const rest = { ...current };
+                        delete rest.city;
+                        return rest;
+                      });
+                    }}
+                    fetcher={searchCities}
+                    invalid={Boolean(errors.city)}
+                    className={inputCls}
+                  />
                 }
               />
               <Field
@@ -186,7 +286,23 @@ export function FulfillmentBlock({
                 label={t('street')}
                 error={errors.street}
                 input={
-                  <AddressAutocomplete id="addr-street" autoComplete="shipping address-line1" required value={address.street ?? ''} onChange={(next) => setAddress((v) => ({ ...v, street: next }))} fetcher={(q) => searchStreets(address.city ?? '', q)} invalid={Boolean(errors.street)} className={inputCls} />
+                  <AddressAutocomplete
+                    id="addr-street"
+                    autoComplete="shipping address-line1"
+                    required
+                    value={address.street ?? ''}
+                    onChange={(next) => {
+                      setAddress((v) => ({ ...v, street: next }));
+                      setErrors((current) => {
+                        const rest = { ...current };
+                        delete rest.street;
+                        return rest;
+                      });
+                    }}
+                    fetcher={(q) => searchStreets(address.city ?? '', q)}
+                    invalid={Boolean(errors.street)}
+                    className={inputCls}
+                  />
                 }
               />
               <Field
@@ -215,7 +331,19 @@ export function FulfillmentBlock({
               id="addr-notes"
               label={t('courierNotes')}
               input={
-                <input id="addr-notes" type="text" value={courierNotes} onChange={(e) => setCourierNotes(e.target.value)} className={inputCls} />
+                <>
+                  <textarea
+                    id="addr-notes"
+                    rows={2}
+                    maxLength={200}
+                    value={courierNotes}
+                    onChange={(e) => setCourierNotes(e.target.value)}
+                    className={inputCls}
+                  />
+                  <span className="mt-1 block text-end text-caption text-muted tabular-nums" aria-hidden="true">
+                    {courierNotes.length}/200
+                  </span>
+                </>
               }
             />
           </div>
@@ -228,7 +356,7 @@ export function FulfillmentBlock({
         ) : null}
 
         <button type="submit" disabled={busy || !selected} className="btn btn-solid">
-          {t('continueButton')}
+          {busy ? t('saving') : t('continueButton')}
         </button>
       </form>
     </BlockShell>

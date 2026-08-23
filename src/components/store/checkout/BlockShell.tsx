@@ -28,15 +28,27 @@ export function BlockShell({
 }) {
   const t = useTranslations('store');
   const contentRef = useRef<HTMLDivElement>(null);
+  const firstOpen = useRef(true);
 
   // [1.6] העברת מיקוד בין בלוקים (ח.7): כשבלוק נפתח — גלילה חלקה אליו
   // ומיקוד השדה הראשון בתוכו, כדי שלא יהיה צריך לגלול/ללחוץ ידנית.
+  //
+  // מדולג בפתיחה הראשונה (טעינת העמוד): גלילה + מיקוד אוטומטיים ברגע
+  // הכניסה פתחו את המקלדת במובייל מעל חצי מסך, לפני שהלקוח ראה את
+  // הסיכום או את "חזרה לסל". המיקוד האוטומטי שמור למעברים יזומים בין
+  // בלוקים, שם הוא באמת חוסך לחיצה.
   useEffect(() => {
     if (!open) return;
+    if (firstOpen.current) {
+      firstOpen.current = false;
+      return;
+    }
     const node = contentRef.current;
     if (!node) return;
     node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    node.querySelector<HTMLElement>('input, select, textarea, button')?.focus({ preventScroll: true });
+    // בלי button בבורר: בבלוק הסיכום האלמנט הראשון הוא טוגל "יש לי
+    // קופון" — מיקוד שם מדלג על תוכן הסקירה עצמו.
+    node.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea')?.focus({ preventScroll: true });
   }, [open]);
 
   return (

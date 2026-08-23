@@ -44,6 +44,14 @@ export interface CartViewModel {
   estimatedDeliveryDate: string | null;
   estimatedDeliveryLabel: string | null;
   supportPhone: string | null;
+  /**
+   * הסכום המשוער אחרי קופון ומבצע (בלי משלוח) — מחושב כאן, פעם אחת.
+   * קודם לכן כל מסך חישב אותו לבד (עמוד הסל, המיני-סל, הקופה), והמיני-סל
+   * שכח את המבצע האוטומטי — שני מסכים באותה זרימה הציגו שני סכומים.
+   */
+  estimatedSubtotalAfterDiscounts: number;
+  /** הסכום המשוער כולל המשלוח הזול ביותר (כשידוע) — לתצוגת "סה"כ משוער" */
+  estimatedTotal: number;
 }
 
 export async function getCartView(
@@ -112,8 +120,15 @@ export async function getCartView(
   }
 
   const remaining = amountToFreeShipping(shape, settings);
+  const couponDiscount = coupon?.ok ? coupon.discountAmount : 0;
+  const promoDiscount = promotion?.discountAmount ?? 0;
+  const estimatedSubtotalAfterDiscounts = Math.max(cart.subtotal - couponDiscount - promoDiscount, 0);
+  const shippingForTotal = coupon?.ok && coupon.freeShipping ? 0 : (estimatedShipping ?? 0);
+
   return {
     cart,
+    estimatedSubtotalAfterDiscounts,
+    estimatedTotal: estimatedSubtotalAfterDiscounts + shippingForTotal,
     flags: {
       cartEnabled: flags.cartEnabled,
       checkoutEnabled: flags.checkoutEnabled,

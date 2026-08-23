@@ -64,6 +64,7 @@ export function ReviewBlock({
   onSubmit: (extras: ExtrasValues) => Promise<void>;
 }) {
   const t = useTranslations('store');
+  const tPages = useTranslations('pages');
   const locale = useLocale();
   const [couponOpen, setCouponOpen] = useState(false);
   const [couponInput, setCouponInput] = useState('');
@@ -98,6 +99,40 @@ export function ReviewBlock({
       notifyChannel,
       termsAccepted,
     });
+  }
+
+  // חולץ מה-handler של הכפתור כדי ששדה הקופון יוכל לקרוא לו גם מ-Enter:
+  // בלי זה Enter בשדה הפעיל את ה-submit של הטופס כולו — כלומר *ביצע את
+  // ההזמנה* במקום להחיל קופון (implicit submission מפעיל את כפתור
+  // ה-submit הראשון, שהוא כפתור התשלום).
+  async function applyCoupon() {
+    const code = couponInput.trim();
+    if (!code || couponBusy) return;
+    setCouponBusy(true);
+    setCouponError(null);
+    try {
+      const result = await onApplyCoupon(code);
+      if (!result.ok) {
+        setCouponError(
+          result.error === 'min_total' && result.minTotal != null
+            ? t('couponErrMinTotal', { amount: formatPrice(result.minTotal, locale) })
+            : result.error === 'used_up'
+              ? t('couponErrUsedUp')
+              : result.error === 'not_applicable'
+                ? t('couponErrNotApplicable')
+                : result.error === 'not_combinable'
+                  ? t('couponErrNotCombinable')
+                  : t('couponErrInvalid'),
+        );
+      } else {
+        setCouponInput('');
+      }
+    } catch {
+      // [1.4] היה בלי catch — כשל רשת נשאר בלי שום הודעה למרות ש-couponBusy מתאפס
+      setCouponError(t('errServer'));
+    } finally {
+      setCouponBusy(false);
+    }
   }
 
   return (
@@ -162,6 +197,13 @@ export function ReviewBlock({
                     dir="ltr"
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      // Enter מחיל את הקופון — לא שולח את ההזמנה
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void applyCoupon();
+                      }
+                    }}
                     aria-invalid={couponError ? true : undefined}
                     aria-describedby={couponError ? 'coupon-error' : undefined}
                     className={inputCls}
@@ -170,36 +212,10 @@ export function ReviewBlock({
                 <button
                   type="button"
                   disabled={couponBusy || !couponInput.trim()}
-                  onClick={async () => {
-                    setCouponBusy(true);
-                    setCouponError(null);
-                    try {
-                      const result = await onApplyCoupon(couponInput.trim());
-                      if (!result.ok) {
-                        setCouponError(
-                          result.error === 'min_total' && result.minTotal != null
-                            ? t('couponErrMinTotal', { amount: formatPrice(result.minTotal, locale) })
-                            : result.error === 'used_up'
-                              ? t('couponErrUsedUp')
-                              : result.error === 'not_applicable'
-                                ? t('couponErrNotApplicable')
-                                : result.error === 'not_combinable'
-                                  ? t('couponErrNotCombinable')
-                                  : t('couponErrInvalid'),
-                        );
-                      } else {
-                        setCouponInput('');
-                      }
-                    } catch {
-                      // [1.4] היה בלי catch — כשל רשת נשאר בלי שום הודעה למרות ש-couponBusy מתאפס
-                      setCouponError(t('errServer'));
-                    } finally {
-                      setCouponBusy(false);
-                    }
-                  }}
+                  onClick={() => void applyCoupon()}
                   className="btn btn-quiet"
                 >
-                  {t('couponApply')}
+                  {couponBusy ? t('couponChecking') : t('couponApply')}
                 </button>
                 {couponError ? (
                   <p id="coupon-error" role="alert" className="w-full text-caption text-burgundy">
@@ -252,24 +268,38 @@ export function ReviewBlock({
           ) : null}
         </div>
 
-        {/* ערוץ נייד — ריק כברירת מחדל, בחירה יזומה */}
+        {/* ערוץ נייד — ריק כברירת מחדל, בחירה יזומה. radio ולא checkbox:
+            הערוצים חלופיים (בחירת אחד ביטלה בשקט את השני), ותיבת סימון
+            מבטיחה "אפשר לבחור כמה" — גם ויזואלית וגם לקורא מסך. */}
         <fieldset>
           <legend className="text-small font-semibold text-ink">{t('notifyPrompt')}</legend>
-          <div className="mt-2 flex gap-4">
+          <div className="mt-2 flex flex-wrap gap-4">
             <label className="flex cursor-pointer items-center gap-2 text-small text-ink-soft">
               <input
-                type="checkbox"
+                type="radio"
+                name="notify-channel"
+                checked={notifyChannel === null}
+                onChange={() => setNotifyChannel(null)}
+                className="h-4 w-4 accent-[var(--color-burgundy)]"
+              />
+              {t('notifyNone')}
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-small text-ink-soft">
+              <input
+                type="radio"
+                name="notify-channel"
                 checked={notifyChannel === 'sms'}
-                onChange={(e) => setNotifyChannel(e.target.checked ? 'sms' : null)}
+                onChange={() => setNotifyChannel('sms')}
                 className="h-4 w-4 accent-[var(--color-burgundy)]"
               />
               {t('notifySms')}
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-small text-ink-soft">
               <input
-                type="checkbox"
+                type="radio"
+                name="notify-channel"
                 checked={notifyChannel === 'whatsapp'}
-                onChange={(e) => setNotifyChannel(e.target.checked ? 'whatsapp' : null)}
+                onChange={() => setNotifyChannel('whatsapp')}
                 className="h-4 w-4 accent-[var(--color-burgundy)]"
               />
               {t('notifyWhatsapp')}
@@ -294,8 +324,14 @@ export function ReviewBlock({
             />
             <span>
               {t('termsPrefix')}
-              <Link href="/terms" target="_blank" className="underline underline-offset-2 hover:text-burgundy">
+              <Link
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-burgundy"
+              >
                 {t('termsLink')}
+                <span className="sr-only"> {t('opensInNewTab')}</span>
               </Link>
             </span>
           </label>
@@ -308,7 +344,17 @@ export function ReviewBlock({
         </div>
 
         {placeError ? (
-          <p role="alert" className="rounded-[var(--radius-md)] border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-small text-burgundy">
+          <p
+            role="alert"
+            tabIndex={-1}
+            // המיקוד והגלילה אל השגיאה: אחרי לחיצת תשלום במובייל הכפתור
+            // בתחתית המסך וההודעה מופיעה מעליו — לעיתים מחוץ לתצוגה.
+            ref={(node) => {
+              node?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              node?.focus({ preventScroll: true });
+            }}
+            className="rounded-[var(--radius-md)] border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-small text-burgundy"
+          >
             {placeError}
           </p>
         ) : null}
@@ -323,8 +369,30 @@ export function ReviewBlock({
 
         {/* חבילת האמון */}
         <div className="space-y-1.5 border-t border-rule pt-4 text-caption text-muted">
-          {paymentsEnabled ? <p>{t('trustLine')}</p> : <p>{t('noPaymentNote')}</p>}
+          {paymentsEnabled ? (
+            <p className="flex items-center gap-1.5">
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 shrink-0" fill="none">
+                <rect x="4" y="8.5" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M7 8.5V6.6a3 3 0 0 1 6 0v1.9" stroke="currentColor" strokeWidth="1.4" />
+              </svg>
+              {t('trustLine')}
+            </p>
+          ) : (
+            <p>{t('noPaymentNote')}</p>
+          )}
           {supportPhone ? <p>{t('phoneHelp', { phone: supportPhone })}</p> : null}
+          {/* הפוטר מוסתר בקופה — קישורי החובה המשפטיים חייבים דרך אחרת */}
+          <p className="flex flex-wrap gap-x-3 pt-1">
+            <Link href="/terms" className="underline underline-offset-2 hover:text-burgundy">
+              {tPages('terms')}
+            </Link>
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-burgundy">
+              {tPages('privacy')}
+            </Link>
+            <Link href="/accessibility" className="underline underline-offset-2 hover:text-burgundy">
+              {tPages('accessibility')}
+            </Link>
+          </p>
         </div>
       </form>
     </BlockShell>

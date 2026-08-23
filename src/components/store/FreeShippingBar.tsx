@@ -38,7 +38,9 @@ export function FreeShippingBar({ view }: { view: CartViewModel }) {
 
   return (
     <div>
-      <p className="text-caption text-ink-soft" aria-live="polite">
+      {/* בלי aria-live: הטוסט של ספק העגלה כבר מכריז על כל שינוי, ושלושה
+          אזורים חיים דיברו יחד על כל לחיצת "+" */}
+      <p className="text-caption text-ink-soft">
         {achieved
           ? t('freeShippingAchieved')
           : remaining != null
@@ -47,6 +49,7 @@ export function FreeShippingBar({ view }: { view: CartViewModel }) {
       </p>
       <div
         role="progressbar"
+        aria-label={t('freeShippingBarLabel')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(progress)}

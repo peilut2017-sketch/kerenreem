@@ -222,6 +222,21 @@ export function CheckoutClient() {
             setPlaceError(t('errRateLimited'));
           } else if (result.error === 'terms') {
             setPlaceError(t('errTerms'));
+          } else if (result.error === 'fulfillment') {
+            // שיטת המשלוח שנבחרה אינה תקפה לכתובת (למשל עיר מחוץ לאזור) —
+            // פותחים מחדש את בלוק האספקה עם הסבר, לא "משהו השתבש" בלולאה.
+            setFulfillmentDone(false);
+            setOpenBlock('fulfillment');
+            setPlaceError(t('errFulfillmentZone'));
+          } else if (result.error === 'contact') {
+            setContactDone(false);
+            setOpenBlock('contact');
+            setPlaceError(t('errContactMissing'));
+          } else if (result.error === 'session') {
+            // עוגיית הקופה פגה — צריך להתחיל את התהליך מחדש, לא לנסות שוב
+            setPlaceError(t('errSessionExpired'));
+            started.current = true;
+            void runBootstrap();
           } else {
             setPlaceError(t('errServer'));
           }
@@ -252,7 +267,7 @@ export function CheckoutClient() {
         if (!redirectingRef.current) setPlacing(false);
       }
     },
-    [placing, displayedTotal, serverTotal, cart, router, t, locale],
+    [placing, displayedTotal, serverTotal, cart, router, t, locale, runBootstrap],
   );
 
   if (redirecting) {
@@ -308,15 +323,25 @@ export function CheckoutClient() {
   }
 
   const summary = bootstrap.cart;
+  const removedLines = summary.lines.filter((line) => line.removedReason !== null);
 
   return (
     <div className="mx-auto mt-8 grid max-w-5xl grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_20rem]">
-      <div className="space-y-4">
+      {/* הבלוקים ראשונים בפריסה מ-lg (order-1) אך שניים ב-DOM — ראו aside */}
+      <div className="space-y-4 lg:order-1">
         <p className="text-small text-muted">
           <Link href="/cart" className="hover:text-burgundy">
-            ← {t('backToCart')}
+            <span aria-hidden="true" className="inline-block ltr:-scale-x-100">→</span> {t('backToCart')}
           </Link>
         </p>
+
+        {removedLines.length > 0 ? (
+          /* פריט שאזל בין הסל לקופה מוצג במפורש — קודם לכן הוא פשוט נעלם
+             מהסיכום והסכום ירד בלי שום הסבר, והלקוח גילה בקבלה. */
+          <div role="alert" className="rounded-[var(--radius-md)] border border-gold-deep/50 bg-gold/10 px-4 py-3 text-small text-ink">
+            {t('removedLinesNotice', { count: removedLines.length })}
+          </div>
+        ) : null}
 
         {bootstrap.expressEnabled ? (
           <ExpressStrip
@@ -379,17 +404,22 @@ export function CheckoutClient() {
         />
       </div>
 
-      {/* סיכום דביק; במובייל יורד מתחת לבלוקים ומתקפל (ח.11) */}
-      <aside className="order-first lg:order-none lg:sticky lg:top-28 rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-5 shadow-[var(--shadow-soft)]">
+      {/* סיכום: ראשון ב-DOM וראשון ויזואלית במובייל — סדר הטאב תואם את
+          מה שרואים (order-first הישן הפך את הסדר הוויזואלי בלי ה-DOM,
+          הפרה של WCAG 2.4.3). מ-lg הוא בעמודה השנייה דרך lg:order-2. */}
+      <aside className="lg:order-2 lg:sticky lg:top-28 rounded-[var(--radius-lg)] border border-rule bg-cream px-6 py-5 shadow-[var(--shadow-soft)]">
+        {/* כפתור הקיפול קיים רק במובייל; מ-lg הסיכום פתוח תמיד וכותרתו
+            סטטית — aria-expanded=false על תוכן שמוצג הוא מצב ARIA שקרי,
+            ו-pointer-events-none השאיר "כפתור רפאים" נגיש למקלדת. */}
         <button
           type="button"
           onClick={() => setSummaryExpanded((v) => !v)}
           aria-expanded={summaryExpanded}
           aria-controls="checkout-summary-details"
-          className="flex w-full items-center justify-between gap-3 lg:pointer-events-none lg:cursor-default"
+          className="flex w-full items-center justify-between gap-3 lg:hidden"
         >
           <h2 className="font-serif text-h3 text-ink">{t('summaryTitle')}</h2>
-          <span className="flex items-center gap-2 lg:hidden">
+          <span className="flex items-center gap-2">
             <strong className="font-serif text-h3 tabular-nums text-ink">
               {formatPrice(totalToShow, locale)}
             </strong>
@@ -405,12 +435,12 @@ export function CheckoutClient() {
             </svg>
           </span>
         </button>
+        <h2 className="hidden font-serif text-h3 text-ink lg:block">{t('summaryTitle')}</h2>
 
         <div id="checkout-summary-details" className={`${summaryExpanded ? 'block' : 'hidden'} lg:block`}>
           <ul className="mt-3 space-y-2 text-small text-ink-soft">
-            {summary.lines
-              .filter((line) => line.removedReason === null)
-              .map((line) => (
+            {summary.lines.map((line) =>
+              line.removedReason === null ? (
                 <li key={line.bookId} className="flex items-center gap-3">
                   <div className="w-10 shrink-0">
                     <BookCover src={line.coverImageUrl} title={line.title} alt="" sizes="40px" />
@@ -420,7 +450,17 @@ export function CheckoutClient() {
                   </span>
                   <span className="tabular-nums">{formatPrice(line.lineTotal, locale)}</span>
                 </li>
-              ))}
+              ) : (
+                /* שורה שהוסרה (אזל/ירד מהמכירה) נשארת גלויה, מחוקה ומוסברת */
+                <li key={line.bookId} className="flex items-center gap-3 text-muted">
+                  <div className="w-10 shrink-0 opacity-50">
+                    <BookCover src={line.coverImageUrl} title={line.title} alt="" sizes="40px" />
+                  </div>
+                  <span className="line-clamp-1 flex-1 line-through">{line.title}</span>
+                  <span className="text-caption">{t('outOfStockLine')}</span>
+                </li>
+              ),
+            )}
           </ul>
           <dl className="mt-4 space-y-2 border-t border-rule pt-3 text-small">
             <div className="flex justify-between text-ink-soft">
