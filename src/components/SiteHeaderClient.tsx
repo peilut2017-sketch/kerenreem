@@ -108,14 +108,16 @@ export function SiteHeaderClient({
 
             {/* חיפוש אחרון בסדר ה-DOM ולא ראשון: ב-RTL זה מה שממקם אותו
                 בקצה השמאלי הקיצוני של הקבוצה, כפי שהתבקש — לא רק לצד
-                מתג השפה. */}
-            <div className="hidden items-center gap-2 lg:flex">
+                מתג השפה. md ולא lg: בטאבלט (768–1023) החיפוש היה קבור
+                בתוך ההמבורגר — הפעולה החשובה ביותר באתר קטלוג. */}
+            <div className="hidden items-center gap-2 md:flex">
               <LocaleSwitch />
               <SearchLauncher />
             </div>
 
             <MobileNav
               items={navItems}
+              navLabel={navLabel}
               openLabel={openLabel}
               closeLabel={closeLabel}
               searchLabel={searchLabel}

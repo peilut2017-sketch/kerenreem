@@ -140,6 +140,9 @@ html {
   font-size: calc(100% * var(--a11y-scale));
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
+  /* קפיצה לעוגן (כולל skip-link) עוצרת מתחת לכותרת הדביקה, לא מאחוריה.
+     --site-header-h נכתב על ידי SiteHeaderHeightVar; הנפילה — גובה סביר. */
+  scroll-padding-block-start: calc(var(--site-header-h, 5rem) + 1rem);
 }
 
 /* הרקע לעולם לא לבן מת: שתי הילות רכות בזהב ובכחול, ומעליהן גרעין

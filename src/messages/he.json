@@ -148,6 +148,7 @@
     "searchDialogTitle": "חיפוש",
     "searchNoResults": "אין תוצאות עבור \"{query}\"",
     "searchAllResults": "כל התוצאות ({count})",
+    "searchResultsCount": "{count, plural, =0 {אין תוצאות} one {תוצאה אחת} two {שתי תוצאות} other {# תוצאות}}",
     "searchGroupBooks": "ספרים",
     "searchGroupAuthors": "מחברים",
     "searchGroupCategories": "קטגוריות",
@@ -320,6 +321,8 @@
   },
   "footer": {
     "navHeading": "ניווט",
+    "serviceHeading": "שירות ורכישה",
+    "socialHeading": "עקבו אחרינו",
     "legalHeading": "מידע משפטי",
     "contactHeading": "יצירת קשר",
     "rights": "כל הזכויות שמורות למכון קרן רא״ם.",

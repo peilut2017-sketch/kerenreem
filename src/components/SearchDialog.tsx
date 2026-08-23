@@ -83,6 +83,13 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
     }
   }
 
+  // הפריט הפעיל נגלל לתצוגה — המיקוד נשאר בשדה (combobox), ולכן הדפדפן
+  // לא גולל אליו מעצמו; ברשימה ארוכה הסימון היה יורד מתחת לקו התצוגה.
+  useEffect(() => {
+    if (active < 0) return;
+    document.getElementById(`${titleId}-option-${active}`)?.scrollIntoView({ block: 'nearest' });
+  }, [active, titleId]);
+
   const hasQuery = value.trim().length > 0;
   const hasResults = result.books.length > 0 || result.authors.length > 0 || result.categories.length > 0;
 
@@ -94,7 +101,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       title={t('searchDialogTitle')}
       variant="center"
       widthClassName="max-w-xl"
-      closeLabel={t('clearSearch')}
+      closeLabel={t('close')}
     >
       <div className="relative">
         <svg viewBox="0 0 20 20" aria-hidden="true" className="pointer-events-none absolute top-1/2 start-3 h-4 w-4 -translate-y-1/2 text-muted" fill="none">
@@ -103,9 +110,13 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
         </svg>
         <input
           type="search"
-          autoFocus
+          // data-autofocus ולא autoFocus: ה-Drawer ממקד את האלמנט המסומן
+          // אחרי הרכבה — autoFocus של React נדרס על ידי מיקוד ברירת המחדל
+          // של הדיאלוג (כפתור הסגירה), והקלדה מיידית לא עשתה דבר.
+          data-autofocus
           role="combobox"
           aria-expanded={hasResults}
+          aria-autocomplete="list"
           aria-controls={`${titleId}-list`}
           aria-activedescendant={active >= 0 ? `${titleId}-option-${active}` : undefined}
           value={value}
@@ -116,13 +127,24 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
         />
       </div>
 
-      <div id={`${titleId}-list`} role="listbox" aria-label={t('searchDialogTitle')} className="mt-4 space-y-5">
+      {/* הכרזת ספירת תוצאות — aria-expanded לבדו אינו מוכרז בכל קורא מסך */}
+      <span role="status" className="sr-only">
+        {hasQuery && !loading ? t('searchResultsCount', { count: flatItems.length }) : ''}
+      </span>
+
+      {/* הגלילה על רשימת התוצאות בלבד — שדה החיפוש נשאר במקומו ואינו
+          נגלל אל מחוץ לדיאלוג ברשימה ארוכה. */}
+      <div className="mt-4 max-h-[55vh] space-y-5 overflow-y-auto overscroll-contain">
         {!hasQuery ? null : loading ? (
           <p className="py-6 text-center text-small text-muted">{t('searchLoading')}</p>
         ) : !hasResults ? (
           <p className="py-6 text-center text-small text-muted">{t('searchNoResults', { query: value.trim() })}</p>
         ) : (
           <>
+            {/* ה-listbox מכיל אך ורק קבוצות ואופציות — הודעות המצב למעלה
+                וקישור "כל התוצאות" למטה יושבים מחוצה לו: צאצא שאינו
+                option בתוך listbox הוא מבנה ARIA לא חוקי. */}
+            <div id={`${titleId}-list`} role="listbox" aria-label={t('searchDialogTitle')} className="space-y-5">
             {result.books.length > 0 ? (
               <ResultGroup label={t('searchGroupBooks')}>
                 {result.books.map((book) => {
@@ -203,6 +225,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
                 })}
               </ResultGroup>
             ) : null}
+            </div>
 
             {result.totalBooks > result.books.length ? (
               <Link
@@ -221,10 +244,17 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
 }
 
 function ResultGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  // role="group" בתוך ה-listbox — הצאצאים החוקיים היחידים של listbox הם
+  // option או group; ה-ul הפנימי הוא פריסה בלבד (presentation), כדי שלא
+  // יתווסף תפקיד רשימה בין הקבוצה לאופציות.
   return (
-    <div>
-      <p className="mb-1.5 px-3 text-caption font-semibold text-muted">{label}</p>
-      <ul className="space-y-0.5">{children}</ul>
+    <div role="group" aria-label={label}>
+      <p aria-hidden="true" className="mb-1.5 px-3 text-caption font-semibold text-muted">
+        {label}
+      </p>
+      <ul role="presentation" className="space-y-0.5">
+        {children}
+      </ul>
     </div>
   );
 }

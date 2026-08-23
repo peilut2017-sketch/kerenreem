@@ -11,11 +11,14 @@ import { SearchDialog } from './SearchDialog';
  */
 export function MobileNav({
   items,
+  navLabel,
   openLabel,
   closeLabel,
   searchLabel,
 }: {
   items: { href: string; label: string }[];
+  /** שם ה-landmark של הניווט ("תפריט") — לא כיתוב כפתור הפתיחה. */
+  navLabel: string;
   openLabel: string;
   closeLabel: string;
   searchLabel: string;
@@ -40,12 +43,40 @@ export function MobileNav({
       if (event.key === 'Escape') {
         setOpenedFor(null);
         toggleRef.current?.focus();
+        return;
+      }
+      // מלכודת מיקוד: הפאנל מכסה את המסך, וטאב שבורח אל התוכן שמאחוריו
+      // משוטט בעמוד שוויזואלית מוסתר. כפתור הפתיחה (שנשאר גלוי בכותרת)
+      // נכלל במעגל, כך ש-Shift+Tab מהפריט הראשון מגיע אליו ולא נעלם.
+      if (event.key !== 'Tab') return;
+      const panel = panelRef.current;
+      const toggle = toggleRef.current;
+      if (!panel || !toggle) return;
+      const focusable = [
+        toggle,
+        ...panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'),
+      ];
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     }
 
+    // נעילת גלילת הרקע כל עוד התפריט פתוח
+    const savedOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     document.addEventListener('keydown', onKeyDown);
-    panelRef.current?.querySelector('a')?.focus();
-    return () => document.removeEventListener('keydown', onKeyDown);
+    panelRef.current?.querySelector<HTMLElement>('button, a')?.focus();
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = savedOverflow;
+    };
   }, [open]);
 
   return (
@@ -78,6 +109,16 @@ export function MobileNav({
         inert כשסגור: גם מוציא מסדר הטאב וגם מסתיר מקורא מסך, בלי שכפול
         לוגיקה מול opacity/pointer-events (נתמך באופן טבעי מ-React 19).
       */}
+      {/* scrim — לחיצה מחוץ לפאנל סוגרת, כמצופה מתפריט שמכסה את המסך.
+          div ולא button: הסגירה במקלדת היא Escape או כפתור ההמבורגר. */}
+      <div
+        aria-hidden="true"
+        onClick={() => setOpenedFor(null)}
+        className={`fixed inset-0 z-30 bg-navy/30 backdrop-blur-[2px] transition-opacity duration-300 ${
+          open ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
       <div
         id="mobile-nav-panel"
         ref={panelRef}
@@ -111,7 +152,7 @@ export function MobileNav({
             {searchLabel}
           </button>
 
-          <nav aria-label={openLabel}>
+          <nav aria-label={navLabel}>
             <ul className="space-y-1">
               {items.map((item, index) => (
                 <li
@@ -123,6 +164,9 @@ export function MobileNav({
                 >
                   <Link
                     href={item.href}
+                    // סגירה מפורשת: ניווט לעמוד הנוכחי לא משנה את pathname,
+                    // ובלי onClick הפאנל היה נשאר פתוח מעל אותו עמוד.
+                    onClick={() => setOpenedFor(null)}
                     className="block rounded-[var(--radius-sm)] px-3 py-3 font-serif text-[1.125rem] text-ink transition-[background-color,color] duration-300 hover:bg-white/70 hover:text-burgundy"
                   >
                     {item.label}
@@ -132,7 +176,7 @@ export function MobileNav({
             </ul>
           </nav>
 
-          <div className="mt-6">
+          <div className="mt-6 border-t border-rule pt-5">
             <LocaleSwitch />
           </div>
         </div>

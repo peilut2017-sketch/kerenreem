@@ -47,12 +47,10 @@ export async function generateMetadata({
       locale: locale === 'he' ? 'he_IL' : 'en_US',
       type: 'website',
     },
-    alternates: {
-      languages: {
-        he: '/',
-        en: '/en',
-      },
-    },
+    // בלי alternates.languages גורף כאן: layout אינו יודע את הנתיב
+    // הנוכחי, וההצהרה הקודמת ({he:'/', en:'/en'}) סימנה את עמוד הבית
+    // כחלופת השפה של *כל* עמוד באתר — מידע שגוי למנועי חיפוש גרוע
+    // מהיעדר מידע. hreflang נכון מוצהר פר-עמוד, במקום שבו הנתיב ידוע.
     robots: { index: true, follow: true },
     // הלוגו שהועלה ב-CMS, מוגש דרך /site-icon (ראו שם) עם נפילה לסימן
     // הקבוע כשלא הועלה לוגו — ולא קובץ סטטי, כי הלוגו יכול להתעדכן.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { SearchDialog } from './SearchDialog';
 
@@ -17,6 +17,22 @@ export function SearchLauncher() {
   // מפתח שמתקדם בכל פתיחה: מרכיב מחדש את SearchDialog עם state נקי
   // (שאילתה/תוצאות קודמות), במקום useEffect שמאפס state בתוך אפקט.
   const [instance, setInstance] = useState(0);
+
+  // Cmd/Ctrl+K — הקיצור המקובל לחיפוש. נרשם ברמת החלון כדי לעבוד מכל
+  // מקום בעמוד, לא רק כשהכפתור ממוקד; מדלג כשהמיקוד בשדה קלט אחר, כדי
+  // לא לגנוב את הצירוף ממי שמקליד (למשל בטופס יצירת קשר).
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) && !open) return;
+      event.preventDefault();
+      setInstance((n) => n + 1);
+      setOpen(true);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
 
   return (
     <>

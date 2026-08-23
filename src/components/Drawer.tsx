@@ -13,6 +13,9 @@ const TRANSITION_MS = 200;
  */
 const dialogStack: symbol[] = [];
 
+/** overflow המקורי של body — נשמר על ידי הדיאלוג הראשון שנפתח ומוחזר כשהערימה מתרוקנת. */
+let savedBodyOverflow: string | null = null;
+
 /**
  * מגירה צפה — הפאנל עצמו, בלי הכפתור שפותח אותו.
  *
@@ -108,9 +111,23 @@ export function Drawer({
     dialogStack.push(token);
     const isTop = () => dialogStack[dialogStack.length - 1] === token;
 
+    // נעילת גלילת הרקע — הדיאלוג הראשון בערימה נועל, האחרון שנסגר משחרר.
+    // בלי זה גלילה בתוך המגירה ממשיכה לגלול את העמוד שמאחוריה (ב-iOS
+    // היא אף מזיזה את המגירה עצמה), ובסגירה המבקר מוצא את עצמו במקום אחר.
+    if (dialogStack.length === 1) {
+      savedBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
+
     const panel = panelRef.current;
     const previouslyFocused = returnFocusTo ?? (document.activeElement as HTMLElement | null);
-    panel?.querySelector<HTMLElement>('input, button, select, a[href]')?.focus();
+    // [data-autofocus] מנצח את "האלמנט הראשון": querySelector מחזיר לפי
+    // סדר המסמך, והאלמנט הראשון בפאנל הוא תמיד כפתור הסגירה שבכותרת —
+    // דיאלוג חיפוש שנפתח היה ממקד את ה-X במקום את שדה ההקלדה.
+    const initialFocus =
+      panel?.querySelector<HTMLElement>('[data-autofocus]') ??
+      panel?.querySelector<HTMLElement>('input, button, select, a[href]');
+    initialFocus?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
       if (!isTop()) return;
@@ -141,6 +158,10 @@ export function Drawer({
     return () => {
       const index = dialogStack.indexOf(token);
       if (index !== -1) dialogStack.splice(index, 1);
+      if (dialogStack.length === 0 && savedBodyOverflow !== null) {
+        document.body.style.overflow = savedBodyOverflow;
+        savedBodyOverflow = null;
+      }
       document.removeEventListener('keydown', onKeyDown);
       previouslyFocused?.focus?.();
     };
@@ -158,9 +179,11 @@ export function Drawer({
     <div
       className={`fixed inset-0 z-50 flex ${bottom ? 'items-end justify-center' : centered ? 'items-center justify-center p-4' : 'justify-end'}`}
     >
-      <button
-        type="button"
-        aria-label={closeLabel}
+      {/* ה-scrim הוא div ולא button: כפתור בגודל מסך שלם הופיע ברוטור של
+          קורא המסך כ"לחצן" ענק ראשון בסדר הטאב. סגירה במקלדת נשארת דרך
+          Escape וכפתור ה-X שבכותרת; הקליק על הרקע הוא קיצור לעכבר בלבד. */}
+      <div
+        aria-hidden="true"
         onClick={onClose}
         className={`absolute inset-0 bg-navy/40 backdrop-blur-sm transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
       />

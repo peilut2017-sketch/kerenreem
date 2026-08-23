@@ -148,6 +148,7 @@
     "searchDialogTitle": "Search",
     "searchNoResults": "No results for \"{query}\"",
     "searchAllResults": "All results ({count})",
+    "searchResultsCount": "{count, plural, =0 {No results} one {One result} other {# results}}",
     "searchGroupBooks": "Books",
     "searchGroupAuthors": "Authors",
     "searchGroupCategories": "Categories",
@@ -320,6 +321,8 @@
   },
   "footer": {
     "navHeading": "Navigation",
+    "serviceHeading": "Service & Orders",
+    "socialHeading": "Follow us",
     "legalHeading": "Legal",
     "contactHeading": "Contact",
     "rights": "All rights reserved to the Keren Reem Institute.",

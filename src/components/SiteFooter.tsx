@@ -4,6 +4,7 @@ import { MAIN_NAV } from './SiteHeader';
 import { SocialIcon, SOCIAL_NAMES } from './SocialIcon';
 import { Wordmark } from './Wordmark';
 import { CookieSettingsButton } from './CookieConsentBanner';
+import { getCommerceFlags } from '@/lib/commerce/settings';
 import type { SiteSettings } from '@/lib/supabase/types';
 
 const LEGAL_NAV = [
@@ -12,16 +13,31 @@ const LEGAL_NAV = [
   { href: '/accessibility', key: 'accessibility' },
 ] as const;
 
+/**
+ * עמודת הניווט: פריטי התפריט הראשי + עמוד המחברים, שאין לו מקום בתפריט
+ * העליון (חמישה פריטים הם הגבול הנוח שם) — הפוטר הוא רשת הביטחון שלו.
+ * בלי הקישור הזה /authors היה עמוד יתום: אף קישור באתר לא הגיע אליו.
+ */
+const FOOTER_NAV = [
+  ...MAIN_NAV.slice(0, 2),
+  { href: '/authors', key: 'authors' },
+  ...MAIN_NAV.slice(2),
+] as const;
+
 export async function SiteFooter({ settings, locale }: { settings: SiteSettings; locale: string }) {
-  const t = await getTranslations();
+  const [t, flags] = await Promise.all([getTranslations(), getCommerceFlags()]);
   const contact = settings.contact ?? {};
   const address = locale === 'en' ? contact.address_en || contact.address_he : contact.address_he;
-  const social = Object.entries(settings.social_links ?? {}).filter(([, url]) => Boolean(url));
+  // סדר קבוע לרשתות: סדר מפתחות jsonb מהמסד אינו מובטח, והאייקונים היו
+  // מתחלפים במקומם בין טעינות.
+  const social = Object.entries(settings.social_links ?? {})
+    .filter(([, url]) => Boolean(url))
+    .sort(([a], [b]) => a.localeCompare(b));
 
   return (
     <footer className="on-dark mt-auto">
       <div className="mx-auto w-full max-w-[82rem] px-5 py-16 sm:px-8">
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <div>
             <Wordmark
               logoUrl={settings.logo_url}
@@ -40,7 +56,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
               {t('footer.navHeading')}
             </h2>
             <ul className="space-y-2.5">
-              {MAIN_NAV.map((item) => (
+              {FOOTER_NAV.map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}
@@ -50,6 +66,45 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
                   </Link>
                 </li>
               ))}
+            </ul>
+          </nav>
+
+          {/* עמודת שירות: מועדפים, איתור הזמנה לאורח והאזור האישי.
+              "איפה ההזמנה שלי" הוא אחד הצרכים הנפוצים באתר מסחרי, ועד
+              עכשיו /orders/find היה נגיש רק ממי שכבר החזיק קישור מעקב. */}
+          <nav aria-labelledby="footer-service-heading">
+            <h2 id="footer-service-heading" className="eyebrow mb-4">
+              {t('footer.serviceHeading')}
+            </h2>
+            <ul className="space-y-2.5">
+              <li>
+                <Link
+                  href="/favourites"
+                  className="text-small text-cream-2/80 transition-colors hover:text-gold"
+                >
+                  {t('store.favouritesTitle')}
+                </Link>
+              </li>
+              {flags.checkoutEnabled || flags.cartEnabled ? (
+                <li>
+                  <Link
+                    href="/orders/find"
+                    className="text-small text-cream-2/80 transition-colors hover:text-gold"
+                  >
+                    {t('store.findOrderTitle')}
+                  </Link>
+                </li>
+              ) : null}
+              {flags.accountsEnabled ? (
+                <li>
+                  <Link
+                    href="/account"
+                    className="text-small text-cream-2/80 transition-colors hover:text-gold"
+                  >
+                    {t('store.accountTitle')}
+                  </Link>
+                </li>
+              ) : null}
             </ul>
           </nav>
 
@@ -104,7 +159,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
 
             {/* [1.11] לוגו הרשת במקום שם הרשת כטקסט — SocialIcon.tsx */}
             {social.length > 0 ? (
-              <ul className="mt-5 flex flex-wrap gap-2.5">
+              <ul aria-label={t('footer.socialHeading')} className="mt-5 flex flex-wrap gap-2.5">
                 {social.map(([name, url]) => (
                   <li key={name}>
                     <a
@@ -125,7 +180,9 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
         </div>
 
         <div className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-white/12 pt-7">
-          <p className="text-caption text-cream-2/60">
+          {/* suppressHydrationWarning: השנה מחושבת בשרת בזמן הבנייה (ISR)
+              ועלולה להתחלף בלקוח סביב ראש השנה האזרחית — הפרש לא מזיק. */}
+          <p className="text-caption text-cream-2/60" suppressHydrationWarning>
             © {new Date().getFullYear()} {t('footer.rights')}
           </p>
           <p className="text-caption text-cream-2/60">

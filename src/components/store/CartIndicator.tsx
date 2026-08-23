@@ -18,7 +18,8 @@ export function CartIndicator() {
       type="button"
       onClick={cart.openMiniCart}
       aria-label={t('cartAria', { count: cart.count })}
-      className="relative rounded-[var(--radius-pill)] p-2 text-ink-soft transition-colors hover:text-burgundy"
+      aria-haspopup="dialog"
+      className="relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
         <path d="M4 6h2l2.4 10.2a1.5 1.5 0 0 0 1.46 1.15h6.9a1.5 1.5 0 0 0 1.45-1.1L20.5 9H7" strokeLinecap="round" strokeLinejoin="round" />
@@ -28,7 +29,7 @@ export function CartIndicator() {
       {cart.count > 0 ? (
         <span
           aria-hidden="true"
-          className="absolute -end-0.5 -top-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-[var(--radius-pill)] bg-burgundy px-1 text-[0.65rem] font-bold leading-none text-cream tabular-nums"
+          className="absolute end-0.5 top-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-[var(--radius-pill)] bg-burgundy px-1 text-[0.65rem] font-bold leading-none text-cream tabular-nums"
         >
           {cart.count > 99 ? '99+' : cart.count}
         </span>

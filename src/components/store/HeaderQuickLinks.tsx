@@ -18,13 +18,17 @@ export function FavouritesIndicator() {
     <Link
       href="/favourites"
       aria-label={t('favouritesAria', { count: list.length })}
-      className="relative rounded-[var(--radius-pill)] p-2 text-ink-soft transition-colors hover:text-burgundy"
+      // h-11 w-11 — יעד מגע של 44px, כמו כפתורי החיפוש וההמבורגר שלצידו;
+      // p-2 סביב אייקון 20px נתן 36px בלבד, מתחת לסף המומלץ.
+      className="relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy"
     >
       <FavouriteIcon active={false} className="h-5 w-5" />
       {list.length > 0 ? (
         <span
           aria-hidden="true"
-          className="absolute -end-0.5 -top-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-[var(--radius-pill)] bg-gold px-1 text-[0.65rem] font-bold leading-none text-navy tabular-nums"
+          // בורדו כמו מונה הסל — שני מונים זהים בתפקידם באותה שורה קיבלו
+          // שני צבעי מותג שונים בלי היררכיה שמצדיקה זאת.
+          className="absolute end-0.5 top-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-[var(--radius-pill)] bg-burgundy px-1 text-[0.65rem] font-bold leading-none text-cream tabular-nums"
         >
           {list.length > 99 ? '99+' : list.length}
         </span>
@@ -39,7 +43,7 @@ export function AccountIndicator() {
     <Link
       href="/account"
       aria-label={t('accountAria')}
-      className="rounded-[var(--radius-pill)] p-2 text-ink-soft transition-colors hover:text-burgundy"
+      className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy"
     >
       <svg
         viewBox="0 0 24 24"
