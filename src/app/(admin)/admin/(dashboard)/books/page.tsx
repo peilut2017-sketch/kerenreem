@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import {
   getUserPref,
   listBookCompletionSignals,
@@ -12,7 +12,10 @@ import { BOOKS_COLUMNS_PREF_KEY, BooksDataGrid } from '@/components/admin/BooksD
 export const dynamic = 'force-dynamic';
 
 export default async function AdminBooksPage() {
-  await requireRole('viewer');
+  // הרשאת מסך ולא תפקיד בלבד: זו הייתה הרשימה היחידה שבדקה requireRole —
+  // משתמש שהרשאת "ספרים" נשללה ממנו בלוח ההרשאות לא ראה את הקישור
+  // בתפריט, אבל קיבל את הקטלוג המלא בכתובת ישירה.
+  await requireScreenPermission('books', 'view');
   const [books, completionSignals, categories, series, savedColumns] = await Promise.all([
     listBooks(),
     listBookCompletionSignals(),

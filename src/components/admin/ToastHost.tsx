@@ -30,7 +30,9 @@ export function ToastHost() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-inline-end-4 top-4 z-[60] flex w-full max-w-[22rem] flex-col gap-2">
+    // end-4 ולא inset-inline-end-4 — המחלקה הקודמת אינה קיימת ב-Tailwind,
+    // וההודעות נצמדו לקצה המסך בלי המרווח המיועד
+    <div className="pointer-events-none fixed end-4 top-4 z-[60] flex w-full max-w-[22rem] flex-col gap-2">
       {toasts.map((toast) => (
         <div
           key={toast.id}

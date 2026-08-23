@@ -66,16 +66,9 @@ export default async function AdminDashboard({
     if (supabase) {
       const count = (query: PromiseLike<{ count: number | null }>) =>
         query.then((r) => r.count ?? 0);
-      const [total, confirmed, pendingPay, preparing, cancelPendingRefund, attentionReport] = await Promise.all([
+      const [total, confirmed, preparing, cancelPendingRefund, attentionReport] = await Promise.all([
         count(supabase.from('orders').select('id', { count: 'exact', head: true })),
         count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('state', 'confirmed')),
-        count(
-          supabase
-            .from('orders')
-            .select('id', { count: 'exact', head: true })
-            .in('payment_state', ['pending', 'failed'])
-            .not('state', 'in', '(cancelled,closed)'),
-        ),
         count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('fulfillment_state', 'preparing')),
         count(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('state', 'cancel_pending_refund')),
         getAttentionReport(),
@@ -86,10 +79,11 @@ export default async function AdminDashboard({
       // cancel_requests/attention), כך שהמונים האלה הובילו לרשימה לא
       // מסוננת (המונה אומר 3, המסך מציג 100). savedViewHref בונה את
       // הקישור המלא מאותו מקור שממנו חושב המספר, כך שהשניים תמיד יתאימו.
+      // "ממתינות לתשלום" חי רק ב"דורש טיפול" למטה — הוא הופיע פעמיים
+      // (גם כאן וגם שם) עם אותו קישור בדיוק, במרחק גלילה אחת.
       storeStats.push(
         { label: 'סה״כ הזמנות', value: total, href: '/admin/orders', icon: 'orders' },
         { label: 'חדשות לטיפול', value: confirmed, href: savedViewHref('new'), icon: 'store' },
-        { label: 'ממתינות לתשלום', value: pendingPay, href: savedViewHref('pending_payment'), icon: 'finance' },
         { label: 'בליקוט ואריזה', value: preparing, href: savedViewHref('preparing'), icon: 'inventory' },
         {
           label: 'ממתינות לזיכוי',

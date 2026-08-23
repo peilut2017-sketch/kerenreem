@@ -188,11 +188,16 @@
      [1.4] overflow: hidden (בלי ציר X) חתך טבלאות רחבות ממסך צר בלי שום
      דרך להגיע לתוכן שנחתך — 5 מתוך 7 הצרכנים לא הוסיפו overflow-x-auto
      בעצמם. עכשיו זה בבסיס המחלקה, כדי שאף צרכן עתידי לא יפול לאותו באג. */
+  /* max-height + גלילה אנכית פנימית: ה-thead הדביק שלמטה נצמד למכל
+     הגלילה הקרוב, ועם overflow-y: hidden המכל הזה מעולם לא גלל —
+     הכותרות פשוט לא נדבקו, ובטבלת 300 שורות הן נעלמו מיד. טבלה קצרה
+     אינה מושפעת (max-height הוא תקרה, לא גובה). */
   .admin-table-wrap {
     border: 1px solid var(--admin-border);
     border-radius: 1rem;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: auto;
+    max-height: calc(100dvh - 12rem);
     background: var(--admin-surface);
   }
   .admin-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
@@ -298,7 +303,9 @@
     border-radius: 1.1rem;
     transition: box-shadow 220ms ease, transform 220ms ease, border-color 220ms ease;
   }
-  .admin-stat:hover {
+  /* אפקט ההרמה רק על אריח שהוא קישור: hover שמרים div סטטי הוא הבטחה
+     ויזואלית ללחיצה שאינה קיימת — רוב אריחי הדוחות אינם קישורים. */
+  a.admin-stat:hover {
     box-shadow: var(--admin-shadow-hover);
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--admin-accent) 45%, transparent);
