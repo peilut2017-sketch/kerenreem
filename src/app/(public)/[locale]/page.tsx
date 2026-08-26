@@ -188,9 +188,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <section className="on-dark relative isolate overflow-hidden py-16 lg:py-20">
           {shelfBackdropUrl ? (
             /* [1.13] בלי שכבת כהות מעל התמונה — התמונה שהועלתה בהגדרות
-               מוצגת נקייה, בלי טשטוש/האפלה. */
-            <div className="media-backdrop absolute inset-0 -z-20">
+               מוצגת נקייה, בלי טשטוש/האפלה.
+               [1.24] במובייל גובה הסעיף נגזר מהתוכן (כותרת + מדף + שורת
+               "הנצפים ביותר") ומשתנה מאוד ולעיתים גבוה מאוד וצר — object-cover
+               על קופסה כזו מותח/חותך תמונת-רוחב לפס דק כמעט ריק. לכן במובייל
+               הרקע מוגבל לרצועה עליונה בגובה קבוע וסביר בלבד, לא לכל גובה
+               הסעיף; מ-sm ומעלה הסעיף עצמו קצר ורחב דיו וחוזרים ל-inset מלא
+               כמו קודם. הדהייה בתחתית הרצועה ממזגת אותה ברקע הכהה של הסעיף
+               במקום קו חיתוך חד. */
+            <div className="media-backdrop absolute inset-x-0 top-0 -z-20 h-[24rem] sm:inset-0 sm:h-auto">
               <Image src={shelfBackdropUrl} alt="" fill sizes="100vw" className="object-cover" />
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-[var(--color-navy)] sm:hidden"
+              />
             </div>
           ) : null}
           <div
