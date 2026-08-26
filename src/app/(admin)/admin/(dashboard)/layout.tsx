@@ -27,11 +27,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   const session = await requireRole('viewer');
-  const screenAccess = await getAllScreenAccess(session);
+  // getCustomFonts אינו תלוי ב-session/screenAccess — נטען במקביל אליהם
+  // ולא אחריהם, כדי לא להוסיף עוד סבב רשת רציף לזמן הטעינה אחרי התחברות.
+  const [screenAccess, customFonts] = await Promise.all([getAllScreenAccess(session), getCustomFonts()]);
   // תג "פניות חדשות" על לשונית הפניות — נטען רק למי שרואה את המסך
   const unreadMessages = screenAccess.messages?.view ? await countNewInquiries() : 0;
   // גופנים מותקנים — לבורר הגופנים בעורכי הטקסט, ראו custom-fonts-context
-  const customFontChoices = (await getCustomFonts()).map((font) => ({
+  const customFontChoices = customFonts.map((font) => ({
     label: font.name,
     value: `var(--font-custom-${font.slug})`,
   }));

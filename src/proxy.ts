@@ -6,8 +6,13 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from './lib/sup
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-/** מסלולי ניהול שמותר להגיע אליהם בלי session. */
-const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/auth/callback'];
+/**
+ * מסלולי ניהול שמותר להגיע אליהם בלי session.
+ *
+ * ה-callback עצמו (/api/auth/admin-callback) אינו כאן — הוא כבר מוחרג
+ * לגמרי מה-matcher למטה (כל api/), ולא חי תחת /admin מלכתחילה.
+ */
+const ADMIN_PUBLIC_PATHS = ['/admin/login'];
 
 async function handleAdmin(request: NextRequest) {
   const { pathname } = request.nextUrl;
