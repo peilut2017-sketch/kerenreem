@@ -80,7 +80,6 @@ export function computeCompletion(book: Book, signals: CompletionSignals): Compl
     { key: 'description', label: 'תיאור', done: Boolean(book.description_he), weight: 10, tab: 'basics' },
     { key: 'author', label: 'מחבר', done: Boolean(book.author_id) || Boolean(book.author_name_he), weight: 7, tab: 'basics' },
     { key: 'subtitle', label: 'כותרת משנה', done: Boolean(book.subtitle_he), weight: 5, tab: 'basics' },
-    { key: 'category', label: 'קטגוריה', done: Boolean(book.category_id), weight: 5, tab: 'basics' },
     { key: 'description_brief', label: 'תמצית קצרה', done: Boolean(book.description_brief_he), weight: 4, tab: 'basics' },
     { key: 'publication_year', label: 'שנת הוצאה עברית', done: Boolean(book.publication_year_he), weight: 2, tab: 'basics' },
     { key: 'publication_year_ce', label: 'שנת הוצאה לועזית', done: book.publication_year_ce != null, weight: 1, tab: 'basics' },
@@ -118,7 +117,9 @@ export function computeCompletion(book: Book, signals: CompletionSignals): Compl
     // --- קטגוריות ותגיות ---
     { key: 'tags', label: 'תגיות', done: signals.tagIds.length > 0, weight: 3, tab: 'taxonomy' },
     { key: 'attributes', label: 'מאפיינים', done: signals.attributeValueIds.length > 0, weight: 1.5, tab: 'taxonomy' },
-    { key: 'shelves', label: 'מדפים משניים', done: signals.categoryIds.length > 0, weight: 1, tab: 'taxonomy' },
+    // [1.21] קטגוריה יחידה נבחרה בעבר בלשונית "פרטי יסוד"; עכשיו כל
+    // הקטגוריות (כולל הראשית) נבחרות יחד כאן, ראו BookForm.tsx.
+    { key: 'category', label: 'קטגוריות', done: signals.categoryIds.length > 0, weight: 5, tab: 'taxonomy' },
     { key: 'languages', label: 'שפות', done: book.languages.length > 0, weight: 1, tab: 'taxonomy' },
 
     // --- זיהוי וחיפוש ---

@@ -34,7 +34,10 @@ export function BookListRow({
   const t = useTranslations('books');
   const title = localized(book, 'title', locale);
   const author = resolveBookAuthor(book, locale);
-  const categoryName = book.category ? localized(book.category, 'name', locale) : null;
+  // [1.21] כל הקטגוריות של הספר, לא רק הראשית — כאן זו שורת מטא-דאטה טקסטואלית, לא רצועת פילים, אז פשוט מפרידים בפסיק.
+  const categoryName = (book.categories?.length ? book.categories : book.category ? [book.category] : [])
+    .map((category) => localized(category, 'name', locale))
+    .join(', ');
   const summary = htmlToPlainText(localized(book, 'description', locale), 190);
   const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
   const price = storeEnabled ? getEffectivePrice(book, locale) : null;

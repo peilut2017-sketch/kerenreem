@@ -55,9 +55,10 @@ export default async function BooksPage({
   const authorsWithBooks = authors.filter((author) =>
     books.some((book) => book.author_id === author.id),
   );
-  const usedCategories = categories.filter((category) =>
-    books.some((book) => book.category_id === category.id),
-  );
+  // [1.21] לפי כל הקטגוריות של הספר, לא רק הראשית — אחרת קטגוריה
+  // שמופיעה רק כמשנית על ספרים לא הייתה מוצעת כמסנן בכלל.
+  const usedCategoryIds = new Set(books.flatMap((book) => (book.categories ?? []).map((category) => category.id)));
+  const usedCategories = categories.filter((category) => usedCategoryIds.has(category.id));
 
   // רק תגיות שיש להן ספר: תגית שמובילה תמיד לאפס תוצאות מאריכה את
   // המגירה ומטעה.

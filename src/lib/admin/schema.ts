@@ -102,7 +102,10 @@ export const ENTITIES = {
       // בתצוגה, בלי ליצור או לגעת ברשומת מחבר. ראו lib/books/author-display.ts.
       f('author_name_he'),
       f('author_name_en'),
-      f('category_id', 'uuid'),
+      // [1.21] נגזר בשרת מ-category_ids (הבחירה המרובה) ולא מוזן ישירות
+      // בטופס — ראו saveEntity ב-actions.ts. fd ולא f: אם מסיבה כלשהי
+      // formData לא כולל category_ids כלל, לא רוצים לאפס את מה שהיה.
+      fd('category_id', 'uuid'),
       f('series_id', 'uuid'),
       // [1.10] fd ולא f: המיקום נקבע בגרירה (SeriesOrderList/saveSeriesOrder),
       // לא בטופס הזה. השמטת השדה מהטופס משאירה null בעדכון "אל תיגע" —

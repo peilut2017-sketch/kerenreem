@@ -74,8 +74,16 @@ const BOOK_BASE_SELECT = `
  * כל השליפה — כלומר את כל הקטלוג, לא רק את עמוד הספר. description_he
  * נשלף רק ב-BOOK_DETAIL_SELECT למטה, ששם יש שכבת נפילה נוספת בשבילו.
  */
+/**
+ * [1.21] categories:book_categories — לא category:categories!books_category_id_fkey
+ * שנייה. אותו bucket, כל הקטגוריות (כולל הראשית — הטופס בניהול שומר את כל
+ * הבחירה המרובה ל-book_categories דרך syncRelations הגנרי ב-actions.ts,
+ * וגוזר משם גם את category_id הסקלרי, ראו saveEntity), כך שהתצוגה
+ * הציבורית לא צריכה למזג שני מקורות בעצמה.
+ */
 const BOOK_SELECT = `
   ${BOOK_BASE_SELECT},
+  categories:book_categories ( category:categories ( id, slug, name_he, name_en ) ),
   tags:book_tags ( tag:tags ( id, slug, name_he, name_en ) ),
   attributeValues:book_attributes ( value:attribute_values ( id, slug, name_he, attribute_id ) )
 `;
@@ -220,9 +228,15 @@ function byPageNumber<T extends { page_number: number }>(rows: T[] | undefined):
 }
 
 function shapeBook(row: unknown): BookWithRelations {
-  const book = row as BookWithRelations & { tags?: unknown; attributeValues?: unknown };
+  const book = row as BookWithRelations & { tags?: unknown; categories?: unknown; attributeValues?: unknown };
+  const categories = flatten<'category', NonNullable<BookWithRelations['category']>>(book.categories, 'category');
   return {
     ...book,
+    // [1.21] כשהשליפה ביקשה categories (BOOK_SELECT ומעלה) אבל לספר אין
+    // אף שורת book_categories, flatten מחזירה [] — לא undefined — ולכן
+    // מפילים חזרה לקטגוריה הראשית הבודדת כדי שספרים ישנים/שטרם עברו
+    // גיבוי (ראו 51_book_categories_backfill.sql) עדיין יציגו קטגוריה.
+    categories: categories.length ? categories : book.category ? [book.category] : [],
     tags: flatten(book.tags, 'tag'),
     attributeValues: flatten(book.attributeValues, 'value'),
     images: bySortOrder(book.images),

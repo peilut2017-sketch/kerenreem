@@ -269,6 +269,16 @@ export async function saveEntity(
       payload[spec.name] = value;
     }
 
+    // [1.21] הקטגוריה הראשית (לפירורי לחם ולכתובת הקנונית ?category=) נגזרת
+    // מהבחירה המרובה: הראשונה שנבחרה. אין עוד שדה category_id נפרד בטופס —
+    // syncRelations (למטה) כותב את כל הבחירה ל-book_categories בנפרד.
+    if (entityKey === 'books') {
+      const categoryIds = formData
+        .getAll('category_ids')
+        .filter((value): value is string => typeof value === 'string' && value !== '');
+      payload.category_id = categoryIds[0] ?? null;
+    }
+
     // ספר הוא הישות היחידה שבה מזהה הכתובת אינו חובה (ראו schema.ts): הוספת
     // ספר מהירה לא אמורה להיעצר על "יש להזין מזהה כתובת". ברירת המחדל היא
     // כתובת מותאמת אקראית, מבוססת מק"ט כשיש כזה — ראו randomBookSlug.

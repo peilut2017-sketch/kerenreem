@@ -110,6 +110,9 @@ function book(
     ...base,
     author: { id: author.id, slug: author.slug, name_he: author.name_he, name_en: author.name_en },
     category: { id: category.id, slug: category.slug, name_he: category.name_he, name_en: category.name_en },
+    // [1.21] בתוכן ההדגמה כל ספר שייך לקטגוריה הראשית שלו בלבד — התאמה
+    // מדויקת יותר דורשת נתוני הדגמה עשירים יותר, לא נחוצה כאן.
+    categories: [{ id: category.id, slug: category.slug, name_he: category.name_he, name_en: category.name_en }],
   };
 }
 

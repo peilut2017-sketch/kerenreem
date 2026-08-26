@@ -306,13 +306,18 @@ export async function countBooksByAuthor(): Promise<Map<string, number>> {
  * מניין הספרים בכל קטגוריה — כדי שמסך הקטגוריות יראה מה בשימוש, ובעיקר
  * כדי להזהיר לפני מחיקה: גם כאן השיוך מנותק בשקט ולא נחסם.
  */
+/**
+ * [1.21] נספר דרך book_categories, לא books.category_id — קטגוריה יכולה
+ * להיות משויכת לספר גם כשאינה הראשית שלו (ראו BookForm.tsx), ואזהרת
+ * מחיקה שסופרת רק category_id הייתה מפספסת שימושים כאלה.
+ */
 export async function countBooksByCategory(): Promise<Map<string, number>> {
   const supabase = await client();
-  const { data } = await supabase.from('books').select('category_id');
+  const { data } = await supabase.from('book_categories').select('category_id');
 
   const counts = new Map<string, number>();
-  for (const row of (data as { category_id: string | null }[] | null) ?? []) {
-    if (row.category_id) counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
+  for (const row of (data as { category_id: string }[] | null) ?? []) {
+    counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
   }
   return counts;
 }

@@ -11,13 +11,12 @@ import { BookTocEditor } from './BookTocEditor';
 import { BookPreviewGenerator } from './books/BookPreviewGenerator';
 import { BookStorePreview } from './books/BookStorePreview';
 import { AuthorForm } from './AuthorForm';
-import { CategoryForm } from './CategoryForm';
 import { QuickAddSelect } from './QuickAddSelect';
 import { SeriesForm } from './SeriesForm';
 import { RepeatableTextField } from './RepeatableTextField';
+import { RelationPicker } from './RelationPicker';
 import { RichTextEditor } from './RichTextEditor';
 import { SeriesOrderList } from './SeriesOrderList';
-import { TagPicker } from './TagPicker';
 import { createAuthorQuick, createCategoryQuick, createSeriesQuick, createTag } from '@/lib/admin/actions';
 import { COMPLETION_TAB_LABELS, computeCompletion, type CompletionTab } from '@/lib/completion';
 import type { SeriesMemberBook } from '@/lib/admin/queries';
@@ -107,6 +106,14 @@ export function BookForm({
     : null;
   const [selectedSeriesId, setSelectedSeriesId] = useState(book?.series_id ?? '');
   const [selectedAuthorId, setSelectedAuthorId] = useState(book?.author_id ?? '');
+  // [1.21] הקטגוריה הראשית (book.category_id) חייבת להישאר ראשונה ברשימה
+  // שנשלחת ל-RelationPicker: השרת גוזר ממנה מי "ראשית" לפי סדר ההגשה
+  // (category_ids[0]) — ו-book_categories לא מבטיחה סדר שמתאים למה שהיה
+  // category_id לפני כן. בלי הסידור הזה, שמירת ספר קיים בלי לגעת בכלל
+  // בקטגוריות הייתה עלולה להחליף בשקט את הקטגוריה הראשית שלו.
+  const orderedCategoryIds = book?.category_id
+    ? [book.category_id, ...relations.categoryIds.filter((id) => id !== book.category_id)]
+    : relations.categoryIds;
 
   return (
     <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
@@ -222,26 +229,10 @@ export function BookForm({
                         )}
                       </div>
 
-                      <QuickAddSelect
-                        name="category_id"
-                        hint="המדף שעליו הספר יושב. זו הקטגוריה שמופיעה בכרטיס ובכתובת."
-                        label="קטגוריה"
-                        emptyLabel="— ללא —"
-                        defaultValue={book?.category_id}
-                        options={categories.map((category) => ({
-                          value: category.id,
-                          label: category.name_he,
-                        }))}
-                        addLabel="+ קטגוריה חדשה"
-                        fieldLabel="שם הקטגוריה"
-                        onCreate={async (name) => {
-                          const result = await createCategoryQuick(name);
-                          return result.category
-                            ? { value: result.category.id, label: result.category.name_he }
-                            : null;
-                        }}
-                        createForm={<CategoryForm category={null} bookCount={0} canWrite={canWrite} />}
-                      />
+                      <p className="field-hint">
+                        הקטגוריות נבחרות בלשונית &quot;קטגוריות ותגיות&quot; — הראשונה שתיבחר שם
+                        היא זו שמופיעה בכרטיס ובכתובת (?category=).
+                      </p>
                     </FieldSet>
 
                     <FieldSet
@@ -538,34 +529,35 @@ export function BookForm({
                 hasError: false,
                 content: (
                   <>
-                    <FieldSet legend="קטגוריות נוספות" icon="categories">
+                    <FieldSet legend="קטגוריות" icon="categories">
                       <p className="text-caption text-muted">
-                        אינן כפילות של הקטגוריה הראשית בלשונית &quot;פרטי יסוד&quot;: הראשית היא
-                        המדף היחיד שבו הספר יושב, ומופיעה בכרטיס. כאן מסמנים מדפים{' '}
-                        <em>נוספים</em> שבהם נכון שיימצא בסינון. אפשר להשאיר ריק.
+                        המדפים שבהם הספר יימצא — בכרטיס, בסינון הקטלוג ובעמוד הספר.
+                        הראשונה שתיבחר היא הקטגוריה הראשית (פירורי לחם, כתובת ?category=).
                       </p>
-                      <div className="mt-3 grid gap-1 sm:grid-cols-2">
-                        {categories.map((category) => (
-                          <label
-                            key={category.id}
-                            className="flex items-center gap-2.5 py-1 text-small text-ink-soft"
-                          >
-                            <input
-                              type="checkbox"
-                              name="category_ids"
-                              value={category.id}
-                              defaultChecked={relations.categoryIds.includes(category.id)}
-                              className="h-4 w-4 shrink-0 accent-[var(--admin-accent)]"
-                            />
-                            {category.name_he}
-                          </label>
-                        ))}
+                      <div className="mt-3">
+                        <RelationPicker
+                          fieldName="category_ids"
+                          label="הוספת קטגוריה"
+                          placeholder="הלכה, מועדים, מחשבה…"
+                          itemLabel="קטגוריה"
+                          allItems={categories}
+                          selectedIds={orderedCategoryIds}
+                          primaryBadge
+                          onCreate={async (name) => {
+                            const result = await createCategoryQuick(name);
+                            return result.category ?? null;
+                          }}
+                        />
                       </div>
                     </FieldSet>
 
                     <FieldSet legend="תגיות" icon="tags">
-                      <TagPicker
-                        allTags={tags}
+                      <RelationPicker
+                        fieldName="tag_ids"
+                        label="הוספת תגית"
+                        placeholder="שבת, טהרה, ילדים…"
+                        itemLabel="תגית"
+                        allItems={tags}
                         selectedIds={relations.tagIds}
                         onCreate={async (name) => {
                           const result = await createTag(name);
