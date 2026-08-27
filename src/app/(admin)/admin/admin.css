@@ -422,4 +422,36 @@
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--admin-accent) 45%, transparent);
   }
+
+  /* --- [1.34] כותרת כרטיס דביקה: התראת שינויים שלא נשמרו + שמירה/סגירה ---
+     top מוצמד ל---admin-header-h (AdminShell.tsx) כדי לשבת בדיוק מתחת
+     לסרגל העליון של הניהול, לא מעליו ולא מכוסה על ידו. */
+  .admin-unsaved-bar {
+    position: sticky;
+    top: var(--admin-header-h, 3.75rem);
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    padding: 0.55rem 0.75rem;
+    background: color-mix(in srgb, var(--admin-surface) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-card);
+    box-shadow: var(--admin-shadow);
+  }
+  /* אייקון מהבהב — לא באנר קבוע: תשומת לב בלי לתפוס מקום/צבע קבועים
+     כשאין ממש שינויים לשמור, ובלי טקסט ("יש שינויים...") שתופס רוחב. */
+  .admin-unsaved-warning-icon {
+    color: var(--admin-warning);
+    animation: admin-warning-blink 1.6s ease-in-out infinite;
+  }
+  @keyframes admin-warning-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .admin-unsaved-warning-icon { animation: none; }
+  }
 }

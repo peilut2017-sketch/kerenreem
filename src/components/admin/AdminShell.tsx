@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { AdminIcon } from './AdminIcons';
 
@@ -25,6 +25,29 @@ export function AdminShell({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const headerRef = useRef<HTMLElement>(null);
+
+  // [1.34] --admin-header-h: גובה הסרגל העליון כמשתנה CSS גלובלי, לאותה
+  // מטרה בדיוק כמו --site-header-h הציבורי (SiteHeaderHeightVar.tsx) —
+  // כרטיסי עריכה (BookForm וכו') זקוקים לו כדי להדביק את כותרת ה"שינויים
+  // שלא נשמרו" שלהם מתחת לסרגל הזה, לא מתחתיו/עליו.
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header || typeof ResizeObserver === 'undefined') return;
+
+    const apply = (height: number) =>
+      document.documentElement.style.setProperty('--admin-header-h', `${height}px`);
+
+    apply(header.getBoundingClientRect().height);
+    const observer = new ResizeObserver(([entry]) =>
+      apply(entry.target.getBoundingClientRect().height ?? entry.contentRect.height),
+    );
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty('--admin-header-h');
+    };
+  }, []);
   // ניווט לעמוד חדש סוגר את המגירה — בלי זה קליק על קישור במובייל
   // משאיר אותה פתוחה מעל התוכן החדש. התאמת state לפי props שהשתנו
   // (pathname) בזמן הרינדור עצמו, לא ב-effect — אותו דפוס בדיוק כמו
@@ -71,7 +94,10 @@ export function AdminShell({
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--admin-border)] bg-white/90 px-4 py-3 backdrop-blur-md sm:px-6 lg:justify-end">
+        <header
+          ref={headerRef}
+          className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--admin-border)] bg-white/90 px-4 py-3 backdrop-blur-md sm:px-6 lg:justify-end"
+        >
           <button
             type="button"
             onClick={() => setMobileOpen(true)}

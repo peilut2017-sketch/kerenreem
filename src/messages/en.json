@@ -218,7 +218,7 @@
     "flipPageRange": "Pages {from}–{to} of {total}",
     "authorBioExpand": "More about the author",
     "authorBioCollapse": "Show less",
-    "showMore": "{count, plural, one {Show one more book} other {Show # more books}}"
+    "loadingMore": "Loading more books…"
   },
   "authors": {
     "title": "Authors and figures",

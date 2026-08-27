@@ -117,9 +117,9 @@ export function BookForm({
     ? [book.category_id, ...relations.categoryIds.filter((id) => id !== book.category_id)]
     : relations.categoryIds;
 
-  // [1.26] "כריכה" כמאפיין כפולה את שדה binding החופשי שממש למטה באותה
-  // לשונית — אם מישהו יצר בטעות מאפיין בשם הזה, לא מציגים אותו פעמיים.
-  const visibleAttributes = attributes.filter((attribute) => attribute.name_he.trim() !== 'כריכה');
+  // [1.26/1.32] "כריכה"/"פורמט"/"קהל יעד" מסוננים כבר במקור (listAttributes,
+  // ראו src/lib/attributes.ts) — לא רק כאן, כדי שאותה הסתרה תחול גם על
+  // הסינון הציבורי בקטלוג ולא רק על טופס הניהול.
 
   return (
     <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
@@ -128,17 +128,24 @@ export function BookForm({
           {/* המטבע קבוע לשלב זה; השדה נשלח כדי שהערך לא יימחק בעדכון */}
           <input type="hidden" name="currency" value={book?.currency ?? 'ILS'} />
 
-          {/* [1.27] חיווי "שינויים שלא נשמרו" + שמירה מהירה — צמוד לכותרת
-              הכרטיס (AdminHeader, מוצג מעל הטופס בעמוד עצמו) במקום רק
-              בסרגל הפעולות שבתחתית הטופס הארוך. */}
+          {/* [1.27/1.34] חיווי "שינויים שלא נשמרו" + שמירה מהירה — צמוד
+              לכותרת הכרטיס, ודביק (admin-unsaved-bar) כדי שיישאר גלוי גם
+              בגלילה עמוקה בטופס הארוך, לא רק בראשו. אייקונים בלבד: אייקון
+              מהבהב עם האזהרה כ-tooltip (לא באנר טקסט קבוע), ולצידו שמירה
+              וסגירה — כדי שהפעולות הנפוצות ביותר תמיד בהישג יד בגלילה. */}
           {canWrite ? (
-            <div className="admin-card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <div className="admin-unsaved-bar">
               {dirty ? (
-                <span className="admin-badge admin-badge-warning" role="status">
-                  יש שינויים שטרם נשמרו
+                <span title="יש שינויים שטרם נשמרו" className="inline-flex">
+                  <AdminIcon name="warning" className="admin-unsaved-warning-icon h-4.5 w-4.5" />
+                  <span className="sr-only" role="status">
+                    יש שינויים שטרם נשמרו
+                  </span>
                 </span>
               ) : (
-                <span className="text-caption text-muted">כל השינויים נשמרו</span>
+                <span className="sr-only" role="status">
+                  כל השינויים נשמרו
+                </span>
               )}
               <button
                 type="submit"
@@ -150,6 +157,9 @@ export function BookForm({
               >
                 <AdminIcon name="check" className="h-4 w-4" />
               </button>
+              <Link href="/admin/books" title="סגירה" aria-label="סגירה" className="admin-btn admin-btn-icon admin-btn-quiet">
+                <AdminIcon name="x" className="h-4 w-4" />
+              </Link>
             </div>
           ) : null}
 
@@ -568,10 +578,10 @@ export function BookForm({
                       />
                     </FieldSet>
 
-                    {visibleAttributes.length > 0 ? (
+                    {attributes.length > 0 ? (
                       <FieldSet legend="מאפיינים">
                         <div className="space-y-5">
-                          {visibleAttributes.map((attribute) => (
+                          {attributes.map((attribute) => (
                             <fieldset key={attribute.id}>
                               <legend className="admin-field-label">{attribute.name_he}</legend>
                               <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1">

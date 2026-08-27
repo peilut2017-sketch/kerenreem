@@ -5,7 +5,6 @@ import { FavouriteIcon } from '@/components/FavouriteIcon';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
 import { localized } from '@/lib/localized';
-import { htmlToPlainText } from '@/lib/html-text';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { resolveBookBadge } from '@/lib/books/badge';
 import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
@@ -14,9 +13,10 @@ import type { BookWithRelations } from '@/lib/supabase/types';
 /**
  * שורת ספר בתצוגת רשימה.
  *
- * לא גרסה דחוסה של הכרטיס אלא תצוגה אחרת: כאן יש מקום לתקציר, לשנה
- * ולמספר הכרכים — הנתונים שמאפשרים להשוות בין מהדורות בלי לפתוח כל אחת.
- * זה מה שהופך את התצוגה לשימושית למי שמכיר את הקטלוג.
+ * לא גרסה דחוסה של הכרטיס אלא תצוגה אחרת: כאן יש מקום לשנה ולמספר
+ * הכרכים — הנתונים שמאפשרים להשוות בין מהדורות בלי לפתוח כל אחת.
+ * זה מה שהופך את התצוגה לשימושית למי שמכיר את הקטלוג. [1.32] תקציר
+ * הוסר: מיותר לצד השם, ומאריך כל שורה בלי תועלת השוואתית דומה.
  */
 export function BookListRow({
   book,
@@ -38,7 +38,6 @@ export function BookListRow({
   const categoryName = (book.categories?.length ? book.categories : book.category ? [book.category] : [])
     .map((category) => localized(category, 'name', locale))
     .join(', ');
-  const summary = htmlToPlainText(localized(book, 'description', locale), 190);
   const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
   const price = storeEnabled ? getEffectivePrice(book, locale) : null;
 
@@ -67,9 +66,6 @@ export function BookListRow({
         </div>
 
         {author ? <p className="mt-1 text-small text-muted">{author.name}</p> : null}
-        {summary ? (
-          <p className="mt-2 line-clamp-2 text-small leading-relaxed text-ink-soft">{summary}</p>
-        ) : null}
 
         <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-caption text-muted">
           {categoryName ? <span>{categoryName}</span> : null}

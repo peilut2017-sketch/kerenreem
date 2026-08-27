@@ -85,7 +85,10 @@ export default async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // כל מה שאינו נכס סטטי, קובץ API פנימי או קובץ עם סיומת
-    '/((?!api|_next|_vercel|.*\\..*).*)',
+    // [1.37] site-icon/app-icon הוחרגו במפורש: שני Route Handler בלי סיומת
+    // בנתיב (favicon דינמי ואייקון ה-PWA, ראו שם) — בלי ההחרגה הזו הביטוי
+    // "קובץ עם סיומת" לא תפס אותם, ה-middleware ניתב אותם ל-/he/site-icon
+    // וכד' שלא קיים, ולשונית הדפדפן/מסך הבית קיבלו 404 במקום אייקון.
+    '/((?!api|_next|_vercel|site-icon|app-icon|.*\\..*).*)',
   ],
 };

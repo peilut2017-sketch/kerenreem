@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { createStaticClient } from './supabase/server';
 import { demo, isDemoContent } from './demo-content';
+import { filterVisibleAttributes } from './attributes';
 import type {
   Activity,
   Attribute,
@@ -626,10 +627,12 @@ export async function getAttributes(): Promise<AttributeWithValues[]> {
     .order('sort_order');
 
   warn('getAttributes', error);
-  return ((data as (Attribute & { values: AttributeValue[] })[] | null) ?? []).map((attribute) => ({
-    ...attribute,
-    values: [...attribute.values].sort((a, b) => a.sort_order - b.sort_order),
-  }));
+  return filterVisibleAttributes(
+    ((data as (Attribute & { values: AttributeValue[] })[] | null) ?? []).map((attribute) => ({
+      ...attribute,
+      values: [...attribute.values].sort((a, b) => a.sort_order - b.sort_order),
+    })),
+  );
 }
 
 /* -------------------------------------------------------------------------- */

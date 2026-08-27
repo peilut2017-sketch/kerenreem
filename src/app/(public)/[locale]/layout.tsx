@@ -58,7 +58,10 @@ export async function generateMetadata({
     robots: { index: true, follow: true },
     // הלוגו שהועלה ב-CMS, מוגש דרך /site-icon (ראו שם) עם נפילה לסימן
     // הקבוע כשלא הועלה לוגו — ולא קובץ סטטי, כי הלוגו יכול להתעדכן.
-    icons: { icon: '/site-icon' },
+    // apple: iOS לא מרנדר SVG כ-apple-touch-icon (בניגוד ללשונית דפדפן
+    // רגילה), ולכן /app-icon (ריבוע PNG, ראו שם) ולא /site-icon עצמו —
+    // זה גם מה ש"הוספה למסך הבית" משתמשת בו כשאין manifest.icons מתאים.
+    icons: { icon: '/site-icon', apple: '/app-icon?size=180' },
   };
 }
 

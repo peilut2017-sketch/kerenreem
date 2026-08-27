@@ -1,8 +1,10 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useHeaderState } from './useHeaderState';
 import { SiteHeaderHeightVar } from './SiteHeaderHeightVar';
 import { HeaderContextNav } from './HeaderContextNav';
+import { HeaderContextNavMobile } from './HeaderContextNavMobile';
 import { useHeaderContextNav } from './header-context-nav';
 import { Wordmark } from './Wordmark';
 import { NavLinks } from './NavLinks';
@@ -55,6 +57,7 @@ export function SiteHeaderClient({
 }) {
   const { isFloating } = useHeaderState();
   const contextNav = useHeaderContextNav();
+  const t = useTranslations('books');
 
   return (
     <header
@@ -118,6 +121,33 @@ export function SiteHeaderClient({
           {isFloating && contextNav ? <HeaderContextNav {...contextNav} /> : null}
 
           <div className="ms-auto flex items-center gap-1.5 sm:gap-2 lg:ms-0">
+            {/* [1.32] גרסה מצומצמת של פס הכריכה/כותרת/רכישה הישן של עמוד
+                הספר (StickyNav) — רק מחיר וקריאה-לפעולה, ליד שאר פעולות
+                המסחר (מועדפים/סל) ולא בתוך רצועת הניווט ההקשרי עצמה. */}
+            {isFloating && contextNav?.identity?.price ? (
+              <button
+                type="button"
+                onClick={contextNav.identity.onBuy}
+                aria-label={`${contextNav.identity.title} — ${contextNav.identity.price}`}
+                title={contextNav.identity.title}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-[var(--radius-pill)] bg-navy px-3 text-caption text-cream transition-colors hover:bg-navy-2 sm:px-3.5"
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 shrink-0" fill="none">
+                  <path
+                    d="M5 7h10l-1 9H6L5 7Zm2 0V5.5a3 3 0 0 1 6 0V7"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {/* מוצג רק מ-sm ומעלה — במסך צר הכפתור מצטמצם לאייקון בלבד,
+                    כמו שאר כפתורי הפעולה (מועדפים/סל) שלצדו. */}
+                <span className="hidden sm:inline">{contextNav.identity.price}</span>
+                <span className="sr-only"> — {t('goToPurchase')}</span>
+              </button>
+            ) : null}
+
             {/* הכניסות המהירות (1.1): ספר → "הספרים שאהבתי"; חשבון —
                 רק כשהחשבונות פעילים; מונה הסל — רק כשהעגלה פעילה */}
             <FavouritesIndicator />
@@ -140,6 +170,14 @@ export function SiteHeaderClient({
             />
           </div>
         </div>
+
+        {/* [1.33] גרסת מובייל של הניווט ההקשרי — שורה שנייה בתוך אותה
+            קפסולה, לא חלון מצומצם כמו בדסקטופ (HeaderContextNav מוסתר
+            מתחת ל-lg): במסך צר גלילה אופקית ישירה, לא כפס נפרד שיושב
+            מתחת לכותרת. */}
+        {isFloating && contextNav && contextNav.items.length > 0 ? (
+          <HeaderContextNavMobile {...contextNav} />
+        ) : null}
       </div>
     </header>
   );

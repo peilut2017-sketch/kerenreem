@@ -46,7 +46,7 @@ export function AuthorSection({
       </div>
 
       <div>
-        <h2 id="book-author" className="scroll-mt-[var(--book-nav-offset,6rem)] font-serif text-h2 text-ink">
+        <h2 id="book-author" className="scroll-mt-[calc(var(--site-header-h,4.75rem)+1rem)] font-serif text-h2 text-ink">
           {authorName}
         </h2>
         {years ? <p className="mt-1 text-caption text-muted">{years}</p> : null}

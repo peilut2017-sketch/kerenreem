@@ -1,5 +1,6 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
+import { filterVisibleAttributes } from '@/lib/attributes';
 import type {
   Activity,
   Attribute,
@@ -213,10 +214,12 @@ export async function listAttributes(): Promise<AttributeWithValues[]> {
     .select('*, values:attribute_values(*)')
     .order('sort_order');
 
-  return ((data as (Attribute & { values: AttributeValue[] })[] | null) ?? []).map((attribute) => ({
-    ...attribute,
-    values: [...attribute.values].sort((a, b) => a.sort_order - b.sort_order),
-  }));
+  return filterVisibleAttributes(
+    ((data as (Attribute & { values: AttributeValue[] })[] | null) ?? []).map((attribute) => ({
+      ...attribute,
+      values: [...attribute.values].sort((a, b) => a.sort_order - b.sort_order),
+    })),
+  );
 }
 
 /** הקשרים הנוכחיים של ספר, לטעינת הטופס. */
@@ -694,14 +697,29 @@ export interface AdminStorageFile {
  * טבלה שטוחה, כך שגם קבצים תחת תיקיית משנה (pathPrefix ב-ImageField)
  * מוחזרים בקריאה אחת, בלי רקורסיה ידנית בצד הלקוח.
  */
-export async function listStorageFiles(): Promise<AdminStorageFile[]> {
+export interface StorageFilesResult {
+  files: AdminStorageFile[];
+  /**
+   * הודעת שגיאה קריאה למנהל כשה-RPC נכשל — לדוגמה כי 50_media_library.sql
+   * טרם הורץ (הפונקציה חסרה), או שההרשאה נדחתה. בעבר שגיאה כזו נבלעה
+   * ל-console.error בלבד וה-UI הציג "לא נמצאו קבצים" — בלתי ניתן להבחין
+   * מספריית מדיה ריקה באמת, בעוד שבפועל קבצים קיימים באחסון. ראו page.tsx.
+   */
+  error: string | null;
+}
+
+export async function listStorageFiles(): Promise<StorageFilesResult> {
   const supabase = await client();
   const { data, error } = await supabase.rpc('admin_list_storage_files');
   if (error) {
     console.error('[admin:mediaLibrary]', error.code, error.message);
-    return [];
+    const hint =
+      error.code === 'PGRST202' || /function .* does not exist/i.test(error.message)
+        ? ' — יש להריץ את supabase/50_media_library.sql על מסד הנתונים.'
+        : '';
+    return { files: [], error: `${error.code ?? '—'}: ${error.message}${hint}` };
   }
-  return (data as AdminStorageFile[] | null) ?? [];
+  return { files: (data as AdminStorageFile[] | null) ?? [], error: null };
 }
 
 /**

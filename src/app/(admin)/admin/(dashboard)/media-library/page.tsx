@@ -17,7 +17,10 @@ export default async function AdminMediaLibraryPage() {
   await requireScreenPermission('media-library', 'view');
 
   const supabase = await createClient();
-  const [files, viewsByUrl] = await Promise.all([listStorageFiles(), getEventMediaViewsByUrl()]);
+  const [{ files, error: loadError }, viewsByUrl] = await Promise.all([
+    listStorageFiles(),
+    getEventMediaViewsByUrl(),
+  ]);
 
   const rows: MediaFileRow[] = files.map((file) => {
     const publicUrl =
@@ -35,6 +38,12 @@ export default async function AdminMediaLibraryPage() {
         title="ספריית מדיה"
         description="כל התמונות שהועלו לאחסון האתר — כריכות, תמונות אירועים, דיוקנאות, דפי דוגמה ותמונות כלליות."
       />
+      {loadError ? (
+        <p className="mb-6 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-burgundy">
+          טעינת ספריית המדיה נכשלה: {loadError} הרשימה שלמטה עשויה להיות חלקית או ריקה בטעות — זו
+          אינה בהכרח עדות לכך שאין קבצים באחסון.
+        </p>
+      ) : null}
       <MediaLibraryTable files={rows} />
     </>
   );

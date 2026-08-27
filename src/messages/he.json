@@ -218,7 +218,7 @@
     "flipPageRange": "עמודים {from}–{to} מתוך {total}",
     "authorBioExpand": "עוד על המחבר",
     "authorBioCollapse": "הצגה מקוצרת",
-    "showMore": "{count, plural, one {הצגת ספר נוסף} two {הצגת שני ספרים נוספים} other {הצגת # ספרים נוספים}}"
+    "loadingMore": "טוען ספרים נוספים…"
   },
   "authors": {
     "title": "מחברים ודמויות",

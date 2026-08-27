@@ -29,7 +29,6 @@ type ColumnId =
   | 'edition'
   | 'isbn'
   | 'pages'
-  | 'format'
   | 'binding'
   | 'languages'
   | 'volumes'
@@ -61,7 +60,6 @@ const TOGGLEABLE: { id: ColumnId; label: string }[] = [
   { id: 'edition', label: 'מהדורה' },
   { id: 'isbn', label: 'מסת״ב' },
   { id: 'pages', label: 'עמודים' },
-  { id: 'format', label: 'פורמט' },
   { id: 'binding', label: 'כריכה (סוג)' },
   { id: 'languages', label: 'שפות' },
   { id: 'volumes', label: 'כרכים' },
@@ -325,8 +323,6 @@ export function BooksDataGrid({
           return factor * text(a.book.isbn).localeCompare(text(b.book.isbn));
         case 'pages':
           return factor * ((a.book.pages ?? 0) - (b.book.pages ?? 0));
-        case 'format':
-          return factor * text(a.book.format).localeCompare(text(b.book.format), 'he');
         case 'binding':
           return factor * text(a.book.binding).localeCompare(text(b.book.binding), 'he');
         case 'volumes':
@@ -481,8 +477,6 @@ export function BooksDataGrid({
         return <td key={id} dir="ltr" className="text-start text-caption text-muted">{book.isbn ?? '—'}</td>;
       case 'pages':
         return <td key={id} className="text-muted tabular-nums">{book.pages ?? '—'}</td>;
-      case 'format':
-        return <td key={id} className="text-muted">{book.format ?? '—'}</td>;
       case 'binding':
         return <td key={id} className="text-muted">{book.binding ?? '—'}</td>;
       case 'languages':

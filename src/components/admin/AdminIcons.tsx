@@ -57,7 +57,8 @@ export type AdminIconName =
   | 'video'
   | 'undo'
   | 'table'
-  | 'print';
+  | 'print'
+  | 'warning';
 
 const PATHS: Record<AdminIconName, React.ReactNode> = {
   dashboard: (
@@ -370,6 +371,13 @@ const PATHS: Record<AdminIconName, React.ReactNode> = {
       <path d="M7 8.5V3.5h10v5" />
       <rect x="3.5" y="8.5" width="17" height="8" rx="1.5" />
       <path d="M7 14.5h10v6H7z" />
+    </>
+  ),
+  warning: (
+    <>
+      <path d="M12 3.5 2.5 20.5h19L12 3.5Z" strokeLinejoin="round" />
+      <path d="M12 10v4.5" />
+      <circle cx="12" cy="17.3" r="0.15" fill="currentColor" stroke="none" />
     </>
   ),
 };
