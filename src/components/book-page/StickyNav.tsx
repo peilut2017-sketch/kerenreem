@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Img as Image } from '@/components/Img';
 import { useTranslations } from 'next-intl';
+import { usePublishHeaderContextNav } from '@/components/header-context-nav';
 
 interface NavSection {
   id: string;
@@ -10,15 +11,14 @@ interface NavSection {
 }
 
 /**
- * ניווט פנימי דביק לעמוד הספר.
+ * [1.30] רצועה דביקה לעמוד הספר: כריכה זעירה, שם הספר וכפתור מעבר
+ * לרכישה — כדי שבגלילה עמוקה תמיד ברור באיזה ספר מדובר ואיך קונים
+ * אותו. ניווט הפרקים/המקטעים עצמו כבר לא כאן: הוא מתפרסם לכותרת
+ * הראשית (usePublishHeaderContextNav, כמו ב-EventJourneyProgress)
+ * ומתווסף לקפסולה הצפה שלה — לא עוד רצועת ניווט שנייה מתחת לראשונה.
  *
- * מופיע (fade+slide) רק אחרי גלילה מעבר ל-Hero — לא תפוס את המסך מהשנייה
- * הראשונה, כשאין עדיין שום דבר לנווט אליו. נושא איתו כריכה זעירה ושם
- * הספר, כדי שבגלילה עמוקה תמיד ברור באיזה ספר מדובר.
- *
- * הסמן הנע משתמש באותו תבנית בדיוק כמו NavLinks.tsx (הניווט הראשי של
- * האתר): מדידת offsetLeft פיזי, לא הנחת רוחב טקסט, כי עברית, ניגודיות
- * וגודל גופן מהעברת נגישות כולם משנים את הרוחב בפועל.
+ * הסמן הנע הישן והרצועה עצמה נשארו (זו לא רצועת ניווט, פס זהות/רכישה),
+ * וכך גם מדידת --book-nav-offset — היא עדיין רצועה דביקה שנייה בפועל.
  */
 export function StickyNav({
   sections,
@@ -37,9 +37,6 @@ export function StickyNav({
   const [active, setActive] = useState(sections[0]?.id ?? '');
   const [headerHeight, setHeaderHeight] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
-  const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
-  const markerRef = useRef<HTMLSpanElement>(null);
 
   // הניווט הראשי של האתר (SiteHeader) הוא sticky top-0 z-40 בפני עצמו —
   // בלי המדידה כאן שני הסרגלים היו נדבקים לאותו top:0 ומכסים זה את זה.
@@ -106,19 +103,11 @@ export function StickyNav({
     return () => observer.disconnect();
   }, [sections]);
 
-  const measure = useCallback(() => {
-    const marker = markerRef.current;
-    const element = itemRefs.current[active];
-    if (!marker || !element) return;
-    marker.style.transform = `translateX(${element.offsetLeft}px)`;
-    marker.style.width = `${element.offsetWidth}px`;
-  }, [active]);
-
-  useLayoutEffect(measure, [measure]);
-
-  function scrollToSection(id: string) {
+  const scrollToSection = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  }, []);
+
+  usePublishHeaderContextNav(sections, active, scrollToSection);
 
   return (
     <div
@@ -128,50 +117,19 @@ export function StickyNav({
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
       }`}
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 pt-1 sm:gap-4 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5 sm:gap-4 sm:px-6">
         {cover ? (
           <span className="relative h-9 w-6 shrink-0 overflow-hidden rounded-[var(--radius-xs)] bg-cream-2 sm:h-10 sm:w-7">
             <Image src={cover} alt="" fill sizes="28px" className="object-contain" />
           </span>
         ) : null}
-        <span className="hidden shrink-0 truncate font-serif text-small text-ink sm:block sm:max-w-40">
-          {title}
-        </span>
-
-        <nav aria-label={title} className="min-w-0 flex-1 overflow-x-auto">
-          <ul ref={listRef} className="relative flex w-max items-end gap-1">
-            <span
-              ref={markerRef}
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-navy transition-[transform,width] duration-300 ease-[var(--ease-spring)]"
-            />
-            {sections.map((section) => (
-              <li
-                key={section.id}
-                ref={(node) => {
-                  itemRefs.current[section.id] = node;
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => scrollToSection(section.id)}
-                  aria-current={active === section.id ? 'true' : undefined}
-                  className={`relative z-10 block whitespace-nowrap px-4 pb-3 pt-2.5 text-small transition-colors ${
-                    active === section.id ? 'font-semibold text-navy' : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  {section.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <span className="min-w-0 flex-1 truncate font-serif text-small text-ink">{title}</span>
 
         {price ? (
           <button
             type="button"
             onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-            className="hidden shrink-0 items-center gap-1.5 rounded-[var(--radius-pill)] bg-navy px-4 py-2 text-caption text-cream transition-colors hover:bg-navy-2 sm:inline-flex"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-pill)] bg-navy px-4 py-2 text-caption text-cream transition-colors hover:bg-navy-2"
           >
             {/* [1.4] הכפתור רק גולל לגוש הרכישה — לא מוסיף כלום; הכיתוב
                 אמר בעבר "הוספה לסל" למרות זאת (ראו FloatingActions לתיקון

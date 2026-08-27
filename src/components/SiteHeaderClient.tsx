@@ -2,6 +2,8 @@
 
 import { useHeaderState } from './useHeaderState';
 import { SiteHeaderHeightVar } from './SiteHeaderHeightVar';
+import { HeaderContextNav } from './HeaderContextNav';
+import { useHeaderContextNav } from './header-context-nav';
 import { Wordmark } from './Wordmark';
 import { NavLinks } from './NavLinks';
 import { LocaleSwitch } from './LocaleSwitch';
@@ -52,6 +54,7 @@ export function SiteHeaderClient({
   accountsEnabled?: boolean;
 }) {
   const { isFloating } = useHeaderState();
+  const contextNav = useHeaderContextNav();
 
   return (
     <header
@@ -107,6 +110,12 @@ export function SiteHeaderClient({
           />
 
           <NavLinks label={navLabel} items={navItems} compact={isFloating} />
+
+          {/* [1.30] ניווט הקשרי (שלבי אירוע/מקטעי ספר) — מתווסף לקפסולה
+              הצפה עצמה, לא כפס נפרד מתחתיה, ורק אחרי שהיא כבר קפסולה
+              (isFloating): במצב היציב המלא-רוחב אין עדיין מקום בעל
+              משמעות "בתוך הכותרת" להוסיף אליו ניווט משני. */}
+          {isFloating && contextNav ? <HeaderContextNav {...contextNav} /> : null}
 
           <div className="ms-auto flex items-center gap-1.5 sm:gap-2 lg:ms-0">
             {/* הכניסות המהירות (1.1): ספר → "הספרים שאהבתי"; חשבון —

@@ -18,7 +18,8 @@
     "openMenu": "פתיחת תפריט",
     "closeMenu": "סגירת תפריט",
     "language": "שפה",
-    "switchToEnglish": "English"
+    "switchToEnglish": "English",
+    "pageNavigation": "ניווט בעמוד הנוכחי"
   },
   "home": {
     "catalogueLead": "מן הקטלוג",
@@ -247,7 +248,6 @@
     "close": "סגירה",
     "nextImage": "התמונה הבאה",
     "prevImage": "התמונה הקודמת",
-    "journey": "התקדמות באירוע",
     "imageCounter": "{index} מתוך {total}",
     "goToImage": "עבור לתמונה {index}",
     "momentsCount": "{count, plural, one {רגע אחד מהאירוע} two {שני רגעים מהאירוע} other {# רגעים מהאירוע}}",

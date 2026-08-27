@@ -18,7 +18,8 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "language": "Language",
-    "switchToEnglish": "עברית"
+    "switchToEnglish": "עברית",
+    "pageNavigation": "Current page navigation"
   },
   "home": {
     "catalogueLead": "From the catalogue",
@@ -247,7 +248,6 @@
     "close": "Close",
     "nextImage": "Next image",
     "prevImage": "Previous image",
-    "journey": "Progress through the event",
     "imageCounter": "{index} of {total}",
     "goToImage": "Go to image {index}",
     "momentsCount": "{count, plural, one {One moment from the event} other {# moments from the event}}",
