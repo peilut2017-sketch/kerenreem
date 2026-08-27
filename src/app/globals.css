@@ -834,3 +834,23 @@ html[data-a11y-motion='off'] .group:hover .icon-chip { transform: none !importan
   0%   { opacity: 0; transform: translateY(6px); }
   100% { opacity: 1; transform: translateY(0); }
 }
+
+/* --------------------------------------------------------------------------
+   [1.32] אינדיקציית טעינה אוטומטית בקטלוג הספרים — ספר עם דפים מתהפכים
+   -------------------------------------------------------------------------- */
+.book-flip-page {
+  transform-box: fill-box;
+  transform-origin: 0% 50%;
+  animation: book-flip 1.1s ease-in-out infinite;
+}
+.book-flip-page-2 {
+  animation-delay: 0.55s;
+  opacity: 0.65;
+}
+@keyframes book-flip {
+  0%, 100% { transform: scaleX(1); }
+  50%      { transform: scaleX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .book-flip-page { animation: none; opacity: 0.6; }
+}

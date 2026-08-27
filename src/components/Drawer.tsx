@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /** [1.6] משך מעבר הפתיחה/סגירה — משותף לכל הוריאנטים (ח.1, ח.2). */
 const TRANSITION_MS = 200;
@@ -146,7 +147,10 @@ export function Drawer({
     };
   }, [open, returnFocusTo]);
 
-  if (!mounted) return null;
+  // [1.32] document עוד לא קיים בזמן ה-SSR של רכיב הלקוח — אין מקרה בפועל
+  // שבו mounted=true כבר ברינדור הראשון (כל הקוראים מתחילים עם open=false
+  // מקומי), אך התנאי כאן מונע קריסה תיאורטית בלי לסבך את הלוגיקה למעלה.
+  if (!mounted || typeof document === 'undefined') return null;
 
   const centered = variant === 'center';
   const bottom = variant === 'bottom';
@@ -154,7 +158,13 @@ export function Drawer({
     ? `transition-transform duration-200 ease-[var(--ease-spring)] ${visible ? 'translate-y-0' : 'translate-y-full'}`
     : `transition-[opacity,transform] duration-200 ease-[var(--ease-spring)] ${visible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`;
 
-  return (
+  // [1.32] פורטל אל ה-body ולא רינדור במקום: כל אב עם backdrop-filter/
+  // transform (כמו .glass — ראו globals.css) הופך container חדש לילדים
+  // עם position:fixed לפי מפרט ה-CSS, כך ש-fixed inset-0 כבר לא מכסה את
+  // המסך אלא רק את תיבת האב עצמו. זה בדיוק מה שקרה למגירת הסינון: היא
+  // מקוננת בתוך סרגל הכלים ה"זכוכית" (Toolbar), ובלי הפורטל הרקע והפאנל
+  // נלכדו בגובה הסרגל הצר במקום להיפתח כדיאלוג מסך-מלא.
+  return createPortal(
     <div
       className={`fixed inset-0 z-50 flex ${bottom ? 'items-end justify-center' : centered ? 'items-center justify-center p-4' : 'justify-end'}`}
     >
@@ -196,6 +206,7 @@ export function Drawer({
 
         {footer ? <div className="flex items-center gap-3 border-t border-rule px-6 py-4">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

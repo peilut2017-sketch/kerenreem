@@ -295,7 +295,10 @@ export interface BookRelations {
 /** ספר עם היחסים שנשלפו יחד (join) — הצורה שבה הקטלוג צורך אותו. */
 export interface BookWithRelations extends Book {
   author: Pick<Author, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
+  /** הקטגוריה הראשית — לפירורי לחם ולכתובת הקנונית (?category=). ראו categories למטה לכל הקטגוריות. */
   category: Pick<Category, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
+  /** [1.21] כל הקטגוריות של הספר (book_categories, כולל הראשית) — התצוגה הציבורית מציגה ומסננת לפיהן. */
+  categories?: Pick<Category, 'id' | 'slug' | 'name_he' | 'name_en'>[];
   /** מזהי תגיות ומאפיינים, כשהשליפה ביקשה אותם */
   tags?: Pick<Tag, 'id' | 'slug' | 'name_he' | 'name_en' | 'description_he'>[];
   attributeValues?: Pick<AttributeValue, 'id' | 'slug' | 'name_he' | 'attribute_id'>[];

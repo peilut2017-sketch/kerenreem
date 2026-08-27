@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { SearchBar } from './SearchBar';
 import { FilterDrawer } from './FilterDrawer';
@@ -94,6 +94,9 @@ export function Catalogue({
   const [view, setView] = useState<ViewMode>('grid');
   const [visible, setVisible] = useState(Math.max(initial.page, 1) * BATCH);
   const [toast, setToast] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const { list: favouriteIds, toggle } = useLocalList('kr:favourites');
   const favourites = useMemo(() => new Set(favouriteIds), [favouriteIds]);
@@ -208,6 +211,39 @@ export function Catalogue({
 
   const shown = results.slice(0, visible);
   const hasFilters = Boolean(filters.query || filters.category) || countActiveFilters(filters) > 0;
+  const hasMore = visible < results.length;
+
+  /**
+   * [1.32] טעינה אוטומטית בגלילה במקום כפתור "טען עוד". הרשימה כולה כבר
+   * בזיכרון (books הגיע מלא מהשרת) — "הטעינה" היא רק חשיפת עוד פריטים
+   * מ-results, ולכן יש כאן עיכוב מכוון (350ms) כדי שאייקון הטעינה יספיק
+   * להיראות ולתת משוב אמיתי, ולא רק להבהב פריים אחד. rootMargin עם שוליים
+   * גדולים למעלה טוען מראש לפני שהתחתית ממש נראית, כדי שהגלילה לא תיעצר
+   * ותחכה. בלי גלילה אינסופית מדומה: hasMore הופך false בפועל כשכל
+   * התוצאות מוצגות, ואז התחתית (פוטר) נגישה כרגיל בלי לרדוף אחרי תוכן
+   * חדש שמתווסף.
+   */
+  useEffect(() => {
+    if (!hasMore || typeof IntersectionObserver === 'undefined') return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || loadingMoreRef.current) return;
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+        window.setTimeout(() => {
+          setVisible((n) => n + BATCH);
+          setLoadingMore(false);
+          loadingMoreRef.current = false;
+        }, 350);
+      },
+      { rootMargin: '400px 0px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore]);
 
   return (
     <>
@@ -333,13 +369,16 @@ export function Catalogue({
         />
       )}
 
-      {visible < results.length ? (
-        <div className="mt-12 flex justify-center">
-          {/* לחצן ולא גלילה אינסופית אוטומטית: טעינה שמתרחשת מעצמה מרחיקה
-              את הכותרת התחתונה בכל גלילה, ומשתמש מקלדת נתקע בלולאה. */}
-          <button type="button" onClick={() => setVisible((n) => n + BATCH)} className="btn btn-quiet">
-            {t('showMore', { count: Math.min(BATCH, results.length - visible) })}
-          </button>
+      {hasMore ? (
+        <div ref={sentinelRef} className="mt-12 flex h-16 items-center justify-center">
+          {loadingMore ? (
+            <>
+              <BookFlipIcon />
+              <span className="sr-only" aria-live="polite">
+                {t('loadingMore')}
+              </span>
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -529,6 +568,18 @@ function ActiveFilterChips({
         </button>
       </li>
     </ul>
+  );
+}
+
+/** [1.32] סימן הטעינה של הגלילה האינסופית — ספר פתוח עם דפים מתהפכים (ראו .book-flip-page ב-globals.css). */
+function BookFlipIcon() {
+  return (
+    <svg viewBox="0 0 40 30" aria-hidden="true" className="h-8 w-10 text-burgundy">
+      <path d="M20 5 4 9v16l16 4z" fill="var(--color-cream-2)" stroke="currentColor" strokeOpacity=".35" strokeWidth="1" />
+      <path d="M20 5 36 9v16l-16 4z" fill="var(--color-cream-2)" stroke="currentColor" strokeOpacity=".35" strokeWidth="1" />
+      <path className="book-flip-page book-flip-page-2" d="M20 5 36 9v16l-16 4z" fill="var(--color-gold)" />
+      <path className="book-flip-page" d="M20 5 36 9v16l-16 4z" fill="currentColor" />
+    </svg>
   );
 }
 

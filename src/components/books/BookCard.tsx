@@ -38,7 +38,13 @@ export function BookCard({
   const t = useTranslations('books');
   const title = localized(book, 'title', locale);
   const author = resolveBookAuthor(book, locale);
-  const categoryName = book.category ? localized(book.category, 'name', locale) : null;
+  // [1.21] עד שתי קטגוריות בכרטיס — כרטיס קטן, ורצועת קטגוריות ארוכה
+  // מתחרה עם המחיר על אותה שורה. השאר נספרים ב"+N" ונגישים במלואם בעמוד הספר.
+  const categoryNames = (book.categories?.length ? book.categories : book.category ? [book.category] : []).map(
+    (category) => localized(category, 'name', locale),
+  );
+  const visibleCategoryNames = categoryNames.slice(0, 2);
+  const extraCategoryCount = categoryNames.length - visibleCategoryNames.length;
   const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
   const price = storeEnabled ? getEffectivePrice(book, locale) : null;
   const availability = getBookAvailability(book, storeEnabled);
@@ -93,9 +99,17 @@ export function BookCard({
 
         <div className="mt-auto pt-4">
           <div className="flex flex-wrap items-center gap-2">
-            {categoryName ? (
-              <span className="rounded-[var(--radius-pill)] bg-cream-2 px-2.5 py-1 text-caption text-ink-soft">
-                {categoryName}
+            {visibleCategoryNames.map((name) => (
+              <span key={name} className="rounded-[var(--radius-pill)] bg-cream-2 px-2.5 py-1 text-caption text-ink-soft">
+                {name}
+              </span>
+            ))}
+            {extraCategoryCount > 0 ? (
+              <span
+                className="rounded-[var(--radius-pill)] bg-cream-2 px-2.5 py-1 text-caption text-ink-soft"
+                title={categoryNames.slice(2).join(', ')}
+              >
+                +{extraCategoryCount}
               </span>
             ) : null}
 

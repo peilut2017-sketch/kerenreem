@@ -6,8 +6,13 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from './lib/sup
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-/** מסלולי ניהול שמותר להגיע אליהם בלי session. */
-const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/auth/callback'];
+/**
+ * מסלולי ניהול שמותר להגיע אליהם בלי session.
+ *
+ * ה-callback עצמו (/api/auth/admin-callback) אינו כאן — הוא כבר מוחרג
+ * לגמרי מה-matcher למטה (כל api/), ולא חי תחת /admin מלכתחילה.
+ */
+const ADMIN_PUBLIC_PATHS = ['/admin/login'];
 
 async function handleAdmin(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -80,7 +85,10 @@ export default async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // כל מה שאינו נכס סטטי, קובץ API פנימי או קובץ עם סיומת
-    '/((?!api|_next|_vercel|.*\\..*).*)',
+    // [1.37] site-icon/app-icon הוחרגו במפורש: שני Route Handler בלי סיומת
+    // בנתיב (favicon דינמי ואייקון ה-PWA, ראו שם) — בלי ההחרגה הזו הביטוי
+    // "קובץ עם סיומת" לא תפס אותם, ה-middleware ניתב אותם ל-/he/site-icon
+    // וכד' שלא קיים, ולשונית הדפדפן/מסך הבית קיבלו 404 במקום אייקון.
+    '/((?!api|_next|_vercel|site-icon|app-icon|.*\\..*).*)',
   ],
 };

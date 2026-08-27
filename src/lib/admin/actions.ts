@@ -252,6 +252,17 @@ export async function saveEntity(
     const fieldErrors: Record<string, string> = {};
 
     for (const spec of entity.fields) {
+      // [1.25] שדה בוליאני ברשומה קיימת נשמר בעצמו: ToggleField עובר
+      // ל-autoSave (Fields.tsx) בדיוק כש-entityKey+id קיימים — אותו תנאי
+      // בדיוק כמו כאן — ואז הוא מציית מ-checked/onChange ישירות מול
+      // toggleEntityField, ומסיר את ה-name שלו כדי *לא* להשתתף בשליחת
+      // הטופס הזה. בלי הדילוג הזה, formData.has(spec.name) הוא false
+      // (השדה פשוט לא נשלח, לא "לא סומן"), coerce() לבוליאני לעולם לא
+      // מחזיר null (רק true/false) כך ש-omitWhenEmpty לא יכול לעזור, וכל
+      // שמירה של הטופס הראשי — גם עריכת כותרת בלבד — כתבה false במפורש
+      // על פני הערך האמיתי. זו הייתה הסיבה שכל שמירה הפכה ספר/אירוע/
+      // עמוד וכו' לטיוטה, גם כשלא נגעו בכלל בכפתור הפרסום.
+      if (spec.type === 'boolean' && id) continue;
       // צ'ק־בוקס שלא סומן אינו נשלח כלל; חייבים לכתוב false במפורש.
       const raw = formData.has(spec.name) ? formData.get(spec.name) : null;
       const value = coerce(spec, raw, formData.getAll(spec.name));
@@ -267,6 +278,16 @@ export async function saveEntity(
       if (value === null && spec.omitWhenEmpty) continue;
 
       payload[spec.name] = value;
+    }
+
+    // [1.21] הקטגוריה הראשית (לפירורי לחם ולכתובת הקנונית ?category=) נגזרת
+    // מהבחירה המרובה: הראשונה שנבחרה. אין עוד שדה category_id נפרד בטופס —
+    // syncRelations (למטה) כותב את כל הבחירה ל-book_categories בנפרד.
+    if (entityKey === 'books') {
+      const categoryIds = formData
+        .getAll('category_ids')
+        .filter((value): value is string => typeof value === 'string' && value !== '');
+      payload.category_id = categoryIds[0] ?? null;
     }
 
     // ספר הוא הישות היחידה שבה מזהה הכתובת אינו חובה (ראו schema.ts): הוספת

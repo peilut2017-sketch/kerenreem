@@ -5,6 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { FONT_VARIABLES } from '@/lib/fonts';
 import { CustomFontsStyle } from '@/components/CustomFontsStyle';
 import { PlaceholderArtProvider } from '@/components/placeholder-art-context';
+import { HeaderContextNavProvider } from '@/components/header-context-nav';
 import { routing, localeDirection, type Locale } from '@/i18n/routing';
 import { getSiteSettings } from '@/lib/data';
 import { getCommerceFlags } from '@/lib/commerce/settings';
@@ -57,7 +58,10 @@ export async function generateMetadata({
     robots: { index: true, follow: true },
     // הלוגו שהועלה ב-CMS, מוגש דרך /site-icon (ראו שם) עם נפילה לסימן
     // הקבוע כשלא הועלה לוגו — ולא קובץ סטטי, כי הלוגו יכול להתעדכן.
-    icons: { icon: '/site-icon' },
+    // apple: iOS לא מרנדר SVG כ-apple-touch-icon (בניגוד ללשונית דפדפן
+    // רגילה), ולכן /app-icon (ריבוע PNG, ראו שם) ולא /site-icon עצמו —
+    // זה גם מה ש"הוספה למסך הבית" משתמשת בו כשאין manifest.icons מתאים.
+    icons: { icon: '/site-icon', apple: '/app-icon?size=180' },
   };
 }
 
@@ -101,6 +105,7 @@ export default async function PublicLayout({
       <body>
         <NextIntlClientProvider>
           <PlaceholderArtProvider value={placeholderArt}>
+          <HeaderContextNavProvider>
           <CartProvider enabled={flags.cartEnabled} locale={locale}>
             <a href="#main" className="skip-link">
               {t('skipToContent')}
@@ -129,6 +134,7 @@ export default async function PublicLayout({
             <AnalyticsBeacon />
             <MiniCart />
           </CartProvider>
+          </HeaderContextNavProvider>
           </PlaceholderArtProvider>
         </NextIntlClientProvider>
         <GoogleAnalytics />

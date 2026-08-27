@@ -89,7 +89,7 @@ export default async function EventPage({
   return (
     <article>
       <EventHero event={event} title={title} />
-      <EventJourneyProgress stages={stages} heroId="event-hero" />
+      <EventJourneyProgress stages={stages} />
 
       <EventLightboxProvider images={gallery.images}>
         {event.body_he || event.body_en ? (

@@ -177,7 +177,6 @@ export default async function BookPage({
       ? { icon: 'binding', label: t('volumes'), value: String(book.volume_count) }
       : null,
     book.binding ? { icon: 'binding', label: t('binding'), value: book.binding } : null,
-    book.format ? { icon: 'size', label: t('format'), value: book.format } : null,
     book.weight_grams ? { icon: 'weight', label: t('weight'), value: t('grams', { n: book.weight_grams }) } : null,
     book.languages && book.languages.length > 0
       ? {
@@ -353,7 +352,7 @@ export default async function BookPage({
         t={tValues}
       />
 
-      <StickyNav sections={sections} cover={book.cover_image_url} title={title} price={formattedPrice} />
+      <StickyNav sections={sections} title={title} price={formattedPrice} />
 
       <Container className="space-y-[var(--space-section)] py-16 lg:py-24">
         {/* התקציר והדפדוף זה לצד זה, ביחס א-סימטרי (5/7, סעיף 14 במפרט)

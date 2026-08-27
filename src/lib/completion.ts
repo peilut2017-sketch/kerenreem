@@ -80,18 +80,19 @@ export function computeCompletion(book: Book, signals: CompletionSignals): Compl
     { key: 'description', label: 'תיאור', done: Boolean(book.description_he), weight: 10, tab: 'basics' },
     { key: 'author', label: 'מחבר', done: Boolean(book.author_id) || Boolean(book.author_name_he), weight: 7, tab: 'basics' },
     { key: 'subtitle', label: 'כותרת משנה', done: Boolean(book.subtitle_he), weight: 5, tab: 'basics' },
-    { key: 'category', label: 'קטגוריה', done: Boolean(book.category_id), weight: 5, tab: 'basics' },
     { key: 'description_brief', label: 'תמצית קצרה', done: Boolean(book.description_brief_he), weight: 4, tab: 'basics' },
     { key: 'publication_year', label: 'שנת הוצאה עברית', done: Boolean(book.publication_year_he), weight: 2, tab: 'basics' },
     { key: 'publication_year_ce', label: 'שנת הוצאה לועזית', done: book.publication_year_ce != null, weight: 1, tab: 'basics' },
-    { key: 'publisher', label: 'הוצאה לאור', done: Boolean(book.publisher_he), weight: 2, tab: 'basics' },
-    { key: 'pages', label: 'מספר עמודים', done: book.pages != null, weight: 2, tab: 'basics' },
-    { key: 'isbn', label: 'מסת״ב', done: Boolean(book.isbn), weight: 2, tab: 'basics' },
+    // [1.26] publisher/pages/isbn/sku/edition/binding עברו ל"מפרט הספר"
+    // (taxonomy) יחד עם מקטע "מפרט המהדורה" — tab כאן הוא לצ'קליסט
+    // ההשלמה, לא רק לניתוב שגיאות, ואמור להצביע לאן זה נמצא בפועל.
+    { key: 'publisher', label: 'הוצאה לאור', done: Boolean(book.publisher_he), weight: 2, tab: 'taxonomy' },
+    { key: 'pages', label: 'מספר עמודים', done: book.pages != null, weight: 2, tab: 'taxonomy' },
+    { key: 'isbn', label: 'מסת״ב', done: Boolean(book.isbn), weight: 2, tab: 'taxonomy' },
     { key: 'quotes', label: 'ציטוטים', done: book.quotes.length > 0, weight: 2, tab: 'basics' },
-    { key: 'sku', label: 'מק״ט', done: Boolean(book.sku), weight: 1.5, tab: 'basics' },
-    { key: 'edition', label: 'מהדורה', done: Boolean(book.edition_he), weight: 1, tab: 'basics' },
-    { key: 'format', label: 'פורמט', done: Boolean(book.format), weight: 1, tab: 'basics' },
-    { key: 'binding', label: 'כריכה (סוג)', done: Boolean(book.binding), weight: 1, tab: 'basics' },
+    { key: 'sku', label: 'מק״ט', done: Boolean(book.sku), weight: 1.5, tab: 'taxonomy' },
+    { key: 'edition', label: 'מהדורה', done: Boolean(book.edition_he), weight: 1, tab: 'taxonomy' },
+    { key: 'binding', label: 'כריכה (סוג)', done: Boolean(book.binding), weight: 1, tab: 'taxonomy' },
     { key: 'accent_primary', label: 'גוון אווירה ראשי', done: Boolean(book.accent_primary), weight: 0.5, tab: 'basics' },
     { key: 'accent_secondary', label: 'גוון אווירה משני', done: Boolean(book.accent_secondary), weight: 0.5, tab: 'basics' },
 
@@ -118,7 +119,9 @@ export function computeCompletion(book: Book, signals: CompletionSignals): Compl
     // --- קטגוריות ותגיות ---
     { key: 'tags', label: 'תגיות', done: signals.tagIds.length > 0, weight: 3, tab: 'taxonomy' },
     { key: 'attributes', label: 'מאפיינים', done: signals.attributeValueIds.length > 0, weight: 1.5, tab: 'taxonomy' },
-    { key: 'shelves', label: 'מדפים משניים', done: signals.categoryIds.length > 0, weight: 1, tab: 'taxonomy' },
+    // [1.21] קטגוריה יחידה נבחרה בעבר בלשונית "פרטי יסוד"; עכשיו כל
+    // הקטגוריות (כולל הראשית) נבחרות יחד כאן, ראו BookForm.tsx.
+    { key: 'category', label: 'קטגוריות', done: signals.categoryIds.length > 0, weight: 5, tab: 'taxonomy' },
     { key: 'languages', label: 'שפות', done: book.languages.length > 0, weight: 1, tab: 'taxonomy' },
 
     // --- זיהוי וחיפוש ---

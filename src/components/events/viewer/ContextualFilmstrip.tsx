@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { motion } from 'motion/react';
 import { toCdnUrl } from '@/lib/image-src';
+import { computeWindow } from '@/lib/windowed-range';
 import type { EventMediaItem } from '@/lib/supabase/types';
 
 type Media = EventMediaItem;
@@ -18,23 +19,6 @@ const THUMB_MAX_WIDTH = 92;
 
 const WHEEL_STEP_THRESHOLD = 42;
 const WHEEL_COOLDOWN_MS = 260;
-
-/** חלון תמונונות סביב האינדקס הפעיל — ללא "מקומות ריקים" בקצוות הגלריה. */
-function computeWindow(current: number, total: number, radius: number): number[] {
-  if (total <= radius * 2 + 1) return Array.from({ length: total }, (_, i) => i);
-  let start = current - radius;
-  let end = current + radius;
-  if (start < 0) {
-    end += -start;
-    start = 0;
-  } else if (end > total - 1) {
-    start -= end - (total - 1);
-    end = total - 1;
-  }
-  start = Math.max(0, start);
-  end = Math.min(total - 1, end);
-  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-}
 
 function useFilmstripRadius(): number {
   const [radius, setRadius] = useState(RADIUS_DEFAULT);

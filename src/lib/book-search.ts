@@ -65,8 +65,9 @@ export function searchCorpus(book: BookWithRelations): string {
       book.author?.name_en,
       book.author_name_he,
       book.author_name_en,
-      book.category?.name_he,
-      book.category?.name_en,
+      // [1.21] כל הקטגוריות, לא רק הראשית — חיפוש לפי קטגוריה משנית של הספר אמור למצוא אותו
+      book.categories?.map((category) => category.name_he).join(' '),
+      book.categories?.map((category) => category.name_en).join(' '),
       // התיאור הוא HTML מהעורך; בלי הסרת התגיות חיפוש "עמוד" היה מוצא
       // כל ספר שיש בו <p>
       stripTags(book.description_he),
@@ -167,7 +168,11 @@ export function applyFilters(
   attributeOf: Map<string, string> = new Map(),
 ): BookWithRelations[] {
   return books.filter((book) => {
-    if (filters.category && book.category?.slug !== filters.category) return false;
+    // [1.21] ספר עם כמה קטגוריות מתאים לסינון אם הנבחרת נמצאת בין כולן,
+    // לא רק אם היא הראשית — אחרת סינון לפי קטגוריה משנית לא מוצא אותו.
+    if (filters.category && !(book.categories ?? []).some((category) => category.slug === filters.category)) {
+      return false;
+    }
     if (filters.authors.length && !filters.authors.includes(book.author?.slug ?? '')) return false;
     if (filters.bindings.length && !filters.bindings.includes(book.binding ?? '')) return false;
     if (filters.series.length && !filters.series.includes(book.series?.slug ?? '')) return false;

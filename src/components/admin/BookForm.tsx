@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { AdminIcon } from './AdminIcons';
 import { EntityForm } from './EntityForm';
 import { BookFormTabs } from './BookFormTabs';
 import { ToggleField, FieldSet, TextAreaField, TextField } from './Fields';
@@ -15,9 +16,9 @@ import { CategoryForm } from './CategoryForm';
 import { QuickAddSelect } from './QuickAddSelect';
 import { SeriesForm } from './SeriesForm';
 import { RepeatableTextField } from './RepeatableTextField';
+import { RelationPicker } from './RelationPicker';
 import { RichTextEditor } from './RichTextEditor';
 import { SeriesOrderList } from './SeriesOrderList';
-import { TagPicker } from './TagPicker';
 import { createAuthorQuick, createCategoryQuick, createSeriesQuick, createTag } from '@/lib/admin/actions';
 import { COMPLETION_TAB_LABELS, computeCompletion, type CompletionTab } from '@/lib/completion';
 import type { SeriesMemberBook } from '@/lib/admin/queries';
@@ -107,13 +108,60 @@ export function BookForm({
     : null;
   const [selectedSeriesId, setSelectedSeriesId] = useState(book?.series_id ?? '');
   const [selectedAuthorId, setSelectedAuthorId] = useState(book?.author_id ?? '');
+  // [1.21] הקטגוריה הראשית (book.category_id) חייבת להישאר ראשונה ברשימה
+  // שנשלחת ל-RelationPicker: השרת גוזר ממנה מי "ראשית" לפי סדר ההגשה
+  // (category_ids[0]) — ו-book_categories לא מבטיחה סדר שמתאים למה שהיה
+  // category_id לפני כן. בלי הסידור הזה, שמירת ספר קיים בלי לגעת בכלל
+  // בקטגוריות הייתה עלולה להחליף בשקט את הקטגוריה הראשית שלו.
+  const orderedCategoryIds = book?.category_id
+    ? [book.category_id, ...relations.categoryIds.filter((id) => id !== book.category_id)]
+    : relations.categoryIds;
+
+  // [1.26/1.32] "כריכה"/"פורמט"/"קהל יעד" מסוננים כבר במקור (listAttributes,
+  // ראו src/lib/attributes.ts) — לא רק כאן, כדי שאותה הסתרה תחול גם על
+  // הסינון הציבורי בקטלוג ולא רק על טופס הניהול.
 
   return (
     <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
-      {(errors) => (
+      {(errors, { dirty }) => (
         <>
           {/* המטבע קבוע לשלב זה; השדה נשלח כדי שהערך לא יימחק בעדכון */}
           <input type="hidden" name="currency" value={book?.currency ?? 'ILS'} />
+
+          {/* [1.27/1.34] חיווי "שינויים שלא נשמרו" + שמירה מהירה — צמוד
+              לכותרת הכרטיס, ודביק (admin-unsaved-bar) כדי שיישאר גלוי גם
+              בגלילה עמוקה בטופס הארוך, לא רק בראשו. אייקונים בלבד: אייקון
+              מהבהב עם האזהרה כ-tooltip (לא באנר טקסט קבוע), ולצידו שמירה
+              וסגירה — כדי שהפעולות הנפוצות ביותר תמיד בהישג יד בגלילה. */}
+          {canWrite ? (
+            <div className="admin-unsaved-bar">
+              {dirty ? (
+                <span title="יש שינויים שטרם נשמרו" className="inline-flex">
+                  <AdminIcon name="warning" className="admin-unsaved-warning-icon h-4.5 w-4.5" />
+                  <span className="sr-only" role="status">
+                    יש שינויים שטרם נשמרו
+                  </span>
+                </span>
+              ) : (
+                <span className="sr-only" role="status">
+                  כל השינויים נשמרו
+                </span>
+              )}
+              <button
+                type="submit"
+                name="intent"
+                value="save"
+                title="שמירה מהירה"
+                aria-label="שמירה מהירה"
+                className="admin-btn admin-btn-icon admin-btn-solid"
+              >
+                <AdminIcon name="check" className="h-4 w-4" />
+              </button>
+              <Link href="/admin/books" title="סגירה" aria-label="סגירה" className="admin-btn admin-btn-icon admin-btn-quiet">
+                <AdminIcon name="x" className="h-4 w-4" />
+              </Link>
+            </div>
+          ) : null}
 
           {completion ? (
             <div className="admin-card px-4 py-3">
@@ -222,26 +270,10 @@ export function BookForm({
                         )}
                       </div>
 
-                      <QuickAddSelect
-                        name="category_id"
-                        hint="המדף שעליו הספר יושב. זו הקטגוריה שמופיעה בכרטיס ובכתובת."
-                        label="קטגוריה"
-                        emptyLabel="— ללא —"
-                        defaultValue={book?.category_id}
-                        options={categories.map((category) => ({
-                          value: category.id,
-                          label: category.name_he,
-                        }))}
-                        addLabel="+ קטגוריה חדשה"
-                        fieldLabel="שם הקטגוריה"
-                        onCreate={async (name) => {
-                          const result = await createCategoryQuick(name);
-                          return result.category
-                            ? { value: result.category.id, label: result.category.name_he }
-                            : null;
-                        }}
-                        createForm={<CategoryForm category={null} bookCount={0} canWrite={canWrite} />}
-                      />
+                      <p className="field-hint">
+                        הקטגוריות נבחרות בלשונית &quot;קטגוריות ותגיות&quot; — הראשונה שתיבחר שם
+                        היא זו שמופיעה בכרטיס ובכתובת (?category=).
+                      </p>
                     </FieldSet>
 
                     <FieldSet
@@ -354,37 +386,6 @@ export function BookForm({
                           dir="ltr"
                           placeholder="#0b1520"
                           defaultValue={book?.accent_secondary}
-                        />
-                      </div>
-                    </FieldSet>
-
-                    <FieldSet legend="מפרט המהדורה" icon="list">
-                      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                        <TextField name="publisher_he" label="הוצאה לאור" defaultValue={book?.publisher_he} />
-                        <TextField name="edition_he" label="מהדורה" defaultValue={book?.edition_he} />
-                        <TextField
-                          name="pages"
-                          label="מספר עמודים"
-                          type="number"
-                          dir="ltr"
-                          defaultValue={book?.pages}
-                        />
-                        <TextField
-                          name="volume_count"
-                          label="מספר כרכים"
-                          type="number"
-                          dir="ltr"
-                          defaultValue={book?.volume_count ?? 1}
-                        />
-                        <TextField name="format" label="פורמט" defaultValue={book?.format} />
-                        <TextField name="binding" label="כריכה" defaultValue={book?.binding} />
-                        <TextField name="isbn" label="מסת״ב" dir="ltr" defaultValue={book?.isbn} />
-                        <TextField
-                          name="sku"
-                          label="מק״ט"
-                          dir="ltr"
-                          defaultValue={book?.sku}
-                          hint="מוצג בעמוד הספר."
                         />
                       </div>
                     </FieldSet>
@@ -533,39 +534,42 @@ export function BookForm({
               },
               {
                 id: 'taxonomy',
-                label: 'קטגוריות ותגיות',
+                label: 'מפרט הספר',
                 icon: 'tags',
                 hasError: false,
                 content: (
                   <>
-                    <FieldSet legend="קטגוריות נוספות" icon="categories">
+                    <FieldSet legend="קטגוריות" icon="categories">
                       <p className="text-caption text-muted">
-                        אינן כפילות של הקטגוריה הראשית בלשונית &quot;פרטי יסוד&quot;: הראשית היא
-                        המדף היחיד שבו הספר יושב, ומופיעה בכרטיס. כאן מסמנים מדפים{' '}
-                        <em>נוספים</em> שבהם נכון שיימצא בסינון. אפשר להשאיר ריק.
+                        המדפים שבהם הספר יימצא — בכרטיס, בסינון הקטלוג ובעמוד הספר.
+                        הראשונה שתיבחר היא הקטגוריה הראשית (פירורי לחם, כתובת ?category=).
                       </p>
-                      <div className="mt-3 grid gap-1 sm:grid-cols-2">
-                        {categories.map((category) => (
-                          <label
-                            key={category.id}
-                            className="flex items-center gap-2.5 py-1 text-small text-ink-soft"
-                          >
-                            <input
-                              type="checkbox"
-                              name="category_ids"
-                              value={category.id}
-                              defaultChecked={relations.categoryIds.includes(category.id)}
-                              className="h-4 w-4 shrink-0 accent-[var(--admin-accent)]"
-                            />
-                            {category.name_he}
-                          </label>
-                        ))}
+                      <div className="mt-3">
+                        <RelationPicker
+                          fieldName="category_ids"
+                          label="קטגוריות קיימות — לחיצה לבחירה"
+                          placeholder="הלכה, מועדים, מחשבה…"
+                          itemLabel="קטגוריה"
+                          allItems={categories}
+                          selectedIds={orderedCategoryIds}
+                          primaryBadge
+                          allVisible
+                          createForm={<CategoryForm category={null} bookCount={0} canWrite={canWrite} />}
+                          onCreate={async (name) => {
+                            const result = await createCategoryQuick(name);
+                            return result.category ?? null;
+                          }}
+                        />
                       </div>
                     </FieldSet>
 
                     <FieldSet legend="תגיות" icon="tags">
-                      <TagPicker
-                        allTags={tags}
+                      <RelationPicker
+                        fieldName="tag_ids"
+                        label="הוספת תגית"
+                        placeholder="שבת, טהרה, ילדים…"
+                        itemLabel="תגית"
+                        allItems={tags}
                         selectedIds={relations.tagIds}
                         onCreate={async (name) => {
                           const result = await createTag(name);
@@ -622,6 +626,38 @@ export function BookForm({
                             {language.label}
                           </label>
                         ))}
+                      </div>
+                    </FieldSet>
+
+                    {/* [1.26] הועבר מ"פרטי יסוד" — פרטים פיזיים של המהדורה
+                        שייכים יחד עם שאר סיווג הספר, לא עם הזיהוי הבסיסי שלו. */}
+                    <FieldSet legend="מפרט המהדורה" icon="list">
+                      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <TextField name="publisher_he" label="הוצאה לאור" defaultValue={book?.publisher_he} />
+                        <TextField name="edition_he" label="מהדורה" defaultValue={book?.edition_he} />
+                        <TextField
+                          name="pages"
+                          label="מספר עמודים"
+                          type="number"
+                          dir="ltr"
+                          defaultValue={book?.pages}
+                        />
+                        <TextField
+                          name="volume_count"
+                          label="מספר כרכים"
+                          type="number"
+                          dir="ltr"
+                          defaultValue={book?.volume_count ?? 1}
+                        />
+                        <TextField name="binding" label="כריכה" defaultValue={book?.binding} />
+                        <TextField name="isbn" label="מסת״ב" dir="ltr" defaultValue={book?.isbn} />
+                        <TextField
+                          name="sku"
+                          label="מק״ט"
+                          dir="ltr"
+                          defaultValue={book?.sku}
+                          hint="מוצג בעמוד הספר."
+                        />
                       </div>
                     </FieldSet>
                   </>

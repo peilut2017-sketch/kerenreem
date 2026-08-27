@@ -255,9 +255,16 @@ function Spine({ book }: { book: ShelfBook }) {
   // השליש העליונים (לא נכנס לשליש התחתון).
   if (baseSpineUrl) {
     return (
-      <span className="relative flex h-full w-full items-start justify-center overflow-hidden">
+      <span className="relative block h-full w-full overflow-hidden">
         <Image src={baseSpineUrl} alt="" fill sizes="280px" quality={90} className="object-cover" />
-        <span className="relative mt-[20%] flex max-h-[45%] flex-col items-center gap-1">
+        {/* [1.29] top-[20%] ולא margin-top: אחוז ב-margin (וב-padding) נגזר
+            תמיד לפי הרוחב של הקופסה המכילה, לא הגובה שלה — גם כשהצאצא
+            עצמו במצב column. בקופסה צרה וגבוהה כמו שדרה (רוחב ~2-3rem,
+            גובה ~12-17rem) 20% רוחב הם רק כמה פיקסלים, כך שהכיתוב נשאר
+            כמעט בקצה העליון ממש בפועל. position:absolute + top:% כן
+            נגזר לפי גובה הקופסה הממוקמת (positioned ancestor) — זו הדרך
+            הנכונה למקם "20% מהגובה" ב-CSS. */}
+        <span className="absolute inset-x-0 top-[20%] flex max-h-[45%] flex-col items-center gap-1">
           <span aria-hidden="true" className="h-px w-[70%] shrink-0 bg-gold/70" />
           <span
             className="overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 text-[0.6875rem] font-bold leading-none text-gold-bright"
@@ -276,12 +283,13 @@ function Spine({ book }: { book: ShelfBook }) {
 
   return (
     <span
-      className="flex h-full w-full items-start justify-center overflow-hidden"
+      className="relative block h-full w-full overflow-hidden"
       style={{
         background: `linear-gradient(to left, ${book.spineEdge} 0%, ${book.spineBase} 22%, ${book.spineBase} 78%, ${book.spineEdge} 100%)`,
       }}
     >
-      <span className="mt-[20%] flex max-h-[45%] flex-col items-center gap-1">
+      {/* [1.29] top-[20%] ולא margin-top: ראו ההסבר בענף baseSpineUrl למעלה — אחוז ב-margin נגזר לפי הרוחב, לא הגובה. */}
+      <span className="absolute inset-x-0 top-[20%] flex max-h-[45%] flex-col items-center gap-1">
         <span aria-hidden="true" className="h-px w-[62%] shrink-0 bg-gold/55" />
         <span className="overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180 font-serif text-[0.6875rem] leading-none text-gold-bright/90">
           {book.title}

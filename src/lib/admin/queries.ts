@@ -1,5 +1,6 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
+import { filterVisibleAttributes } from '@/lib/attributes';
 import type {
   Activity,
   Attribute,
@@ -213,10 +214,12 @@ export async function listAttributes(): Promise<AttributeWithValues[]> {
     .select('*, values:attribute_values(*)')
     .order('sort_order');
 
-  return ((data as (Attribute & { values: AttributeValue[] })[] | null) ?? []).map((attribute) => ({
-    ...attribute,
-    values: [...attribute.values].sort((a, b) => a.sort_order - b.sort_order),
-  }));
+  return filterVisibleAttributes(
+    ((data as (Attribute & { values: AttributeValue[] })[] | null) ?? []).map((attribute) => ({
+      ...attribute,
+      values: [...attribute.values].sort((a, b) => a.sort_order - b.sort_order),
+    })),
+  );
 }
 
 /** הקשרים הנוכחיים של ספר, לטעינת הטופס. */
@@ -306,13 +309,18 @@ export async function countBooksByAuthor(): Promise<Map<string, number>> {
  * מניין הספרים בכל קטגוריה — כדי שמסך הקטגוריות יראה מה בשימוש, ובעיקר
  * כדי להזהיר לפני מחיקה: גם כאן השיוך מנותק בשקט ולא נחסם.
  */
+/**
+ * [1.21] נספר דרך book_categories, לא books.category_id — קטגוריה יכולה
+ * להיות משויכת לספר גם כשאינה הראשית שלו (ראו BookForm.tsx), ואזהרת
+ * מחיקה שסופרת רק category_id הייתה מפספסת שימושים כאלה.
+ */
 export async function countBooksByCategory(): Promise<Map<string, number>> {
   const supabase = await client();
-  const { data } = await supabase.from('books').select('category_id');
+  const { data } = await supabase.from('book_categories').select('category_id');
 
   const counts = new Map<string, number>();
-  for (const row of (data as { category_id: string | null }[] | null) ?? []) {
-    if (row.category_id) counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
+  for (const row of (data as { category_id: string }[] | null) ?? []) {
+    counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
   }
   return counts;
 }
@@ -689,14 +697,29 @@ export interface AdminStorageFile {
  * טבלה שטוחה, כך שגם קבצים תחת תיקיית משנה (pathPrefix ב-ImageField)
  * מוחזרים בקריאה אחת, בלי רקורסיה ידנית בצד הלקוח.
  */
-export async function listStorageFiles(): Promise<AdminStorageFile[]> {
+export interface StorageFilesResult {
+  files: AdminStorageFile[];
+  /**
+   * הודעת שגיאה קריאה למנהל כשה-RPC נכשל — לדוגמה כי 50_media_library.sql
+   * טרם הורץ (הפונקציה חסרה), או שההרשאה נדחתה. בעבר שגיאה כזו נבלעה
+   * ל-console.error בלבד וה-UI הציג "לא נמצאו קבצים" — בלתי ניתן להבחין
+   * מספריית מדיה ריקה באמת, בעוד שבפועל קבצים קיימים באחסון. ראו page.tsx.
+   */
+  error: string | null;
+}
+
+export async function listStorageFiles(): Promise<StorageFilesResult> {
   const supabase = await client();
   const { data, error } = await supabase.rpc('admin_list_storage_files');
   if (error) {
     console.error('[admin:mediaLibrary]', error.code, error.message);
-    return [];
+    const hint =
+      error.code === 'PGRST202' || /function .* does not exist/i.test(error.message)
+        ? ' — יש להריץ את supabase/50_media_library.sql על מסד הנתונים.'
+        : '';
+    return { files: [], error: `${error.code ?? '—'}: ${error.message}${hint}` };
   }
-  return (data as AdminStorageFile[] | null) ?? [];
+  return { files: (data as AdminStorageFile[] | null) ?? [], error: null };
 }
 
 /**
