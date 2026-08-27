@@ -83,14 +83,16 @@ export function computeCompletion(book: Book, signals: CompletionSignals): Compl
     { key: 'description_brief', label: 'תמצית קצרה', done: Boolean(book.description_brief_he), weight: 4, tab: 'basics' },
     { key: 'publication_year', label: 'שנת הוצאה עברית', done: Boolean(book.publication_year_he), weight: 2, tab: 'basics' },
     { key: 'publication_year_ce', label: 'שנת הוצאה לועזית', done: book.publication_year_ce != null, weight: 1, tab: 'basics' },
-    { key: 'publisher', label: 'הוצאה לאור', done: Boolean(book.publisher_he), weight: 2, tab: 'basics' },
-    { key: 'pages', label: 'מספר עמודים', done: book.pages != null, weight: 2, tab: 'basics' },
-    { key: 'isbn', label: 'מסת״ב', done: Boolean(book.isbn), weight: 2, tab: 'basics' },
+    // [1.26] publisher/pages/isbn/sku/edition/binding עברו ל"מפרט הספר"
+    // (taxonomy) יחד עם מקטע "מפרט המהדורה" — tab כאן הוא לצ'קליסט
+    // ההשלמה, לא רק לניתוב שגיאות, ואמור להצביע לאן זה נמצא בפועל.
+    { key: 'publisher', label: 'הוצאה לאור', done: Boolean(book.publisher_he), weight: 2, tab: 'taxonomy' },
+    { key: 'pages', label: 'מספר עמודים', done: book.pages != null, weight: 2, tab: 'taxonomy' },
+    { key: 'isbn', label: 'מסת״ב', done: Boolean(book.isbn), weight: 2, tab: 'taxonomy' },
     { key: 'quotes', label: 'ציטוטים', done: book.quotes.length > 0, weight: 2, tab: 'basics' },
-    { key: 'sku', label: 'מק״ט', done: Boolean(book.sku), weight: 1.5, tab: 'basics' },
-    { key: 'edition', label: 'מהדורה', done: Boolean(book.edition_he), weight: 1, tab: 'basics' },
-    { key: 'format', label: 'פורמט', done: Boolean(book.format), weight: 1, tab: 'basics' },
-    { key: 'binding', label: 'כריכה (סוג)', done: Boolean(book.binding), weight: 1, tab: 'basics' },
+    { key: 'sku', label: 'מק״ט', done: Boolean(book.sku), weight: 1.5, tab: 'taxonomy' },
+    { key: 'edition', label: 'מהדורה', done: Boolean(book.edition_he), weight: 1, tab: 'taxonomy' },
+    { key: 'binding', label: 'כריכה (סוג)', done: Boolean(book.binding), weight: 1, tab: 'taxonomy' },
     { key: 'accent_primary', label: 'גוון אווירה ראשי', done: Boolean(book.accent_primary), weight: 0.5, tab: 'basics' },
     { key: 'accent_secondary', label: 'גוון אווירה משני', done: Boolean(book.accent_secondary), weight: 0.5, tab: 'basics' },
 

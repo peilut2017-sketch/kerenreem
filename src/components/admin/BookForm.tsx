@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { AdminIcon } from './AdminIcons';
 import { EntityForm } from './EntityForm';
 import { BookFormTabs } from './BookFormTabs';
 import { ToggleField, FieldSet, TextAreaField, TextField } from './Fields';
@@ -11,6 +12,7 @@ import { BookTocEditor } from './BookTocEditor';
 import { BookPreviewGenerator } from './books/BookPreviewGenerator';
 import { BookStorePreview } from './books/BookStorePreview';
 import { AuthorForm } from './AuthorForm';
+import { CategoryForm } from './CategoryForm';
 import { QuickAddSelect } from './QuickAddSelect';
 import { SeriesForm } from './SeriesForm';
 import { RepeatableTextField } from './RepeatableTextField';
@@ -115,12 +117,41 @@ export function BookForm({
     ? [book.category_id, ...relations.categoryIds.filter((id) => id !== book.category_id)]
     : relations.categoryIds;
 
+  // [1.26] "כריכה" כמאפיין כפולה את שדה binding החופשי שממש למטה באותה
+  // לשונית — אם מישהו יצר בטעות מאפיין בשם הזה, לא מציגים אותו פעמיים.
+  const visibleAttributes = attributes.filter((attribute) => attribute.name_he.trim() !== 'כריכה');
+
   return (
     <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
-      {(errors) => (
+      {(errors, { dirty }) => (
         <>
           {/* המטבע קבוע לשלב זה; השדה נשלח כדי שהערך לא יימחק בעדכון */}
           <input type="hidden" name="currency" value={book?.currency ?? 'ILS'} />
+
+          {/* [1.27] חיווי "שינויים שלא נשמרו" + שמירה מהירה — צמוד לכותרת
+              הכרטיס (AdminHeader, מוצג מעל הטופס בעמוד עצמו) במקום רק
+              בסרגל הפעולות שבתחתית הטופס הארוך. */}
+          {canWrite ? (
+            <div className="admin-card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              {dirty ? (
+                <span className="admin-badge admin-badge-warning" role="status">
+                  יש שינויים שטרם נשמרו
+                </span>
+              ) : (
+                <span className="text-caption text-muted">כל השינויים נשמרו</span>
+              )}
+              <button
+                type="submit"
+                name="intent"
+                value="save"
+                title="שמירה מהירה"
+                aria-label="שמירה מהירה"
+                className="admin-btn admin-btn-icon admin-btn-solid"
+              >
+                <AdminIcon name="check" className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
 
           {completion ? (
             <div className="admin-card px-4 py-3">
@@ -348,37 +379,6 @@ export function BookForm({
                         />
                       </div>
                     </FieldSet>
-
-                    <FieldSet legend="מפרט המהדורה" icon="list">
-                      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                        <TextField name="publisher_he" label="הוצאה לאור" defaultValue={book?.publisher_he} />
-                        <TextField name="edition_he" label="מהדורה" defaultValue={book?.edition_he} />
-                        <TextField
-                          name="pages"
-                          label="מספר עמודים"
-                          type="number"
-                          dir="ltr"
-                          defaultValue={book?.pages}
-                        />
-                        <TextField
-                          name="volume_count"
-                          label="מספר כרכים"
-                          type="number"
-                          dir="ltr"
-                          defaultValue={book?.volume_count ?? 1}
-                        />
-                        <TextField name="format" label="פורמט" defaultValue={book?.format} />
-                        <TextField name="binding" label="כריכה" defaultValue={book?.binding} />
-                        <TextField name="isbn" label="מסת״ב" dir="ltr" defaultValue={book?.isbn} />
-                        <TextField
-                          name="sku"
-                          label="מק״ט"
-                          dir="ltr"
-                          defaultValue={book?.sku}
-                          hint="מוצג בעמוד הספר."
-                        />
-                      </div>
-                    </FieldSet>
                   </>
                 ),
               },
@@ -524,7 +524,7 @@ export function BookForm({
               },
               {
                 id: 'taxonomy',
-                label: 'קטגוריות ותגיות',
+                label: 'מפרט הספר',
                 icon: 'tags',
                 hasError: false,
                 content: (
@@ -537,12 +537,14 @@ export function BookForm({
                       <div className="mt-3">
                         <RelationPicker
                           fieldName="category_ids"
-                          label="הוספת קטגוריה"
+                          label="קטגוריות קיימות — לחיצה לבחירה"
                           placeholder="הלכה, מועדים, מחשבה…"
                           itemLabel="קטגוריה"
                           allItems={categories}
                           selectedIds={orderedCategoryIds}
                           primaryBadge
+                          allVisible
+                          createForm={<CategoryForm category={null} bookCount={0} canWrite={canWrite} />}
                           onCreate={async (name) => {
                             const result = await createCategoryQuick(name);
                             return result.category ?? null;
@@ -566,10 +568,10 @@ export function BookForm({
                       />
                     </FieldSet>
 
-                    {attributes.length > 0 ? (
+                    {visibleAttributes.length > 0 ? (
                       <FieldSet legend="מאפיינים">
                         <div className="space-y-5">
-                          {attributes.map((attribute) => (
+                          {visibleAttributes.map((attribute) => (
                             <fieldset key={attribute.id}>
                               <legend className="admin-field-label">{attribute.name_he}</legend>
                               <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1">
@@ -614,6 +616,38 @@ export function BookForm({
                             {language.label}
                           </label>
                         ))}
+                      </div>
+                    </FieldSet>
+
+                    {/* [1.26] הועבר מ"פרטי יסוד" — פרטים פיזיים של המהדורה
+                        שייכים יחד עם שאר סיווג הספר, לא עם הזיהוי הבסיסי שלו. */}
+                    <FieldSet legend="מפרט המהדורה" icon="list">
+                      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <TextField name="publisher_he" label="הוצאה לאור" defaultValue={book?.publisher_he} />
+                        <TextField name="edition_he" label="מהדורה" defaultValue={book?.edition_he} />
+                        <TextField
+                          name="pages"
+                          label="מספר עמודים"
+                          type="number"
+                          dir="ltr"
+                          defaultValue={book?.pages}
+                        />
+                        <TextField
+                          name="volume_count"
+                          label="מספר כרכים"
+                          type="number"
+                          dir="ltr"
+                          defaultValue={book?.volume_count ?? 1}
+                        />
+                        <TextField name="binding" label="כריכה" defaultValue={book?.binding} />
+                        <TextField name="isbn" label="מסת״ב" dir="ltr" defaultValue={book?.isbn} />
+                        <TextField
+                          name="sku"
+                          label="מק״ט"
+                          dir="ltr"
+                          defaultValue={book?.sku}
+                          hint="מוצג בעמוד הספר."
+                        />
                       </div>
                     </FieldSet>
                   </>

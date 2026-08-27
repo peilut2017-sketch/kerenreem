@@ -46,8 +46,13 @@ export function EntityForm({
 }: {
   entity: string;
   id: string | null;
-  /** מקבל את שגיאות השדות כדי להעביר אותן לשדות עצמם */
-  children: (fieldErrors: Record<string, string>) => ReactNode;
+  /**
+   * מקבל את שגיאות השדות (לשדות עצמם) וגם dirty — [1.27] לטפסים שרוצים
+   * להציג את חיווי "שינויים שלא נשמרו" (ואולי כפתור שמירה מהירה משלהם,
+   * button type="submit" רגיל — הוא כבר בתוך ה-form הזה דרך children)
+   * במיקום משלהם, למשל בכותרת הכרטיס, במקום/בנוסף לסרגל התחתון.
+   */
+  children: (fieldErrors: Record<string, string>, state: { dirty: boolean }) => ReactNode;
   canWrite: boolean;
   backHref: string;
 }) {
@@ -199,7 +204,7 @@ export function EntityForm({
       key={resetToken}
     >
       <fieldset disabled={!canWrite} className="space-y-8 disabled:opacity-70">
-        {children(state.fieldErrors ?? {})}
+        {children(state.fieldErrors ?? {}, { dirty })}
       </fieldset>
 
       {canWrite ? (
@@ -219,14 +224,6 @@ export function EntityForm({
             <SubmitButton name="intent" value="save">
               שמירה
             </SubmitButton>
-            {dirty ? (
-              <span
-                className="admin-badge admin-badge-warning order-first w-full justify-center sm:order-none sm:w-auto"
-                role="status"
-              >
-                יש שינויים שטרם נשמרו
-              </span>
-            ) : null}
             <SubmitButton name="intent" value="save-new" className="admin-btn admin-btn-quiet">
               שמירה ופתיחת חדש
             </SubmitButton>

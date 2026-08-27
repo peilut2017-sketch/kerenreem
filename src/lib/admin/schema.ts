@@ -116,7 +116,9 @@ export const ENTITIES = {
       f('cover_image_url'),
       f('spine_image_url'),
       f('pages', 'number'),
-      f('format'),
+      // [1.26] הוסר מהטופס (כפילות עם binding ותצוגה שלא נעשה בה שימוש) —
+      // בכוונה לא כאן יותר, ולא fd(): אין שום קלט בטופס בשם הזה, כך
+      // שערך קיים בעמודה נשאר קפוא לעד, לא מתאפס בכל שמירה.
       f('binding'),
       f('isbn'),
       f('volume_count', 'number'),
