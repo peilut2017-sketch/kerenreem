@@ -2,18 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { AdminIcon, type AdminIconName } from './AdminIcons';
 import { hasPermission, type AdminPermission } from '@/lib/admin/permissions';
 import type { ScreenAccess, ScreenKey } from '@/lib/admin/screens';
 import type { UserRole } from '@/lib/supabase/types';
 
 /**
- * גישה לפריט ניווט: רוב הפריטים (מודל 1.7) גדורים כעת דרך screen — אותה
- * מפת הרשאות פר-מסך שהעמוד עצמו בודק (requireScreenPermission), כולל
- * override מותאם אישית. ארבעת הפריטים המערכתיים (דשבורד/צוות/הגדרות/
- * יומן ביקורת/אבחון) עדיין לא מפתחות מסך משלהם ונשארים על הדגם הישן
- * (minRole הליניארי ו/או perm הדו-ממדי, permissions.ts).
+ * [1.31] Sidebar קבועה במקום קפסולת ניווט עליונה עם תפריטים נפתחים.
+ * ~30 מסכים בשלוש קבוצות הפכו לצפופים מדי לשורה אחת אופקית; עמודה
+ * קבועה עם כותרות קבוצה מציגה את כל הסדר בבת אחת. אותה בדיוק לוגיקת
+ * הרשאות (canSee) כמו קודם — רק המבנה הוויזואלי (עמודה שטוחה במקום
+ * תפריטים נפתחים) והרכיב שמרנדר אותו השתנו.
  */
 interface NavAccess {
   minRole?: UserRole;
@@ -21,46 +21,25 @@ interface NavAccess {
   screen?: ScreenKey;
 }
 
-interface SubLink extends NavAccess {
+interface LinkEntry extends NavAccess {
   href: string;
   label: string;
   icon: AdminIconName;
-  /**
-   * [1.11] יעד "יצירה מהירה" — מציג לחצן + בקצה השורה שפותח את כרטיס
-   * ההוספה של הישות (דרך המסלול המיורט). מוצג רק למי שיש הרשאת עריכה
-   * למסך, לא רק צפייה.
-   */
   addHref?: string;
 }
 
-interface LinkEntry extends NavAccess {
-  type: 'link';
-  href: string;
-  label: string;
-  icon: AdminIconName;
+interface Section {
+  label: string | null;
+  items: LinkEntry[];
 }
 
-interface GroupEntry extends NavAccess {
-  type: 'group';
-  label: string;
-  icon: AdminIconName;
-  items: SubLink[];
-}
-
-type NavEntry = LinkEntry | GroupEntry;
-
-/**
- * "ספרים" = הקטלוג; "חנות" = כל מערכת המסחר, כולל הגדרות החנות (עברו
- * לכאן מקבוצת הספרים — דרישת בעל האתר בסבב 1.1: "הגדרות חנות תחת טאב
- * חנות"). "צוות והרשאות" — מסך 15, מנהל-על בלבד.
- */
-const ITEMS: NavEntry[] = [
-  { type: 'link', href: '/admin', label: 'דשבורד', icon: 'dashboard', minRole: 'viewer', perm: 'store_view' },
+const SECTIONS: Section[] = [
   {
-    type: 'group',
-    label: 'ספרים',
-    icon: 'books',
-    // ללא שער עצמי — הקבוצה מוצגת אם ולו פריט אחד בתוכה גלוי (ראו visible למטה)
+    label: null,
+    items: [{ href: '/admin', label: 'דשבורד', icon: 'dashboard', minRole: 'viewer', perm: 'store_view' }],
+  },
+  {
+    label: 'תוכן',
     items: [
       { href: '/admin/books', label: 'כל הספרים', icon: 'books', screen: 'books', addHref: '/admin/books/new' },
       { href: '/admin/authors', label: 'מחברים', icon: 'authors', screen: 'authors', addHref: '/admin/authors/new' },
@@ -68,12 +47,15 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/series', label: 'סדרות', icon: 'series', screen: 'series', addHref: '/admin/series/new' },
       { href: '/admin/tags', label: 'תגיות', icon: 'tags', screen: 'tags', addHref: '/admin/tags/new' },
       { href: '/admin/books/homepage-shelf', label: 'מדף בעמוד הבית', icon: 'settings', screen: 'homepage-shelf' },
+      { href: '/admin/banners', label: 'באנרים', icon: 'banners', screen: 'banners' },
+      { href: '/admin/events', label: 'אירועים', icon: 'events', screen: 'events' },
+      { href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', screen: 'activities' },
+      { href: '/admin/pages', label: 'עמודי תוכן', icon: 'pages', screen: 'pages' },
+      { href: '/admin/analytics', label: 'אנליטיקס', icon: 'analytics', screen: 'analytics' },
     ],
   },
   {
-    type: 'group',
     label: 'חנות',
-    icon: 'store',
     items: [
       { href: '/admin/orders', label: 'הזמנות', icon: 'orders', screen: 'orders' },
       { href: '/admin/customers', label: 'לקוחות', icon: 'authors', screen: 'customers' },
@@ -85,26 +67,24 @@ const ITEMS: NavEntry[] = [
       { href: '/admin/books/settings', label: 'הגדרות חנות', icon: 'settings', screen: 'store-settings' },
     ],
   },
-  { type: 'link', href: '/admin/banners', label: 'באנרים', icon: 'banners', screen: 'banners' },
-  { type: 'link', href: '/admin/events', label: 'אירועים', icon: 'events', screen: 'events' },
-  { type: 'link', href: '/admin/activities', label: 'צירי פעילות', icon: 'activities', screen: 'activities' },
-  { type: 'link', href: '/admin/pages', label: 'עמודי תוכן', icon: 'pages', screen: 'pages' },
-  { type: 'link', href: '/admin/analytics', label: 'אנליטיקס', icon: 'analytics', screen: 'analytics' },
   {
-    type: 'group',
     label: 'פניות מהאתר',
-    icon: 'messages',
     items: [
       { href: '/admin/messages', label: 'פניות שהתקבלו', icon: 'messages', screen: 'messages' },
       { href: '/admin/contact-topics', label: 'תחומי פנייה', icon: 'tags', screen: 'contact-topics' },
       { href: '/admin/contact-fields', label: 'שדות מותאמים', icon: 'columns', screen: 'contact-fields' },
     ],
   },
-  { type: 'link', href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
-  { type: 'link', href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'manager' },
-  { type: 'link', href: '/admin/media-library', label: 'ספריית מדיה', icon: 'image', screen: 'media-library' },
-  { type: 'link', href: '/admin/audit-log', label: 'יומן ביקורת', icon: 'list', minRole: 'admin' },
-  { type: 'link', href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
+  {
+    label: 'מערכת',
+    items: [
+      { href: '/admin/media-library', label: 'ספריית מדיה', icon: 'image', screen: 'media-library' },
+      { href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
+      { href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'manager' },
+      { href: '/admin/audit-log', label: 'יומן ביקורת', icon: 'list', minRole: 'admin' },
+      { href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
+    ],
+  },
 ];
 
 const RANK: Record<UserRole, number> = {
@@ -119,7 +99,7 @@ const RANK: Record<UserRole, number> = {
 
 /**
  * screen ⇒ נבדק ישירות מול מפת ההרשאות (כולל override מותאם אישית) —
- * המקור היחיד שגם העמוד עצמו קורא ממנו. אחרת (ארבעת פריטי המערכת בלבד):
+ * המקור היחיד שגם העמוד עצמו קורא ממנו. אחרת (חמשת פריטי המערכת בלבד):
  * perm בלבד ⇒ ההרשאה מכריעה. minRole בלבד ⇒ הדירוג מכריע, אך תפקידי
  * החנות (מוכרן/מלקט/ניהול חנות) מוחרגים — דירוגם קיים רק לחסימת עמודי
  * תוכן בשרת, לא כזכות תוכן. שניהם ⇒ תפקידי חנות דרך ההרשאה, השאר דרך הדירוג.
@@ -146,160 +126,61 @@ export function AdminNav({
 }: {
   role: UserRole;
   screenAccess: Record<ScreenKey, ScreenAccess>;
-  /** [1.11] מספר הפניות החדשות — תג על לשונית "פניות מהאתר". */
+  /** [1.11] מספר הפניות החדשות — תג על "פניות שהתקבלו". */
   unreadMessages?: number;
 }) {
   const pathname = usePathname();
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
-  // ממוזכר כדי לזהות ניווט לעמוד חדש ולסגור תפריט פתוח — במהלך הרינדור
-  // ולא באפקט, באותו דפוס בדיוק כמו BookFormTabs.tsx: זו "התאמת state
-  // לפי props שהשתנו", לא סנכרון עם משהו חיצוני.
-  const [seenPathname, setSeenPathname] = useState(pathname);
-  const wrapRef = useRef<HTMLUListElement>(null);
 
-  const visible = useMemo(
+  const visibleSections = useMemo(
     () =>
-      ITEMS.map((item) =>
-        item.type === 'group'
-          ? { ...item, items: item.items.filter((sub) => canSee(role, screenAccess, sub)) }
-          : item,
-      )
-        // קישור בודד: השער שלו עצמו. קבוצה: גלויה אם ולו פריט אחד בתוכה גלוי —
-        // לקבוצות "ספרים"/"חנות"/"פניות מהאתר" אין יותר שער עצמאי משלהן.
-        .filter((item) => (item.type === 'group' ? item.items.length > 0 : canSee(role, screenAccess, item))),
+      SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.filter((item) => canSee(role, screenAccess, item)),
+      })).filter((section) => section.items.length > 0),
     [role, screenAccess],
   );
 
-  if (pathname !== seenPathname) {
-    setSeenPathname(pathname);
-    setOpenGroup(null);
-  }
-
-  useEffect(() => {
-    if (!openGroup) return;
-    function onPointerDown(event: PointerEvent) {
-      if (!wrapRef.current?.contains(event.target as Node)) setOpenGroup(null);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpenGroup(null);
-    }
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [openGroup]);
-
   return (
-    <nav aria-label="ניווט ניהול">
-      {/*
-        בלי overflow-x-auto בכוונה — ולא רק overflow-y-visible לצדו: לפי
-        כלל ה-CSS, כשציר overflow אחד אינו visible, הדפדפן *מחשב* את
-        הציר השני ל-auto תמיד, גם אם visible נקבע לו במפורש. אין דרך
-        "לבטל" את זה עם עוד קלאס overflow-y — ניסיתי (ראו היסטוריית
-        git) וזה לא עבד: נבדק ישירות עם getComputedStyle, overflowY
-        נשאר 'auto' ולא 'visible', וזה מה שקטע את התפריט הנפתח של קבוצת
-        "ספרים" (שממוקם absolute ויוצא מתחת לקצה ה-ul). הפתרון היחיד
-        האמיתי הוא לא לקבוע overflow-x בכלל — flex-wrap כבר מטפל בעודף
-        פריטים במסך צר על ידי מעבר לשורה נוספת, בלי צורך בגלילה אופקית.
-      */}
-      <ul ref={wrapRef} className="admin-nav-shell flex-wrap gap-1">
-        {visible.map((item) => {
-          if (item.type === 'link') {
-            const active = matchesLink(pathname, item.href);
-            return (
-              <li key={item.href} className="shrink-0">
-                <Link
-                  href={item.href}
-                  aria-current={active ? 'page' : undefined}
-                  className={`admin-nav-link ${active ? 'admin-nav-link-active' : ''}`}
-                >
-                  <AdminIcon name={item.icon} className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          }
-
-          const active = item.items.some((sub) => matchesLink(pathname, sub.href));
-          const open = openGroup === item.label;
-          const groupBadge = item.label === 'פניות מהאתר' && unreadMessages > 0 ? unreadMessages : null;
-
-          return (
-            <li key={item.label} className="relative shrink-0">
-              <button
-                type="button"
-                aria-haspopup="true"
-                aria-expanded={open}
-                onClick={() => setOpenGroup(open ? null : item.label)}
-                className={`admin-nav-link ${active ? 'admin-nav-link-active' : ''}`}
-              >
-                <AdminIcon name={item.icon} className="h-4 w-4" />
-                {item.label}
-                {groupBadge ? (
-                  <span
-                    className="admin-badge admin-badge-danger px-1.5 py-0 text-[0.7rem] tabular-nums"
-                    aria-label={`${groupBadge} פניות חדשות`}
+    <nav aria-label="ניווט ניהול" className="admin-sidebar-scroll">
+      {visibleSections.map((section, index) => (
+        <div key={section.label ?? `section-${index}`} className="admin-sidebar-group">
+          {section.label ? <p className="admin-sidebar-group-label">{section.label}</p> : null}
+          <ul className="space-y-0.5">
+            {section.items.map((item) => {
+              const active = matchesLink(pathname, item.href);
+              const badge = item.href === '/admin/messages' && unreadMessages > 0 ? unreadMessages : null;
+              const canAdd = Boolean(item.addHref && item.screen && (screenAccess[item.screen]?.edit ?? false));
+              return (
+                <li key={item.href} className={canAdd ? 'flex items-stretch gap-1' : undefined}>
+                  <Link
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={`admin-sidebar-link min-w-0 flex-1 ${active ? 'admin-sidebar-link-active' : ''}`}
                   >
-                    {groupBadge}
-                  </span>
-                ) : null}
-                <AdminIcon
-                  name="chevron-down"
-                  className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              {open ? (
-                <div className="admin-nav-dropdown" role="menu">
-                  {item.items.map((sub, index) => {
-                    const subActive = matchesLink(pathname, sub.href);
-                    // הגדרות קטלוג/חנות מופרדת בקו — היא הגדרה, לא רשומת תוכן כמו השאר
-                    const showDivider = sub.href === '/admin/books/settings' && index > 0;
-                    // לחצן + מוצג רק כשיש גם יעד יצירה וגם הרשאת עריכה למסך
-                    const canAdd = Boolean(
-                      sub.addHref && sub.screen && (screenAccess[sub.screen]?.edit ?? false),
-                    );
-                    return (
-                      <div key={sub.href} className={canAdd ? 'flex items-stretch' : undefined}>
-                        {showDivider ? <div className="admin-nav-dropdown-divider" /> : null}
-                        <Link
-                          href={sub.href}
-                          role="menuitem"
-                          aria-current={subActive ? 'page' : undefined}
-                          onClick={() => setOpenGroup(null)}
-                          className={`admin-nav-dropdown-item ${canAdd ? 'min-w-0 flex-1' : ''} ${subActive ? 'admin-nav-dropdown-item-active' : ''}`}
-                        >
-                          <AdminIcon name={sub.icon} className="h-4 w-4" />
-                          {sub.label}
-                          {sub.href === '/admin/messages' && unreadMessages > 0 ? (
-                            <span className="admin-badge admin-badge-danger ms-auto px-1.5 py-0 text-[0.7rem] tabular-nums">
-                              {unreadMessages}
-                            </span>
-                          ) : null}
-                        </Link>
-                        {canAdd ? (
-                          <Link
-                            href={sub.addHref!}
-                            role="menuitem"
-                            aria-label={`${sub.label} — הוספה מהירה`}
-                            title={`${sub.label} — הוספה מהירה`}
-                            onClick={() => setOpenGroup(null)}
-                            className="admin-nav-dropdown-item shrink-0 px-2.5 text-muted hover:text-[var(--admin-accent)]"
-                          >
-                            <AdminIcon name="plus" className="h-4 w-4" />
-                          </Link>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+                    <AdminIcon name={item.icon} className="h-4 w-4" />
+                    <span className="truncate">{item.label}</span>
+                    {badge ? (
+                      <span className="admin-sidebar-link-badge" aria-label={`${badge} פניות חדשות`}>
+                        {badge}
+                      </span>
+                    ) : null}
+                  </Link>
+                  {canAdd ? (
+                    <Link
+                      href={item.addHref!}
+                      aria-label={`${item.label} — הוספה מהירה`}
+                      title={`${item.label} — הוספה מהירה`}
+                      className="admin-sidebar-link shrink-0 px-2"
+                    >
+                      <AdminIcon name="plus" className="h-4 w-4" />
+                    </Link>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
     </nav>
   );
 }

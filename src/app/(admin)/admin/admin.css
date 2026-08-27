@@ -1,12 +1,17 @@
 /* ============================================================================
-   מנשק הניהול — רענון עיצובי 2026
+   מנשק הניהול — מערכת עיצוב 2026
    --------------------------------------------------------------------------
    קובץ נפרד מ-globals.css, נטען רק מתוך ה-root layout של /admin ולעולם
    לא מהאתר הציבורי — כך שהרענון כאן לא יכול לדלוף ולשנות את מראה האתר
    החי. הממשק הזה הוא כלי עבודה פנימי ולא נכס מיתוגי, ולכן חופשי מהכללים
-   המצמצמים של זהות המכון (הזהב כקו בלבד וכו'); שני גווני הסטטוס החדשים
-   (הצלחה/אזהרה) הם משמעויות אוניברסליות של ממשקי ניהול ולא חלק ממיתוג
-   האתר, ולכן נוספים רק כאן.
+   המצמצמים של זהות המכון (הזהב כקו בלבד וכו').
+
+   [1.31] רענון שני: מ"קפסולת ניווט עליונה + אינדיגו" ל-sidebar כהה קבוע +
+   סגול-סגלגל כצבע זיהוי. שינוי מכוון, לא רק קוסמטי — לוח בקרה עם ~30
+   מסכים בשלוש קבוצות (תוכן/חנות/מערכת) גדל מדי לתפריטים נפתחים בשורה
+   אחת; עמודה קבועה מציגה את כל הסדר בבת אחת ותומכת בקיפול למובייל בלי
+   לאבד היררכיה. הצבע הישן (אינדיגו #4338ca) הוחלף כי הוא כמעט זהה לצבע
+   ברירת המחדל של עשרות ממשקי ניהול אחרים — לא זיהוי, רעש.
 
    בכוונה בלי @theme: הקובץ הזה אינו מתחיל הקשר Tailwind משלו (אין בו
    ‎@import 'tailwindcss'), ולכן משתני עיצוב מוגדרים כאן כמשתני CSS רגילים
@@ -14,23 +19,37 @@
    ========================================================================== */
 
 :root {
-  --admin-accent: #4338ca;
-  --admin-accent-soft: #eef2ff;
+  /* --- זיהוי: סגול-סגלגל עמוק, לא אינדיגו גנרי --- */
+  --admin-accent: #7c3aed;
+  --admin-accent-hover: #6d28d9;
+  --admin-accent-soft: #f3effe;
+  --admin-accent-strong: #5b21b6;
+
   --admin-success: #15803d;
   --admin-success-soft: #ecfdf5;
   --admin-warning: #b45309;
   --admin-warning-soft: #fffbeb;
   --admin-danger: #b91c1c;
   --admin-danger-soft: #fef2f2;
+
   --admin-border: color-mix(in srgb, var(--color-rule) 70%, transparent);
-  --admin-radius-card: 1.25rem;
-  --admin-radius-btn: 0.75rem;
+  --admin-radius-card: 1.1rem;
+  --admin-radius-btn: 0.7rem;
   --admin-shadow: 0 1px 2px rgb(20 18 15 / 0.03), 0 10px 24px -18px rgb(20 18 15 / 0.12);
   --admin-shadow-hover: 0 2px 6px rgb(20 18 15 / 0.05), 0 22px 44px -18px rgb(20 18 15 / 0.18);
-  /* [1.1] קנבס בהיר ואוורירי: המשטחים לבנים על רקע נייר עדין — פחות
-     "כבד" מגוני הקרם הרציפים, בלי לגעת בזהות האתר הציבורי */
-  --admin-canvas: #f8f7f4;
+
+  /* [1.31] קנבס בהיר וחם — לבן-שמנת עדין, לא לבן קר וגם לא גווני הקרם
+     הרוויים של האתר הציבורי. המשטחים לבנים ממש, כדי שכרטיסים יבלטו. */
+  --admin-canvas: #f7f6f4;
   --admin-surface: #ffffff;
+
+  /* --- עמודת הניווט: כהה, קבועה, נבדלת בבירור מהקנבס --- */
+  --admin-sidebar-bg: #16171f;
+  --admin-sidebar-bg-raised: #1d1f2b;
+  --admin-sidebar-text: #9a9cae;
+  --admin-sidebar-text-strong: #eceef5;
+  --admin-sidebar-border: color-mix(in srgb, #fff 8%, transparent);
+  --admin-sidebar-width: 15.5rem;
 }
 
 @layer components {
@@ -67,11 +86,11 @@
   .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .admin-btn-solid {
-    background: var(--color-ink);
+    background: var(--admin-accent);
     color: #fff;
     box-shadow: var(--admin-shadow);
   }
-  .admin-btn-solid:hover { background: var(--admin-accent); box-shadow: var(--admin-shadow-hover); }
+  .admin-btn-solid:hover { background: var(--admin-accent-hover); box-shadow: var(--admin-shadow-hover); }
 
   .admin-btn-quiet {
     background: var(--color-cream-2);
@@ -214,7 +233,107 @@
   .admin-table tbody tr { transition: background-color 150ms ease; }
   .admin-table tbody tr:hover { background: color-mix(in srgb, var(--admin-accent) 3.5%, var(--admin-surface)); }
 
-  /* --- ניווט: קפסולה לבנה צפה, קלה --- */
+  /* ==========================================================================
+     [1.31] Sidebar — עמודת ניווט כהה קבועה. תפריטים נפתחים (admin-nav-*
+     הישנים) נשארים למטה למקרים שעדיין צריכים תפריט הקשר, אבל הניווט
+     הראשי עבר למבנה חדש לגמרי: קבוצה → קישורים, בלי דפדוף/פתיחה.
+     ========================================================================== */
+  .admin-sidebar {
+    background: var(--admin-sidebar-bg);
+    color: var(--admin-sidebar-text);
+    display: flex;
+    flex-direction: column;
+    width: var(--admin-sidebar-width);
+    flex-shrink: 0;
+  }
+  .admin-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 1.4rem 1.25rem 1.1rem;
+    color: var(--admin-sidebar-text-strong);
+  }
+  .admin-sidebar-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.7rem;
+    background: linear-gradient(155deg, var(--admin-accent) 0%, var(--admin-accent-strong) 100%);
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--admin-accent) 70%, transparent);
+  }
+  .admin-sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.25rem 0.75rem 1.25rem;
+  }
+  .admin-sidebar-group + .admin-sidebar-group { margin-top: 1.35rem; }
+  .admin-sidebar-group-label {
+    padding: 0 0.6rem;
+    margin-block-end: 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--admin-sidebar-text) 70%, transparent);
+  }
+  .admin-sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--admin-sidebar-text);
+    transition: background-color 150ms ease, color 150ms ease;
+    position: relative;
+  }
+  .admin-sidebar-link svg { flex-shrink: 0; opacity: 0.85; }
+  .admin-sidebar-link:hover {
+    background: var(--admin-sidebar-bg-raised);
+    color: var(--admin-sidebar-text-strong);
+  }
+  .admin-sidebar-link-active {
+    background: color-mix(in srgb, var(--admin-accent) 22%, var(--admin-sidebar-bg-raised));
+    color: #fff;
+    font-weight: 600;
+  }
+  .admin-sidebar-link-active svg { opacity: 1; }
+  /* פס זיהוי דק בקצה — לא רק צבע רקע, גם צורה, לעקביות/נגישות */
+  .admin-sidebar-link-active::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -0.75rem;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    width: 3px;
+    border-radius: 999px;
+    background: var(--admin-accent);
+  }
+  .admin-sidebar-link-badge {
+    margin-inline-start: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--admin-danger);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+  .admin-sidebar-footer {
+    padding: 0.9rem 1.25rem;
+    border-top: 1px solid var(--admin-sidebar-border);
+  }
+
+  /* --- ניווט: קפסולה לבנה צפה, קלה --- (עדיין בשימוש לתפריטי הקשר) */
   .admin-nav-shell {
     display: inline-flex;
     align-items: center;

@@ -296,7 +296,11 @@ export function ToggleField({
   );
 }
 
-/** קיבוץ שדות תחת כותרת — מחליף כרטיסים נפרדים בטופס ארוך. */
+/**
+ * קיבוץ שדות תחת כותרת — כרטיס עצמאי (לא מקטע שטוח בתוך רשימה ארוכה).
+ * [1.28] כל FieldSet הוא עכשיו admin-card משלו: משטח מוגבה, פינות
+ * עגולות, צל — לא רק קו הפרדה עליון בין מקטעים באותה רשימה רציפה.
+ */
 export function FieldSet({
   legend,
   description,
@@ -310,11 +314,11 @@ export function FieldSet({
   children: ReactNode;
 }) {
   return (
-    <fieldset className="border-t border-rule pt-6 first:border-t-0 first:pt-0">
-      <legend className="flex items-center gap-2 pe-3 text-small font-bold text-ink">
+    <fieldset className="admin-card block p-5 sm:p-6">
+      <legend className="-mt-1 flex items-center gap-2.5 pe-3 text-small font-bold text-ink">
         {icon ? (
-          <span className="admin-icon-chip h-7 w-7">
-            <AdminIcon name={icon} className="h-3.5 w-3.5" />
+          <span className="admin-icon-chip h-8 w-8">
+            <AdminIcon name={icon} className="h-4 w-4" />
           </span>
         ) : null}
         {legend}
