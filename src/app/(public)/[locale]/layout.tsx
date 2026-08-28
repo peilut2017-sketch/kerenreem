@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { FONT_VARIABLES } from '@/lib/fonts';
+import { FONT_VARIABLES, siteFontOverrides } from '@/lib/fonts';
 import { CustomFontsStyle } from '@/components/CustomFontsStyle';
 import { PlaceholderArtProvider } from '@/components/placeholder-art-context';
 import { HeaderContextNavProvider } from '@/components/header-context-nav';
@@ -94,8 +94,12 @@ export default async function PublicLayout({
     captionLabel: tBooks('illustrativeImage'),
   };
 
+  // גופני ברירת המחדל שנבחרו בניהול ← הגדרות ← גופני האתר — style ישיר
+  // על ה-<html> גובר על ערכי ה-@theme של globals.css בלי תלות בסדר ה-CSS.
+  const fontStyle = siteFontOverrides(extra);
+
   return (
-    <html lang={locale} dir={dir} className={FONT_VARIABLES}>
+    <html lang={locale} dir={dir} className={FONT_VARIABLES} style={fontStyle}>
       <head>
         {/* מוחל לפני הצביעה הראשונה — מונע הבזק אצל מי שבחר ניגודיות או הגדלה */}
         <script dangerouslySetInnerHTML={{ __html: A11Y_INIT_SCRIPT }} />

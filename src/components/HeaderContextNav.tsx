@@ -1,40 +1,46 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { computeWindow } from '@/lib/windowed-range';
 import type { ContextNavValue } from './header-context-nav';
-
-/** [1.30] רדיוס קטן מה-Filmstrip: הכותרת חולקת מקום עם הלוגו, הניווט הראשי ופעולות הצד. */
-const RADIUS = 2;
 
 /**
  * [1.30] ניווט הקשרי בתוך קפסולת הכותרת הצפה — שלבי אירוע/מקטעי ספר
  * שהעמוד הנוכחי פרסם (usePublishHeaderContextNav). מופרד מהניווט
  * הראשי בקו דק ובצבע פעיל שונה (בורדו, כמו EventJourneyProgress/
- * StickyNav הישנים) כדי שברור מה שייך לעמוד ומה לניווט הראשי של
- * האתר. חלון קטן סביב הפריט הפעיל — לא כל השלבים בבת אחת — כשיש
- * הרבה, כדי שלא יציף את שאר תוכן הכותרת.
+ * StickyNav הישנים) כדי שברור מה שייך לעמוד ומה לניווט הראשי של האתר.
+ *
+ * [1.34] כל השלבים מקבלים לחצן — לא עוד "חלון" מצומצם סביב הפעיל:
+ * בתצוגת אירוע כל שלב במסע צריך אפשרות מעבר מהיר ישיר, גם כשהוא רחוק
+ * מהשלב הנוכחי. כדי שרשימה ארוכה לא תפוצץ את הקפסולה (היא חולקת מקום
+ * עם הלוגו, הניווט הראשי ופעולות הצד), הרצועה מוגבלת ברוחב וגלילה
+ * אופקית בתוכה, והשלב הפעיל מובא אוטומטית אל טווח הראייה עם הגלילה
+ * בעמוד — אותה תבנית כמו HeaderContextNavMobile, רק בתוך שורת הכותרת.
  */
 export function HeaderContextNav({ items, activeId, onSelect }: ContextNavValue) {
   const t = useTranslations('nav');
-  const activeIndex = Math.max(
-    0,
-    items.findIndex((item) => item.id === activeId),
-  );
-  const windowIndexes = useMemo(
-    () => computeWindow(activeIndex, items.length, RADIUS),
-    [activeIndex, items.length],
-  );
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const active = list.querySelector<HTMLElement>('[aria-current="true"]');
+    // גלילה פנימית של הרצועה בלבד — scrollIntoView על העמוד היה מזיז
+    // גם את הגלילה האנכית של המסמך בזמן שהמשתמש קורא.
+    if (active) {
+      const target = active.offsetLeft - (list.clientWidth - active.offsetWidth) / 2;
+      list.scrollTo({ left: target, behavior: 'smooth' });
+    }
+  }, [activeId]);
 
   return (
     <div
+      ref={listRef}
       role="list"
       aria-label={t('pageNavigation')}
-      className="hidden items-center gap-0.5 border-s border-rule ps-3 lg:flex"
+      className="hidden max-w-[26rem] items-center gap-0.5 overflow-x-auto border-s border-rule ps-3 [scrollbar-width:none] lg:flex"
     >
-      {windowIndexes.map((index) => {
-        const item = items[index];
+      {items.map((item) => {
         const active = item.id === activeId;
         return (
           <button
@@ -43,7 +49,7 @@ export function HeaderContextNav({ items, activeId, onSelect }: ContextNavValue)
             onClick={() => onSelect(item.id)}
             aria-current={active ? 'true' : undefined}
             title={item.label}
-            className={`max-w-32 truncate whitespace-nowrap rounded-[var(--radius-pill)] px-2.5 py-1 text-caption transition-colors duration-200 ${
+            className={`max-w-32 shrink-0 truncate whitespace-nowrap rounded-[var(--radius-pill)] px-2.5 py-1 text-caption transition-colors duration-200 ${
               active
                 ? 'bg-burgundy/10 font-semibold text-burgundy'
                 : 'text-ink-soft hover:bg-cream-2 hover:text-burgundy'

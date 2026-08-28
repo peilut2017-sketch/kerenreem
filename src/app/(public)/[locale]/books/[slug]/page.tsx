@@ -4,11 +4,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/Container';
 import { AuthorSection } from '@/components/book-page/AuthorSection';
 import { BookBreadcrumbs } from '@/components/book-page/BookBreadcrumbs';
-import { BookFinalCta } from '@/components/book-page/BookFinalCta';
 import { BookHero } from '@/components/book-page/BookHero';
 import { BookHeroActions } from '@/components/book-page/BookHeroActions';
 import { ConnectionsSection } from '@/components/book-page/ConnectionsSection';
 import { FloatingActions } from '@/components/book-page/FloatingActions';
+import { ReportBookButton } from '@/components/book-page/ReportBookButton';
 import { Gallery } from '@/components/book-page/Gallery';
 import { BookFlipViewer } from '@/components/book-page/BookFlipViewer';
 import { BookSampleViewer } from '@/components/book-page/BookSampleViewer';
@@ -460,16 +460,6 @@ export default async function BookPage({
         {hasConnections ? (
           <ConnectionsSection connections={connections} authorName={authorDisplay?.name ?? null} locale={locale} />
         ) : null}
-
-        <BookFinalCta
-          bookId={book.id}
-          title={title}
-          cover={book.cover_image_url}
-          price={formattedPrice}
-          showBuy={showBuy}
-          availability={availability}
-          externalSupplier={externalSupplier}
-        />
       </Container>
 
       <FloatingActions
@@ -479,6 +469,10 @@ export default async function BookPage({
         showBuy={showBuy}
         availability={availability}
       />
+
+      {/* [1.30] דיווח על הספר — צף מעל לחצן הנגישות, מוביל לטופס ההערות
+          על ספרים כשהספר הזה כבר נבחר בפנייה. */}
+      <ReportBookButton bookId={book.id} label={t('reportBook')} />
     </>
   );
 }

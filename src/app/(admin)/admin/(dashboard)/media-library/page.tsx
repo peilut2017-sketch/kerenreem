@@ -36,7 +36,7 @@ export default async function AdminMediaLibraryPage() {
     <>
       <AdminHeader
         title="ספריית מדיה"
-        description="כל התמונות שהועלו לאחסון האתר — כריכות, תמונות אירועים, דיוקנאות, דפי דוגמה ותמונות כלליות."
+        description="כל הקבצים שהועלו לאחסון האתר — כריכות, תמונות אירועים, דיוקנאות, דפדופי דוגמה (PDF), גופנים ותמונות כלליות."
       />
       {loadError ? (
         <p className="mb-6 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-burgundy">

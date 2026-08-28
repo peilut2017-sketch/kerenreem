@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { SITE_FONT_ROLES, SITE_FONT_VALUE_PATTERN } from '@/lib/fonts';
 import { assertRole, assertScreenPermission } from './auth';
 import type { ActionResult } from './actions';
 import type { UserRole } from '@/lib/supabase/types';
@@ -65,12 +66,23 @@ export async function saveSettings(
   // [1.11] תמונות עמוד הבית — מקטע "על המכון" ורקע המדף. חיות ב-extra
   // (jsonb) כמו שאר הדגלים הנקודתיים; ריק = חזרה לנגזרת האוטומטית
   // (תמונת ציר פעילות/אירוע), ולכן המפתח נמחק ולא נשמר כמחרוזת ריקה.
+  // גופני ברירת המחדל של האתר — הערך הוא משתנה CSS סגור מתוך רשימת הבחירה
+  // (ראו SITE_FONT_VALUE_PATTERN); כל דבר אחר נשמר כ-null, כלומר חזרה
+  // לברירת המחדל של מערכת העיצוב.
+  const fontOverrides = Object.fromEntries(
+    SITE_FONT_ROLES.map(({ role }) => {
+      const value = text(formData, `font_${role}`);
+      return [`font_${role}`, SITE_FONT_VALUE_PATTERN.test(value) ? value : null];
+    }),
+  );
+
   const extraError = await mergeExtra(supabase, {
     about_image_url: text(formData, 'about_image_url') || null,
     shelf_backdrop_url: text(formData, 'shelf_backdrop_url') || null,
     // [1.12] תמונות הבסיס לספרים חסרי-תמונה — ראו placeholder-art-context
     book_base_cover_url: text(formData, 'book_base_cover_url') || null,
     book_base_spine_url: text(formData, 'book_base_spine_url') || null,
+    ...fontOverrides,
   });
   if (extraError) return { status: 'error', message: extraError.error };
 

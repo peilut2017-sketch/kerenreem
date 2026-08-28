@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { FavouriteIcon } from '@/components/FavouriteIcon';
 import { useTranslations } from 'next-intl';
 import { useLocalList } from '@/lib/client-hooks';
-import { ShelfPicker } from './ShelfPicker';
 import { AddToCartButton } from '../store/AddToCartButton';
 import { ExternalSupplierButton } from './ExternalSupplierButton';
 import type { BookAvailability } from '@/lib/supabase/types';
@@ -85,8 +84,8 @@ export function BookHeroActions({
         />
       ) : null}
 
-      <ShelfPicker bookId={bookId} />
-
+      {/* [1.30] "המדף שלי" (ShelfPicker) הוסר — השמירה לספרים שמורים
+          (מועדפים) היא הפעולה האישית היחידה בעמוד הספר. */}
       <button
         type="button"
         onClick={() => toggle(bookId)}

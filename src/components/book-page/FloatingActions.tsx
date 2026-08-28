@@ -52,11 +52,10 @@ export function FloatingActions({
   useEffect(() => {
     if (!showBuy || typeof IntersectionObserver === 'undefined') return;
 
-    // מוסתר גם ב-Hero (איפה שהמחיר כבר מוצג) וגם באזור הסיום (איפה
-    // שהוא מוצג שוב) — לא רק בראש העמוד.
+    // מוסתר ב-Hero — איפה שהמחיר וכפתור הקנייה כבר מוצגים.
+    // (אזור הסיום book-final-cta הוסר מהעמוד, ראו [1.30].)
     const hero = document.getElementById('book-hero');
-    const finalCta = document.getElementById('book-final-cta');
-    const targets = [hero, finalCta].filter((el): el is HTMLElement => el !== null);
+    const targets = [hero].filter((el): el is HTMLElement => el !== null);
     if (targets.length === 0) return;
 
     const intersecting = new Set<Element>();

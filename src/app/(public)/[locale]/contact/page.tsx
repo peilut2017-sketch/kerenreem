@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
 import { PageHeader } from '@/components/PageHeader';
 import { ContactTabs } from '@/components/ContactTabs';
+import { SocialIcon, SOCIAL_NAMES } from '@/components/SocialIcon';
 import { localized } from '@/lib/localized';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { getBooks, getContactFields, getContactTopics, getSiteSettings } from '@/lib/data';
@@ -46,6 +48,8 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
 
   const contact = settings.contact ?? {};
   const address = locale === 'en' ? contact.address_en || contact.address_he : contact.address_he;
+  // הרשתות כפי שהוגדרו בניהול ← הגדרות ← רשתות — אותו מקור כמו בתחתית האתר
+  const social = Object.entries(settings.social_links ?? {}).filter(([, url]) => Boolean(url));
 
   // רשימה קומפקטית לבורר הספרים בטופס ההערות — שם ומחבר בלבד, לא הרשומה כולה
   const bookOptions = books.map((book) => ({
@@ -60,7 +64,11 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
       <div className="mt-12" />
 
       <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-20">
-        <ContactTabs topics={topics} fields={fields} books={bookOptions} />
+        {/* Suspense נדרש סביב useSearchParams (קישור עמוק ?tab=book&book=<id>
+            מלחצן "דיווח על ספר") — בלעדיו הבנייה הסטטית של העמוד נכשלת. */}
+        <Suspense>
+          <ContactTabs topics={topics} fields={fields} books={bookOptions} />
+        </Suspense>
 
         <aside className="lg:border-s lg:border-rule lg:ps-10">
           <h2 className="eyebrow mb-4">{t('details')}</h2>
@@ -92,6 +100,31 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
               </div>
             ) : null}
           </dl>
+
+          {/* [1.30] לחצני הרשתות החברתיות — שוב גם כאן, מתחת לפרטי המכון,
+              לפי מה שהוגדר בניהול (social_links); גרסה לרקע הבהיר של העמוד,
+              במקביל לזו שבתחתית האתר. */}
+          {social.length > 0 ? (
+            <div className="mt-8">
+              <h2 className="eyebrow mb-3">{t('followUs')}</h2>
+              <ul className="flex flex-wrap gap-2.5">
+                {social.map(([name, url]) => (
+                  <li key={name}>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={SOCIAL_NAMES[name] ?? name}
+                      title={SOCIAL_NAMES[name] ?? name}
+                      className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-pill)] border border-rule text-ink-soft transition-all duration-300 hover:-translate-y-0.5 hover:border-gold-deep/60 hover:text-gold-deep motion-reduce:transform-none"
+                    >
+                      <SocialIcon name={name} className="h-4.5 w-4.5" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <p className="mt-8 text-caption leading-relaxed text-muted">
             <Link href="/privacy" className="link">

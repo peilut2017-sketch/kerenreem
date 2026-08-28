@@ -710,16 +710,35 @@ export interface StorageFilesResult {
 
 export async function listStorageFiles(): Promise<StorageFilesResult> {
   const supabase = await client();
-  const { data, error } = await supabase.rpc('admin_list_storage_files');
-  if (error) {
-    console.error('[admin:mediaLibrary]', error.code, error.message);
-    const hint =
-      error.code === 'PGRST202' || /function .* does not exist/i.test(error.message)
-        ? ' — יש להריץ את supabase/50_media_library.sql על מסד הנתונים.'
-        : '';
-    return { files: [], error: `${error.code ?? '—'}: ${error.message}${hint}` };
+
+  // PostgREST קוטם כל תשובה ל-db-max-rows (1000 בברירת המחדל של Supabase),
+  // גם תשובת RPC — בלי שגיאה. קריאה אחת "תמימה" הציגה לכן רק את אלף
+  // הקבצים החדשים והעלימה את השאר בשקט. עמוד-עמוד עם range() עד לעמוד חסר.
+  const PAGE = 1000;
+  const files: AdminStorageFile[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase
+      .rpc('admin_list_storage_files')
+      .range(offset, offset + PAGE - 1);
+    if (error) {
+      console.error('[admin:mediaLibrary]', error.code, error.message);
+      const hint =
+        error.code === 'PGRST202' || /function .* does not exist/i.test(error.message)
+          ? ' — יש להריץ את supabase/50_media_library.sql על מסד הנתונים.'
+          : '';
+      return { files, error: `${error.code ?? '—'}: ${error.message}${hint}` };
+    }
+    const page = (data as AdminStorageFile[] | null) ?? [];
+    files.push(...page);
+    if (page.length < PAGE) break;
   }
-  return { files: (data as AdminStorageFile[] | null) ?? [], error: null };
+
+  // שורות placeholder שספריית האחסון יוצרת לתיקיות ריקות אינן קבצים
+  // שהועלו — אין מה להציג או למחוק בהן דרך ספריית המדיה.
+  return {
+    files: files.filter((file) => !file.path.endsWith('.emptyFolderPlaceholder')),
+    error: null,
+  };
 }
 
 /**

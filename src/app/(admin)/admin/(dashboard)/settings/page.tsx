@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { getSettings, listCustomFontsAdmin } from '@/lib/admin/queries';
+import { EDITOR_FONT_CHOICES } from '@/lib/fonts';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { FontsManager } from '@/components/admin/FontsManager';
 import { SettingsForm } from '@/components/admin/SettingsForm';
@@ -14,6 +15,15 @@ export default async function AdminSettingsPage() {
   // ב-ADMIN_ONLY_SCREENS).
   await requireRole('manager');
   const [settings, customFonts] = await Promise.all([getSettings(), listCustomFontsAdmin()]);
+
+  // רשימת הבחירה לגופני ברירת המחדל — כל הגופנים החינמיים המובנים, ואחריהם
+  // הגופנים שהותקנו במסך זה (הפעילים בלבד — גופן כבוי אינו מוזרק לאתר).
+  const fontChoices = [
+    ...EDITOR_FONT_CHOICES,
+    ...customFonts
+      .filter((font) => font.is_active)
+      .map((font) => ({ label: `${font.name} (מותקן)`, value: `var(--font-custom-${font.slug})` })),
+  ];
 
   return (
     <>
@@ -32,7 +42,7 @@ export default async function AdminSettingsPage() {
       </p>
 
       {settings ? (
-        <SettingsForm settings={settings} />
+        <SettingsForm settings={settings} fontChoices={fontChoices} />
       ) : (
         <p className="text-muted">לא נמצאה שורת הגדרות. יש להריץ את סכימת ה-SQL.</p>
       )}
