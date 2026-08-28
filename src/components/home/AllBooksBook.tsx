@@ -4,21 +4,34 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 
 /**
- * [1.30] לחצן "לכל הספרים" — ספר שוכב שנפתח.
+ * [1.31] לחצן "לכל הספרים" — אייקון ספר שוכב, במבט צד ממש.
  *
- * במקום קישור טקסט, הלחצן הוא ספר קטן ששוכב על גבו (הטיה תלת-ממדית של
- * rotateX עם perspective). לחיצה מדמה את פתיחת הספר: הכריכה הקדמית
- * מסתובבת סביב השדרה (בצד ימין — ספר עברי נפתח מימין), נגלה עמוד פנימי,
- * ורק אז מתבצע המעבר לעמוד כל הספרים — כך האנימציה נקראת כ"נכנסים אל
- * תוך הספר".
+ * הספר שוכב סגור: שתי כריכות (למעלה ולמטה), גוש הדפים ביניהן, והשדרה
+ * בקצה הימני. לחיצה מדמה את פתיחת הדפים לימין — הכריכה העליונה וכמה
+ * דפים בודדים מסתובבים בזה אחר זה סביב השדרה, נפרשים כמניפה על הצד
+ * הימני — ורק אז מתבצע המעבר לעמוד כל הספרים.
  *
- * נגישות: זהו <a> אמיתי אל /books — קליק עם מקש עזר (פתיחה בכרטיסייה
- * חדשה), קורא מסך או כשל JS מנווטים כרגיל; ומי שביקש reduced-motion
- * מנווט מיד, בלי ההשהיה של האנימציה.
+ * המיקומים והסיבובים כאן פיזיים (left/right, זווית חיובית = עם כיוון
+ * השעון) ולא לוגיים (start/end) בכוונה: "הדפים נפתחים לימין" הוא כיוון
+ * ויזואלי מוחלט, שלא אמור להתהפך עם כיוון המסמך.
+ *
+ * נגישות: זהו <Link> אמיתי אל /books — קליק עם מקש עזר (פתיחה
+ * בכרטיסייה חדשה), קורא מסך או כשל JS מנווטים כרגיל; מי שביקש
+ * reduced-motion מנווט מיד, בלי ההשהיה של האנימציה.
  */
+
+/** הדפים המתעופפים: זווית סופית וזמן ההשהיה שלהם — מהכריכה פנימה. */
+const FLIP_LEAVES = [
+  { bottom: 40, height: 6, isCover: true, openAngle: 178, delay: 0, hoverAngle: 14 },
+  { bottom: 37, height: 3, isCover: false, openAngle: 160, delay: 70, hoverAngle: 7 },
+  { bottom: 33, height: 3, isCover: false, openAngle: 135, delay: 140, hoverAngle: 3 },
+  { bottom: 29, height: 3, isCover: false, openAngle: 108, delay: 210, hoverAngle: 0 },
+] as const;
+
 export function AllBooksBook({ label }: { label: string }) {
   const router = useRouter();
   const [opening, setOpening] = useState(false);
+  const [hovering, setHovering] = useState(false);
   const timer = useRef<number | null>(null);
 
   useEffect(
@@ -42,61 +55,70 @@ export function AllBooksBook({ label }: { label: string }) {
     }
 
     setOpening(true);
-    // מעט אחרי סוף אנימציית הכריכה (700ms) — שהעין תספיק לקרוא את הפתיחה
-    timer.current = window.setTimeout(() => router.push('/books'), 750);
+    // מעט אחרי שהדף האחרון סיים להיפרש — שהעין תספיק לקרוא את הפתיחה
+    timer.current = window.setTimeout(() => router.push('/books'), 950);
   }
 
   return (
     <Link
       href="/books"
       onClick={onClick}
-      aria-label={label}
-      className="group inline-block rounded-[var(--radius-sm)] px-6 pb-2 pt-8 focus-visible:outline-offset-4"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      onFocus={() => setHovering(true)}
+      onBlur={() => setHovering(false)}
+      className="group inline-flex flex-col items-center gap-3 rounded-[var(--radius-sm)] px-4 pb-2 pt-4 focus-visible:outline-offset-4"
     >
-      <span className="block [perspective:900px]">
-        <span
-          className={`relative block h-32 w-24 transition-transform duration-500 ease-[var(--ease-spring)] [transform-style:preserve-3d] motion-reduce:transition-none ${
-            opening
-              ? '[transform:rotateX(38deg)_rotateZ(0deg)]'
-              : '[transform:rotateX(56deg)_rotateZ(-7deg)] group-hover:[transform:rotateX(46deg)_rotateZ(-3deg)] group-focus-visible:[transform:rotateX(46deg)_rotateZ(-3deg)]'
-          }`}
-        >
-          {/* גוש הדפים — נגלה כשהכריכה נפתחת */}
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 rounded-[4px] rounded-e-[2px] border border-rule-strong bg-cream shadow-[var(--shadow-lift)]"
-          >
-            <span className="absolute inset-x-3 top-4 flex flex-col gap-2">
-              <span className="h-px bg-rule" />
-              <span className="h-px bg-rule" />
-              <span className="h-px w-3/4 bg-rule" />
-            </span>
-            <span className="absolute inset-x-0 bottom-5 text-center font-serif text-caption font-bold text-ink">
-              {label} ←
-            </span>
-          </span>
+      {/* הבמה: ציר הפתיחה (השדרה) באמצע — הספר הסגור שוכב משמאלו,
+          והדפים הנפתחים נפרשים מימינו. הגובה משאיר מקום לדף זקוף באמצע
+          התנועה. */}
+      <span aria-hidden="true" className="relative block h-24 w-[12.5rem]">
+        {/* כריכה תחתונה — נשארת שוכבת */}
+        <span className="absolute bottom-0 right-1/2 h-[6px] w-[5.75rem] rounded-l-[3px] bg-gradient-to-t from-navy to-navy-2 shadow-[var(--shadow-soft)]" />
 
-          {/* הכריכה הקדמית — ציר הסיבוב על השדרה שבצד ימין */}
+        {/* גוש הדפים — חזית הדפים (fore-edge) כפסים אופקיים דקים */}
+        <span
+          className="absolute bottom-[6px] right-1/2 h-[23px] w-[5.5rem] rounded-l-[2px] border-y border-cream-3"
+          style={{
+            background:
+              'repeating-linear-gradient(to top, var(--color-cream-3) 0 1px, var(--color-cream) 1px 4px)',
+          }}
+        />
+
+        {/* הדפים שנפתחים לימין: הכריכה העליונה וכמה דפים בודדים, כל אחד
+            על ציר השדרה (origin-right), בזוויות ובהשהיות מדורגות — מניפה. */}
+        {FLIP_LEAVES.map((leaf, index) => (
           <span
-            className={`absolute inset-0 origin-right transition-transform duration-700 ease-[var(--ease-soft)] [transform-style:preserve-3d] motion-reduce:transition-none ${
-              opening ? '[transform:rotateY(165deg)]' : '[transform:rotateY(0deg)]'
+            key={index}
+            className={`absolute right-1/2 origin-right transition-transform duration-700 ease-[var(--ease-soft)] motion-reduce:transition-none ${
+              leaf.isCover
+                ? 'w-[5.75rem] rounded-l-[3px] bg-gradient-to-b from-navy-2 to-navy shadow-[var(--shadow-soft)]'
+                : 'w-[5.5rem] rounded-l-[1px] bg-cream shadow-[0_-1px_0_var(--color-cream-3)]'
             }`}
+            style={{
+              bottom: `${leaf.bottom}px`,
+              height: `${leaf.height}px`,
+              transitionDelay: `${leaf.delay}ms`,
+              transform: opening
+                ? `rotate(${leaf.openAngle}deg)`
+                : hovering
+                  ? `rotate(${leaf.hoverAngle}deg)`
+                  : 'rotate(0deg)',
+            }}
           >
-            {/* פני הכריכה */}
-            <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[4px] rounded-e-[2px] border border-gold/60 bg-gradient-to-l from-navy-2 to-navy px-2 text-center shadow-[var(--shadow-soft)] [backface-visibility:hidden]">
-              <span aria-hidden="true" className="h-px w-10 bg-gold/70" />
-              <span className="font-serif text-small font-bold leading-snug text-gold-bright">
-                {label}
-              </span>
-              <span aria-hidden="true" className="h-px w-10 bg-gold/70" />
-            </span>
-            {/* גב הכריכה — נראה בזמן הפתיחה */}
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 rounded-[4px] rounded-s-[2px] border border-rule-strong bg-cream-2 [backface-visibility:hidden] [transform:rotateY(180deg)]"
-            />
+            {/* קו זהב עדין על הכריכה בלבד — סימן הספר של המכון */}
+            {leaf.isCover ? (
+              <span className="absolute inset-x-2 top-1/2 h-px -translate-y-1/2 bg-gold/60" />
+            ) : null}
           </span>
-        </span>
+        ))}
+
+        {/* השדרה — הקצה הימני, נשאר במקומו כשהדפים נפתחים מעליו */}
+        <span className="absolute bottom-0 right-1/2 h-[48px] w-[7px] translate-x-1/2 rounded-[2px] border-r border-gold/50 bg-gradient-to-l from-navy to-navy-3" />
+      </span>
+
+      <span className="text-small font-semibold text-gold-bright underline-offset-4 transition-colors group-hover:text-gold-bright group-hover:underline">
+        {label}
       </span>
     </Link>
   );

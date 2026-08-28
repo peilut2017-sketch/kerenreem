@@ -3,9 +3,36 @@
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createCustomFont, deleteCustomFont, toggleCustomFont } from '@/lib/admin/fonts-actions';
+import { isProjectStorageUrl } from '@/lib/image-src';
 import { uploadToBucket } from './ImageField';
 import { Spinner } from './SubmitButton';
 import type { CustomFont } from '@/lib/supabase/types';
+
+/**
+ * [1.31] דוגמה חיה לצד כל גופן מותקן — @font-face מקומי למסך הזה בלבד,
+ * שקיים לכל הגופנים ברשימה כולל הכבויים (CustomFontsStyle מזריק לאתר
+ * רק את הפעילים, כך שדוגמה שנשענת עליו הייתה מוצגת בגופן ברירת המחדל
+ * לגופן כבוי). אותם סייגי בטיחות CSS כמו שם: slug סגור, כתובת מאחסון
+ * הפרויקט בלבד, בלי תווים שוברי-מחרוזת.
+ */
+const SLUG_PATTERN = /^[a-z0-9-]{1,40}$/;
+
+function fontFormat(url: string): string {
+  if (url.endsWith('.woff2')) return 'woff2';
+  if (url.endsWith('.woff')) return 'woff';
+  if (url.endsWith('.otf')) return 'opentype';
+  return 'truetype';
+}
+
+function isPreviewable(font: CustomFont): boolean {
+  return (
+    SLUG_PATTERN.test(font.slug) &&
+    isProjectStorageUrl(font.font_url) &&
+    !/['"\\)]/.test(font.font_url)
+  );
+}
+
+const SAMPLE_TEXT = 'אבגד הוזח טיכל — שלום עולם 0123456789';
 
 /**
  * [1.11] התקנת גופנים לאתר: העלאת קובץ (woff2 מומלץ), שם תצוגה,
@@ -71,7 +98,19 @@ export function FontsManager({ fonts }: { fonts: CustomFont[] }) {
       </div>
 
       {fonts.length > 0 ? (
-        <ul className="divide-y divide-rule">
+        <>
+          {/* @font-face לתצוגות הדוגמה — לכל הגופנים ברשימה, גם כבויים.
+              מחוץ ל-ul: ילדי ul חייבים להיות li בלבד. */}
+          <style>
+            {fonts
+              .filter(isPreviewable)
+              .map(
+                (font) =>
+                  `@font-face{font-family:'kr-font-preview-${font.slug}';src:url('${font.font_url}') format('${fontFormat(font.font_url)}');font-display:swap;}`,
+              )
+              .join('\n')}
+          </style>
+          <ul className="divide-y divide-rule">
           {fonts.map((font) => (
             <li key={font.id} className="flex flex-wrap items-center gap-3 py-3">
               <span className="min-w-0 flex-1">
@@ -79,6 +118,15 @@ export function FontsManager({ fonts }: { fonts: CustomFont[] }) {
                 <span className="block truncate text-caption text-muted" dir="ltr">
                   var(--font-custom-{font.slug})
                 </span>
+                {isPreviewable(font) ? (
+                  <span
+                    aria-label={`דוגמה מהגופן ${font.name}`}
+                    className="mt-1 block truncate text-[1.125rem] leading-relaxed text-ink"
+                    style={{ fontFamily: `'kr-font-preview-${font.slug}', var(--font-assistant)` }}
+                  >
+                    {SAMPLE_TEXT}
+                  </span>
+                ) : null}
               </span>
               <span className={`admin-badge ${font.is_active ? 'admin-badge-success' : 'admin-badge-neutral'}`}>
                 {font.is_active ? 'פעיל' : 'כבוי'}
@@ -105,7 +153,8 @@ export function FontsManager({ fonts }: { fonts: CustomFont[] }) {
               </button>
             </li>
           ))}
-        </ul>
+          </ul>
+        </>
       ) : (
         <p className="text-small text-muted">טרם הותקנו גופנים.</p>
       )}
