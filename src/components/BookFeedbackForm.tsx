@@ -32,7 +32,14 @@ export interface FeedbackBookOption {
  * אותה שפת נגישות כמו ContactForm: label לכל שדה, שגיאות מקושרות,
  * מלכודת בוטים וקאפצ'ה.
  */
-export function BookFeedbackForm({ books }: { books: FeedbackBookOption[] }) {
+export function BookFeedbackForm({
+  books,
+  defaultBookId,
+}: {
+  books: FeedbackBookOption[];
+  /** ספר שנבחר מראש — קישור עמוק מלחצן "דיווח על ספר" בעמוד הספר. */
+  defaultBookId?: string | null;
+}) {
   const t = useTranslations('contact');
   const locale = useLocale();
   const formRef = useRef<HTMLFormElement>(null);
@@ -133,7 +140,7 @@ export function BookFeedbackForm({ books }: { books: FeedbackBookOption[] }) {
                 className="field-input mb-2"
               />
             ) : null}
-            <select required {...field('book_id')}>
+            <select required defaultValue={defaultBookId ?? ''} {...field('book_id')}>
               <option value="">{t('bookEmpty')}</option>
               {filteredBooks.map((book) => (
                 <option key={book.id} value={book.id}>

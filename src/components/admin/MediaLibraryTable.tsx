@@ -22,6 +22,38 @@ const BUCKET_LABELS: Record<string, string> = {
   site: 'כללי',
 };
 
+/**
+ * הספרייה מרכזת את *כל* הקבצים שהועלו — לא רק תמונות: דפדופי דוגמה של
+ * ספרים הם PDF (sample_pdf_url ב-BookForm), וגופנים מותקנים הם woff/ttf
+ * (FontsManager, ב-bucket 'site'). תצוגה מקדימה של <img> על קבצים כאלה
+ * הציגה אייקון תמונה שבורה. מסווגים לפי mime (ובסיומת, לקבצים ישנים
+ * שהועלו בלי metadata) ומציגים תג מתאים במקום תמונה שבורה.
+ */
+type FileKind = 'image' | 'pdf' | 'font' | 'other';
+
+function fileKind(file: AdminStorageFile): FileKind {
+  const mime = file.mime_type ?? '';
+  if (mime.startsWith('image/')) return 'image';
+  if (mime === 'application/pdf' || /\.pdf$/i.test(file.path)) return 'pdf';
+  if (mime.startsWith('font/') || /\.(woff2?|ttf|otf)$/i.test(file.path)) return 'font';
+  if (!mime && /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(file.path)) return 'image';
+  return 'other';
+}
+
+/** סוג הקובץ שכפתור ההחלפה מקבל — החלפה שומרת על אותו path, ולכן על אותו סוג. */
+const REPLACE_ACCEPT: Record<FileKind, string> = {
+  image: 'image/*',
+  pdf: 'application/pdf',
+  font: '.woff2,.woff,.ttf,.otf',
+  other: '',
+};
+
+const KIND_BADGE: Record<Exclude<FileKind, 'image'>, string> = {
+  pdf: 'PDF',
+  font: 'Aa',
+  other: '?',
+};
+
 function formatBytes(bytes: number | null): string {
   if (bytes == null) return '—';
   if (bytes < 1024) return `${bytes} B`;
@@ -136,6 +168,7 @@ function MediaLibraryRow({
   onDelete: () => void;
 }) {
   const inputId = useId();
+  const kind = fileKind(file);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
   const [replacing, setReplacing] = useState(false);
@@ -182,13 +215,22 @@ function MediaLibraryRow({
   return (
     <AdminRow>
       <AdminCell>
-        {/* eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה קטנה בטבלת ניהול */}
-        <img
-          src={file.publicUrl}
-          alt=""
-          loading="lazy"
-          className="h-12 w-12 rounded-[var(--radius-sm)] border border-rule object-cover"
-        />
+        {kind === 'image' ? (
+          // eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה קטנה בטבלת ניהול
+          <img
+            src={file.publicUrl}
+            alt=""
+            loading="lazy"
+            className="h-12 w-12 rounded-[var(--radius-sm)] border border-rule object-cover"
+          />
+        ) : (
+          <span
+            aria-label={kind === 'pdf' ? 'קובץ PDF' : kind === 'font' ? 'קובץ גופן' : 'קובץ'}
+            className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-sm)] border border-rule bg-cream-2 text-caption font-semibold text-muted"
+          >
+            {KIND_BADGE[kind]}
+          </span>
+        )}
       </AdminCell>
       <AdminCell className="max-w-xs">
         <span className="block truncate" title={file.path}>
@@ -216,7 +258,7 @@ function MediaLibraryRow({
             <input
               id={inputId}
               type="file"
-              accept="image/*"
+              accept={REPLACE_ACCEPT[kind] || undefined}
               className="sr-only"
               disabled={replacing}
               onChange={onReplaceFile}

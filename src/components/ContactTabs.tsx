@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ContactForm } from './ContactForm';
 import { BookFeedbackForm, type FeedbackBookOption } from './BookFeedbackForm';
@@ -24,7 +25,15 @@ export function ContactTabs({
 }) {
   const t = useTranslations('contact');
   const id = useId();
-  const [active, setActive] = useState<'general' | 'book'>('general');
+
+  // קישור עמוק מלחצן "דיווח על ספר" בעמוד הספר: ?tab=book פותח ישר את
+  // כרטיסיית ההערות על ספרים, ו-?book=<id> בוחר מראש את הספר המדווח.
+  // הקריאה בצד הלקוח (useSearchParams) ולא ב-page כדי שהעמוד יישאר סטטי.
+  const searchParams = useSearchParams();
+  const initialBookId = searchParams.get('book');
+  const [active, setActive] = useState<'general' | 'book'>(
+    searchParams.get('tab') === 'book' || initialBookId ? 'book' : 'general',
+  );
 
   const tabs = [
     { key: 'general' as const, label: t('tabGeneral'), hint: t('tabGeneralHint') },
@@ -74,7 +83,7 @@ export function ContactTabs({
         aria-labelledby={`${id}-tab-book`}
         hidden={active !== 'book'}
       >
-        <BookFeedbackForm books={books} />
+        <BookFeedbackForm books={books} defaultBookId={initialBookId} />
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import {
   Frank_Ruhl_Libre,
   Assistant,
@@ -138,3 +139,58 @@ export const EDITOR_FONT_CHOICES: { label: string; value: string }[] = [
   { label: 'Suez One (כותרות)', value: 'var(--font-suez)' },
   { label: 'Bellefair', value: 'var(--font-bellefair)' },
 ];
+
+/* --------------------------------------------------------------------------
+   גופני ברירת המחדל של האתר — ניתנים להחלפה מניהול ← הגדרות
+   --------------------------------------------------------------------------
+   מערכת העיצוב מגדירה שלושה תפקידי גופן (globals.css, @theme): גוף הטקסט
+   (--font-sans), כותרות (--font-serif) וכותרות התצוגה הגדולות
+   (--font-display). הבחירה נשמרת ב-site_settings.extra כמשתנה CSS מלא
+   (var(--font-heebo) או var(--font-custom-<slug>) לגופן מותקן), ומוחלת
+   כ-style ישיר על ה-<html> הציבורי — הצהרת inline גוברת על ערכי ה-@theme
+   בלי תלות בסדר טעינת ה-CSS. ריק/חסר = ברירות המחדל של מערכת העיצוב.
+   -------------------------------------------------------------------------- */
+
+export type SiteFontRole = 'sans' | 'serif' | 'display';
+
+export const SITE_FONT_ROLES: { role: SiteFontRole; label: string; hint: string }[] = [
+  { role: 'sans', label: 'גוף הטקסט', hint: 'ברירת מחדל: Assistant — רוב הטקסט באתר.' },
+  { role: 'serif', label: 'כותרות', hint: 'ברירת מחדל: Frank Ruhl Libre — כותרות עמודים ומקטעים.' },
+  {
+    role: 'display',
+    label: 'כותרות ראשיות',
+    hint: 'ברירת מחדל: Suez One — כותרות המקטעים הגדולות בעמוד הבית.',
+  },
+];
+
+/**
+ * ערך חוקי הוא משתנה גופן סגור בלבד — אותה משפחת ערכים ש-sanitize.ts כבר
+ * מתיר בתוכן עשיר. שום דבר אחר (מרכאות, סוגריים, נקודה-פסיק) לא עובר,
+ * ולכן אין דרך להזריק CSS דרך ההגדרה.
+ */
+export const SITE_FONT_VALUE_PATTERN = /^var\(--font-[a-z0-9-]{1,60}\)$/;
+
+/** מחסני נפילה לכל תפקיד — נשמרים גם כשגופן ברירת המחדל הוחלף. */
+const SITE_FONT_FALLBACKS: Record<SiteFontRole, string> = {
+  sans: "'Assistant', system-ui, -apple-system, sans-serif",
+  serif: "'Frank Ruhl Libre', 'David Libre', Georgia, serif",
+  display: "'Suez One', Georgia, serif",
+};
+
+/**
+ * דריסות הגופנים מתוך site_settings.extra (מפתחות font_sans/font_serif/
+ * font_display) — כאובייקט style לרכיב ה-<html>. ערך לא-חוקי מדולג בשקט.
+ */
+export function siteFontOverrides(extra: Record<string, unknown>): CSSProperties {
+  const style: Record<string, string> = {};
+  for (const { role } of SITE_FONT_ROLES) {
+    const value = extra[`font_${role}`];
+    if (typeof value === 'string' && SITE_FONT_VALUE_PATTERN.test(value)) {
+      // המחסנים נכנסים כ-fallback של ה-var() עצמו — כך גם גופן מותקן
+      // שנמחק או כובה (המשתנה שלו כבר לא מוזרק) נופל לברירת המחדל,
+      // במקום להשאיר font-family לא-חוקי.
+      style[`--font-${role}`] = `${value.slice(0, -1)}, ${SITE_FONT_FALLBACKS[role]})`;
+    }
+  }
+  return style as CSSProperties;
+}

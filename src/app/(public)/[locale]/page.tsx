@@ -3,6 +3,7 @@ import { Link } from '@/i18n/navigation';
 import { Img as Image } from '@/components/Img';
 import { HeroCarousel } from '@/components/hero/HeroCarousel';
 import { BannerStrip } from '@/components/hero/BannerStrip';
+import { AllBooksBook } from '@/components/home/AllBooksBook';
 import { BookShelf, type ShelfBook } from '@/components/home/BookShelf';
 import { MostViewedRow } from '@/components/home/MostViewedRow';
 import { HomeBackgroundDecor } from '@/components/home/HomeBackgroundDecor';
@@ -209,32 +210,16 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             className="absolute inset-0 -z-10 bg-[radial-gradient(64rem_28rem_at_50%_-12%,color-mix(in_srgb,var(--color-gold)_22%,transparent),transparent_65%)]"
           />
 
-          <div className="mx-auto w-full max-w-[82rem] px-5 sm:px-8">
-            <header className="mb-10 text-center">
-              {/* טקסט על גבי תמונה ללא שכבת כהות — צל טקסט שומר על קריאות
-                  בלי להאפיל שוב על התמונה עצמה. */}
-              <p className="eyebrow" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-                {t('home.newBooksLead')}
-              </p>
-              <h2
-                className="mt-2 font-display text-[clamp(1.625rem,3.2vw,2.125rem)] text-white"
-                style={{ textShadow: '0 2px 6px rgba(0,0,0,0.65)' }}
-              >
-                {t('home.newBooksTitle')}
-              </h2>
-            </header>
-          </div>
-
+          {/* המדף עומד בפני עצמו, בלי כותרות מעליו — הספרים הם הכותרת. */}
           <BookShelf books={shelfBooks} label={t('home.shelfLabel')} />
 
           <div className="mx-auto mt-12 w-full max-w-[82rem] px-5 sm:px-8">
             <MostViewedRow books={mostViewedBooks} locale={locale} storeEnabled={flags.showPrices} />
 
-            <p className="mt-10 text-center">
-              <Link href="/books" className="link-more">
-                {t('home.catalogueAll')}
-              </Link>
-            </p>
+            {/* [1.30] "לכל הספרים" — ספר שוכב שנפתח בלחיצה, ראו AllBooksBook */}
+            <div className="mt-8 flex justify-center">
+              <AllBooksBook label={t('home.catalogueAll')} />
+            </div>
           </div>
         </section>
       ) : null}

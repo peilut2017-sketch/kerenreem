@@ -2,13 +2,20 @@
 
 import { useActionState } from 'react';
 import { saveSettings, type SettingsState } from '@/lib/admin/settings-actions';
-import { FieldSet, TextField } from './Fields';
+import { SITE_FONT_ROLES } from '@/lib/fonts';
+import { FieldSet, SelectField, TextField } from './Fields';
 import { ImageField } from './ImageField';
 import type { SiteSettings } from '@/lib/supabase/types';
 
 const INITIAL: SettingsState = { status: 'idle' };
 
-export function SettingsForm({ settings }: { settings: SiteSettings }) {
+export function SettingsForm({
+  settings,
+  fontChoices,
+}: {
+  settings: SiteSettings;
+  fontChoices: { label: string; value: string }[];
+}) {
   const [state, action, pending] = useActionState(saveSettings, INITIAL);
   const contact = settings.contact ?? {};
   const social = settings.social_links ?? {};
@@ -103,6 +110,25 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
           defaultValue={typeof extra.book_base_spine_url === 'string' ? extra.book_base_spine_url : null}
           hint="תמונת שדרת עור גנרית — מומלץ חתוכה צמוד לשדרה עצמה, בלי רקע לבן מסביב. שם הספר יוטבע לאורכה במדף שבעמוד הבית."
         />
+      </FieldSet>
+
+      <FieldSet
+        legend="גופני האתר"
+        description="גופני ברירת המחדל של הטקסטים בכל האתר — מהגופנים המובנים או מהגופנים שהותקנו במקטע ״גופנים מותקנים״ שבהמשך העמוד. ריק = ברירת המחדל של מערכת העיצוב."
+      >
+        <div className="grid gap-5 sm:grid-cols-3">
+          {SITE_FONT_ROLES.map(({ role, label, hint }) => (
+            <SelectField
+              key={role}
+              name={`font_${role}`}
+              label={label}
+              hint={hint}
+              emptyLabel="ברירת המחדל"
+              options={fontChoices}
+              defaultValue={typeof extra[`font_${role}`] === 'string' ? (extra[`font_${role}`] as string) : ''}
+            />
+          ))}
+        </div>
       </FieldSet>
 
       <FieldSet legend="רשתות" description="הקישורים מוצגים בתחתית האתר כלוגו של הרשת המתאימה.">
