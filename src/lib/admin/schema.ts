@@ -185,8 +185,9 @@ export const ENTITIES = {
     ],
     // ספר מופיע גם במסכי המחברים: עמוד המחבר מציג את ספריו, ומדד הספרים
     // ברשימת המחברים נספר מהם. בלי שני אלה ספר חדש נראה בקטלוג אבל לא
-    // אצל המחבר שלו, עד שפג ה-ISR.
-    revalidate: ['/books', '/books/[slug]', '/authors', '/authors/[slug]', ''],
+    // אצל המחבר שלו, עד שפג ה-ISR. /contact — בורר הספרים בטופס "הערה
+    // על ספר"; /account — הספרים השמורים באזור האישי.
+    revalidate: ['/books', '/books/[slug]', '/authors', '/authors/[slug]', '/contact', '/account', ''],
   },
 
   authors: {
@@ -207,8 +208,9 @@ export const ENTITIES = {
     ],
     // שם המחבר מוצג גם בעמוד הספר, בכרטיסי הקטלוג ובספרים המומלצים בדף
     // הבית, והוא משמש כמסנן בקטלוג. שינוי שם שמתעדכן רק במסכי המחברים
-    // משאיר את כל אלה עם השם הישן.
-    revalidate: ['/authors', '/authors/[slug]', '/books', '/books/[slug]', ''],
+    // משאיר את כל אלה עם השם הישן. /contact — שם המחבר מוצג בבורר
+    // הספרים של טופס "הערה על ספר" (getBooks מצרף authors).
+    revalidate: ['/authors', '/authors/[slug]', '/books', '/books/[slug]', '/contact', ''],
   },
 
   events: {
@@ -292,10 +294,11 @@ export const ENTITIES = {
     screenKey: 'categories',
     fields: [f('slug', 'text', true), f('name_he', 'text', true), f('name_en'), fd('sort_order', 'number')],
     // הרשימה נגזרת מהשאילתות ולא ממה שמוצג בפועל, ולכן היא רחבה מהנדרש:
-    // הקטגוריה מצורפת לכל שליפת ספרים גם במסלולים שאינם מציגים את שמה.
-    // רענון תבנית מסלול הוא זול, ובחירה ברשימה מדויקת הייתה מחייבת רשימת
-    // חריגים שתתיישן ברגע שמישהו יציג את שם הקטגוריה במקום נוסף.
-    revalidate: ['/books', '/books/[slug]', '/authors', '/authors/[slug]', ''],
+    // הקטגוריה מצורפת לכל שליפת ספרים גם במסלולים שאינם מציגים את שמה
+    // (כולל getBooks שב-/contact). רענון תבנית מסלול הוא זול, ובחירה
+    // ברשימה מדויקת הייתה מחייבת רשימת חריגים שתתיישן ברגע שמישהו יציג
+    // את שם הקטגוריה במקום נוסף.
+    revalidate: ['/books', '/books/[slug]', '/authors', '/authors/[slug]', '/contact', ''],
   },
 
   series: {
