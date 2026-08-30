@@ -196,7 +196,11 @@ export async function saveEventChapters(
   if (!supabase) return { error: 'אין חיבור למסד' };
 
   const kept = chapters.filter((chapter) => chapter.title_he.trim());
-  const keptIds = kept.map((c) => c.id).filter((id): id is string => Boolean(id));
+  // רק UUID תקין נכנס לביטוי ה-in — הערכים מגיעים מהלקוח, ומחרוזת
+  // חופשית בתוך התחביר משבשת את רשימת ה-IN של PostgREST.
+  const keptIds = kept
+    .map((c) => c.id)
+    .filter((id): id is string => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id));
 
   // שלבים שהוסרו מהרשימה נמחקים; המדיה שלהם חוזרת ל"ללא שלב" (set null)
   const removal = keptIds.length

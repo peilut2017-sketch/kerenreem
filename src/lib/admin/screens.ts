@@ -9,6 +9,13 @@ import type { UserRole } from '@/lib/supabase/types';
  * מסך = יחידת הרשאה עצמאית. חלוקה לפי URL הייתה מטעה: /admin/books/sale-prices
  * ו-/admin/books/settings חיים תחת "books/" אך הם מסכי חנות/כספים לגמרי,
  * לא תוכן — ולכן ה-key כאן לא תמיד תואם את תיקיית ה-route.
+ *
+ * ⚠ גבול האכיפה: ההרשאה הגרגרית נאכפת בשכבת האפליקציה בלבד (page.tsx
+ * ו-Server Actions). מדיניות ה-RLS במסד עדיין נקבעת לפי ה-role הגס
+ * (can_edit() וכד') ואינה מודעת ל-user_screen_permissions — משתמש עם
+ * מפתח anon + ‏JWT משלו יכול לפנות ל-PostgREST ישירות בגבולות ה-role,
+ * גם אם ה-override חסם אותו במסך. כלומר: ה-override מצמצם את *הממשק*,
+ * לא את תקרת ההרשאה של ה-role. צמצום אמיתי = הורדת ה-role עצמו.
  */
 export type ScreenKey =
   // תוכן

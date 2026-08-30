@@ -135,7 +135,24 @@ update storage.buckets set
 where id = 'site';
 
 -- ----------------------------------------------------------------------------
--- 3. אינדקס מיון הקטלוג
+-- 3. יומן הביקורת פתוח לכל תפקידי הצוות
+-- ----------------------------------------------------------------------------
+-- המדיניות הקודמת (02_site_additions) התנתה הכנסה ב-can_edit() —
+-- admin/manager/editor בלבד. דווקא התפקידים שמבצעים את הפעולות
+-- הכספיות (store_manager, מוכרן, מלקט) קיבלו 42501 שקט על כל רישום:
+-- זיכוי, סימון תשלום ותנועות מלאי נשארו בלי שום עקבה ביומן.
+-- כל בעל פרופיל צוות רשאי לרשום את פעולותיו-שלו; היומן נותר
+-- append-only (אין update/delete) וקריא ל-admin בלבד.
+drop policy if exists audit_log_staff_insert on audit_log;
+create policy audit_log_staff_insert on audit_log
+  for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and exists (select 1 from profiles where id = auth.uid())
+  );
+
+-- ----------------------------------------------------------------------------
+-- 4. אינדקס מיון הקטלוג
 -- ----------------------------------------------------------------------------
 -- getBooks: where is_published order by title_he. האינדקס הקיים
 -- (sort_order, title_he) נשאר לטובת שאילתות שממיינות לפי sort_order.

@@ -3,9 +3,10 @@
 import { randomInt } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { assertPermission } from './auth';
+import { writeAuditLog } from './audit';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { sendPlainEmail } from '@/lib/commerce/notifications';
+import { escapeHtml, sendPlainEmail } from '@/lib/commerce/notifications';
 import { ROLE_LABELS, ASSIGNABLE_ROLES } from './permissions';
 import type { UserRole } from '@/lib/supabase/types';
 
@@ -98,7 +99,7 @@ export async function inviteStaffMember(input: {
   const emailResult = await sendPlainEmail(
     email,
     'הוזמנת לצוות מכון קרן רא״ם',
-    `<h2 style="margin:0 0 12px">שלום ${input.fullName || ''},</h2>
+    `<h2 style="margin:0 0 12px">שלום ${escapeHtml(input.fullName || '')},</h2>
      <p>נוצר עבורך חשבון צוות באתר מכון קרן רא״ם בתפקיד <strong>${ROLE_LABELS[input.role]}</strong>.</p>
      <p>פרטי הכניסה הראשונית:</p>
      <p style="background:#f6f1e7;border-radius:8px;padding:12px 16px;direction:ltr;text-align:left">
@@ -194,6 +195,9 @@ export async function clearScreenOverrides(userId: string): Promise<TeamActionRe
   const { error } = await service.from('user_screen_permissions').delete().eq('user_id', userId);
   if (error) return { ok: false, error: error.message };
 
+  await writeAuditLog(null, session.userId, 'screen_permissions_clear', 'user_screen_permissions', userId, {
+    context: 'איפוס הרשאות מסך מותאמות — חזרה לברירת המחדל של התפקיד',
+  });
   revalidatePath('/admin/team');
   return { ok: true };
 }

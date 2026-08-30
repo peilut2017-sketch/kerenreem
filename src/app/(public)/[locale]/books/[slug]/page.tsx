@@ -319,12 +319,13 @@ export default async function BookPage({
     ],
   };
 
+  // החלפת < מנטרלת סגירת </script> מתוך ערכי תוכן (שם ספר/תיאור שעורך
+  // הקליד) — הדפוס המקובל להזרקת JSON-LD בטוחה לתוך תגית script.
+  const jsonLdMarkup = JSON.stringify(jsonLd).replaceAll('<', '\\u003c');
+
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdMarkup }} />
 
       <ViewTracker slug={book.slug} />
 

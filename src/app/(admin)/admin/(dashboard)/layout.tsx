@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireRole, getAllScreenAccess } from '@/lib/admin/auth';
 import { countNewInquiries } from '@/lib/admin/queries';
 import { getCustomFonts } from '@/lib/data';
@@ -62,6 +63,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }
         signOutButton={<SignOutButton />}
       >
+        {session.mustChangePassword ? (
+          <div
+            role="alert"
+            className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-[0.9rem] text-amber-900"
+          >
+            <span>
+              נכנסת עם הסיסמה הראשונית שנשלחה במייל — יש להחליף אותה לסיסמה אישית.
+            </span>
+            <Link href="/admin/account" className="font-semibold underline underline-offset-2">
+              להחלפת הסיסמה
+            </Link>
+          </div>
+        ) : null}
         {children}
       </AdminShell>
     </CustomFontsProvider>

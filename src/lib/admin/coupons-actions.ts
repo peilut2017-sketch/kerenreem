@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { assertScreenPermission } from './auth';
+import { writeAuditLog } from './audit';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -127,11 +128,17 @@ export async function deleteCoupon(couponId: string): Promise<{ ok: boolean; err
     .eq('coupon_id', couponId);
   if ((count ?? 0) > 0) {
     await service.from('coupons').update({ active: false }).eq('id', couponId);
+    await writeAuditLog(null, session.userId, 'coupon_disable', 'coupons', couponId, {
+      context: 'השבתת קופון עם מימושים (במקום מחיקה)',
+    });
     revalidatePath('/admin/coupons');
     return { ok: true, error: 'לקופון מימושים — הושבת במקום להימחק (ההיסטוריה נשמרת)' };
   }
   const { error } = await service.from('coupons').delete().eq('id', couponId);
   if (error) return { ok: false, error: error.message };
+  await writeAuditLog(null, session.userId, 'coupon_delete', 'coupons', couponId, {
+    context: 'מחיקת קופון (ללא מימושים)',
+  });
   revalidatePath('/admin/coupons');
   return { ok: true };
 }

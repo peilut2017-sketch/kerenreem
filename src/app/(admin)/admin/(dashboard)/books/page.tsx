@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import {
   getUserPref,
   listBookCompletionSignals,
@@ -12,7 +12,9 @@ import { BOOKS_COLUMNS_PREF_KEY, BooksDataGrid } from '@/components/admin/BooksD
 export const dynamic = 'force-dynamic';
 
 export default async function AdminBooksPage() {
-  await requireRole('viewer');
+  // כמו כל שאר מסכי הרשימה — ההרשאה הגרגרית, לא requireRole('viewer')
+  // שכל תפקיד צוות עובר (מלקט/מוכרן היו רואים את מסך הקטלוג המלא).
+  await requireScreenPermission('books', 'view');
   const [books, completionSignals, categories, series, savedColumns] = await Promise.all([
     listBooks(),
     listBookCompletionSignals(),

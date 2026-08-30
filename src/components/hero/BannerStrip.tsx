@@ -48,7 +48,11 @@ export function BannerStrip({
 
   const active = banners[index];
   const alt = (locale === 'en' && active.title_en ? active.title_en : active.title_he) ?? '';
-  const href = active.link_url;
+  // הגנת עומק בנוסף לוולידציה בשמירה (saveEntity): רק נתיב פנימי או
+  // http(s) — ערך אחר (למשל javascript:) שנשמר לפני הוולידציה לא יהפוך
+  // ללחיץ. באנר עם יעד פסול פשוט אינו קישור.
+  const rawHref = active.link_url;
+  const href = rawHref && /^(https?:\/\/|\/)/i.test(rawHref) ? rawHref : null;
 
   const image = (
     <>

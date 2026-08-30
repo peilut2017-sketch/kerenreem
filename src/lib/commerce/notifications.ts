@@ -153,7 +153,8 @@ export function renderEmail(
   }
 }
 
-function escapeHtml(value: string): string {
+/** מיוצא לכל מי שמרכיב HTML לדואר עם קלט משתמש (מענה לפנייה, הזמנת צוות). */
+export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

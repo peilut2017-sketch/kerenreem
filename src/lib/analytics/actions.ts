@@ -34,6 +34,12 @@ function referrerHostname(referrer: string | null): string | null {
  */
 export async function recordPageView(path: string, locale: string, referrer: string | null): Promise<void> {
   try {
+    // הפרמטרים מגיעים מהדפדפן — Server Action ציבורי אפשר לקרוא ישירות
+    // עם כל payload. גבולות צורה בסיסיים כדי שלא ניתן יהיה להזרים זבל
+    // שרירותי למסך האנליטיקס או לנפח את הטבלה במחרוזות ענק.
+    if (typeof path !== 'string' || !path.startsWith('/') || path.length > 300) return;
+    if (locale !== 'he' && locale !== 'en') return;
+
     const supabase = await createClient();
     if (!supabase) return;
 

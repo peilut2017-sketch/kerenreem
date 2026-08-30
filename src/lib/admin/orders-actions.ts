@@ -58,6 +58,19 @@ function revalidateOrders(orderId?: string) {
   if (orderId) revalidatePath(`/admin/orders/${orderId}`);
 }
 
+
+/**
+ * שער כפול לפעולות הכספיות על הזמנות: הרשאת finance (הדו-ממדית) *וגם*
+ * עריכה במסך ההזמנות הגרגרי. בלי החלק השני, לוח ההרשאות פר-מסך הציג
+ * הגבלה שלא סיפק: store_manager שהוסרה ממנו עריכת הזמנות ב-override
+ * עדיין יכול היה לזכות ולמחוק הזמנות דרך finance הישן.
+ */
+async function assertFinanceOnOrders() {
+  const result = await assertPermission('finance');
+  if ('error' in result) return result;
+  return assertScreenPermission('orders', 'edit');
+}
+
 /** מעבר מצב באחד מארבעת הצירים — רק מעברים חוקיים, עם תיעוד מלא. */
 export async function staffTransitionOrder(
   orderId: string,
@@ -353,7 +366,7 @@ export async function addOrderNote(orderId: string, note: string): Promise<Order
  * audit + ציר זמן. יוצר רשומת payment מסוג manual_external.
  */
 export async function markManualPayment(orderId: string): Promise<OrderActionResult> {
-  const session = await assertPermission('finance');
+  const session = await assertFinanceOnOrders();
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -444,7 +457,7 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
  * דרך זיכוי (refundOrder), לא ביטול-בדיעבד של הסימון.
  */
 export async function undoManualPayment(orderId: string, reason: string): Promise<OrderActionResult> {
-  const session = await assertPermission('finance');
+  const session = await assertFinanceOnOrders();
   if ('error' in session) return { ok: false, error: session.error };
   if (!reason.trim()) return { ok: false, error: 'נדרשת סיבה — נשמרת בציר הזמן' };
   const service = createServiceClient();
@@ -531,7 +544,7 @@ export async function refundOrder(
   reason: string,
   idempotencyToken?: string,
 ): Promise<OrderActionResult> {
-  const session = await assertPermission('finance');
+  const session = await assertFinanceOnOrders();
   if ('error' in session) return { ok: false, error: session.error };
   if (!(amount > 0)) return { ok: false, error: 'סכום זיכוי לא תקין' };
 
@@ -750,7 +763,9 @@ export async function staffAdjustStock(input: {
   /** [1.1] מיקום מפורש (ריבוי מחסנים); ריק = המיקום הראשי */
   locationId?: string | null;
 }): Promise<OrderActionResult & { onHand?: number }> {
-  const session = await assertScreenPermission('orders', 'edit');
+  // מסך ההרשאה הוא 'inventory' — הפעולה מופעלת ממסך המלאי, ומשתמש
+  // שנחסם ממנו ב-override לא אמור לעקוף את החסימה דרך מפתח 'orders'.
+  const session = await assertScreenPermission('inventory', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -796,7 +811,7 @@ export async function staffTransferStock(input: {
   qty: number;
   note?: string;
 }): Promise<OrderActionResult> {
-  const session = await assertScreenPermission('orders', 'edit');
+  const session = await assertScreenPermission('inventory', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -1013,7 +1028,7 @@ export async function sendPaymentLink(orderId: string): Promise<OrderActionResul
 export async function startAdminCardPayment(
   orderId: string,
 ): Promise<{ ok: true; paymentUrl: string } | { ok: false; error: string }> {
-  const session = await assertPermission('finance');
+  const session = await assertFinanceOnOrders();
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
@@ -1129,7 +1144,7 @@ export async function setStaffDiscount(
   amount: number,
   reason: string,
 ): Promise<OrderActionResult> {
-  const session = await assertPermission('finance');
+  const session = await assertFinanceOnOrders();
   if ('error' in session) return { ok: false, error: session.error };
   if (!(amount >= 0)) return { ok: false, error: 'סכום לא תקין' };
   if (amount > 0 && !reason.trim()) return { ok: false, error: 'נדרשת סיבה להנחה' };
@@ -1247,7 +1262,7 @@ export async function savePickingState(
  * או מסמך — לעולם לא נמחקת (חובת שמירה 7 שנים); מבטלים במקום.
  */
 export async function deleteOrder(orderId: string): Promise<OrderActionResult> {
-  const session = await assertPermission('finance');
+  const session = await assertFinanceOnOrders();
   if ('error' in session) return { ok: false, error: session.error };
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'אין חיבור למסד' };
