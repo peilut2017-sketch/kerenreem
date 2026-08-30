@@ -9,6 +9,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { round2 } from './pricing';
 import type { ValidatedCart } from './cart';
 import { generateGuestToken } from './guest-token';
+import { getStoreSettings } from './settings';
 import { recordOrderEvent, SYSTEM_ACTOR, type Actor } from './orders';
 import { releaseStock, reserveStock } from './inventory';
 
@@ -157,8 +158,11 @@ export async function createOrderFromSession(input: CreateOrderInput): Promise<C
   if (activeLines.length === 0) return { ok: false, error: 'unavailable' };
 
   const { token, hash } = generateGuestToken();
+  // תוקף קישור האורח מההגדרות (guest_link_ttl_days) — לא 90 קשיח:
+  // השדה קיים במסך ההגדרות ובמסד, וערך שהצוות שינה חייב לחול בפועל.
+  const storeSettings = await getStoreSettings();
   const guestExpiry = new Date();
-  guestExpiry.setDate(guestExpiry.getDate() + 90);
+  guestExpiry.setDate(guestExpiry.getDate() + (storeSettings.guest_link_ttl_days ?? 90));
 
   const insertPayload = {
     user_id: session.customer_id,

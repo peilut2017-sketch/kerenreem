@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Container } from '@/components/Container';
 import { getTrackedOrder } from '@/lib/commerce/track';
+import { beginAccountClaim } from '@/lib/commerce/track-actions';
 import { allowRequest, ipBucket } from '@/lib/commerce/rate-limit';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
@@ -228,14 +229,18 @@ export default async function TrackOrderPage({
       {cancelEligible ? <TrackCancelRequest token={token} /> : null}
 
       {/* [1.1] עוגן ה-Claim הבטוח: הטוקן שבידי הלקוח מוכיח את הזמנת
-          המקור — ההצעה לחשבון עוברת אותו הלאה (תרשים 18) */}
+          המקור. הוא עובר הלאה בעוגיית httpOnly (beginAccountClaim) ולא
+          ב-?claim= בכתובת — טוקן בכתובת נשמר בהיסטוריית הדפדפן וביומני
+          שרת/CDN, בניגוד לעיקרון שתועד ליד עוגיית kr-guest. */}
       {flags.accountsEnabled && !order.user_id && !cancelled ? (
         <div className="mt-8 rounded-[var(--radius-lg)] border border-gold/40 bg-gold/10 px-6 py-5 text-center">
           <p className="font-serif text-h3 text-ink">{t('accountOfferTitle')}</p>
           <p className="mt-1.5 text-small text-muted">{t('accountOfferBody')}</p>
-          <Link href={`/account/login?claim=${token}`} className="btn btn-solid mt-4 inline-block">
-            {t('accountOfferCta')}
-          </Link>
+          <form action={beginAccountClaim.bind(null, token, locale)}>
+            <button type="submit" className="btn btn-solid mt-4 inline-block">
+              {t('accountOfferCta')}
+            </button>
+          </form>
         </div>
       ) : null}
 

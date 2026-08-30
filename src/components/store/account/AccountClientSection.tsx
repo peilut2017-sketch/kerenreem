@@ -22,15 +22,9 @@ export function AccountClientSection() {
     if (ran.current) return;
     ran.current = true;
     void (async () => {
-      // עוגן ה-Claim (טוקן הזמנת המקור) שנשמר בעת ההתחברות — חד-פעמי
-      let claimToken: string | null = null;
-      try {
-        claimToken = window.localStorage.getItem('kr:claim');
-        if (claimToken) window.localStorage.removeItem('kr:claim');
-      } catch {
-        claimToken = null;
-      }
-      await completeLogin(claimToken);
+      // עוגן ה-Claim (טוקן הזמנת המקור) יושב בעוגיית kr-claim ה-httpOnly
+      // ש-beginAccountClaim הציב — completeLogin קורא אותה בצד השרת בלבד.
+      await completeLogin();
       if (favourites.length > 0 || Object.keys(shelf).length > 0) {
         const result = await mergeSavedBooks({ favourites, shelf });
         if (result.ok) {

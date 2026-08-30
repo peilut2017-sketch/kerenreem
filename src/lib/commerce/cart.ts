@@ -15,6 +15,13 @@ import { getCommerceFlags } from './settings';
 
 export const MAX_QTY_PER_ITEM = 99;
 
+/**
+ * תקרת שורות לעגלה. בלי תקרה, מערך של אלפי פריטים מהדפדפן הופך
+ * לשאילתת ‎.in()‎ ענקית ולשורת checkout_sessions שמחזיקה את כולו.
+ * גדול בהרבה מכל עגלה אמיתית בחנות ספרים — נועד לחסום שימוש לרעה בלבד.
+ */
+export const MAX_CART_LINES = 50;
+
 export interface CartInputItem {
   bookId: string;
   quantity: number;
@@ -106,7 +113,8 @@ export async function validateCart(
   };
   const cleaned = items
     .filter((item) => item.quantity > 0)
-    .map((item) => ({ ...item, quantity: Math.min(Math.floor(item.quantity), MAX_QTY_PER_ITEM) }));
+    .map((item) => ({ ...item, quantity: Math.min(Math.floor(item.quantity), MAX_QTY_PER_ITEM) }))
+    .slice(0, MAX_CART_LINES);
   if (cleaned.length === 0) return empty;
 
   const supabase = createStaticClient();

@@ -1,34 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { sendLoginLink } from '@/lib/commerce/account-actions';
 
 /**
  * טופס קישור ההתחברות — מייל בלבד, בלי סיסמאות (פרק 4.4, הנחה A12).
- * claimToken (מ-?claim= בקישור המעקב/עמוד התודה) נשמר מקומית כדי לשרוד
- * את מסע קישור-הקסם, ונמסר ל-completeLogin בכניסה לאזור האישי — עוגן
- * ה-Claim הבטוח של תרשים 18.
+ * עוגן ה-Claim (טוקן הזמנת המקור מעמוד המעקב) אינו עובר כאן כלל:
+ * beginAccountClaim מציב אותו בעוגיית httpOnly ש-completeLogin קורא
+ * בצד השרת — הטוקן לא נוגע ב-URL, ב-localStorage או בקוד לקוח.
  */
-export function LoginClient({
-  linkIssue,
-  claimToken = null,
-}: {
-  linkIssue: boolean;
-  claimToken?: string | null;
-}) {
+export function LoginClient({ linkIssue }: { linkIssue: boolean }) {
   const t = useTranslations('store');
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'error' | 'rate'>('idle');
-
-  useEffect(() => {
-    if (!claimToken) return;
-    try {
-      window.localStorage.setItem('kr:claim', claimToken);
-    } catch {
-      // אחסון חסום — ה-Claim ייפול חזרה לעוגן עוגיית ה-checkout
-    }
-  }, [claimToken]);
 
   return (
     <form

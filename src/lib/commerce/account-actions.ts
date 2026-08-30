@@ -52,15 +52,18 @@ export async function sendLoginLink(email: string): Promise<AccountActionResult>
 
 /**
  * נקרא אחרי ההתחברות: יצירת רשומת לקוח + ‏Claim בטוח (idempotent).
- * claimToken — טוקן הזמנת המקור אם ה-Claim התחיל מקישור מעקב/עמוד תודה.
+ * טוקן הזמנת המקור, אם ה-Claim התחיל מעמוד המעקב, יושב בעוגיית kr-claim
+ * ה-httpOnly שהציב beginAccountClaim — לא בפרמטר מהדפדפן ולא בכתובת.
  * בהיעדרו, עוגן חלופי שווה-ערך: ה-checkout session של הדפדפן הזה (עוגיית
  * httpOnly שהונפקה בעת ההזמנה) — נקרא בצד השרת בלבד.
  */
-export async function completeLogin(claimToken?: string | null): Promise<AccountActionResult> {
+export async function completeLogin(): Promise<AccountActionResult> {
   const session = await getCustomerSession();
   if (!session) return { ok: false, error: 'server' };
 
-  const token = claimToken?.slice(0, 64) ?? null;
+  const claimStore = await cookies();
+  const token = claimStore.get('kr-claim')?.value.slice(0, 100) || null;
+  if (token) claimStore.delete('kr-claim');
   if (!token) {
     // עוגן ה-checkout: אותה הוכחת-מקור כמו הטוקן, בלי לעבור דרך הלקוח
     const store = await cookies();

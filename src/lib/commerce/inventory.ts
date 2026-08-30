@@ -73,6 +73,37 @@ export function uncommitStock(service: SupabaseClient, bookId: string, qty: numb
   return callStockFn(service, 'commerce_uncommit_stock', bookId, qty, orderId);
 }
 
+/**
+ * התאמת שריון קיים בעריכת כמויות הזמנה (52_commerce_hardening.sql).
+ *
+ * reserveStock/releaseStock הן חד-פעמיות במחזור חיי ההזמנה — קריאה
+ * שנייה מחזירה 'already_*' בלי לעשות דבר. עריכת כמות חייבת לכן לעבור
+ * כאן: delta חיובי משריין את התוספת (נבדק מול הזמין), שלילי משחרר
+ * חלקית. כשאין שריון פעיל להזמנה (ספר לא מנוהל-מלאי) — no-op מוצלח.
+ */
+export async function adjustReservation(
+  service: SupabaseClient,
+  bookId: string,
+  delta: number,
+  orderId: string,
+): Promise<StockOpResult> {
+  const { data, error } = await service.rpc('commerce_adjust_reservation', {
+    p_book_id: bookId,
+    p_delta: delta,
+    p_order_id: orderId,
+  });
+  if (error) {
+    console.error('[commerce:inventory] adjust_reservation', error.message);
+    return { ok: false, reason: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    ok: Boolean(row?.ok),
+    reason: String(row?.reason ?? 'unknown'),
+    available: typeof row?.available === 'number' ? row.available : undefined,
+  };
+}
+
 /** תנועה ידנית: קליטה, החזרה למלאי, נזק, תיקון, ספירה. לעולם לא set ישיר. */
 export async function adjustStock(
   service: SupabaseClient,

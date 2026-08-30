@@ -110,7 +110,28 @@ export async function processMorningWebhook(
 
   if (insertError) {
     if (insertError.code === '23505') {
-      // Idempotency: אירוע כפול — 200 בלי עיבוד נוסף
+      // אירוע עם אותו hash כבר קיים. "כפול → 200 בלי עיבוד" נכון רק
+      // כשהמקור כבר עובד בהצלחה. שני מקרים אחרים חייבים עיבוד חוזר:
+      //  • השורה נתקעה ב-received/failed — קריסה באמצע העיבוד הקודם
+      //    החזירה 500, מורנינג שולחת שוב את אותו גוף, ובלי זה האירוע
+      //    היה אבוד לתמיד (ההתאוששות היחידה הייתה ה-cron היומי).
+      //  • השורה נרשמה עם חתימה שגויה (ניסיון הרעלה של מפתח הכפילות) —
+      //    האירוע האמיתי החתום לא ייתן לה לחסום אותו.
+      if (signatureValid) {
+        const { data: existing } = await service
+          .from('webhook_events')
+          .select('id, processing_status')
+          .eq('provider', 'morning')
+          .eq('dedupe_hash', dedupeHash)
+          .maybeSingle();
+        if (existing && existing.processing_status !== 'processed') {
+          await service
+            .from('webhook_events')
+            .update({ signature_valid: true, processing_status: 'received' })
+            .eq('id', existing.id);
+          return runProcessing(service, payload ?? {}, existing.id);
+        }
+      }
       return { status: 'duplicate', httpStatus: 200 };
     }
     console.error('[commerce:webhook] store', insertError.message);
@@ -118,8 +139,27 @@ export async function processMorningWebhook(
   }
   if (!signatureValid) return { status: 'invalid_signature', httpStatus: 401 };
 
-  const outcome = await applyTransactionUpdate(service, payload ?? {}, eventRow?.id ?? null);
-  return outcome;
+  return runProcessing(service, payload ?? {}, eventRow?.id ?? null);
+}
+
+/**
+ * עטיפת העיבוד בטיפול בחריגות: בלי זה, חריגה באמצע העיבוד מחזירה 500
+ * כשהשורה כבר נכתבה כ-received — הניסיון החוזר של מורנינג פוגע במפתח
+ * הכפילות, מקבל 200, והאירוע נתקע ב-received לנצח. סימון failed משאיר
+ * אותו גלוי בדוח ה-webhooks וניתן לעיבוד חוזר דרך מסלול הכפילות למעלה.
+ */
+async function runProcessing(
+  service: SupabaseClient,
+  payload: Record<string, unknown>,
+  eventId: string | null,
+): Promise<WebhookOutcome> {
+  try {
+    return await applyTransactionUpdate(service, payload, eventId);
+  } catch (error) {
+    console.error('[commerce:webhook] processing crashed', error);
+    await finalizeEvent(service, eventId, 'failed', error instanceof Error ? error.message : 'crash');
+    return { status: 'error', httpStatus: 500 };
+  }
 }
 
 /**

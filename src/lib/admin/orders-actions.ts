@@ -6,16 +6,15 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   cancellationPath,
-  isTransitionAllowed,
   recordOrderEvent,
   transitionOrder,
   type StateAxis,
 } from '@/lib/commerce/orders';
 import {
+  adjustReservation,
   adjustStock,
   commitStock,
   releaseStock,
-  reserveStock,
   transferStock,
   uncommitStock,
 } from '@/lib/commerce/inventory';
@@ -36,6 +35,8 @@ import {
 } from '@/lib/commerce/manual-orders';
 import { startPayment } from '@/lib/commerce/payments';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
+import { getStoreSettings } from '@/lib/commerce/settings';
+import { round2 } from '@/lib/commerce/pricing';
 import type { Order, ShippingAddress } from '@/lib/supabase/types';
 
 /**
@@ -359,8 +360,13 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
 
   const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
   if (!order) return { ok: false, error: 'הזמנה לא נמצאה' };
-  if (!isTransitionAllowed('payment_state', order.payment_state, 'paid')) {
-    return { ok: false, error: `לא ניתן לסמן תשלום ממצב ${order.payment_state}` };
+  // בדיקה מפורשת ולא isTransitionAllowed: המכונה מתירה מעבר "עצמי"
+  // (paid→paid מחזיר true), כך שהזמנה שכבר שולמה דרך מורנינג הייתה
+  // עוברת את השער ומקבלת רשומת חיוב *שנייה* על מלוא הסכום — הכנסה
+  // כפולה בדוחות ותקרת זיכוי כפולה (enforce_refund_cap היא פר-חיוב).
+  // אותו תנאי בדיוק כמו startAdminCardPayment ו-startPayment.
+  if (!['pending', 'failed'].includes(order.payment_state)) {
+    return { ok: false, error: `ההזמנה כבר במצב ${order.payment_state} — אין מה לסמן` };
   }
 
   const { error: paymentError } = await service.from('payments').insert({
@@ -542,6 +548,25 @@ export async function refundOrder(
     .limit(1)
     .maybeSingle();
   if (!charge) return { ok: false, error: 'לא נמצא חיוב שהצליח לזכות' };
+
+  // אכיפת התקרה גם כאן, לא רק בטריגר enforce_refund_cap שבמסד: ההערה
+  // למעלה מבטיחה "כאן ההגנה האחרונה", וסביבה שבה מיגרציה 29 טרם רצה
+  // הייתה נשארת בלי שום תקרה. נספרים גם initiated/pending — זיכוי
+  // שיצא לדרך ועוד לא הוכרע תופס את חלקו בתקרה, כמו בטריגר.
+  const { data: priorRefunds } = await service
+    .from('payments')
+    .select('amount')
+    .eq('parent_payment_id', charge.id)
+    .eq('kind', 'refund')
+    .in('status', ['initiated', 'pending', 'succeeded']);
+  const alreadyRefunded = (priorRefunds ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
+  const refundable = round2(Number(charge.amount) - alreadyRefunded);
+  if (amount > refundable + 0.01) {
+    return {
+      ok: false,
+      error: `סכום הזיכוי חורג מהיתרה הניתנת לזיכוי (${refundable.toFixed(2)} ₪)`,
+    };
+  }
 
   const idempotencyKey = `refund:${orderId}:${idempotencyToken ?? `notoken:${Date.now()}`}`;
   const { data: insertedRow, error: insertError } = await service
@@ -907,6 +932,8 @@ export async function createManualOrderAction(input: {
     | { type: 'shipping'; methodId: string; address: ShippingAddress; courierNotes?: string };
   couponCode: string | null;
   note: string | null;
+  /** טוקן יציב מהטופס — הופך לחיצה כפולה ל"אותה הזמנה" במקום לשתיים. */
+  idempotencyToken?: string;
 }): Promise<OrderActionResult & { orderId?: string; orderNumber?: number }> {
   const session = await assertScreenPermission('orders', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
@@ -1054,15 +1081,16 @@ export async function editOrderItems(
     const next = Math.max(0, Math.floor(change.quantity));
     if (next === item.quantity) continue;
 
-    // התאמת השריון במלאי: הפרש חיובי — שריון נוסף; שלילי — שחרור חלקי
+    // התאמת השריון במלאי דרך commerce_adjust_reservation — לא דרך
+    // reserveStock/releaseStock: אלה חד-פעמיות לכל הזמנה (idempotent
+    // לפי order+book+move_type), כך שקריאה שנייה מהן כאן החזירה
+    // 'already_*' בלי לעשות דבר — הגדלת כמות לא שריינה את התוספת
+    // (מכירת יתר), והקטנה שרפה את תנועת ה-release כך שהשחרור המלא
+    // בביטול מאוחר יותר הפך ל-no-op והיתרה נתקעה משוריינת לנצח.
     if (item.book_id) {
-      if (next > item.quantity) {
-        const grow = await reserveStock(service, item.book_id, next - item.quantity, orderId);
-        if (!grow.ok) {
-          return { ok: false, error: `אין מספיק מלאי זמין עבור ${item.title_snapshot}` };
-        }
-      } else {
-        await releaseStock(service, item.book_id, item.quantity - next, orderId);
+      const adjust = await adjustReservation(service, item.book_id, next - item.quantity, orderId);
+      if (!adjust.ok) {
+        return { ok: false, error: `אין מספיק מלאי זמין עבור ${item.title_snapshot}` };
       }
     }
 
@@ -1133,30 +1161,46 @@ export async function setStaffDiscount(
   return { ok: true };
 }
 
-/** חישוב מחדש של סכומי ההזמנה מהשורות + ההנחות שעל ההזמנה. */
+/**
+ * חישוב מחדש של סכומי ההזמנה מהשורות + ההנחות שעל ההזמנה.
+ *
+ * משקף את computeTotals (checkout.ts) על הזמנה קיימת: תרומה שצולמה
+ * בהזמנה נשארת בסכום (גרסה קודמת השמיטה אותה — עריכת פריטים על הזמנה
+ * עם תרומה מחקה את התרומה מהסכום בשקט), ורכיב המע"מ מחושב מחדש —
+ * אחרת tax_total הישן כבר אינו תואם את הסכום החדש.
+ */
 async function recomputeOrderTotals(
   service: NonNullable<ReturnType<typeof createServiceClient>>,
   orderId: string,
 ): Promise<void> {
-  const [{ data: order }, { data: items }] = await Promise.all([
+  const [{ data: order }, { data: items }, settings] = await Promise.all([
     service.from('orders').select('*').eq('id', orderId).maybeSingle(),
     service.from('order_items').select('line_total, unit_price, quantity').eq('order_id', orderId),
+    getStoreSettings(),
   ]);
   if (!order) return;
-  const subtotal = (items ?? []).reduce(
-    (sum, item) => sum + Number(item.line_total ?? Number(item.unit_price) * item.quantity),
-    0,
+  const subtotal = round2(
+    (items ?? []).reduce(
+      (sum, item) => sum + Number(item.line_total ?? Number(item.unit_price) * item.quantity),
+      0,
+    ),
   );
   // ההנחות הקיימות על ההזמנה נשמרות כמו שהן (קופון/מבצע צולמו ביצירה)
   const couponAndPromo = Math.max(
     Number(order.discount_total) - Number(order.staff_discount ?? 0),
     0,
   );
-  const discountTotal = Math.min(couponAndPromo + Number(order.staff_discount ?? 0), subtotal);
-  const total = Math.max(subtotal - discountTotal + Number(order.shipping_total ?? 0), 0);
+  const discountTotal = round2(Math.min(couponAndPromo + Number(order.staff_discount ?? 0), subtotal));
+  const shippingTotal = Number(order.shipping_total ?? 0);
+  const donationAmount = Number(order.donation_amount ?? 0);
+  const total = round2(Math.max(subtotal - discountTotal + shippingTotal + donationAmount, 0));
+  const taxTotal =
+    settings.vat_mode === 'included'
+      ? round2(((subtotal - discountTotal + shippingTotal) * settings.vat_rate) / (100 + settings.vat_rate))
+      : 0;
   await service
     .from('orders')
-    .update({ subtotal, discount_total: discountTotal, total })
+    .update({ subtotal, discount_total: discountTotal, total, tax_total: taxTotal })
     .eq('id', orderId);
 }
 

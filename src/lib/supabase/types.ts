@@ -959,7 +959,8 @@ export type InventoryMoveType =
   | 'transfer_out'
   | 'count'
   | 'reserve'
-  | 'release';
+  | 'release'
+  | 'reserve_adjust';
 
 export interface InventoryMove {
   id: string;

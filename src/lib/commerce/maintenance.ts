@@ -140,3 +140,25 @@ export async function notifyBackInStock(): Promise<number> {
   }
   return sent;
 }
+
+/**
+ * טיהור שורות rate_limits ישנות. commerce_rate_limit מוחקת בכל קריאה רק
+ * את השורות הישנות של *הדלי הנוכחי* — דלי שהפסיק לקבל תעבורה (IP חולף,
+ * מספר הזמנה חד-פעמי) משאיר את שורותיו לנצח, והטבלה גדלה בלי גבול.
+ * החלון הארוך ביותר בקוד הוא שעה; יום שלם משאיר שוליים בטוחים בהרבה.
+ */
+export async function purgeStaleRateLimits(): Promise<number> {
+  const service = createServiceClient();
+  if (!service) return 0;
+  const cutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+  const { data, error } = await service
+    .from('rate_limits')
+    .delete()
+    .lt('hit_at', cutoff)
+    .select('id');
+  if (error) {
+    console.error('[commerce:maintenance] purge rate_limits', error.message);
+    return 0;
+  }
+  return data?.length ?? 0;
+}
