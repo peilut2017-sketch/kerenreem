@@ -137,6 +137,20 @@ export async function notifyBackInStock(): Promise<number> {
   for (const sub of pending) {
     const book = available.get(sub.book_id);
     if (!book || !sub.email) continue;
+    // תפיסת השורה *לפני* השליחה, בעדכון מותנה ב-notified_at IS NULL: בלי
+    // idempotency-log למייל הזה, ריצות חופפות (הקצב מתוכנן לרדת ל-~10 דק')
+    // או קריסה+ריצה חוזרת היו שולחות מייל כפול לכל נרשם. מי שתפס את השורה
+    // (‏select מחזיר אותה) שולח; שאר הריצות רואות 0 שורות ומדלגות.
+    const claimedAt = new Date().toISOString();
+    const { data: claimed } = await service
+      .from('back_in_stock_subscriptions')
+      .update({ notified_at: claimedAt })
+      .eq('id', sub.id)
+      .is('notified_at', null)
+      .select('id')
+      .maybeSingle();
+    if (!claimed) continue;
+
     const result = await sendPlainEmail(
       sub.email,
       `הספר ״${book.title_he}״ חזר למלאי — מכון קרן רא״ם`,
@@ -146,11 +160,15 @@ export async function notifyBackInStock(): Promise<number> {
        <p style="color:#8a8577;font-size:13px">קיבלת את המייל כי נרשמת לעדכון חזרה למלאי. זו הודעה חד-פעמית.</p>`,
     );
     if (result.ok) {
+      sent += 1;
+    } else {
+      // השליחה נכשלה — משחררים את התפיסה שלנו (רק אותה) כדי שהריצה הבאה
+      // תנסה שוב, במקום לסמן "נשלח" בלי שנשלח דבר.
       await service
         .from('back_in_stock_subscriptions')
-        .update({ notified_at: new Date().toISOString() })
-        .eq('id', sub.id);
-      sent += 1;
+        .update({ notified_at: null })
+        .eq('id', sub.id)
+        .eq('notified_at', claimedAt);
     }
   }
   return sent;

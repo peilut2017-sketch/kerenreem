@@ -85,5 +85,17 @@ export async function GET(request: Request): Promise<NextResponse> {
         : { error: result.reason instanceof Error ? result.reason.message : String(result.reason) };
   });
 
+  // אם משימה כלשהי נכשלה — סטטוס לא-2xx. אחרת המתזמן (Vercel Cron) מתריע
+  // רק על תגובות שגיאה, וכשל שחוזר בכל ריצה (poll זורק, purge על טבלה
+  // נעולה) נשאר "ירוק" לנצח בעוד שאינו עושה דבר. שורת log מובנית אחת כדי
+  // ש-log-drain יוכל להתריע גם בלי לפרש את גוף התשובה.
+  const failed = results
+    .map((r, i) => (r.status === 'rejected' ? keys[i] : null))
+    .filter((k): k is (typeof keys)[number] => k !== null);
+  if (failed.length > 0) {
+    console.error('[cron:commerce] tasks failed:', failed.join(', '));
+    return NextResponse.json({ ...report, failed }, { status: 500 });
+  }
+
   return NextResponse.json(report);
 }

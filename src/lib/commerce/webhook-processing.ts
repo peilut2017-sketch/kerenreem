@@ -331,7 +331,10 @@ async function handlePaymentFailed(
   await markPaymentFailed(service, paymentId, { webhook: true, raw: payload });
   await transitionOrder(service, order.id, 'payment_state', 'failed', MORNING_ACTOR);
   await recordOrderEvent(service, order.id, 'payment_failed', MORNING_ACTOR, {});
-  await sendOrderEmail(service, 'payment_failed', order, {});
+  // סיומת paymentId למפתח: הזמנה יכולה להיכשל בתשלום כמה פעמים (startPayment
+  // מותר מ-pending/failed). בלי הסיומת, מפתח ה-idempotency זהה בכל הניסיונות
+  // וכשל שני/שלישי לא היה מודיע ללקוח (23505 שקט). כל ניסיון = מייל אחד.
+  await sendOrderEmail(service, 'payment_failed', order, {}, paymentId);
 }
 
 async function finalizeEvent(

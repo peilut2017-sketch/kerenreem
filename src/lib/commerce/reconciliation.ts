@@ -78,6 +78,18 @@ export async function reconcileRecentPayments(days = 3): Promise<ReconciliationS
       continue;
     }
 
+    // סטטוס לא-חד-משמעי (unknown/pending) = "לא הצלחנו לאמת", לא "פער":
+    // תגובת /transactions/search של מורנינג עדיין לא סוכמה מול ה-Sandbox
+    // (הנחה A8), ואם היא מגיעה כאוסף שלא נפרש הסטטוס יוצא unknown. סימון
+    // פער כאן היה מתייג *כל* הזמנה ששולמה ב-reconcile-mismatch בשקר
+    // (הסכום מוחזר null ⇒ amountMatches=true) ומרעיל את דוח ההתאמות.
+    // נספר כלא-נגיש; פער אמיתי הוא רק סתירה מפורשת (הספק אומר failed) או
+    // אי-התאמת סכום.
+    if (result.data.status !== 'paid' && result.data.status !== 'failed') {
+      summary.unreachable += 1;
+      continue;
+    }
+
     const statusMatches = result.data.status === 'paid';
     const amountMatches =
       result.data.amount == null || round2(result.data.amount) === round2(Number(payment.amount));
