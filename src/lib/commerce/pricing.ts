@@ -30,17 +30,22 @@ export function getEffectivePrice(
 ): EffectivePrice | null {
   if (book.price == null) return null;
 
-  const sale = book.sale_price;
+  // ‏numeric ב-Postgres חוזר כמחרוזת מ-supabase-js. בלי Number() ההשוואה
+  // ‏sale < price נעשית לקסיקוגרפית: "90.00" < "100.00" הוא false, ולכן
+  // מבצע נפוץ (100→90, 1000→900) נשמט בשקט — הלקוח חויב מחיר מלא. שאר
+  // הקוד כבר עוטף כספים ב-Number(); כאן זו הייתה ההשוואה היחידה שלא.
+  const price = Number(book.price);
+  const sale = book.sale_price == null ? null : Number(book.sale_price);
   const startsOk = !book.sale_starts_at || new Date(book.sale_starts_at) <= now;
   const endsOk = !book.sale_ends_at || new Date(book.sale_ends_at) >= now;
-  const onSale = sale != null && sale >= 0 && sale < book.price && startsOk && endsOk;
+  const onSale = sale != null && sale >= 0 && sale < price && startsOk && endsOk;
 
   if (!onSale) {
-    return { amount: round2(book.price), originalAmount: null, onSale: false, saleName: null };
+    return { amount: round2(price), originalAmount: null, onSale: false, saleName: null };
   }
   return {
     amount: round2(sale!),
-    originalAmount: round2(book.price),
+    originalAmount: round2(price),
     onSale: true,
     saleName: (locale === 'en' ? book.sale_name_en : book.sale_name_he) ?? book.sale_name_he,
   };

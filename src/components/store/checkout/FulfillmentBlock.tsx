@@ -50,7 +50,7 @@ export function FulfillmentBlock({
   const [courierNotes, setCourierNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState(false);
+  const [formError, setFormError] = useState<'errServer' | 'errSession' | null>(null);
 
   const selected = methods.find((m) => m.id === methodId) ?? null;
 
@@ -58,7 +58,7 @@ export function FulfillmentBlock({
     event.preventDefault();
     if (!selected) return;
     setBusy(true);
-    setFormError(false);
+    setFormError(null);
     try {
       const result = await onSubmit(
         {
@@ -76,9 +76,14 @@ export function FulfillmentBlock({
             )
           : {},
       );
+      // [QA] כשל שאינו ברמת שדה (קופה שפג תוקפה / rate-limit) — כמו בבלוק
+      // הזיהוי, נבלע בשקט עד כה. עכשיו מוצגת הנחיה במקום מבוי סתום.
+      if (!result.ok && !result.fieldErrors) {
+        setFormError(result.error === 'session' ? 'errSession' : 'errServer');
+      }
     } catch {
       // [1.4] היה בלי catch — כשל רשת לא הציג שום הודעה, רק שחרר את הכפתור
-      setFormError(true);
+      setFormError('errServer');
     } finally {
       setBusy(false);
     }
@@ -223,7 +228,7 @@ export function FulfillmentBlock({
 
         {formError ? (
           <p role="alert" className="text-caption text-burgundy">
-            {t('errServer')}
+            {t(formError)}
           </p>
         ) : null}
 

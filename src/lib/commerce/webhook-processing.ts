@@ -273,9 +273,10 @@ async function handlePaymentSucceeded(
     payment_id: paymentId,
     method,
   });
-  // כבר paid (אירוע כפול שחמק מה-dedupe) — לא ממשיכים להפחתה כפולה;
-  // ההפחתה עצמה ממילא idempotent במסד
-  const firstTime = paymentTransition.ok;
+  // כבר paid (אירוע כפול שחמק מה-dedupe, או poll ו-Webhook במקביל) — נתלה
+  // ב-changed ולא ב-ok: ok=true מוחזר גם למי שהפסיד את המירוץ ומצא paid,
+  // ואז המייל "התקבל תשלום" היה נשלח פעמיים. ההפחתה עצמה idempotent במסד.
+  const firstTime = paymentTransition.changed === true;
   await transitionOrder(service, order.id, 'state', 'confirmed', MORNING_ACTOR);
   await recordOrderEvent(service, order.id, 'payment_succeeded', MORNING_ACTOR, { method });
 
@@ -407,7 +408,19 @@ export async function releaseExpiredReservations(): Promise<number> {
 
   let released = 0;
   for (const payment of expired ?? []) {
-    await service.from('payments').update({ status: 'expired' }).eq('id', payment.id);
+    // עדכון מותנה בסטטוס: אם ה-Webhook סימן succeeded בין ה-select לכאן,
+    // אסור לדרוס ל-expired (השחתת דיווח) ואסור לשחרר את השמירה — היא כבר
+    // הומרה ל-sale, ושחרור מוקדם היה מאפשר לקונה אחר לתפוס את היחידה
+    // האחרונה ואז ה-commit של התשלום שהצליח היה יוצר oversell. רק אם
+    // ה-UPDATE באמת שינה שורה (עדיין היה pending/initiated) ממשיכים לשחרר.
+    const { data: flipped } = await service
+      .from('payments')
+      .update({ status: 'expired' })
+      .eq('id', payment.id)
+      .in('status', ['initiated', 'pending'])
+      .select('id')
+      .maybeSingle();
+    if (!flipped) continue;
     const { data: items } = await service
       .from('order_items')
       .select('book_id, quantity')

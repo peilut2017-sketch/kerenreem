@@ -148,17 +148,20 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
 
       {/* תקציר ארבעת הצירים */}
       <div className="mb-6 flex flex-wrap gap-2.5">
+        {/* ‏?? fallback לערך הגולמי: ערך סטטוס מחוץ למפת התוויות (מיגרציה
+            שהוסיפה מצב לפני עדכון המפה, שורה ישנה) יציג את הקוד ולא undefined,
+            כמו ציר הזמן ועמוד הלקוח כבר עושים. */}
         <span className={`admin-badge ${stateBadgeClass(order.state)}`}>
-          הזמנה: {ORDER_STATE_LABELS[order.state]}
+          הזמנה: {ORDER_STATE_LABELS[order.state] ?? order.state}
         </span>
         <span className={`admin-badge ${stateBadgeClass(order.payment_state)}`}>
-          תשלום: {PAYMENT_STATE_LABELS[order.payment_state]}
+          תשלום: {PAYMENT_STATE_LABELS[order.payment_state] ?? order.payment_state}
         </span>
         <span className={`admin-badge ${stateBadgeClass(order.fulfillment_state)}`}>
-          אספקה: {FULFILLMENT_STATE_LABELS[order.fulfillment_state]}
+          אספקה: {FULFILLMENT_STATE_LABELS[order.fulfillment_state] ?? order.fulfillment_state}
         </span>
         <span className={`admin-badge ${stateBadgeClass(order.document_state)}`}>
-          מסמך: {DOCUMENT_STATE_LABELS[order.document_state]}
+          מסמך: {DOCUMENT_STATE_LABELS[order.document_state] ?? order.document_state}
         </span>
       </div>
 

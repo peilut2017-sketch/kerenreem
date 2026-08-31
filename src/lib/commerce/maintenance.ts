@@ -40,10 +40,21 @@ export async function expireStalePendingOrders(days = 7): Promise<number> {
     for (const item of items ?? []) {
       if (item.book_id) await releaseStock(service, item.book_id, item.quantity, order.id);
     }
-    const result = await transitionOrder(service, order.id, 'state', 'cancelled', SYSTEM_ACTOR, {
-      reason: 'pending_expired',
-    });
-    if (!result.ok) continue;
+    // guard על payment_state: אם הלקוח שילם את ההזמנה הישנה בדיוק עכשיו
+    // (‏Webhook תוך כדי ריצת ה-cron), הביטול נחסם אטומית — הזמנה ששולמה
+    // אינה עוברת ל-cancelled בלי מסלול זיכוי. הצילום נקרא כ-pending/failed;
+    // אם השתנה, ה-guard לא מתקיים והביטול מדלג. changed מבדיל ביטול בפועל
+    // מ"כבר בוטל", כדי לא לשלוח מייל ביטול פעמיים.
+    const result = await transitionOrder(
+      service,
+      order.id,
+      'state',
+      'cancelled',
+      SYSTEM_ACTOR,
+      { reason: 'pending_expired' },
+      { payment_state: order.payment_state },
+    );
+    if (!result.ok || !result.changed) continue;
     await sendOrderEmail(service, 'cancelled', result.order ?? (order as Order));
     cancelled += 1;
   }

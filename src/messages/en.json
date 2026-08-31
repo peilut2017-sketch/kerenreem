@@ -478,6 +478,7 @@
     "errUnavailable": "The items in your cart are no longer available.",
     "errRateLimited": "Too many attempts. Please wait a moment and try again.",
     "errServer": "Something went wrong. Try again or order by phone.",
+    "errSession": "Your checkout session expired. Refresh the page to continue.",
     "errCouponExpired": "That coupon is no longer valid. Remove it and try again.",
     "errPaymentPage": "Your order was created, but opening the payment page failed. You can try again.",
     "errBootstrap": "Loading checkout failed — check your internet connection and try again.",

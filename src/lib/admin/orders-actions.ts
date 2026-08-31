@@ -395,6 +395,22 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
   if (paymentError && paymentError.code !== '23505') {
     return { ok: false, error: paymentError.message };
   }
+  if (paymentError?.code === '23505') {
+    // ‏23505 = כבר קיים חיוב succeeded להזמנה (uq_payments_idempotency על
+    // המפתח הידני, או האינדקס החלקי החדש מול חיוב מ-Webhook שהגיע בו-זמנית).
+    // אם ההזמנה כבר שולמה — הכול בוצע בנתיב האחר; יציאה שקטה כדי לא לשלוח
+    // מייל "התקבל תשלום" פעמיים ולא להריץ מעברים מיותרים. אם עדיין לא שולמה,
+    // זו התנגשות מפתח על ניסיון קודם שנקטע — ממשיכים להשלים אידמפוטנטית.
+    const { data: fresh } = await service
+      .from('orders')
+      .select('payment_state')
+      .eq('id', orderId)
+      .maybeSingle();
+    if (fresh?.payment_state === 'paid') {
+      revalidateOrders(orderId);
+      return { ok: true };
+    }
+  }
 
   await transitionOrder(service, orderId, 'payment_state', 'paid', {
     type: 'staff',
