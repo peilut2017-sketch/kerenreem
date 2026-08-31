@@ -15,6 +15,7 @@ import { buildEventGalleryIndex, extractEventStages, legacyGalleryToMedia } from
 import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
+import { pageAlternates } from '@/lib/seo';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -51,6 +52,7 @@ export async function generateMetadata({
   return {
     title,
     description: htmlToPlainText(localized(event, 'body', locale), 160) || title,
+    alternates: pageAlternates(locale, `/events/${event.slug}`),
     openGraph: {
       title,
       type: 'article',
@@ -111,6 +113,7 @@ export default async function EventPage({
               gallery={gallery}
               eventTitle={title}
               blockStageIndex={blockStageIndex}
+              locale={locale}
             />
           </Container>
         ) : null}

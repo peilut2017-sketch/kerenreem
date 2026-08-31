@@ -8,6 +8,7 @@ import { getActivityBySlug, getActivitySlugs } from '@/lib/data';
 import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
+import { pageAlternates } from '@/lib/seo';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -46,6 +47,7 @@ export async function generateMetadata({
     description:
       localizedOrNull(activity, 'summary', locale) ??
       htmlToPlainText(localized(activity, 'body', locale), 160),
+    alternates: pageAlternates(locale, `/activities/${activity.slug}`),
   };
 }
 

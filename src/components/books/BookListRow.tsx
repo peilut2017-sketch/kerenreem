@@ -44,7 +44,8 @@ export function BookListRow({
   return (
     <article className="card card-interactive group relative flex gap-5 p-4 sm:gap-6 sm:p-5">
       <div className="w-20 shrink-0 sm:w-24">
-        <BookCover src={book.cover_image_url} title={title} alt={title} sizes="96px" />
+        {/* alt ריק — שם הספר מופיע מיד לצד הכריכה, ראו BookCard */}
+        <BookCover src={book.cover_image_url} title={title} alt="" sizes="96px" />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">

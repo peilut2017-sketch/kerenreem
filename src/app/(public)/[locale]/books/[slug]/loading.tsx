@@ -1,17 +1,17 @@
-import { getTranslations } from 'next-intl/server';
 import { Container } from '@/components/Container';
 
 /**
  * שלד טעינה שמחקה את מבנה עמוד הספר עצמו (כריכה, כותרת, תיאור, כפתור,
  * ואזור הסקירה) — לא Spinner גנרי במרכז המסך. מי שמחכה לטעינה רואה
  * כבר עכשיו איפה כל דבר יופיע.
+ *
+ * ⚠ בלי getTranslations — ראו האזהרה ב-[locale]/loading.tsx: קריאת
+ * תרגום ב-loading מסמנת את כל העץ כדינמי ומכבה את ה-ISR של האתר.
  */
-export default async function BookPageLoading() {
-  const t = await getTranslations('books');
-
+export default function BookPageLoading() {
   return (
     <div aria-busy="true" aria-live="polite">
-      <span className="sr-only">{t('loading')}</span>
+      <span className="sr-only">טוען… · Loading…</span>
 
       <div aria-hidden="true" className="animate-pulse">
         <Container className="pt-6">

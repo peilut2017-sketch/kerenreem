@@ -209,7 +209,11 @@
     "flipPageRange": "עמודים {from}–{to} מתוך {total}",
     "authorBioExpand": "עוד על המחבר",
     "authorBioCollapse": "הצגה מקוצרת",
-    "loadingMore": "טוען ספרים נוספים…"
+    "loadingMore": "טוען ספרים נוספים…",
+    "suggestionKindBook": "ספר",
+    "suggestionKindAuthor": "מחבר",
+    "suggestionKindCategory": "קטגוריה",
+    "suggestionKindRecent": "חיפוש אחרון"
   },
   "authors": {
     "title": "מחברים ודמויות",
@@ -246,7 +250,8 @@
     "share": "שיתוף",
     "scrollDown": "גלול למטה",
     "discoverAnotherEvent": "גלריה נוספת",
-    "viewOtherGallery": "צפייה בגלריה ←"
+    "viewOtherGallery": "צפייה בגלריה ←",
+    "playVideo": "נגינת הסרטון — {title}"
   },
   "pages": {
     "about": "אודות",
@@ -653,6 +658,11 @@
     "activityEyebrow": "פעילות הקרן",
     "bookCta": "לפרטים על הספר",
     "eventCta": "לפרטי האירוע",
-    "activityCta": "לפעילות שלנו"
+    "activityCta": "לפעילות שלנו",
+    "prevBanner": "הבאנר הקודם",
+    "nextBanner": "הבאנר הבא",
+    "goToBanner": "מעבר לבאנר {position} מתוך {count}",
+    "bannerCounter": "באנר {position} מתוך {count}",
+    "slideCounter": "{position} מתוך {total}"
   }
 }

@@ -119,12 +119,13 @@ function ActivePanel({
   position: number;
   total: number;
 }) {
+  const t = useTranslations('hero');
   const isBook = slide.kind === 'book';
 
   return (
     <article
       aria-roledescription="slide"
-      aria-label={`${position} מתוך ${total}`}
+      aria-label={t('slideCounter', { position, total })}
       className="relative flex h-full flex-col justify-center overflow-hidden px-6 py-16 text-center sm:px-10 lg:py-20"
     >
       {/* רקע: לספר — כהה ונקי, כדי שהכריכה תישא את המסגרת.

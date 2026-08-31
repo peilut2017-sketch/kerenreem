@@ -121,7 +121,9 @@ export function AccessibilityWidget() {
             emoji: '📄',
             toggle: false,
             method: () => {
-              window.location.href = `/${locale}/accessibility`;
+              // localePrefix הוא 'as-needed': עברית בלי קידומת. הצורה
+              // הישנה /he/accessibility עבדה רק דרך redirect של ה-proxy.
+              window.location.href = locale === 'he' ? '/accessibility' : `/${locale}/accessibility`;
             },
           },
         ],

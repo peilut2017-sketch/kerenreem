@@ -118,7 +118,7 @@ function composeRows(items: Media[]): Media[][] {
 }
 
 export function EventStoryGallery({
-  media,
+  media: rawMedia,
   chapters,
   locale,
   suggestedEvent = null,
@@ -134,6 +134,24 @@ export function EventStoryGallery({
   const [reelsOpen, setReelsOpen] = useState(false);
   const [reelsStart, setReelsStart] = useState(0);
   const trackView = useMediaViewTracker();
+
+  /**
+   * פתרון השפה לכיתוב ול-alt נעשה פעם אחת כאן, בכניסת הנתונים: השדות
+   * caption_he/alt_he מוחלפים בערך שכבר נבחר לפי השפה (עם נפילה לעברית,
+   * כמו בכל האתר — localizedOrNull). כל תת-הרכיבים בקובץ (אריחים,
+   * Viewer, Reels) ממשיכים לקרוא מאותם שדות — בלי להשחיל locale לכל
+   * אחד מ-15 מקומות הקריאה. לפני כן מבקר אנגלית קיבל כיתובי עברית גם
+   * כשתרגום קיים.
+   */
+  const media = useMemo(
+    () =>
+      rawMedia.map((item) => ({
+        ...item,
+        caption_he: localizedOrNull(item, 'caption', locale),
+        alt_he: localizedOrNull(item, 'alt', locale),
+      })),
+    [rawMedia, locale],
+  );
 
   const chapterName = useMemo(() => {
     const map = new Map<string, string>();

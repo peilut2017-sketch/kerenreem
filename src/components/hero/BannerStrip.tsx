@@ -2,6 +2,7 @@
 
 import { Img as Image } from '@/components/Img';
 import { useCallback, useId, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { toCdnUrl } from '@/lib/image-src';
 import type { Banner } from '@/lib/supabase/types';
@@ -38,6 +39,7 @@ export function BannerStrip({
   locale: string;
   label: string;
 }) {
+  const t = useTranslations('hero');
   const [index, setIndex] = useState(0);
   const id = useId();
 
@@ -129,8 +131,8 @@ export function BannerStrip({
 
       {count > 1 ? (
         <>
-          <Arrow side="start" onClick={() => go(index - 1)} label="הבאנר הקודם" />
-          <Arrow side="end" onClick={() => go(index + 1)} label="הבאנר הבא" />
+          <Arrow side="start" onClick={() => go(index - 1)} label={t('prevBanner')} />
+          <Arrow side="end" onClick={() => go(index + 1)} label={t('nextBanner')} />
 
           {/* מחווני מיקום — מופיעים יחד עם החצים ובאותו תנאי */}
           <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100">
@@ -140,7 +142,7 @@ export function BannerStrip({
                   key={banner.id}
                   type="button"
                   onClick={() => go(position)}
-                  aria-label={`מעבר לבאנר ${position + 1} מתוך ${count}`}
+                  aria-label={t('goToBanner', { position: position + 1, count })}
                   aria-current={position === index ? 'true' : undefined}
                   className={`h-1.5 rounded-full transition-all duration-500 ease-[var(--ease-spring)] ${
                     position === index ? 'w-7 bg-gold' : 'w-1.5 bg-white/50 hover:bg-white/80'
@@ -153,7 +155,7 @@ export function BannerStrip({
       ) : null}
 
       <span id={`${id}-status`} className="sr-only" aria-live="polite">
-        באנר {index + 1} מתוך {count}
+        {t('bannerCounter', { position: index + 1, count })}
       </span>
     </section>
   );

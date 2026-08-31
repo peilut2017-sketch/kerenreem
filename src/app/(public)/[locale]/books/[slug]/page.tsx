@@ -65,10 +65,16 @@ export async function generateMetadata({
   const book = await getBookBySlug(slug);
   if (!book) return {};
 
-  const title = localized(book, 'title', locale);
+  const bookTitle = localized(book, 'title', locale);
   const subtitle = localizedOrNull(book, 'subtitle', locale);
+  // שדות ה-SEO שהעורך מילא בכרטיס הספר (זיהוי וחיפוש) גוברים על הגזירה
+  // האוטומטית — עד עכשיו הם נשמרו ונוקדו במד ההשלמה אך מעולם לא הוצגו.
+  const title = book.meta_title || bookTitle;
   const description =
-    htmlToPlainText(localized(book, 'description', locale), 160) || subtitle || title;
+    book.meta_description ||
+    htmlToPlainText(localized(book, 'description', locale), 160) ||
+    subtitle ||
+    bookTitle;
   const ogImage = book.og_image_url ?? book.cover_image_url;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
@@ -340,6 +346,7 @@ export default async function BookPage({
         categoryName={categoryName}
         year={year}
         badges={badges}
+        locale={locale}
         actions={
           <BookHeroActions
             bookId={book.id}

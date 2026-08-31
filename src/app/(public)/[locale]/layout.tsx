@@ -49,12 +49,10 @@ export async function generateMetadata({
       locale: locale === 'he' ? 'he_IL' : 'en_US',
       type: 'website',
     },
-    alternates: {
-      languages: {
-        he: '/',
-        en: '/en',
-      },
-    },
+    // בכוונה אין כאן alternates: מטא-דאטה עוברת בירושה, וה-hreflang
+    // הגלובלי הישן ('/', '/en') הצביע מעל *כל* עמוד אל עמוד הבית —
+    // hreflang שגוי גרוע מהיעדרו. כל עמוד מגדיר את שלו דרך
+    // pageAlternates (src/lib/seo.ts).
     robots: { index: true, follow: true },
     // הלוגו שהועלה ב-CMS, מוגש דרך /site-icon (ראו שם) עם נפילה לסימן
     // הקבוע כשלא הועלה לוגו — ולא קובץ סטטי, כי הלוגו יכול להתעדכן.

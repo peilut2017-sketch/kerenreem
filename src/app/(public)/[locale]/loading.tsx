@@ -1,17 +1,20 @@
-import { getTranslations } from 'next-intl/server';
-
 /**
  * שלד טעינה לעמודי האתר.
  *
  * המעבר בין עמודים מיידי גם כשהנתונים עדיין בדרך, במקום שהדפדפן יישאר על
  * העמוד הקודם ויראה כאילו הלחיצה לא נקלטה.
+ *
+ * ⚠ בלי getTranslations, במכוון ובשום אופן לא להחזיר: loading.tsx אינו
+ * מקבל params ולכן אינו יכול לקרוא setRequestLocale — קריאת תרגום כאן
+ * נופלת לזיהוי שפה מה-request (קריאת headers), שמסמנת את *כל* עץ
+ * ‎[locale]‎ כדינמי. זה בדיוק מה שכיבה בשקט את ה-ISR של האתר כולו:
+ * אף עמוד ציבורי לא נשמר במטמון, והכול רונדר מחדש בכל בקשה. הטקסט
+ * הסמוי דו-לשוני קבוע במקום מפתח תרגום.
  */
-export default async function PublicLoading() {
-  const t = await getTranslations('books');
-
+export default function PublicLoading() {
   return (
     <div aria-busy="true" aria-live="polite" className="mx-auto w-full max-w-[82rem] px-5 py-16 sm:px-8">
-      <span className="sr-only">{t('loading')}</span>
+      <span className="sr-only">טוען… · Loading…</span>
 
       <div aria-hidden="true" className="animate-pulse">
         <div className="h-4 w-28 rounded-[var(--radius-sm)] bg-rule" />

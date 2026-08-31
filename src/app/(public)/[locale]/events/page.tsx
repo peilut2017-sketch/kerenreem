@@ -6,6 +6,7 @@ import { SectionHeading } from '@/components/SectionHeading';
 import { EventCard } from '@/components/events/EventCard';
 import { getEvents } from '@/lib/data';
 import { isUpcoming, parseDateOnly } from '@/lib/hebrew-date';
+import { pageAlternates } from '@/lib/seo';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -27,7 +28,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'events' });
-  return { title: t('title'), description: t('intro') };
+  return { title: t('title'), description: t('intro'), alternates: pageAlternates(locale, '/events') };
 }
 
 export default async function EventsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -41,7 +42,8 @@ export default async function EventsPage({ params }: { params: Promise<{ locale:
     const date = parseDateOnly(event.event_date ?? '');
     return date ? isUpcoming(date) : false;
   });
-  const past = events.filter((event) => !upcoming.includes(event));
+  const upcomingIds = new Set(upcoming.map((event) => event.id));
+  const past = events.filter((event) => !upcomingIds.has(event.id));
 
   return (
     <Container className="py-16 lg:py-20">

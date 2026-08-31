@@ -61,7 +61,10 @@ export function BookCard({
           <BookCover
             src={book.cover_image_url}
             title={title}
-            alt={title}
+            /* ריק במכוון: שם הספר מופיע מיד אחרי הכריכה ככותרת הכרטיס —
+               alt זהה גורם לקורא מסך להקריא את השם פעמיים בכל כרטיס
+               (אותו כלל כמו ב-MiniCart ובעמוד העגלה) */
+            alt=""
             priority={priority}
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
           />

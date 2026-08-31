@@ -65,6 +65,7 @@ export function Drawer({
   variant?: 'side' | 'center' | 'bottom';
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   // [1.6] מעבר פתיחה/סגירה (ח.1): הפאנל נשאר מורכב זמן קצר אחרי open=false
   // כדי שהאנימציה תספיק לרוץ — בלי זה הסגירה "קופצת" בלי מעבר בכלל.
@@ -113,6 +114,21 @@ export function Drawer({
     const previouslyFocused = returnFocusTo ?? (document.activeElement as HTMLElement | null);
     panel?.querySelector<HTMLElement>('input, button, select, a[href]')?.focus();
 
+    // ‏inert על שאר העמוד: לכידת ה-Tab למטה עוצרת את המקלדת, אבל קורא
+    // מסך במצב עיון (virtual cursor) עדיין קרא את התוכן שמאחורי הדיאלוג.
+    // כמו ב-MobileNav — הרקע מסומן inert; מסומנים רק אחים של הפורטל
+    // שלא היו inert ממילא, ומוחזרים בסגירה. דיאלוג מעל דיאלוג עובד מעצמו:
+    // הפנימי מסמן גם את הפורטל של החיצוני (שהוא אח שלו ב-body).
+    const root = rootRef.current;
+    const inerted: Element[] = [];
+    if (root) {
+      for (const sibling of Array.from(document.body.children)) {
+        if (sibling === root || sibling.hasAttribute('inert')) continue;
+        sibling.setAttribute('inert', '');
+        inerted.push(sibling);
+      }
+    }
+
     function onKeyDown(event: KeyboardEvent) {
       if (!isTop()) return;
       if (event.key === 'Escape') {
@@ -143,6 +159,7 @@ export function Drawer({
       const index = dialogStack.indexOf(token);
       if (index !== -1) dialogStack.splice(index, 1);
       document.removeEventListener('keydown', onKeyDown);
+      for (const element of inerted) element.removeAttribute('inert');
       previouslyFocused?.focus?.();
     };
   }, [open, returnFocusTo]);
@@ -166,11 +183,14 @@ export function Drawer({
   // נלכדו בגובה הסרגל הצר במקום להיפתח כדיאלוג מסך-מלא.
   return createPortal(
     <div
+      ref={rootRef}
       className={`fixed inset-0 z-50 flex ${bottom ? 'items-end justify-center' : centered ? 'items-center justify-center p-4' : 'justify-end'}`}
     >
-      <button
-        type="button"
-        aria-label={closeLabel}
+      {/* div ולא button: כפתור-רקע בגודל מסך מלא מופיע לטכנולוגיה מסייעת
+          כפקד ענק חסר הסבר; לחיצת הרקע היא קיצור לעכבר בלבד, וכפתור
+          הסגירה הנגיש הוא זה שבכותרת הפאנל */}
+      <div
+        aria-hidden="true"
         onClick={onClose}
         className={`absolute inset-0 bg-navy/40 backdrop-blur-sm transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
       />

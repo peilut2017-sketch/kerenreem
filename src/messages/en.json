@@ -209,7 +209,11 @@
     "flipPageRange": "Pages {from}–{to} of {total}",
     "authorBioExpand": "More about the author",
     "authorBioCollapse": "Show less",
-    "loadingMore": "Loading more books…"
+    "loadingMore": "Loading more books…",
+    "suggestionKindBook": "Book",
+    "suggestionKindAuthor": "Author",
+    "suggestionKindCategory": "Category",
+    "suggestionKindRecent": "Recent search"
   },
   "authors": {
     "title": "Authors and figures",
@@ -246,7 +250,8 @@
     "share": "Share",
     "scrollDown": "Scroll down",
     "discoverAnotherEvent": "Another gallery",
-    "viewOtherGallery": "View gallery ←"
+    "viewOtherGallery": "View gallery ←",
+    "playVideo": "Play video — {title}"
   },
   "pages": {
     "about": "About",
@@ -653,6 +658,11 @@
     "activityEyebrow": "What we do",
     "bookCta": "About this book",
     "eventCta": "Event details",
-    "activityCta": "More about our work"
+    "activityCta": "More about our work",
+    "prevBanner": "Previous banner",
+    "nextBanner": "Next banner",
+    "goToBanner": "Go to banner {position} of {count}",
+    "bannerCounter": "Banner {position} of {count}",
+    "slideCounter": "{position} of {total}"
   }
 }

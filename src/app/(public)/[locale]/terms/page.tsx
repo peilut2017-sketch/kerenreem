@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ContentPageView } from '@/components/ContentPageView';
+import { pageAlternates } from '@/lib/seo';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -22,7 +23,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'pages' });
-  return { title: t('terms') };
+  return { title: t('terms'), alternates: pageAlternates(locale, '/terms') };
 }
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {

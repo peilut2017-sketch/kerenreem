@@ -2,7 +2,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
 import { BookCover } from '@/components/BookCover';
-import { getBooks } from '@/lib/data';
+import { getMostViewedBooks } from '@/lib/data';
 import { localized } from '@/lib/localized';
 
 /**
@@ -14,8 +14,9 @@ export default async function BookNotFound() {
   const locale = await getLocale();
   const t = await getTranslations('books');
 
-  const books = await getBooks();
-  const popular = [...books].sort((a, b) => b.view_count - a.view_count).slice(0, 4);
+  // ‏getMostViewedBooks עם limit ולא getBooks() המלא: העמוד הזה נטען על
+  // כל slug שגוי (dynamicParams), ומשיכת כל הקטלוג בכל 404 היא בזבוז.
+  const popular = await getMostViewedBooks(4);
 
   return (
     <Container className="py-20 lg:py-28">

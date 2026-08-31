@@ -276,7 +276,14 @@ export async function getBooks(): Promise<BookWithRelations[]> {
   );
 }
 
-export async function getBookBySlug(slug: string): Promise<BookWithRelations | null> {
+/**
+ * עטוף ב-cache() כמו getSiteSettings: נקרא פעמיים בכל רינדור עמוד ספר —
+ * generateMetadata וגוף העמוד — ו-Next עושה דה-דופליקציה רק ל-fetch,
+ * לא לפונקציות אסינכרוניות. בלי העטיפה, השליפה הרחבה ביותר בקוד
+ * (BOOK_DETAIL_SELECT_V4) רצה פעמיים לכל עמוד. אותו נימוק בשלושת
+ * שולפי ה-slug שאחריו.
+ */
+export const getBookBySlug = cache(async (slug: string): Promise<BookWithRelations | null> => {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.bookBySlug(slug) : null;
 
@@ -286,7 +293,7 @@ export async function getBookBySlug(slug: string): Promise<BookWithRelations | n
     [BOOK_DETAIL_SELECT_V4, BOOK_DETAIL_SELECT_V3, BOOK_DETAIL_SELECT, BOOK_SELECT, BOOK_BASE_SELECT],
   );
   return rows[0] ?? null;
-}
+});
 
 /**
  * ספרים קשורים לעמוד הספר, מקובצים לפי *סיבת* הקשר — לא רשימה שטוחה של
@@ -402,7 +409,14 @@ async function getBooksSharingTags(
   excludeId: string,
   limit: number,
 ): Promise<BookWithRelations[]> {
-  const links = await supabase.from('book_tags').select('book_id').in('tag_id', tagIds).neq('book_id', excludeId);
+  // תקרה על שאילתת הקישורים: תגית נפוצה ("הלכה") על מאות ספרים הייתה
+  // מחזירה את כל השורות רק כדי להיזרק ב-slice שאחרי.
+  const links = await supabase
+    .from('book_tags')
+    .select('book_id')
+    .in('tag_id', tagIds)
+    .neq('book_id', excludeId)
+    .limit(Math.max(limit * 4, 40));
   if (links.error) {
     warn('getBookConnections:tags', links.error);
     return [];
@@ -493,6 +507,60 @@ export async function incrementBookView(slug: string): Promise<void> {
   if (error) console.error('[data:incrementBookView]', error);
 }
 
+/**
+ * מונה ספרים מפורסמים פר מחבר — לרשימת המחברים. שליפת עמודה אחת במקום
+ * getBooks() המלא (כל העמודות + כל ה-joins) שרשימת המחברים משכה בעבר
+ * רק כדי לספור.
+ */
+export async function getBookCountsByAuthor(): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  const supabase = createStaticClient();
+  if (!supabase) {
+    if (isDemoContent) {
+      for (const book of demo.books()) {
+        if (book.author_id) counts.set(book.author_id, (counts.get(book.author_id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }
+
+  const { data, error } = await supabase.from('books').select('author_id').eq('is_published', true);
+  warn('getBookCountsByAuthor', error);
+  for (const row of (data ?? []) as { author_id: string | null }[]) {
+    if (row.author_id) counts.set(row.author_id, (counts.get(row.author_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export interface BookOptionRow {
+  id: string;
+  title_he: string;
+  title_en: string | null;
+  author_name_he: string | null;
+  author_name_en: string | null;
+  author: Pick<Author, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
+}
+
+/**
+ * רשימה קומפקטית לבורר הספרים בטופס יצירת הקשר ("הערה על ספר") — שם
+ * ומחבר בלבד. עמוד ה-contact משך בעבר את getBooks() המלא בשביל שלושת
+ * השדות האלה.
+ */
+export async function getBookOptions(): Promise<BookOptionRow[]> {
+  const supabase = createStaticClient();
+  if (!supabase) {
+    return isDemoContent ? (demo.books() as unknown as BookOptionRow[]) : [];
+  }
+
+  const { data, error } = await supabase
+    .from('books')
+    .select('id, title_he, title_en, author_name_he, author_name_en, author:authors(id, slug, name_he, name_en)')
+    .eq('is_published', true)
+    .order('title_he');
+  warn('getBookOptions', error);
+  return ((data ?? []) as unknown as BookOptionRow[]);
+}
+
 export async function getBookSlugs(): Promise<string[]> {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.books().map((b) => b.slug) : [];
@@ -519,7 +587,7 @@ export async function getAuthors(): Promise<Author[]> {
   return (data as Author[] | null) ?? [];
 }
 
-export async function getAuthorBySlug(slug: string): Promise<Author | null> {
+export const getAuthorBySlug = cache(async (slug: string): Promise<Author | null> => {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.authorBySlug(slug) : null;
 
@@ -532,7 +600,7 @@ export async function getAuthorBySlug(slug: string): Promise<Author | null> {
 
   warn('getAuthorBySlug', error);
   return (data as Author | null) ?? null;
-}
+});
 
 export async function getBooksByAuthor(authorId: string): Promise<BookWithRelations[]> {
   const supabase = createStaticClient();
@@ -653,7 +721,7 @@ export async function getActivities(): Promise<Activity[]> {
   return (data as Activity[] | null) ?? [];
 }
 
-export async function getActivityBySlug(slug: string): Promise<Activity | null> {
+export const getActivityBySlug = cache(async (slug: string): Promise<Activity | null> => {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.activityBySlug(slug) : null;
 
@@ -666,7 +734,7 @@ export async function getActivityBySlug(slug: string): Promise<Activity | null> 
 
   warn('getActivityBySlug', error);
   return (data as Activity | null) ?? null;
-}
+});
 
 export async function getActivitySlugs(): Promise<string[]> {
   const supabase = createStaticClient();
@@ -708,7 +776,7 @@ export type EventDetail = EventRecord & {
   chapters?: EventChapter[];
 };
 
-export async function getEventBySlug(slug: string): Promise<EventDetail | null> {
+export const getEventBySlug = cache(async (slug: string): Promise<EventDetail | null> => {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.eventBySlug(slug) : null;
 
@@ -732,7 +800,7 @@ export async function getEventBySlug(slug: string): Promise<EventDetail | null> 
     ? [...event.chapters].sort((a, b) => a.sort_order - b.sort_order)
     : undefined;
   return { ...event, blocks, media, chapters };
-}
+});
 
 export async function getEventSlugs(): Promise<string[]> {
   const supabase = createStaticClient();

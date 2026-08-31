@@ -5,6 +5,7 @@ import {
   EventTextBlock,
   EventVideoBlock,
 } from './EventBlocks';
+import { localized } from '@/lib/localized';
 import type { EventGalleryIndex } from '@/lib/event-gallery';
 import type { EventBlock } from '@/lib/supabase/types';
 
@@ -21,16 +22,18 @@ export function EventBlockList({
   gallery,
   eventTitle,
   blockStageIndex,
+  locale,
 }: {
   blocks: EventBlock[];
   gallery: EventGalleryIndex;
   eventTitle: string;
   blockStageIndex: Map<string, number>;
+  locale: string;
 }) {
   return (
     <div className="space-y-10 sm:space-y-14">
       {blocks.map((block) => {
-        const content = renderBlock(block, gallery, eventTitle);
+        const content = renderBlock(block, gallery, eventTitle, locale);
         if (!content) return null;
 
         const stageIndex = blockStageIndex.get(block.id);
@@ -46,10 +49,21 @@ export function EventBlockList({
   );
 }
 
-function renderBlock(block: EventBlock, gallery: EventGalleryIndex, eventTitle: string): React.ReactNode {
+function renderBlock(
+  block: EventBlock,
+  gallery: EventGalleryIndex,
+  eventTitle: string,
+  locale: string,
+): React.ReactNode {
   switch (block.type) {
-    case 'text':
-      return block.body_he ? <EventTextBlock text={block.body_he} /> : null;
+    case 'text': {
+      // ‏localized ולא body_he ישירות: לבלוק טקסט יש body_en בסכימה,
+      // ומבקר אנגלית קיבל עד עכשיו את העברית גם כשתרגום קיים. שאר
+      // הכיתובים (caption/attribution) הם עברית-בלבד בסכימה — שם אין
+      // מה לבחור.
+      const body = localized(block, 'body', locale);
+      return body ? <EventTextBlock text={body} /> : null;
+    }
 
     case 'image': {
       const imageIndex = gallery.blockImageIndex.get(block.id);
