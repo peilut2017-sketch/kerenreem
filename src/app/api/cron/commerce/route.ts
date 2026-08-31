@@ -11,6 +11,7 @@ import {
   expireStalePendingOrders,
   notifyBackInStock,
   purgeAbandonedSessions,
+  purgeOldAnalytics,
   purgeStaleRateLimits,
 } from '@/lib/commerce/maintenance';
 
@@ -61,6 +62,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     purgeAbandonedSessions(),
     notifyBackInStock(),
     purgeStaleRateLimits(),
+    purgeOldAnalytics(),
   ]);
 
   const keys = [
@@ -73,6 +75,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     'sessionsPurged',
     'backInStock',
     'rateLimitsPurged',
+    'analyticsPurged',
   ] as const;
   const report: Record<string, unknown> = {};
   results.forEach((result, index) => {

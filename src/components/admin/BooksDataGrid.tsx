@@ -102,9 +102,15 @@ function formatDate(value: string): string {
   );
 }
 
-/** [1.4] מבצע פעיל = יש מחיר מבצע והתאריך הנוכחי בתוך החלון (אם הוגדר). */
+/**
+ * [1.4] מבצע פעיל = מחיר מבצע *נמוך מהמחיר הרגיל* והתאריך בתוך החלון.
+ * תנאי ה-sale_price < price הכרחי כדי שהאדמין יסכים עם החזית: getEffectivePrice
+ * (pricing.ts) מכבד אותו, כך שספר עם sale_price גבוה מהמחיר לא מוצג במבצע
+ * באתר — והגריד לא צריך לטעון "במבצע" על משהו שהלקוח לא יקבל.
+ */
 function isSaleActive(book: BookRow): boolean {
-  if (book.sale_price == null) return false;
+  if (book.sale_price == null || book.price == null) return false;
+  if (Number(book.sale_price) >= Number(book.price)) return false;
   const now = Date.now();
   if (book.sale_starts_at && new Date(book.sale_starts_at).getTime() > now) return false;
   if (book.sale_ends_at && new Date(book.sale_ends_at).getTime() < now) return false;
@@ -113,12 +119,14 @@ function isSaleActive(book: BookRow): boolean {
 
 type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock' | 'preorder' | 'unmanaged';
 
-function stockStatus(book: BookRow): StockStatus {
+function stockStatus(book: BookRow, defaultThreshold: number): StockStatus {
   if (book.preorder_enabled) return 'preorder';
   if (!book.is_stock_managed) return 'unmanaged';
   const qty = book.stock_quantity ?? 0;
   if (qty <= 0) return 'out_of_stock';
-  if (qty <= (book.low_stock_threshold ?? 2)) return 'low_stock';
+  // סף המלאי של הספר גובר; בהיעדרו — ברירת המחדל *מהגדרות החנות*, לא
+  // מספר קשיח, כדי שהגריד יסכים עם הדשבורד והדוחות שכולם קוראים משם.
+  if (qty <= (book.low_stock_threshold ?? defaultThreshold)) return 'low_stock';
   return 'in_stock';
 }
 
@@ -165,6 +173,7 @@ export function BooksDataGrid({
   categories,
   series,
   initialVisibleColumns,
+  lowStockThreshold,
 }: {
   books: BookRow[];
   completionSignals: BookCompletionSignalIds;
@@ -172,6 +181,8 @@ export function BooksDataGrid({
   series: { id: string; name: string }[];
   /** הבחירה השמורה של המשתמש; null = טרם נבחרה, מציגים את ברירת המחדל. */
   initialVisibleColumns: string[] | null;
+  /** ברירת מחדל לסף מלאי נמוך מהגדרות החנות (כשלספר אין סף משלו). */
+  lowStockThreshold: number;
 }) {
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnId>>(() => {
     const saved = initialVisibleColumns?.filter((id): id is ColumnId => COLUMN_IDS.has(id));
@@ -263,12 +274,12 @@ export function BooksDataGrid({
       if (publishFilter === 'draft' && book.is_published) return false;
       if (purchasableFilter === 'yes' && !book.is_purchasable) return false;
       if (purchasableFilter === 'no' && book.is_purchasable) return false;
-      if (stockFilter === 'out_of_stock' && stockStatus(book) !== 'out_of_stock') return false;
-      if (stockFilter === 'low_stock' && stockStatus(book) !== 'low_stock') return false;
+      if (stockFilter === 'out_of_stock' && stockStatus(book, lowStockThreshold) !== 'out_of_stock') return false;
+      if (stockFilter === 'low_stock' && stockStatus(book, lowStockThreshold) !== 'low_stock') return false;
       if (stockFilter === 'no_price' && book.price != null) return false;
       return true;
     });
-  }, [rows, query, publishFilter, purchasableFilter, stockFilter]);
+  }, [rows, query, publishFilter, purchasableFilter, stockFilter, lowStockThreshold]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
@@ -430,7 +441,7 @@ export function BooksDataGrid({
         );
       }
       case 'stock': {
-        const status = stockStatus(book);
+        const status = stockStatus(book, lowStockThreshold);
         return (
           <td key={id}>
             <span className={`admin-badge ${STOCK_STATUS_BADGE[status]}`}>

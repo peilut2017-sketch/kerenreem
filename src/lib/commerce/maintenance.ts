@@ -29,10 +29,10 @@ export async function expireStalePendingOrders(days = 7): Promise<number> {
 
   let cancelled = 0;
   for (const order of stale ?? []) {
-    const result = await transitionOrder(service, order.id, 'state', 'cancelled', SYSTEM_ACTOR, {
-      reason: 'pending_expired',
-    });
-    if (!result.ok) continue;
+    // שחרור המלאי *לפני* הביטול, לא אחריו: אם התהליך מת בין הביטול
+    // לשחרור, הריצה הבאה מסננת state='pending' ולא חוזרת להזמנה — והשריון
+    // היה נתקע לנצח. release אידמפוטנטי (מדלג אם כבר שוחרר), כך שאם הביטול
+    // נכשל אחרי השחרור, הריצה הבאה פשוט תריץ שוב את שניהם בלי נזק.
     const { data: items } = await service
       .from('order_items')
       .select('book_id, quantity')
@@ -40,6 +40,10 @@ export async function expireStalePendingOrders(days = 7): Promise<number> {
     for (const item of items ?? []) {
       if (item.book_id) await releaseStock(service, item.book_id, item.quantity, order.id);
     }
+    const result = await transitionOrder(service, order.id, 'state', 'cancelled', SYSTEM_ACTOR, {
+      reason: 'pending_expired',
+    });
+    if (!result.ok) continue;
     await sendOrderEmail(service, 'cancelled', result.order ?? (order as Order));
     cancelled += 1;
   }
@@ -161,4 +165,48 @@ export async function purgeStaleRateLimits(): Promise<number> {
     return 0;
   }
   return data?.length ?? 0;
+}
+
+/**
+ * טיהור טבלאות האנליטיקה בעלות הנפח הגבוה ביותר. עד עכשיו page_views
+ * ו-commerce_events גדלו לנצח (בניגוד ל-webhooks/sessions/rate_limits
+ * שכן מטוהרים), בזמן שקריאות הדוחות עליהן חתוכות בתקרת שורות — כלומר
+ * הטבלה תופחת והדיווח נהיה פחות מדויק. ‏395 יום שומר השוואה שנה-מול-שנה.
+ * מוגדר לפי דגל: ריצה אחת מוחקת עד 50 אלף שורות כדי לא לחסום את ה-cron.
+ */
+const ANALYTICS_RETENTION_DAYS = 395;
+
+async function purgeOldRows(
+  service: NonNullable<ReturnType<typeof createServiceClient>>,
+  table: 'page_views' | 'commerce_events',
+): Promise<number> {
+  const cutoff = new Date(Date.now() - ANALYTICS_RETENTION_DAYS * 24 * 60 * 60_000).toISOString();
+  // מחיקה בבאצ' דרך תת-שאילתת id: DELETE ישיר עם limit אינו נתמך ב-PostgREST.
+  const { data: old, error: selectError } = await service
+    .from(table)
+    .select('id')
+    .lt('created_at', cutoff)
+    .limit(50_000);
+  if (selectError || !old?.length) {
+    if (selectError) console.error(`[commerce:maintenance] purge ${table} select`, selectError.message);
+    return 0;
+  }
+  const { error } = await service
+    .from(table)
+    .delete()
+    .in('id', old.map((row) => row.id));
+  if (error) {
+    console.error(`[commerce:maintenance] purge ${table}`, error.message);
+    return 0;
+  }
+  return old.length;
+}
+
+export async function purgeOldAnalytics(): Promise<{ pageViews: number; commerceEvents: number }> {
+  const service = createServiceClient();
+  if (!service) return { pageViews: 0, commerceEvents: 0 };
+  return {
+    pageViews: await purgeOldRows(service, 'page_views'),
+    commerceEvents: await purgeOldRows(service, 'commerce_events'),
+  };
 }

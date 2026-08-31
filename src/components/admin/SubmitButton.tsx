@@ -1,6 +1,7 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
+import { useIsUploading } from './upload-context';
 
 /**
  * לחצן שליחה שמראה שהוא נלחץ.
@@ -27,20 +28,24 @@ export function SubmitButton({
   value?: string;
 }) {
   const { pending } = useFormStatus();
+  // חסימת שמירה כל עוד יש העלאת תמונה בדרך — אחרת רשומה נשמרת בלי
+  // התמונה שנבחרה זה עתה, עם הודעת "נשמר בהצלחה" מטעה (ראו upload-context).
+  const uploading = useIsUploading();
+  const busy = pending || uploading;
 
   return (
     <button
       type="submit"
       name={name}
       value={value}
-      disabled={pending}
-      aria-disabled={pending}
+      disabled={busy}
+      aria-disabled={busy}
       className={className}
     >
-      {pending ? (
+      {busy ? (
         <span className="inline-flex items-center gap-2">
           <Spinner />
-          {pendingLabel}
+          {uploading && !pending ? 'ממתין להעלאת קובץ…' : pendingLabel}
         </span>
       ) : (
         children
