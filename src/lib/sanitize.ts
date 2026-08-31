@@ -1,5 +1,10 @@
 import sanitizeHtmlLib, { type IOptions } from 'sanitize-html';
-import { toCdnUrl } from '@/lib/image-src';
+// ייבוא יחסי עם סיומת, ולא '@/lib/image-src': הקובץ נטען גם ישירות ב-Node
+// (scripts/check-sanitize.mjs עם --experimental-strip-types), שאינו מכיר
+// את ה-alias של tsconfig ודורש סיומת מפורשת — ייבוא alias שובר את בדיקת
+// האבטחה של המנקה בשקט.
+import { toCdnUrl } from './image-src.ts';
+import { FONT_FAMILY_VALUE_PATTERN } from './font-slugs.ts';
 
 /**
  * ניקוי HTML שנוצר בעורך התוכן לפני הזרקתו לעמוד.
@@ -70,7 +75,9 @@ const OPTIONS: IOptions = {
         // הגופנים המובנים (fonts.ts) + גופנים מותקנים (custom_fonts,
         // מיגרציה 47): לכל גופן מותקן משתנה --font-custom-<slug> שמוגדר
         // ב-CustomFontsStyle — עדיין משתנה CSS סגור, לא שם גופן חופשי.
-        /^var\(--font-(?:assistant|frank|heebo|rubik|noto-hebrew|david-libre|secular-one|alef|suez|bellefair|custom-[a-z0-9-]{1,40})\)$/,
+        // הביטוי נגזר מ-font-slugs.ts (מקור אחד) ולא מהוקשח כאן שוב —
+        // כך שהוספת גופן מובנה אינה גורמת לו להיחתך בשקט מהתוכן העשיר.
+        FONT_FAMILY_VALUE_PATTERN,
       ],
     },
   },

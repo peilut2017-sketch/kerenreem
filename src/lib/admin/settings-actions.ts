@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { SITE_FONT_ROLES, SITE_FONT_VALUE_PATTERN } from '@/lib/fonts';
 import { assertRole, assertScreenPermission } from './auth';
+import { writeAuditLog } from './audit';
+import { ASSIGNABLE_ROLES } from './permissions';
 import type { ActionResult } from './actions';
 import type { UserRole } from '@/lib/supabase/types';
 
@@ -213,29 +215,41 @@ export async function saveShelfBooks(bookIds: string[]): Promise<ActionResult> {
   return {};
 }
 
-/** שינוי תפקיד של איש צוות. Admin בלבד. */
-export async function updateProfileRole(userId: string, role: UserRole): Promise<void> {
+/**
+ * שינוי תפקיד של איש צוות. Admin בלבד.
+ *
+ * מחזיר תוצאה ולא void: גרסה קודמת נכשלה בשקט (אין הרשאה / שגיאת מסד)
+ * וה-select בדפדפן המשיך להציג את התפקיד "החדש" שמעולם לא נשמר.
+ */
+export async function updateProfileRole(
+  userId: string,
+  role: UserRole,
+): Promise<{ ok: boolean; error?: string }> {
   const session = await assertRole('admin');
-  if ('error' in session) return;
+  if ('error' in session) return { ok: false, error: session.error };
 
   // מנהל אינו יכול להוריד את עצמו — כך לא נוצר מצב שאין אף מנהל במערכת.
-  if (session.userId === userId) return;
+  if (session.userId === userId) return { ok: false, error: 'לא ניתן לשנות את התפקיד של עצמך' };
+
+  // ולידציה בזמן ריצה, כמו ב-inviteStaffMember — הטיפוס לבדו אינו מגן
+  // מ-payload שנשלח ישירות ל-Server Action.
+  if (!ASSIGNABLE_ROLES.includes(role) && role !== 'viewer') {
+    return { ok: false, error: 'תפקיד לא מוכר' };
+  }
 
   const supabase = await createClient();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: 'אין חיבור למסד' };
 
   const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
   if (error) {
     console.error('[admin:role]', error);
-    return;
+    return { ok: false, error: error.message };
   }
 
-  await supabase.from('audit_log').insert({
-    user_id: session.userId,
-    action: 'update',
-    table_name: 'profiles',
-    record_id: userId,
+  await writeAuditLog(supabase, session.userId, 'update', 'profiles', userId, {
+    context: `שינוי תפקיד ל-${role}`,
   });
 
   revalidatePath('/admin/settings');
+  return { ok: true };
 }

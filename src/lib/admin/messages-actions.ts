@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { sendPlainEmail } from '@/lib/commerce/notifications';
+import { escapeHtml, sendPlainEmail } from '@/lib/commerce/notifications';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 import { writeAuditLog } from './audit';
@@ -98,8 +98,9 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
     ? `מענה לפנייתך: ${inquiry.subject}`.slice(0, 160)
     : 'מענה לפנייתך למכון קרן רא״ם';
 
+  // שם הפונה הוא קלט חופשי מטופס ציבורי — escape לפני הרכבת ה-HTML
   const emailHtml = `
-    <p>שלום ${inquiry.name},</p>
+    <p>שלום ${escapeHtml(inquiry.name ?? '')},</p>
     ${clean}
     <hr style="border:none;border-top:1px solid #ddd;margin:1.5em 0" />
     <p style="color:#666;font-size:0.9em">מענה זה נשלח מצוות מכון קרן רא״ם בהמשך לפנייתך באתר.</p>

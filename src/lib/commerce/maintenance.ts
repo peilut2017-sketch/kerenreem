@@ -29,10 +29,10 @@ export async function expireStalePendingOrders(days = 7): Promise<number> {
 
   let cancelled = 0;
   for (const order of stale ?? []) {
-    const result = await transitionOrder(service, order.id, 'state', 'cancelled', SYSTEM_ACTOR, {
-      reason: 'pending_expired',
-    });
-    if (!result.ok) continue;
+    // שחרור המלאי *לפני* הביטול, לא אחריו: אם התהליך מת בין הביטול
+    // לשחרור, הריצה הבאה מסננת state='pending' ולא חוזרת להזמנה — והשריון
+    // היה נתקע לנצח. release אידמפוטנטי (מדלג אם כבר שוחרר), כך שאם הביטול
+    // נכשל אחרי השחרור, הריצה הבאה פשוט תריץ שוב את שניהם בלי נזק.
     const { data: items } = await service
       .from('order_items')
       .select('book_id, quantity')
@@ -40,6 +40,21 @@ export async function expireStalePendingOrders(days = 7): Promise<number> {
     for (const item of items ?? []) {
       if (item.book_id) await releaseStock(service, item.book_id, item.quantity, order.id);
     }
+    // guard על payment_state: אם הלקוח שילם את ההזמנה הישנה בדיוק עכשיו
+    // (‏Webhook תוך כדי ריצת ה-cron), הביטול נחסם אטומית — הזמנה ששולמה
+    // אינה עוברת ל-cancelled בלי מסלול זיכוי. הצילום נקרא כ-pending/failed;
+    // אם השתנה, ה-guard לא מתקיים והביטול מדלג. changed מבדיל ביטול בפועל
+    // מ"כבר בוטל", כדי לא לשלוח מייל ביטול פעמיים.
+    const result = await transitionOrder(
+      service,
+      order.id,
+      'state',
+      'cancelled',
+      SYSTEM_ACTOR,
+      { reason: 'pending_expired' },
+      { payment_state: order.payment_state },
+    );
+    if (!result.ok || !result.changed) continue;
     await sendOrderEmail(service, 'cancelled', result.order ?? (order as Order));
     cancelled += 1;
   }
@@ -122,6 +137,20 @@ export async function notifyBackInStock(): Promise<number> {
   for (const sub of pending) {
     const book = available.get(sub.book_id);
     if (!book || !sub.email) continue;
+    // תפיסת השורה *לפני* השליחה, בעדכון מותנה ב-notified_at IS NULL: בלי
+    // idempotency-log למייל הזה, ריצות חופפות (הקצב מתוכנן לרדת ל-~10 דק')
+    // או קריסה+ריצה חוזרת היו שולחות מייל כפול לכל נרשם. מי שתפס את השורה
+    // (‏select מחזיר אותה) שולח; שאר הריצות רואות 0 שורות ומדלגות.
+    const claimedAt = new Date().toISOString();
+    const { data: claimed } = await service
+      .from('back_in_stock_subscriptions')
+      .update({ notified_at: claimedAt })
+      .eq('id', sub.id)
+      .is('notified_at', null)
+      .select('id')
+      .maybeSingle();
+    if (!claimed) continue;
+
     const result = await sendPlainEmail(
       sub.email,
       `הספר ״${book.title_he}״ חזר למלאי — מכון קרן רא״ם`,
@@ -131,12 +160,82 @@ export async function notifyBackInStock(): Promise<number> {
        <p style="color:#8a8577;font-size:13px">קיבלת את המייל כי נרשמת לעדכון חזרה למלאי. זו הודעה חד-פעמית.</p>`,
     );
     if (result.ok) {
+      sent += 1;
+    } else {
+      // השליחה נכשלה — משחררים את התפיסה שלנו (רק אותה) כדי שהריצה הבאה
+      // תנסה שוב, במקום לסמן "נשלח" בלי שנשלח דבר.
       await service
         .from('back_in_stock_subscriptions')
-        .update({ notified_at: new Date().toISOString() })
-        .eq('id', sub.id);
-      sent += 1;
+        .update({ notified_at: null })
+        .eq('id', sub.id)
+        .eq('notified_at', claimedAt);
     }
   }
   return sent;
+}
+
+/**
+ * טיהור שורות rate_limits ישנות. commerce_rate_limit מוחקת בכל קריאה רק
+ * את השורות הישנות של *הדלי הנוכחי* — דלי שהפסיק לקבל תעבורה (IP חולף,
+ * מספר הזמנה חד-פעמי) משאיר את שורותיו לנצח, והטבלה גדלה בלי גבול.
+ * החלון הארוך ביותר בקוד הוא שעה; יום שלם משאיר שוליים בטוחים בהרבה.
+ */
+export async function purgeStaleRateLimits(): Promise<number> {
+  const service = createServiceClient();
+  if (!service) return 0;
+  const cutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+  const { data, error } = await service
+    .from('rate_limits')
+    .delete()
+    .lt('hit_at', cutoff)
+    .select('id');
+  if (error) {
+    console.error('[commerce:maintenance] purge rate_limits', error.message);
+    return 0;
+  }
+  return data?.length ?? 0;
+}
+
+/**
+ * טיהור טבלאות האנליטיקה בעלות הנפח הגבוה ביותר. עד עכשיו page_views
+ * ו-commerce_events גדלו לנצח (בניגוד ל-webhooks/sessions/rate_limits
+ * שכן מטוהרים), בזמן שקריאות הדוחות עליהן חתוכות בתקרת שורות — כלומר
+ * הטבלה תופחת והדיווח נהיה פחות מדויק. ‏395 יום שומר השוואה שנה-מול-שנה.
+ * מוגדר לפי דגל: ריצה אחת מוחקת עד 50 אלף שורות כדי לא לחסום את ה-cron.
+ */
+const ANALYTICS_RETENTION_DAYS = 395;
+
+async function purgeOldRows(
+  service: NonNullable<ReturnType<typeof createServiceClient>>,
+  table: 'page_views' | 'commerce_events',
+): Promise<number> {
+  const cutoff = new Date(Date.now() - ANALYTICS_RETENTION_DAYS * 24 * 60 * 60_000).toISOString();
+  // מחיקה בבאצ' דרך תת-שאילתת id: DELETE ישיר עם limit אינו נתמך ב-PostgREST.
+  const { data: old, error: selectError } = await service
+    .from(table)
+    .select('id')
+    .lt('created_at', cutoff)
+    .limit(50_000);
+  if (selectError || !old?.length) {
+    if (selectError) console.error(`[commerce:maintenance] purge ${table} select`, selectError.message);
+    return 0;
+  }
+  const { error } = await service
+    .from(table)
+    .delete()
+    .in('id', old.map((row) => row.id));
+  if (error) {
+    console.error(`[commerce:maintenance] purge ${table}`, error.message);
+    return 0;
+  }
+  return old.length;
+}
+
+export async function purgeOldAnalytics(): Promise<{ pageViews: number; commerceEvents: number }> {
+  const service = createServiceClient();
+  if (!service) return { pageViews: 0, commerceEvents: 0 };
+  return {
+    pageViews: await purgeOldRows(service, 'page_views'),
+    commerceEvents: await purgeOldRows(service, 'commerce_events'),
+  };
 }

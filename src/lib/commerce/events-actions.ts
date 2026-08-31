@@ -1,8 +1,9 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
+import { allowRequest, ipBucket } from './rate-limit';
+import { clientIp, dailyVisitorHash, isUuid } from '@/lib/analytics/shared';
 
 /**
  * אירועי המסחר הראשוניים (פרק 24 במסמך האב) — באותה תבנית מוכחת של
@@ -43,12 +44,6 @@ const ALLOWED_EVENTS = new Set([
   'external_supplier_clicked',
 ]);
 
-function dailyVisitorHash(ip: string, userAgent: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const salt = process.env.ANALYTICS_SALT ?? 'keren-raam-page-views';
-  return createHash('sha256').update(`${today}:${ip}:${userAgent}:${salt}`).digest('hex');
-}
-
 export async function recordCommerceEvent(
   eventName: string,
   input: {
@@ -64,25 +59,32 @@ export async function recordCommerceEvent(
     if (!ALLOWED_EVENTS.has(eventName)) return;
     if (!input.sessionKey || input.sessionKey.length > 64) return;
 
+    const headerList = await headers();
+    const ip = clientIp(headerList);
+    // הגבלת קצב נדיבה: פעולה ציבורית לא מאומתת שמזינה את דוחות המרצ'נדייז
+    // ("איזה ספר להדפיס מחדש"). בלי זה אפשר לנפח את מוני הצפייה/שמירה של
+    // כל ספר בלולאה. הסף גבוה דיו כדי לא לפגוע בגלישה אמיתית; fail-open.
+    if (!(await allowRequest(ipBucket('commerce-event', headerList), 240, 60))) return;
+
     const supabase = await createClient();
     if (!supabase) return;
 
-    const headerList = await headers();
-    const ip =
-      headerList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      headerList.get('x-real-ip') ||
-      'unknown';
     const userAgent = headerList.get('user-agent') ?? 'unknown';
 
     const { error } = await supabase.from('commerce_events').insert({
       event_name: eventName,
-      book_id: input.bookId ?? null,
-      order_id: input.orderId ?? null,
-      value_agorot: input.valueAgorot ?? null,
-      meta: input.meta ?? {},
+      // רק UUID תקין נכתב — book_id/order_id מגיעים מהלקוח, וזבל היה
+      // נכתב לשורה ומזהם את הדוחות (ה-FK לא בהכרח קיים על כל העמודות).
+      book_id: isUuid(input.bookId) ? input.bookId : null,
+      order_id: isUuid(input.orderId) ? input.orderId : null,
+      value_agorot:
+        typeof input.valueAgorot === 'number' && Number.isFinite(input.valueAgorot) && input.valueAgorot >= 0
+          ? Math.round(input.valueAgorot)
+          : null,
+      meta: sanitizeMeta(input.meta),
       session_key: input.sessionKey,
       visitor_hash: dailyVisitorHash(ip, userAgent),
-      locale: input.locale ?? 'he',
+      locale: input.locale === 'en' ? 'en' : 'he',
     });
     // 23505 = כפל אירוע באותו session — מניעת הכפלה מכוונת, לא שגיאה
     if (error && error.code !== '23505') {
@@ -91,4 +93,21 @@ export async function recordCommerceEvent(
   } catch (error) {
     console.error('[commerce:event] חריגה לא צפויה', error);
   }
+}
+
+/**
+ * תוחם את meta שמגיע מהלקוח: עד 10 מפתחות, ערכים פרימיטיביים בלבד,
+ * מחרוזות עד 200 תווים — כדי שלא ניתן יהיה לתחוב jsonb כבד לטבלה.
+ */
+function sanitizeMeta(
+  meta: Record<string, string | number | boolean> | undefined,
+): Record<string, string | number | boolean> {
+  if (!meta || typeof meta !== 'object') return {};
+  const out: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(meta).slice(0, 10)) {
+    if (typeof value === 'string') out[key.slice(0, 60)] = value.slice(0, 200);
+    else if (typeof value === 'number' && Number.isFinite(value)) out[key.slice(0, 60)] = value;
+    else if (typeof value === 'boolean') out[key.slice(0, 60)] = value;
+  }
+  return out;
 }

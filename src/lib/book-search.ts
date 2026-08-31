@@ -65,7 +65,12 @@ export function searchCorpus(book: BookWithRelations): string {
       book.author?.name_en,
       book.author_name_he,
       book.author_name_en,
-      // [1.21] כל הקטגוריות, לא רק הראשית — חיפוש לפי קטגוריה משנית של הספר אמור למצוא אותו
+      // [1.21] כל הקטגוריות, לא רק הראשית — חיפוש לפי קטגוריה משנית של הספר אמור למצוא אותו.
+      // הקטגוריה הראשית נכללת גם ישירות: shapeBook אמנם ממלא categories
+      // תמיד, אבל המאגר לא נשען על הבטחה של שכבה אחרת כדי שחיפוש לפי
+      // קטגוריה לא יישבר בשקט אם צורת הנתונים תשתנה.
+      book.category?.name_he,
+      book.category?.name_en,
       book.categories?.map((category) => category.name_he).join(' '),
       book.categories?.map((category) => category.name_en).join(' '),
       // התיאור הוא HTML מהעורך; בלי הסרת התגיות חיפוש "עמוד" היה מוצא

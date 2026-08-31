@@ -4,8 +4,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/Container';
 import { PageHeader } from '@/components/PageHeader';
-import { getAuthors, getBooks } from '@/lib/data';
+import { getAuthors, getBookCountsByAuthor } from '@/lib/data';
 import { localized } from '@/lib/localized';
+import { pageAlternates } from '@/lib/seo';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -27,7 +28,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'authors' });
-  return { title: t('title'), description: t('intro') };
+  return { title: t('title'), description: t('intro'), alternates: pageAlternates(locale, '/authors') };
 }
 
 export default async function AuthorsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -35,12 +36,7 @@ export default async function AuthorsPage({ params }: { params: Promise<{ locale
   setRequestLocale(locale);
 
   const t = await getTranslations('authors');
-  const [authors, books] = await Promise.all([getAuthors(), getBooks()]);
-
-  const bookCounts = new Map<string, number>();
-  for (const book of books) {
-    if (book.author_id) bookCounts.set(book.author_id, (bookCounts.get(book.author_id) ?? 0) + 1);
-  }
+  const [authors, bookCounts] = await Promise.all([getAuthors(), getBookCountsByAuthor()]);
 
   return (
     <Container className="py-16 lg:py-20">

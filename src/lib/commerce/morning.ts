@@ -211,9 +211,21 @@ export function normalizeStatusPayload(raw: Record<string, unknown>): Transactio
     method: (['credit', 'bit', 'apple_pay', 'google_pay'] as const).find((m) => methodRaw.includes(m)) ?? null,
     documentId: (raw.documentId as string) ?? null,
     documentNumber: (raw.documentNumber as string) ?? null,
-    amount: typeof raw.amount === 'number' ? raw.amount : null,
+    // גם מחרוזת מספרית מתקבלת ("150.00" — נפוץ ב-API-י תשלומים): אימות
+    // הסכום מדלג כש-amount הוא null, כך שהשארת מחרוזת כ-null הייתה
+    // מאשרת תשלום חלקי בשקט בלי להשוות לסכום ההזמנה.
+    amount: coerceAmount(raw.amount),
     raw,
   };
+}
+
+function coerceAmount(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
 }
 
 /* --------------------------------- refund --------------------------------- */

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { assertScreenPermission } from './auth';
+import { writeAuditLog } from './audit';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -98,16 +99,22 @@ export async function saveCoupon(
 export async function setCouponActive(couponId: string, active: boolean): Promise<void> {
   const session = await assertScreenPermission('coupons', 'edit');
   if ('error' in session) return;
+  // כתיבת הקופון דרך service-role כמו saveCoupon: מיגרציה 55 מבטלת את
+  // הרשאת הכתיבה הישירה של authenticated על coupons, כך שהמסלול הזה חייב
+  // לעבור בשרת (assertScreenPermission כבר אכף את ההרשאה למעלה).
+  const service = createServiceClient();
+  if (!service) return;
+  await service.from('coupons').update({ active }).eq('id', couponId);
   const supabase = await createClient();
-  if (!supabase) return;
-  await supabase.from('coupons').update({ active }).eq('id', couponId);
-  await supabase.from('audit_log').insert({
-    user_id: session.userId,
-    action: 'update',
-    table_name: 'coupons',
-    record_id: couponId,
-    new_values: { active },
-  });
+  if (supabase) {
+    await supabase.from('audit_log').insert({
+      user_id: session.userId,
+      action: 'update',
+      table_name: 'coupons',
+      record_id: couponId,
+      new_values: { active },
+    });
+  }
   revalidatePath('/admin/coupons');
 }
 
@@ -127,11 +134,17 @@ export async function deleteCoupon(couponId: string): Promise<{ ok: boolean; err
     .eq('coupon_id', couponId);
   if ((count ?? 0) > 0) {
     await service.from('coupons').update({ active: false }).eq('id', couponId);
+    await writeAuditLog(null, session.userId, 'coupon_disable', 'coupons', couponId, {
+      context: 'השבתת קופון עם מימושים (במקום מחיקה)',
+    });
     revalidatePath('/admin/coupons');
     return { ok: true, error: 'לקופון מימושים — הושבת במקום להימחק (ההיסטוריה נשמרת)' };
   }
   const { error } = await service.from('coupons').delete().eq('id', couponId);
   if (error) return { ok: false, error: error.message };
+  await writeAuditLog(null, session.userId, 'coupon_delete', 'coupons', couponId, {
+    context: 'מחיקת קופון (ללא מימושים)',
+  });
   revalidatePath('/admin/coupons');
   return { ok: true };
 }

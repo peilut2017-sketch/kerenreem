@@ -106,7 +106,10 @@ export async function getSalesData(range: ReportDateRange): Promise<SalesData> {
       .select('kind, status, method, amount')
       .gte('created_at', range.from.toISOString())
       .lt('created_at', range.to.toISOString())
-      .limit(4000),
+      // תקרה זהה ל-orders (20000): קודם עמדה על 4000 — נמוכה מהזמנות —
+      // כך שהזיכויים נחתכו *לפני* ההזמנות והוצג net מנופח. הסף אחיד עכשיו.
+      // תקרת הבטיחות של דוח מוסדי; מעבר לזה נדרש צבירה בצד SQL (RPC).
+      .limit(20000),
   ]);
 
   const items = itemsRes.data ?? [];

@@ -9,7 +9,10 @@ import { FavouritesClient } from '@/components/store/FavouritesClient';
  * חשבון; הרשימה חיה במכשיר. נגיש מאייקון הספר שבכותרת.
  */
 
-export const dynamic = 'force-dynamic';
+// ‏ISR ולא force-dynamic: העמוד הוא מעטפת סטטית + רכיב לקוח שקורא את
+// הרשימה מהמכשיר; הנתון השרתי היחיד הוא דגלי החנות, שדקה של מטמון
+// מספיקה להם. force-dynamic הריץ את שליפת הדגלים בכל בקשה לחינם.
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,

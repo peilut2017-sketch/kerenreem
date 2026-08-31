@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Img as Image } from '@/components/Img';
 import { VideoEmbed, getYouTubeThumbnail } from '../VideoEmbed';
 import { ScrollFocus } from './ScrollFocus';
@@ -130,6 +131,7 @@ export function EventVideoBlock({
   caption: string | null;
   title: string;
 }) {
+  const t = useTranslations('events');
   const [playing, setPlaying] = useState(false);
   const thumbnail = getYouTubeThumbnail(url);
 
@@ -143,7 +145,7 @@ export function EventVideoBlock({
             type="button"
             onClick={() => setPlaying(true)}
             className="group relative block aspect-video w-full"
-            aria-label={`נגינת הסרטון — ${title}`}
+            aria-label={t('playVideo', { title })}
           >
             {thumbnail ? (
               <Image

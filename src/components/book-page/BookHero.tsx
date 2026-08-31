@@ -3,6 +3,7 @@ import { BookCoverStage } from './BookCoverStage';
 import { HeroBackground } from './HeroBackground';
 import { HeroSpecStrip } from './HeroSpecStrip';
 import { SmartTag } from './SmartTag';
+import { localized } from '@/lib/localized';
 import type { AuthorDisplay } from '@/lib/books/author-display';
 import type { BookWithRelations } from '@/lib/supabase/types';
 import type { CoverPalette } from '@/lib/cover-colors';
@@ -35,6 +36,7 @@ export function BookHero({
   badges = [],
   actions,
   t,
+  locale = 'he',
 }: {
   book: BookWithRelations;
   palette: CoverPalette;
@@ -49,6 +51,7 @@ export function BookHero({
   /** גוש המחיר והפעולות — מוזרק מהעמוד כדי ש-Hero לא יכיר את מצב החנות */
   actions?: React.ReactNode;
   t: (key: string, values?: Record<string, string | number | Date>) => string;
+  locale?: string;
 }) {
   // [1.9] שם המחבר מוצג פעם אחת בלבד — כאן בסרגל, עם קישור לעמודו כשקיים
   // (author.href הוא null לטקסט חופשי, ראו lib/books/author-display.ts).
@@ -81,7 +84,9 @@ export function BookHero({
               cover={book.cover_image_url}
               mockup={book.hero_mockup_url}
               title={title}
-              alt={t('coverAlt', { title })}
+              /* הטקסט החלופי שהעורך כתב (cover_alt) קודם לגזירה האוטומטית —
+                 עד עכשיו השדה נשמר ונוקד במד ההשלמה אך מעולם לא הגיע ל-DOM */
+              alt={book.cover_alt || t('coverAlt', { title })}
             />
 
             <div className="text-center lg:text-start">
@@ -111,7 +116,14 @@ export function BookHero({
               {book.tags && book.tags.length > 0 ? (
                 <Reveal className="mb-5 flex flex-wrap justify-center gap-2 lg:justify-start">
                   {book.tags.slice(0, 3).map((tag) => (
-                    <SmartTag key={tag.id} label={tag.name_he} slug={tag.slug} description={tag.description_he} />
+                    <SmartTag
+                      key={tag.id}
+                      /* שם התגית לפי השפה — לתגית יש name_en בסכימה;
+                         ההסבר (description) עברי-בלבד בסכימה */
+                      label={localized(tag, 'name', locale)}
+                      slug={tag.slug}
+                      description={tag.description_he}
+                    />
                   ))}
                 </Reveal>
               ) : null}

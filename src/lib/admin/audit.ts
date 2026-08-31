@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 /**
  * [1.11] כתיבה מרוכזת ליומן הביקורת — עם פירוט מלא.
@@ -75,14 +76,24 @@ export function auditDisplayName(
 }
 
 export async function writeAuditLog(
-  supabase: Supa,
+  supabase: Supa | null,
   userId: string | null,
   action: string,
   table: string,
   recordId: string | null,
   details?: AuditDetails,
 ): Promise<void> {
-  const { error } = await supabase.from('audit_log').insert({
+  // יומן הביקורת הוא רשומת ציות — הכתיבה עוברת דרך לקוח השירות כשהוא
+  // זמין: מדיניות ה-RLS (audit_log_staff_insert) מכסה רק את can_edit(),
+  // כך שדווקא התפקידים שמבצעים פעולות כספיות (store_manager, מוכרן,
+  // מלקט) קיבלו 42501 שקט והפעולה נותרה בלי שום עקבה. user_id מגיע
+  // תמיד מה-session המאומת של הקורא, לא מהלקוח.
+  const writer = createServiceClient() ?? supabase;
+  if (!writer) {
+    console.error('[admin:audit] אין לקוח זמין — הפעולה לא תועדה', action, table);
+    return;
+  }
+  const { error } = await writer.from('audit_log').insert({
     user_id: userId,
     action,
     table_name: table,

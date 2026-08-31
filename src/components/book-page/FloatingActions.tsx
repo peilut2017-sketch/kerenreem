@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { useLocalList } from '@/lib/client-hooks';
+import { useLocale, useTranslations } from 'next-intl';
+import { useLocalList, useLocalValue } from '@/lib/client-hooks';
+import { COOKIE_CONSENT_KEY } from '../CookieConsentBanner';
 import { useCart } from '../store/CartProvider';
 import { AddToCartButton } from '../store/AddToCartButton';
 import type { BookAvailability } from '@/lib/supabase/types';
@@ -43,11 +44,19 @@ export function FloatingActions({
   availability: BookAvailability;
 }) {
   const t = useTranslations('books');
+  const locale = useLocale();
   const cart = useCart();
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const { has, toggle } = useLocalList('kr:favourites');
   const isFavourite = has(bookId);
+
+  // באנר העוגיות יושב bottom-left פיזי בשני הלוקיילים; ב-RTL סרגל הקנייה
+  // (end-6) יושב אף הוא משמאל, וכל עוד לא הוכרעה ההסכמה הבאנר מכסה אותו
+  // בביקור ראשון (בעיקר בנייד) — בדיוק ה-CTA הראשי. מרימים את הסרגל כדי
+  // לפנות מקום; reactive — ברגע שההסכמה נבחרת הבאנר נעלם והסרגל חוזר.
+  const { value: cookieConsent } = useLocalValue(COOKIE_CONSENT_KEY);
+  const liftForBanner = cookieConsent === null && locale === 'he';
 
   useEffect(() => {
     if (!showBuy || typeof IntersectionObserver === 'undefined') return;
@@ -94,7 +103,9 @@ export function FloatingActions({
 
   return (
     <div
-      className={`on-dark fixed bottom-6 end-6 z-40 flex flex-col gap-1.5 rounded-[var(--radius-lg)] bg-navy p-2.5 shadow-[var(--shadow-float)] transition-all duration-500 ${
+      className={`on-dark fixed end-6 z-40 flex flex-col gap-1.5 rounded-[var(--radius-lg)] bg-navy p-2.5 shadow-[var(--shadow-float)] transition-all duration-500 ${
+        liftForBanner ? 'bottom-48' : 'bottom-6'
+      } ${
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
       }`}
     >

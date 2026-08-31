@@ -225,10 +225,13 @@ export function ToggleField({
   const [error, setError] = useState<string | null>(null);
 
   function handleChange(next: boolean) {
-    if (!autoSave) return;
+    // גם במצב שאינו autoSave (רשומה חדשה, ללא id) חייבים לעדכן את ה-state:
+    // הסליידר הנראה נקשר אליו, ובלעדיו המתג היה קפוא על ערך ברירת המחדל
+    // בזמן שה-checkbox המוסתר כן מתחלף — העורך לא ראה את מצבו האמיתי.
     const previous = checked;
     setChecked(next);
     setError(null);
+    if (!autoSave) return;
     startTransition(async () => {
       const result = onToggle
         ? await onToggle(next)
@@ -257,7 +260,7 @@ export function ToggleField({
         <span
           aria-hidden="true"
           className={`relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors ${
-            (autoSave ? checked : defaultChecked) ? 'bg-[var(--admin-accent)]' : 'bg-[var(--admin-border)]'
+            checked ? 'bg-[var(--admin-accent)]' : 'bg-[var(--admin-border)]'
           }`}
         >
           {/* מיקום פיזי (right), לא לוגי: הניהול תמיד dir="rtl" קבוע, אז
@@ -265,20 +268,22 @@ export function ToggleField({
               לשמאל" כמקובל היום. */}
           <span
             className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[right] duration-200 ${
-              (autoSave ? checked : defaultChecked) ? 'right-[1.375rem]' : 'right-0.5'
+              checked ? 'right-[1.375rem]' : 'right-0.5'
             }`}
           />
         </span>
+        {/* ה-checkbox מבוקר ב-checked בשני המצבים כדי שהסליידר יזוז תמיד.
+            במצב שאינו autoSave (רשומה חדשה) יש לו name כדי שערכו יישלח
+            עם הטופס; במצב autoSave השינוי נשמר דרך הפעולה, לא בשליחת טופס. */}
         <input
           id={id}
           name={autoSave ? undefined : name}
           type="checkbox"
           role="switch"
-          {...(autoSave
-            ? { checked, onChange: (event: React.ChangeEvent<HTMLInputElement>) => handleChange(event.target.checked) }
-            : { defaultChecked })}
+          checked={checked}
+          onChange={(event) => handleChange(event.target.checked)}
           disabled={isDisabled}
-          aria-checked={autoSave ? checked : undefined}
+          aria-checked={checked}
           aria-describedby={hint || error ? `${id}-hint` : undefined}
           className="sr-only"
         />

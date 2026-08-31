@@ -10,6 +10,12 @@ export interface AdminSession {
   userId: string;
   email: string | null;
   profile: Profile;
+  /**
+   * הוזמן עם סיסמה ראשונית שנשלחה במייל וטרם החליף אותה
+   * (user_metadata.must_change_password, ראו inviteStaffMember).
+   * הפריסה מציגה לו קריאה בולטת להחלפה; הדגל נמחק ב-account-actions.
+   */
+  mustChangePassword: boolean;
 }
 
 /**
@@ -99,9 +105,16 @@ export const getAdminSessionResult = cache(async (): Promise<AdminSessionResult>
 
   if (!profile) return { status: 'no-profile', userId, email };
 
+  const metadata = claims.claims.user_metadata as Record<string, unknown> | undefined;
+
   return {
     status: 'ok',
-    session: { userId, email, profile: profile as Profile },
+    session: {
+      userId,
+      email,
+      profile: profile as Profile,
+      mustChangePassword: metadata?.must_change_password === true,
+    },
   };
 });
 

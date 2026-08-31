@@ -4,6 +4,14 @@ import { routing } from '@/i18n/routing';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
+/**
+ * בלי revalidate, ה-sitemap נבנה פעם אחת בזמן ה-build ונשאר קפוא —
+ * ספר/אירוע חדש לא הופיע בו עד פריסה מחדש, בזמן שכל שאר האתר מתעדכן
+ * תוך דקה (ISR). שעה מספיקה לגילוי — מנועי חיפוש ממילא לא סורקים בתדירות
+ * גבוהה מזה.
+ */
+export const revalidate = 3600;
+
 const STATIC_PATHS = [
   '',
   '/about',
@@ -47,7 +55,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // עמוד ספר הוא הנכס המרכזי לגילוי אורגני
       priority: path.startsWith('/books/') ? 0.8 : path === '' ? 1 : 0.6,
       alternates: {
-        languages: Object.fromEntries(routing.locales.map((l) => [l, url(l, path)])),
+        languages: {
+          ...Object.fromEntries(routing.locales.map((l) => [l, url(l, path)])),
+          // ‏x-default: הגרסה למי שאף שפה מוצהרת לא מתאימה לו — העברית,
+          // שפת הבית של האתר.
+          'x-default': url(routing.defaultLocale, path),
+        },
       },
     })),
   );

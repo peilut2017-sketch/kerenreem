@@ -94,7 +94,8 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       title={t('searchDialogTitle')}
       variant="center"
       widthClassName="max-w-xl"
-      closeLabel={t('clearSearch')}
+      /* 'סגירה' ולא 'ניקוי החיפוש' — זהו כפתור סגירת הדיאלוג, לא ניקוי השדה */
+      closeLabel={t('close')}
     >
       <div className="relative">
         <svg viewBox="0 0 20 20" aria-hidden="true" className="pointer-events-none absolute top-1/2 start-3 h-4 w-4 -translate-y-1/2 text-muted" fill="none">

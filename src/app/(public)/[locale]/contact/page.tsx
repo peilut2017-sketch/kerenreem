@@ -8,7 +8,8 @@ import { ContactTabs } from '@/components/ContactTabs';
 import { SocialIcon, SOCIAL_NAMES } from '@/components/SocialIcon';
 import { localized } from '@/lib/localized';
 import { resolveBookAuthor } from '@/lib/books/author-display';
-import { getBooks, getContactFields, getContactTopics, getSiteSettings } from '@/lib/data';
+import { getBookOptions, getContactFields, getContactTopics, getSiteSettings } from '@/lib/data';
+import { pageAlternates } from '@/lib/seo';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -30,7 +31,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'contact' });
-  return { title: t('title'), description: t('intro') };
+  return { title: t('title'), description: t('intro'), alternates: pageAlternates(locale, '/contact') };
 }
 
 export default async function ContactPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -43,7 +44,7 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
     getSiteSettings(),
     getContactTopics(),
     getContactFields(),
-    getBooks(),
+    getBookOptions(),
   ]);
 
   const contact = settings.contact ?? {};

@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Catalogue } from '@/components/books/Catalogue';
 import { getAuthors, getAttributes, getBooks, getCategories, getTags } from '@/lib/data';
 import { getCommerceFlags } from '@/lib/commerce/settings';
-import type { SortKey } from '@/lib/book-search';
+import { pageAlternates } from '@/lib/seo';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -18,7 +18,9 @@ import type { SortKey } from '@/lib/book-search';
  */
 export const revalidate = 60;
 
-const SORTS: SortKey[] = ['recommended', 'newest', 'oldest', 'title', 'priceAsc', 'priceDesc'];
+export function generateStaticParams() {
+  return [{ locale: 'he' }, { locale: 'en' }];
+}
 
 export async function generateMetadata({
   params,
@@ -27,17 +29,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'books' });
-  return { title: t('title'), description: t('heroSubtitle') };
+  return { title: t('title'), description: t('heroSubtitle'), alternates: pageAlternates(locale, '/books') };
 }
 
-export default async function BooksPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<{ q?: string; category?: string; sort?: string; page?: string }>;
-}) {
-  const [{ locale }, query] = await Promise.all([params, searchParams]);
+/**
+ * בכוונה בלי searchParams: עצם הקריאה להם בעמוד שרת הופכת את המסלול
+ * לדינמי בכל בקשה — כלומר revalidate=60 למעלה היה מת, וכל בקשה ל-/books
+ * (העמוד הכבד באתר) הריצה את כל שש השליפות מחדש. פרמטרי הסינון נקראים
+ * בצד הלקוח בתוך Catalogue (ראו שם) — אותה התנהגות למשתמש, עמוד סטטי.
+ */
+export default async function BooksPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
   setRequestLocale(locale);
 
   const t = await getTranslations('books');
@@ -52,9 +54,9 @@ export default async function BooksPage({
 
   // רק מחברים שיש להם ספר, ורק קטגוריות שיש בהן ספר: מסנן שמוביל תמיד
   // לאפס תוצאות מטעה את המשתמש ומאריך את המגירה לחינם.
-  const authorsWithBooks = authors.filter((author) =>
-    books.some((book) => book.author_id === author.id),
-  );
+  // Set ולא books.some בתוך filter — הצורה הישנה הייתה O(מחברים×ספרים).
+  const authorIdsWithBooks = new Set(books.map((book) => book.author_id).filter(Boolean));
+  const authorsWithBooks = authors.filter((author) => authorIdsWithBooks.has(author.id));
   // [1.21] לפי כל הקטגוריות של הספר, לא רק הראשית — אחרת קטגוריה
   // שמופיעה רק כמשנית על ספרים לא הייתה מוצעת כמסנן בכלל.
   const usedCategoryIds = new Set(books.flatMap((book) => (book.categories ?? []).map((category) => category.id)));
@@ -64,9 +66,6 @@ export default async function BooksPage({
   // המגירה ומטעה.
   const usedTagSlugs = new Set(books.flatMap((book) => (book.tags ?? []).map((tag) => tag.slug)));
   const usedTags = tags.filter((tag) => usedTagSlugs.has(tag.slug));
-
-  const requestedSort = query.sort as SortKey | undefined;
-  const page = Number(query.page);
 
   return (
     <div className="pb-20">
@@ -78,12 +77,6 @@ export default async function BooksPage({
         attributes={attributes}
         locale={locale}
         storeEnabled={flags.showPrices}
-        initial={{
-          query: query.q ?? '',
-          category: query.category ?? '',
-          sort: requestedSort && SORTS.includes(requestedSort) ? requestedSort : 'recommended',
-          page: Number.isFinite(page) && page > 0 ? page : 1,
-        }}
         labels={{
           title: t('title'),
           subtitle: t('heroSubtitle'),

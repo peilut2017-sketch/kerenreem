@@ -13,10 +13,12 @@ export async function subscribeBackInStock(
   bookId: string,
   email: string,
 ): Promise<{ ok: boolean; error?: 'invalid_email' | 'rate_limited' | 'server' }> {
-  const trimmed = email.trim().toLowerCase();
+  const trimmed = email.trim().toLowerCase().slice(0, 160);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed)) {
     return { ok: false, error: 'invalid_email' };
   }
+  // ‏FK על books דוחה מזהה לא קיים; הבדיקה כאן רק חוסכת שורת שגיאה ביומן
+  if (!/^[0-9a-f-]{36}$/.test(bookId)) return { ok: false, error: 'server' };
   const headerList = await headers();
   if (!(await allowRequest(ipBucket('back-in-stock', headerList), 10, 3600))) {
     return { ok: false, error: 'rate_limited' };

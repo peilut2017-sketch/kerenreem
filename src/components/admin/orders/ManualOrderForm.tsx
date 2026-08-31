@@ -112,6 +112,10 @@ export function ManualOrderForm({
   const [preview, setPreview] = useState<Preview>(IDLE_PREVIEW);
   const requestId = useRef(0);
 
+  // טוקן אידמפוטנטיות יציב לכל חיי הטופס: לחיצה כפולה על "יצירת הזמנה"
+  // (או ניסיון חוזר אחרי תקלת רשת) מזוהה בשרת כאותה הזמנה ולא יוצרת שתיים.
+  const idempotencyToken = useRef<string>(crypto.randomUUID());
+
   useEffect(() => {
     if (items.length === 0 || hasMissingManualPrice) return;
     const id = ++requestId.current;
@@ -193,6 +197,7 @@ export function ManualOrderForm({
               },
         couponCode: preview.couponValid ? couponCode.trim() || null : null,
         note: note.trim() || null,
+        idempotencyToken: idempotencyToken.current,
       });
       if (!result.ok || !result.orderId) {
         setError(result.error ?? 'יצירת ההזמנה נכשלה');

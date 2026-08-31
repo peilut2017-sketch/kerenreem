@@ -38,12 +38,12 @@ export function ContactBlock({
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState(false);
+  const [formError, setFormError] = useState<'errServer' | 'errSession' | null>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
-    setFormError(false);
+    setFormError(null);
     try {
       const result = await onSubmit(values);
       setErrors(
@@ -60,9 +60,15 @@ export function ContactBlock({
             )
           : {},
       );
+      // [QA] כשל שאינו ברמת שדה (קופה שפג תוקפה / rate-limit) — עד כה נבלע
+      // בשקט: הכפתור השתחרר, הבלוק לא התקדם, ושום הודעה לא הופיעה. עכשיו
+      // מוצגת הנחיה — לקופה שפגה, "רעננו כדי להמשיך".
+      if (!result.ok && !result.fieldErrors) {
+        setFormError(result.error === 'session' ? 'errSession' : 'errServer');
+      }
     } catch {
       // [1.4] היה בלי catch — כשל רשת לא הציג שום הודעה, רק שחרר את הכפתור
-      setFormError(true);
+      setFormError('errServer');
     } finally {
       setBusy(false);
     }
@@ -150,7 +156,7 @@ export function ContactBlock({
 
         {formError ? (
           <p role="alert" className="text-caption text-burgundy">
-            {t('errServer')}
+            {t(formError)}
           </p>
         ) : null}
 

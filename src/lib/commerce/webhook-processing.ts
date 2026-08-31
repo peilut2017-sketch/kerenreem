@@ -110,7 +110,28 @@ export async function processMorningWebhook(
 
   if (insertError) {
     if (insertError.code === '23505') {
-      // Idempotency: אירוע כפול — 200 בלי עיבוד נוסף
+      // אירוע עם אותו hash כבר קיים. "כפול → 200 בלי עיבוד" נכון רק
+      // כשהמקור כבר עובד בהצלחה. שני מקרים אחרים חייבים עיבוד חוזר:
+      //  • השורה נתקעה ב-received/failed — קריסה באמצע העיבוד הקודם
+      //    החזירה 500, מורנינג שולחת שוב את אותו גוף, ובלי זה האירוע
+      //    היה אבוד לתמיד (ההתאוששות היחידה הייתה ה-cron היומי).
+      //  • השורה נרשמה עם חתימה שגויה (ניסיון הרעלה של מפתח הכפילות) —
+      //    האירוע האמיתי החתום לא ייתן לה לחסום אותו.
+      if (signatureValid) {
+        const { data: existing } = await service
+          .from('webhook_events')
+          .select('id, processing_status')
+          .eq('provider', 'morning')
+          .eq('dedupe_hash', dedupeHash)
+          .maybeSingle();
+        if (existing && existing.processing_status !== 'processed') {
+          await service
+            .from('webhook_events')
+            .update({ signature_valid: true, processing_status: 'received' })
+            .eq('id', existing.id);
+          return runProcessing(service, payload ?? {}, existing.id);
+        }
+      }
       return { status: 'duplicate', httpStatus: 200 };
     }
     console.error('[commerce:webhook] store', insertError.message);
@@ -118,8 +139,27 @@ export async function processMorningWebhook(
   }
   if (!signatureValid) return { status: 'invalid_signature', httpStatus: 401 };
 
-  const outcome = await applyTransactionUpdate(service, payload ?? {}, eventRow?.id ?? null);
-  return outcome;
+  return runProcessing(service, payload ?? {}, eventRow?.id ?? null);
+}
+
+/**
+ * עטיפת העיבוד בטיפול בחריגות: בלי זה, חריגה באמצע העיבוד מחזירה 500
+ * כשהשורה כבר נכתבה כ-received — הניסיון החוזר של מורנינג פוגע במפתח
+ * הכפילות, מקבל 200, והאירוע נתקע ב-received לנצח. סימון failed משאיר
+ * אותו גלוי בדוח ה-webhooks וניתן לעיבוד חוזר דרך מסלול הכפילות למעלה.
+ */
+async function runProcessing(
+  service: SupabaseClient,
+  payload: Record<string, unknown>,
+  eventId: string | null,
+): Promise<WebhookOutcome> {
+  try {
+    return await applyTransactionUpdate(service, payload, eventId);
+  } catch (error) {
+    console.error('[commerce:webhook] processing crashed', error);
+    await finalizeEvent(service, eventId, 'failed', error instanceof Error ? error.message : 'crash');
+    return { status: 'error', httpStatus: 500 };
+  }
 }
 
 /**
@@ -233,9 +273,10 @@ async function handlePaymentSucceeded(
     payment_id: paymentId,
     method,
   });
-  // כבר paid (אירוע כפול שחמק מה-dedupe) — לא ממשיכים להפחתה כפולה;
-  // ההפחתה עצמה ממילא idempotent במסד
-  const firstTime = paymentTransition.ok;
+  // כבר paid (אירוע כפול שחמק מה-dedupe, או poll ו-Webhook במקביל) — נתלה
+  // ב-changed ולא ב-ok: ok=true מוחזר גם למי שהפסיד את המירוץ ומצא paid,
+  // ואז המייל "התקבל תשלום" היה נשלח פעמיים. ההפחתה עצמה idempotent במסד.
+  const firstTime = paymentTransition.changed === true;
   await transitionOrder(service, order.id, 'state', 'confirmed', MORNING_ACTOR);
   await recordOrderEvent(service, order.id, 'payment_succeeded', MORNING_ACTOR, { method });
 
@@ -290,7 +331,10 @@ async function handlePaymentFailed(
   await markPaymentFailed(service, paymentId, { webhook: true, raw: payload });
   await transitionOrder(service, order.id, 'payment_state', 'failed', MORNING_ACTOR);
   await recordOrderEvent(service, order.id, 'payment_failed', MORNING_ACTOR, {});
-  await sendOrderEmail(service, 'payment_failed', order, {});
+  // סיומת paymentId למפתח: הזמנה יכולה להיכשל בתשלום כמה פעמים (startPayment
+  // מותר מ-pending/failed). בלי הסיומת, מפתח ה-idempotency זהה בכל הניסיונות
+  // וכשל שני/שלישי לא היה מודיע ללקוח (23505 שקט). כל ניסיון = מייל אחד.
+  await sendOrderEmail(service, 'payment_failed', order, {}, paymentId);
 }
 
 async function finalizeEvent(
@@ -367,7 +411,19 @@ export async function releaseExpiredReservations(): Promise<number> {
 
   let released = 0;
   for (const payment of expired ?? []) {
-    await service.from('payments').update({ status: 'expired' }).eq('id', payment.id);
+    // עדכון מותנה בסטטוס: אם ה-Webhook סימן succeeded בין ה-select לכאן,
+    // אסור לדרוס ל-expired (השחתת דיווח) ואסור לשחרר את השמירה — היא כבר
+    // הומרה ל-sale, ושחרור מוקדם היה מאפשר לקונה אחר לתפוס את היחידה
+    // האחרונה ואז ה-commit של התשלום שהצליח היה יוצר oversell. רק אם
+    // ה-UPDATE באמת שינה שורה (עדיין היה pending/initiated) ממשיכים לשחרר.
+    const { data: flipped } = await service
+      .from('payments')
+      .update({ status: 'expired' })
+      .eq('id', payment.id)
+      .in('status', ['initiated', 'pending'])
+      .select('id')
+      .maybeSingle();
+    if (!flipped) continue;
     const { data: items } = await service
       .from('order_items')
       .select('book_id, quantity')

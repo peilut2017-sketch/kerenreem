@@ -156,7 +156,12 @@ export async function validateCoupon(
   return { ok: true, coupon: typedCoupon, discountAmount: discount, freeShipping: false };
 }
 
-/** רישום המימוש בעת יצירת ההזמנה — unique(coupon, order) מונע כפילות. */
+/**
+ * רישום המימוש בעת יצירת ההזמנה — unique(coupon, order) מונע כפילות.
+ * ‏23505 (מימוש כפול לאותה הזמנה) ו-23514 (טריגר תקרת השימוש, מיגרציה 54,
+ * כשקופון גלש על תקרתו במירוץ בין שתי הזמנות מקבילות) הם תוצאות צפויות
+ * ולא כשל — ההזמנה כבר נוצרה, והקופון נשאר חסום נכון במסד.
+ */
 export async function recordRedemption(
   service: SupabaseClient,
   input: {
@@ -174,7 +179,7 @@ export async function recordRedemption(
     contact_hash: hashContact(input.contactPhone),
     amount_discounted: input.amountDiscounted,
   });
-  if (error && error.code !== '23505') {
+  if (error && error.code !== '23505' && error.code !== '23514') {
     console.error('[commerce:coupons] redemption', error.message);
   }
 }

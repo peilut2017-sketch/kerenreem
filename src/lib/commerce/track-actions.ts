@@ -1,6 +1,7 @@
 'use server';
 
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { createServiceClient } from '@/lib/supabase/service';
 import { hashGuestToken, guestTokenMatches } from './guest-token';
 import { openServiceRequest } from './service-requests';
@@ -97,4 +98,27 @@ export async function findMyOrder(orderNumberRaw: string, contactRaw: string): P
   const token = await findAndReissueGuestToken(orderNumber, contact);
   if (!token) return { ok: false, error: 'not_found' };
   return { ok: true, token };
+}
+
+/**
+ * תחילת Claim של הזמנת אורח לחשבון — מעמוד המעקב.
+ *
+ * הטוקן הגולמי הוא אישור-על להזמנה, ולכן הוא לעולם אינו עובר בכתובת URL
+ * (היסטוריית דפדפן, יומני שרת/CDN) — בדיוק הנימוק שתועד ליד עוגיית
+ * kr-guest ב-checkout-actions. במקום ?claim=<token>: עוגיית httpOnly
+ * קצרת-חיים שנקראת בצד השרת בלבד (completeLogin), והפניה למסך ההתחברות.
+ */
+export async function beginAccountClaim(token: string, locale: string): Promise<void> {
+  const clean = typeof token === 'string' ? token.slice(0, 100) : '';
+  if (clean.length >= 20) {
+    const store = await cookies();
+    store.set('kr-claim', clean, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60, // מסע קישור-הקסם במייל יכול לקחת כמה דקות טובות
+      path: '/',
+    });
+  }
+  redirect(locale === 'he' ? '/account/login' : `/${locale}/account/login`);
 }

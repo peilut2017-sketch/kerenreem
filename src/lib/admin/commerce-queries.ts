@@ -430,6 +430,7 @@ export const INVENTORY_MOVE_TYPE_LABELS: Record<InventoryMoveType, string> = {
   count: 'ספירת מלאי',
   reserve: 'שריון להזמנה',
   release: 'שחרור שריון',
+  reserve_adjust: 'התאמת שריון (עריכת הזמנה)',
 };
 
 export interface InventoryMoveRow {

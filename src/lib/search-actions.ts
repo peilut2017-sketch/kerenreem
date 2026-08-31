@@ -38,9 +38,27 @@ export interface GlobalSearchResult {
 
 const EMPTY_RESULT: GlobalSearchResult = { books: [], totalBooks: 0, authors: [], categories: [] };
 
-export async function globalSearch(query: string, locale: string): Promise<GlobalSearchResult> {
-  const q = query.trim();
-  if (!q) return EMPTY_RESULT;
+/**
+ * מטמון קצר ברמת התהליך לנתוני החיפוש + המאגרים המחושבים.
+ *
+ * Server Actions אינם עוברים ISR — כל הקשה ששרדה את ה-debounce משכה את
+ * הקטלוג המלא (כל ה-joins) ובנתה מחדש את מאגרי הטקסט של כל הספרים.
+ * דקה של מטמון תואמת את חלון ה-revalidate של שאר האתר, ועל instance חם
+ * הופכת את רוב החיפושים לעבודת זיכרון בלבד.
+ */
+interface SearchDataset {
+  books: Awaited<ReturnType<typeof getBooks>>;
+  corpora: Map<string, string>;
+  authors: Awaited<ReturnType<typeof getAuthors>>;
+  categories: Awaited<ReturnType<typeof getCategories>>;
+  storeEnabled: boolean;
+}
+let searchCache: { at: number; dataset: SearchDataset } | null = null;
+const SEARCH_CACHE_MS = 60_000;
+
+async function loadSearchDataset(): Promise<SearchDataset> {
+  const now = Date.now();
+  if (searchCache && now - searchCache.at < SEARCH_CACHE_MS) return searchCache.dataset;
 
   const [books, authors, categories, settings] = await Promise.all([
     getBooks(),
@@ -48,9 +66,24 @@ export async function globalSearch(query: string, locale: string): Promise<Globa
     getCategories(),
     getSiteSettings(),
   ]);
-  const storeEnabled = settings.store_enabled;
+  const dataset: SearchDataset = {
+    books,
+    corpora: new Map(books.map((book) => [book.id, searchCorpus(book)])),
+    authors,
+    categories,
+    storeEnabled: settings.store_enabled,
+  };
+  searchCache = { at: now, dataset };
+  return dataset;
+}
 
-  const matchedBooks = books.filter((book) => matches(searchCorpus(book), q));
+export async function globalSearch(query: string, locale: string): Promise<GlobalSearchResult> {
+  const q = query.trim().slice(0, 100);
+  if (!q) return EMPTY_RESULT;
+
+  const { books, corpora, authors, categories, storeEnabled } = await loadSearchDataset();
+
+  const matchedBooks = books.filter((book) => matches(corpora.get(book.id) ?? '', q));
   const matchedAuthors = authors
     .filter((author) => matches(normalise(localized(author, 'name', locale)), q))
     .slice(0, 4);

@@ -45,6 +45,8 @@ interface PricingResolution {
   totals: Totals;
   coupon: { id: string; code: string } | null;
   couponError: CouponError | null;
+  /** חלק הקופון בלבד מתוך discountTotal — לרישום מדויק ב-coupon_redemptions. */
+  couponDiscount: number;
   promotionId: string | null;
   promotionName: string | null;
 }
@@ -82,6 +84,7 @@ async function resolvePricing(
         totals: computeTotals(cart, 0, settings),
         coupon: null,
         couponError: null,
+        couponDiscount: 0,
         promotionId: null,
         promotionName: null,
       };
@@ -129,6 +132,7 @@ async function resolvePricing(
     totals,
     coupon,
     couponError,
+    couponDiscount,
     promotionId: promotion?.promotion.id ?? null,
     promotionName: promotion?.promotion.name ?? null,
   };
@@ -160,6 +164,12 @@ export interface ManualOrderInput {
   note: string | null;
   locale: string;
   actor: Actor;
+  /**
+   * טוקן יציב שהטופס מייצר פעם אחת לכל ניסיון — בסיס מפתח האידמפוטנטיות.
+   * בלעדיו המפתח נגזר מטוקן האורח האקראי שנוצר בכל קריאה מחדש, כך
+   * שלחיצה כפולה על "יצירת הזמנה" יצרה שתי הזמנות מלאות.
+   */
+  idempotencyToken?: string;
 }
 
 export interface ManualOrderResult {
@@ -226,7 +236,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
 
   const { token, hash } = generateGuestToken();
   const guestExpiry = new Date();
-  guestExpiry.setDate(guestExpiry.getDate() + 90);
+  guestExpiry.setDate(guestExpiry.getDate() + (settings.guest_link_ttl_days ?? 90));
 
   // [1.1] צילום עלות — כמו בהזמנת אתר (דוחות הרווחיות 17.14)
   const { data: costRows } = await service
@@ -268,11 +278,21 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
       contact_phone: normalizePhone(input.contact.phone),
       notes: input.note?.trim().slice(0, 1000) || null,
       placed_at: new Date().toISOString(),
-      idempotency_key: `manual:${token.slice(0, 24)}`,
+      idempotency_key: `manual:${(input.idempotencyToken ?? token).slice(0, 48)}`,
     })
     .select('*')
     .maybeSingle();
   if (orderError || !order) {
+    // לחיצה כפולה: המפתח כבר קיים — מחזירים את ההזמנה שכבר נוצרה,
+    // בדיוק כמו ההתאוששות מ-23505 במסלול ה-Checkout הציבורי.
+    if (orderError?.code === '23505' && input.idempotencyToken) {
+      const { data: existing } = await service
+        .from('orders')
+        .select('*')
+        .eq('idempotency_key', `manual:${input.idempotencyToken.slice(0, 48)}`)
+        .maybeSingle();
+      if (existing) return { ok: true, order: existing as Order };
+    }
     return { ok: false, error: orderError?.message ?? 'יצירת ההזמנה נכשלה' };
   }
 
@@ -315,7 +335,9 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
       orderId: order.id,
       customerId: null,
       contactPhone: normalizePhone(input.contact.phone),
-      amountDiscounted: pricing.totals.discountTotal,
+      // חלק הקופון בלבד — לא discountTotal שכולל גם מבצע אוטומטי,
+      // אחרת דוח הקופונים מנפח את ההנחה המיוחסת לקופון.
+      amountDiscounted: pricing.couponDiscount,
     });
   }
 

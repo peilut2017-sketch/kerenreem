@@ -100,8 +100,21 @@ const SPINE_FALLBACK: SpineLook = { base: '#4b1418', edge: '#2c0b0e' };
  * שלו וששדרה גזורה נראית כמו המשך של הכריכה שלצדה — ולא כמו מלבן
  * גנרי שהודבק ליד תמונה אמיתית.
  */
+/**
+ * מטמון ברמת התהליך, לפי כתובת הכריכה: העלות האמיתית כאן היא *הורדת
+ * התמונה במלואה* מהאחסון — לא ה-k-means — והיא חזרה על עצמה בכל בנייה
+ * מחדש של ה-ISR (כל דקה) עבור עד עשרה ספרי מדף + עמודי ספרים. הצבעים
+ * משתנים רק כשהכריכה מתחלפת, וכתובת כריכה חדשה היא תמיד path חדש
+ * (safeName אקראי) — ולכן המפתח לעולם אינו מתיישן. הגודל חסום בגודל
+ * הקטלוג, והמטמון מתאפס עם התהליך.
+ */
+const spineLookCache = new Map<string, SpineLook>();
+const paletteCache = new Map<string, CoverPalette>();
+
 export async function getSpineLook(coverUrl: string | null): Promise<SpineLook> {
   if (!coverUrl) return SPINE_FALLBACK;
+  const cached = spineLookCache.get(coverUrl);
+  if (cached) return cached;
 
   const bytes = await readCoverBytes(coverUrl);
   if (!bytes) return SPINE_FALLBACK;
@@ -122,10 +135,12 @@ export async function getSpineLook(coverUrl: string | null): Promise<SpineLook> 
     if (clusters.length === 0) return SPINE_FALLBACK;
 
     const [r, g, b] = toSpine(clusters[0].color);
-    return {
+    const look: SpineLook = {
       base: rgbToHex([r, g, b]),
       edge: rgbToHex([r * 0.62, g * 0.62, b * 0.62]),
     };
+    spineLookCache.set(coverUrl, look);
+    return look;
   } catch (error) {
     console.error('[cover-colors:spine]', error);
     return SPINE_FALLBACK;
@@ -134,6 +149,8 @@ export async function getSpineLook(coverUrl: string | null): Promise<SpineLook> 
 
 export async function getCoverPalette(coverUrl: string | null): Promise<CoverPalette> {
   if (!coverUrl) return FALLBACK;
+  const cached = paletteCache.get(coverUrl);
+  if (cached) return cached;
 
   const bytes = await readCoverBytes(coverUrl);
   if (!bytes) return FALLBACK;
@@ -157,7 +174,9 @@ export async function getCoverPalette(coverUrl: string | null): Promise<CoverPal
     // אשכולות שנבדלים זה מזה — משלימים מהצבע הדומיננטי ביותר
     while (colors.length < 3) colors.push(colors[0] ?? FALLBACK.colors[0]);
 
-    return { colors: [colors[0], colors[1], colors[2]] };
+    const palette: CoverPalette = { colors: [colors[0], colors[1], colors[2]] };
+    paletteCache.set(coverUrl, palette);
+    return palette;
   } catch (error) {
     console.error('[cover-colors]', error);
     return FALLBACK;

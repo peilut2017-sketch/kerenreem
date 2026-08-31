@@ -52,18 +52,6 @@ export async function listBooks(): Promise<BookRow[]> {
 }
 
 /**
- * מזהי הספרים שנושאים תגית אחת לפחות.
- *
- * מד ההשלמה ברשימה זקוק רק ל"יש/אין תגית" לכל ספר, לא לרשימת התגיות
- * עצמה — שליפה אחת של book_id בלבד, ולא שאילתה מקוננת פר-ספר.
- */
-export async function listBookIdsWithTags(): Promise<Set<string>> {
-  const supabase = await client();
-  const { data } = await supabase.from('book_tags').select('book_id');
-  return new Set((data as { book_id: string }[] | null)?.map((row) => row.book_id) ?? []);
-}
-
-/**
  * [1.11] אותות ההשלמה לכל טבלאות-הבת של ספר — יש/אין לכל ספר, בשליפה
  * אחת לכל טבלה (book_id בלבד) ולא שאילתה מקוננת פר-ספר. מד ההשלמה
  * מכסה כעת את כל הלשוניות, ולכן הרשימה ומסך המוכנות זקוקים גם לגלריה,

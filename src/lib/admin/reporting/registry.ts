@@ -224,8 +224,9 @@ export const REPORTS: ReportDefinition[] = [
     family: 'finance_recon',
     title: 'פעילות צוות / Audit',
     blurb: 'שינויי מחיר, מלאי, הנחות ידניות, ביטולים, זיכויים, שינוי הגדרות — מי, מתי, לפני ואחרי.',
-    priority: 'later',
-    href: null,
+    // מומש בפועל (/admin/audit-log, מקושר גם מניווט המערכת) — לא "בקרוב".
+    priority: 'important',
+    href: '/admin/audit-log',
   },
   {
     id: 'exceptions',

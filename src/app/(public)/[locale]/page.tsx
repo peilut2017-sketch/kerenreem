@@ -1,5 +1,7 @@
+import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { pageAlternates } from '@/lib/seo';
 import { Img as Image } from '@/components/Img';
 import { HeroCarousel } from '@/components/hero/HeroCarousel';
 import { BannerStrip } from '@/components/hero/BannerStrip';
@@ -41,6 +43,21 @@ import { resolveBookAuthor } from '@/lib/books/author-display';
  * שומר על מרבית התועלת של מטמון קצה עבור תעבורה אמיתית.
  */
 export const revalidate = 60;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
+    alternates: pageAlternates(locale, ''),
+    // תמונת שיתוף ברירת מחדל: בלי og:image, שיתוף עמוד הבית (וכל עמוד
+    // שאין לו תמונה משלו — רשימות, אודות) מציג כרטיס ריק בוואטסאפ
+    // ובפייסבוק. צילום המדף האמיתי שכבר משמש את BooksHero.
+    openGraph: { images: [{ url: '/books-shelf.jpg' }] },
+  };
+}
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -225,14 +242,22 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       ) : null}
 
       {bannersEnabled && banners.length > 0 ? (
-        /* יש באנרים — הם התמונה עצמה, בלי כיתוב מונח מעליה */
-        <BannerStrip banners={banners} locale={locale} label={t('hero.label')} />
+        /* יש באנרים — הם התמונה עצמה, בלי כיתוב מונח מעליה. h1 סמוי
+           לקוראי מסך ולמנועי חיפוש: בענף הזה (ובקרוסלה) אין שום כותרת
+           ראשית גלויה, ועמוד הבית נשאר בלי h1 בכלל. */
+        <>
+          <h1 className="sr-only">{t('site.name')}</h1>
+          <BannerStrip banners={banners} locale={locale} label={t('hero.label')} />
+        </>
       ) : bannersEnabled && slides.length > 0 ? (
         /* אין באנרים — הקרוסלה נבנית מתוכן שפורסם, ושם הכיתוב הכרחי:
            כריכת ספר בלי שם אינה אומרת דבר. כשהבאנרים כבויים בהגדרות
            במפורש, לא נופלים גם לקרוסלה הזו — כיבוי אומר "בלי קרוסלה
            בכלל", לא רק "בלי הבאנרים שהועלו". */
-        <HeroCarousel slides={slides} />
+        <>
+          <h1 className="sr-only">{t('site.name')}</h1>
+          <HeroCarousel slides={slides} />
+        </>
       ) : (
         /* בלי תוכן מפורסם אין מה לסובב. במקום קרוסלה ריקה — הצהרה
            טיפוגרפית שעומדת בפני עצמה. */

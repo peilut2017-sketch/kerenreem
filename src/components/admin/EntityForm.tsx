@@ -9,6 +9,7 @@ import { restoreFormValues } from '@/lib/restore-form';
 import { showAdminToast } from '@/lib/admin/toast-bus';
 import { useModalClose } from './modal-close-context';
 import { useUnsavedChangesReporter } from './unsaved-context';
+import { UploadTrackerProvider } from './upload-context';
 
 /** מזהה איזה משני כפתורי השמירה הפעיל את השליחה — ראו name="intent" למטה. */
 type Intent = 'save' | 'save-new';
@@ -203,6 +204,9 @@ export function EntityForm({
       className="space-y-8"
       key={resetToken}
     >
+      {/* עוטף את הטופס במעקב העלאות: שדות התמונה מדווחים על העלאה בדרך,
+          וכפתור השמירה ממתין לה — כדי שלא תישמר רשומה בלי התמונה שנבחרה. */}
+      <UploadTrackerProvider>
       <fieldset disabled={!canWrite} className="space-y-8 disabled:opacity-70">
         {children(state.fieldErrors ?? {}, { dirty })}
       </fieldset>
@@ -238,6 +242,7 @@ export function EntityForm({
           לתפקיד שלך יש הרשאת צפייה בלבד.
         </p>
       )}
+      </UploadTrackerProvider>
     </form>
   );
 }

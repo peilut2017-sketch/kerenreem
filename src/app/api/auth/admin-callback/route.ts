@@ -9,6 +9,16 @@ import { createClient } from '@/lib/supabase/server';
  */
 export const dynamic = 'force-dynamic';
 
+/**
+ * עוגיית הסימון של זרימת השחזור: setPasswordAfterReset דורש אותה, כך
+ * שרק session שנוצר *כאן* — מלחיצה על קישור השחזור מהמייל — רשאי לקבוע
+ * סיסמה בלי לדעת את הנוכחית. בלי הסימון, כל session חי (גם חטוף או
+ * עמדה שנשארה פתוחה) היה יכול להחליף סיסמה ולנעול את הבעלים בחוץ.
+ * השם משוכפל ב-account-actions.ts — route.ts אינו רשאי לייצא ערכים
+ * שאינם חלק מחוזה ה-Route Handlers של Next.
+ */
+const PW_RESET_COOKIE = 'kr-pw-reset';
+
 export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -18,7 +28,17 @@ export async function GET(request: Request): Promise<NextResponse> {
     const supabase = await createClient();
     if (supabase) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (!error) return NextResponse.redirect(`${origin}/admin/account?reset=1`);
+      if (!error) {
+        const response = NextResponse.redirect(`${origin}/admin/account?reset=1`);
+        response.cookies.set(PW_RESET_COOKIE, '1', {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 10 * 60,
+          path: '/',
+        });
+        return response;
+      }
       console.error('[admin:auth-callback]', error.message);
     }
   }

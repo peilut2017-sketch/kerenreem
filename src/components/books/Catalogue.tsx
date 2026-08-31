@@ -44,6 +44,9 @@ const LANGUAGE_KEYS: Record<string, string> = {
 
 const BATCH = 24;
 
+/** ערכי sort חוקיים בכתובת — כל דבר אחר נופל ל'מומלצים'. */
+const URL_SORTS: SortKey[] = ['recommended', 'newest', 'oldest', 'title', 'priceAsc', 'priceDesc'];
+
 /**
  * הקטלוג כולו.
  *
@@ -62,7 +65,6 @@ export function Catalogue({
   attributes,
   locale,
   storeEnabled,
-  initial,
   labels,
 }: {
   books: BookWithRelations[];
@@ -72,7 +74,6 @@ export function Catalogue({
   attributes: AttributeWithValues[];
   locale: string;
   storeEnabled: boolean;
-  initial: { query: string; category: string; sort: SortKey; page: number };
   labels: {
     title: string;
     subtitle: string;
@@ -85,14 +86,34 @@ export function Catalogue({
   };
 }) {
   const t = useTranslations('books');
-  const [filters, setFilters] = useState<Filters>({
-    ...EMPTY_FILTERS,
-    query: initial.query,
-    category: initial.category,
-  });
-  const [sort, setSort] = useState<SortKey>(initial.sort);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [sort, setSort] = useState<SortKey>('recommended');
   const [view, setView] = useState<ViewMode>('grid');
-  const [visible, setVisible] = useState(Math.max(initial.page, 1) * BATCH);
+  const [visible, setVisible] = useState(BATCH);
+  // פרמטרי הכתובת (?q=&category=&sort=&page=) נקראים בצד הלקוח, לא
+  // כ-searchParams בעמוד השרת: קריאת searchParams שם הפכה את /books —
+  // העמוד הכבד באתר — לדינמי בכל בקשה, וביטלה בפועל גם את revalidate=60
+  // וגם את כל קריאות ה-revalidatePath אליו. ה-HTML הסטטי מציג את הקטלוג
+  // המלא (טוב ל-SEO); שיתוף קישור עם מסננים מחיל אותם מיד אחרי ה-hydration.
+  const [urlSeeded, setUrlSeeded] = useState(false);
+  // setState סינכרוני באפקט מותר כאן במודע: window.location קיים רק אחרי
+  // hydration (קריאה ב-initializer הייתה שוברת התאמת שרת/לקוח), וזו זריעה
+  // חד-פעמית עם תלות ריקה — אין מפל רינדורים חוזר.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q') ?? '';
+    const category = params.get('category') ?? '';
+    const requestedSort = params.get('sort') as SortKey | null;
+    const page = Number(params.get('page'));
+    if (query || category) {
+      setFilters((current) => ({ ...current, query, category }));
+    }
+    if (requestedSort && URL_SORTS.includes(requestedSort)) setSort(requestedSort);
+    if (Number.isFinite(page) && page > 1) setVisible(page * BATCH);
+    setUrlSeeded(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
   const [toast, setToast] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
@@ -149,8 +170,11 @@ export function Catalogue({
       .map((code) => ({ code, label: t(LANGUAGE_KEYS[code]) }));
   }, [books, t]);
 
-  // הכתובת משקפת את המצב, כדי שאפשר יהיה לשתף ולרענן
+  // הכתובת משקפת את המצב, כדי שאפשר יהיה לשתף ולרענן. לא לפני שהזריעה
+  // מהכתובת הסתיימה — אחרת הריצה הראשונה (עם ערכי ברירת המחדל) הייתה
+  // מוחקת את הפרמטרים מהכתובת לפני שהם הוחלו על המצב.
   useEffect(() => {
+    if (!urlSeeded) return;
     const params = new URLSearchParams();
     if (filters.query) params.set('q', filters.query);
     if (filters.category) params.set('category', filters.category);
@@ -160,7 +184,7 @@ export function Catalogue({
 
     const search = params.toString();
     window.history.replaceState(null, '', search ? `?${search}` : window.location.pathname);
-  }, [filters.query, filters.category, sort, visible]);
+  }, [urlSeeded, filters.query, filters.category, sort, visible]);
 
   const onToggleFavourite = useCallback(
     (book: BookWithRelations) => {

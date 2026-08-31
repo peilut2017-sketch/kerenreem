@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Icon, hasIcon } from '@/components/Icon';
 import { getActivities } from '@/lib/data';
 import { localized } from '@/lib/localized';
+import { pageAlternates } from '@/lib/seo';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -27,7 +28,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'activities' });
-  return { title: t('title'), description: t('intro') };
+  return { title: t('title'), description: t('intro'), alternates: pageAlternates(locale, '/activities') };
 }
 
 export default async function ActivitiesPage({ params }: { params: Promise<{ locale: string }> }) {

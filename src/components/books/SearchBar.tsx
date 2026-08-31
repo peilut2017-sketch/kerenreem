@@ -223,7 +223,7 @@ export function SearchBar({
             >
               <SuggestionIcon kind={suggestion.kind} />
               <span className="flex-1">{suggestion.label}</span>
-              <span className="text-caption text-muted">{KIND_LABEL[suggestion.kind]}</span>
+              <span className="text-caption text-muted">{t(KIND_LABEL_KEY[suggestion.kind])}</span>
             </li>
           ))}
         </ul>
@@ -232,11 +232,12 @@ export function SearchBar({
   );
 }
 
-const KIND_LABEL: Record<Suggestion['kind'], string> = {
-  book: 'ספר',
-  author: 'מחבר',
-  category: 'קטגוריה',
-  recent: 'חיפוש אחרון',
+/** מפתחות התרגום לתווית סוג ההצעה — היו מחרוזות עברית קשיחות. */
+const KIND_LABEL_KEY: Record<Suggestion['kind'], string> = {
+  book: 'suggestionKindBook',
+  author: 'suggestionKindAuthor',
+  category: 'suggestionKindCategory',
+  recent: 'suggestionKindRecent',
 };
 
 function SuggestionIcon({ kind }: { kind: Suggestion['kind'] }) {

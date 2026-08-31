@@ -209,7 +209,11 @@
     "flipPageRange": "עמודים {from}–{to} מתוך {total}",
     "authorBioExpand": "עוד על המחבר",
     "authorBioCollapse": "הצגה מקוצרת",
-    "loadingMore": "טוען ספרים נוספים…"
+    "loadingMore": "טוען ספרים נוספים…",
+    "suggestionKindBook": "ספר",
+    "suggestionKindAuthor": "מחבר",
+    "suggestionKindCategory": "קטגוריה",
+    "suggestionKindRecent": "חיפוש אחרון"
   },
   "authors": {
     "title": "מחברים ודמויות",
@@ -246,7 +250,8 @@
     "share": "שיתוף",
     "scrollDown": "גלול למטה",
     "discoverAnotherEvent": "גלריה נוספת",
-    "viewOtherGallery": "צפייה בגלריה ←"
+    "viewOtherGallery": "צפייה בגלריה ←",
+    "playVideo": "נגינת הסרטון — {title}"
   },
   "pages": {
     "about": "אודות",
@@ -473,6 +478,7 @@
     "errUnavailable": "הפריטים שבסל אינם זמינים עוד לרכישה.",
     "errRateLimited": "יותר מדי ניסיונות. המתינו רגע ונסו שוב.",
     "errServer": "משהו השתבש. נסו שוב או הזמינו בטלפון.",
+    "errSession": "פג תוקף הקופה. רעננו את העמוד כדי להמשיך.",
     "errCouponExpired": "הקופון כבר לא בתוקף. הסירו אותו ונסו שוב.",
     "errPaymentPage": "ההזמנה נקלטה, אבל פתיחת דף התשלום נכשלה. אפשר לנסות שוב.",
     "errBootstrap": "טעינת הקופה נכשלה — בדקו את החיבור לאינטרנט ונסו שוב.",
@@ -653,6 +659,11 @@
     "activityEyebrow": "פעילות הקרן",
     "bookCta": "לפרטים על הספר",
     "eventCta": "לפרטי האירוע",
-    "activityCta": "לפעילות שלנו"
+    "activityCta": "לפעילות שלנו",
+    "prevBanner": "הבאנר הקודם",
+    "nextBanner": "הבאנר הבא",
+    "goToBanner": "מעבר לבאנר {position} מתוך {count}",
+    "bannerCounter": "באנר {position} מתוך {count}",
+    "slideCounter": "{position} מתוך {total}"
   }
 }

@@ -301,6 +301,16 @@ export async function saveEntity(
       fieldErrors.slug = 'מזהה כתובת: אותיות (לטיניות קטנות או עבריות), ספרות ומקפים בלבד';
     }
 
+    // יעד לחיצת הבאנר: נתיב פנימי או https בלבד. בלי הסינון, ערך כמו
+    // javascript:… עובר את בדיקת ה-startsWith('http') ב-BannerStrip
+    // ומוזרם ל-<Link href> שפרוש על כל שטח ה-hero — stored XSS בעמוד
+    // הבית. אותו כלל בדיוק כמו external_supplier_url למטה.
+    if (entityKey === 'banners' && typeof payload.link_url === 'string' && payload.link_url) {
+      if (!/^(https?:\/\/|\/)/i.test(payload.link_url.trim())) {
+        fieldErrors.link_url = 'נדרש נתיב פנימי (מתחיל ב-/) או כתובת מלאה (https://)';
+      }
+    }
+
     // ולידציית שדות המסחר — לפני המסד, כדי שהשגיאה תשב על השדה הנכון
     // ולא תגיע כ-23514 כללי. ה-checks במסד נשארים קו ההגנה האחרון.
     if (entityKey === 'books') {
@@ -1009,7 +1019,10 @@ export async function saveBookPreviewPages(
     const supabase = await createClient();
     if (!supabase) return { error: 'אין חיבור למסד' };
 
+    // תקרה כמו ב-addEventMedia: דפדוף לדוגמה הוא עשרות עמודים לכל
+    // היותר — מערך של אלפים מהלקוח הוא שימוש לרעה, לא תוכן.
     const rows = pages
+      .slice(0, 120)
       .filter((page) => page.image_url)
       .map((page) => ({
         book_id: bookId,
@@ -1029,7 +1042,11 @@ export async function saveBookPreviewPages(
 
     // מחיקת השורות הישנות שאינן בין מספרי העמודים החדשים — לא delete-all,
     // כדי שלא יהיה רגע שבו הטבלה ריקה בזמן שהכתיבה החדשה עדיין באמצע.
-    const keptPageNumbers = rows.map((row) => row.page_number);
+    // כפייה למספרים שלמים לפני השרשור לביטוי ה-in: הערכים מגיעים
+    // מהלקוח, ומחרוזת חופשית בתוך התחביר משבשת את רשימת ה-IN.
+    const keptPageNumbers = rows
+      .map((row) => Math.floor(Number(row.page_number)))
+      .filter((value) => Number.isFinite(value));
     const removal =
       keptPageNumbers.length > 0
         ? await supabase

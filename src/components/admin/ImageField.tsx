@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { recordAdminUpload } from '@/lib/admin/activity-audit-actions';
 import { isProjectStorageUrl, toCdnUrl } from '@/lib/image-src';
+import { useUploadRegistration } from './upload-context';
 
 export type StorageBucket = 'covers' | 'events' | 'portraits' | 'samples' | 'site';
 
@@ -77,6 +78,7 @@ export function ImageField({
   const [url, setUrl] = useState(defaultValue ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { track } = useUploadRegistration();
 
   /**
    * כתובת חיצונית תישמר, אבל לא תוצג באתר: מדיניות ה-CSP מתירה תמונות
@@ -92,7 +94,9 @@ export function ImageField({
     setBusy(true);
     setError(null);
     try {
-      setUrl(await uploadToBucket(bucket, file));
+      // track: מדווח לכפתור השמירה שהעלאה בדרך, כך ששמירה תמתין לה
+      // ולא תישמר רשומה בלי התמונה שנבחרה זה עתה.
+      setUrl(await track(uploadToBucket(bucket, file)));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : 'ההעלאה נכשלה');
     } finally {

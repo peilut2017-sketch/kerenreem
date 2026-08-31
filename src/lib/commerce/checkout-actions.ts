@@ -300,6 +300,11 @@ export async function saveContact(input: {
 }): Promise<ActionResult> {
   const sessionId = await readSessionId();
   if (!sessionId) return { ok: false, error: 'session' };
+  // אותה הגבלת קצב כמו שאר פעולות ה-session — הושמטה כאן בטעות במקור
+  const headerList = await headers();
+  if (!(await allowRequest(ipBucket('checkout-save', headerList), 60, 60))) {
+    return { ok: false, error: 'session' };
+  }
 
   const fieldErrors: Record<string, string> = {};
   if (!input.phone.trim() || !isValidIsraeliPhone(input.phone)) fieldErrors.phone = 'invalid';
@@ -325,6 +330,10 @@ export async function saveFulfillment(input: {
 }): Promise<ActionResult> {
   const sessionId = await readSessionId();
   if (!sessionId) return { ok: false, error: 'session' };
+  const headerList = await headers();
+  if (!(await allowRequest(ipBucket('checkout-save', headerList), 60, 60))) {
+    return { ok: false, error: 'session' };
+  }
 
   if (!input.isPickup) {
     const a = input.address ?? {};
@@ -359,6 +368,10 @@ export async function saveExtras(input: {
 }): Promise<ActionResult> {
   const sessionId = await readSessionId();
   if (!sessionId) return { ok: false, error: 'session' };
+  const headerList = await headers();
+  if (!(await allowRequest(ipBucket('checkout-save', headerList), 60, 60))) {
+    return { ok: false, error: 'session' };
+  }
   if (!input.termsAccepted) return { ok: false, fieldErrors: { terms: 'required' } };
 
   const updated = await updateSession(sessionId, {
@@ -462,6 +475,12 @@ export interface PlaceOrderResult {
 export async function placeOrder(input: { displayedTotal: number }): Promise<PlaceOrderResult> {
   const sessionId = await readSessionId();
   if (!sessionId) return { ok: false, error: 'session' };
+
+  // מתג הכיבוי נבדק גם כאן, לא רק ב-startCheckout: לקוח שמחזיק עוגיית
+  // session פתוחה יכול היה להמשיך ליצור הזמנות, לשריין מלאי ולשרוף
+  // קופונים גם אחרי שהבעלים כיבה את ה-checkout.
+  const flags = await getCommerceFlags();
+  if (!flags.checkoutEnabled) return { ok: false, error: 'unavailable' };
 
   const headerList = await headers();
   if (!(await allowRequest(ipBucket('place-order', headerList), 10, 60))) {
@@ -636,7 +655,6 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   // תשלום נפתח *לפני* שליחת מייל האישור, כדי שהקישור לתשלום (payLink) יהיה
   // בתוך המייל הראשון שהלקוח מקבל — לקוח שנכשל/נטש בדף הסליקה חוזר לשלם
   // מהמייל בלי לחפש את האתר מחדש (סבב 1.4, קריטי-2).
-  const flags = await getCommerceFlags();
   let paymentUrl: string | null = null;
   let paymentFailed = false;
   if (flags.paymentsEnabled) {
@@ -773,6 +791,10 @@ export async function getResultState(): Promise<ResultState> {
 export async function requestCancelFromResult(reason: string): Promise<ActionResult> {
   const sessionId = await readSessionId();
   if (!sessionId) return { ok: false, error: 'session' };
+  const headerList = await headers();
+  if (!(await allowRequest(ipBucket('cancel-request', headerList), 5, 3600))) {
+    return { ok: false, error: 'server' };
+  }
   const session = await loadSession(sessionId);
   if (!session?.order_id) return { ok: false, error: 'session' };
 

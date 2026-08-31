@@ -15,7 +15,7 @@ import type { ShelfKey } from '@/lib/supabase/types';
 
 export interface AccountActionResult {
   ok: boolean;
-  error?: 'invalid_email' | 'rate_limited' | 'disabled' | 'server';
+  error?: 'invalid_email' | 'rate_limited' | 'disabled' | 'server' | 'not_found';
 }
 
 export async function sendLoginLink(email: string): Promise<AccountActionResult> {
@@ -52,15 +52,18 @@ export async function sendLoginLink(email: string): Promise<AccountActionResult>
 
 /**
  * נקרא אחרי ההתחברות: יצירת רשומת לקוח + ‏Claim בטוח (idempotent).
- * claimToken — טוקן הזמנת המקור אם ה-Claim התחיל מקישור מעקב/עמוד תודה.
+ * טוקן הזמנת המקור, אם ה-Claim התחיל מעמוד המעקב, יושב בעוגיית kr-claim
+ * ה-httpOnly שהציב beginAccountClaim — לא בפרמטר מהדפדפן ולא בכתובת.
  * בהיעדרו, עוגן חלופי שווה-ערך: ה-checkout session של הדפדפן הזה (עוגיית
  * httpOnly שהונפקה בעת ההזמנה) — נקרא בצד השרת בלבד.
  */
-export async function completeLogin(claimToken?: string | null): Promise<AccountActionResult> {
+export async function completeLogin(): Promise<AccountActionResult> {
   const session = await getCustomerSession();
   if (!session) return { ok: false, error: 'server' };
 
-  const token = claimToken?.slice(0, 64) ?? null;
+  const claimStore = await cookies();
+  const token = claimStore.get('kr-claim')?.value.slice(0, 100) || null;
+  if (token) claimStore.delete('kr-claim');
   if (!token) {
     // עוגן ה-checkout: אותה הוכחת-מקור כמו הטוקן, בלי לעבור דרך הלקוח
     const store = await cookies();
@@ -300,12 +303,27 @@ export async function saveMyAddress(
       .update({ is_default: false })
       .eq('customer_id', session.userId);
   }
-  const { error } = addressId
-    ? await supabase.from('customer_addresses').update(row).eq('id', addressId)
-    : await supabase.from('customer_addresses').insert(row);
-  if (error) {
-    console.error('[commerce:account] address', error.message);
-    return { ok: false, error: 'server' };
+  // .eq('customer_id', session.userId) מפורש (מעבר ל-RLS שכבר מגן): כך
+  // עדכון/מחיקה של מזהה שאינו של המשתמש מעדכן 0 שורות ומחזיר not_found
+  // ברור, במקום "הצלחה" מטעה על כתובת שלא נגעה בה. select להשגת rowcount.
+  if (addressId) {
+    const { data, error } = await supabase
+      .from('customer_addresses')
+      .update(row)
+      .eq('id', addressId)
+      .eq('customer_id', session.userId)
+      .select('id');
+    if (error) {
+      console.error('[commerce:account] address', error.message);
+      return { ok: false, error: 'server' };
+    }
+    if (!data?.length) return { ok: false, error: 'not_found' };
+  } else {
+    const { error } = await supabase.from('customer_addresses').insert(row);
+    if (error) {
+      console.error('[commerce:account] address', error.message);
+      return { ok: false, error: 'server' };
+    }
   }
   return { ok: true };
 }
@@ -315,8 +333,14 @@ export async function deleteMyAddress(addressId: string): Promise<AccountActionR
   if (!session) return { ok: false, error: 'server' };
   const supabase = await createClient();
   if (!supabase) return { ok: false, error: 'server' };
-  const { error } = await supabase.from('customer_addresses').delete().eq('id', addressId);
+  const { data, error } = await supabase
+    .from('customer_addresses')
+    .delete()
+    .eq('id', addressId)
+    .eq('customer_id', session.userId)
+    .select('id');
   if (error) return { ok: false, error: 'server' };
+  if (!data?.length) return { ok: false, error: 'not_found' };
   return { ok: true };
 }
 
