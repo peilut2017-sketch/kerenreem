@@ -940,8 +940,19 @@ export async function getBanners(): Promise<Banner[]> {
 
   const now = Date.now();
   return ((data as Banner[] | null) ?? []).filter((banner) => {
+    // starts_at/ends_at הם שדות date (יום בלבד). תאריך כזה מתפרש כחצות
+    // UTC, ולכן באנר שאמור להסתיים "ביום האירוע" היה נעלם ב-00:00 UTC
+    // (‏02:00/03:00 בישראל) של אותו יום — עד יממה מוקדם מהצפוי. הפתרון:
+    // הכללת כל יום ה-ends_at — הבאנר תקף עד סוף אותו יום (חצות UTC של
+    // המחרת). זמן (T...) בשדה, אם יהיה, נשמר כפי שהוא.
     if (banner.starts_at && new Date(banner.starts_at).getTime() > now) return false;
-    if (banner.ends_at && new Date(banner.ends_at).getTime() < now) return false;
+    if (banner.ends_at) {
+      const raw = banner.ends_at;
+      const end = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+        ? new Date(raw).getTime() + 24 * 60 * 60_000 // date-only → עד סוף היום
+        : new Date(raw).getTime();
+      if (end < now) return false;
+    }
     return true;
   });
 }
