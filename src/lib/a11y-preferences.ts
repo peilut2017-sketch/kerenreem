@@ -52,6 +52,17 @@ export function applySitePreference(key: SiteA11yToggle, on: boolean): void {
 }
 
 /**
+ * מכבה את שתי העדפות האתר. נדרש כי כפתור ה-Reset של חבילת accessibility
+ * (resetAll) מאפס רק את המודולים שלה — ניגודיות והגופן הקריא הם
+ * customFunctions שלנו, כך שבלי זה "איפוס הגדרות" השאיר אותם דלוקים
+ * בלי דרך ברורה לכבותם. ה-AccessibilityWidget מחבר את זה לכפתור ה-Reset.
+ */
+export function resetSitePreferences(): void {
+  applySitePreference('contrast', false);
+  applySitePreference('font', false);
+}
+
+/**
  * רץ לפני הצביעה הראשונה. שתי מטלות:
  *
  * 1. מסמן html.js. ההופעה בגלילה (.reveal) מסתירה תוכן רק כשהדגל קיים,

@@ -92,6 +92,12 @@ for (const viewport of VIEWPORTS) {
   ];
 
   for (const [name, selector] of widgets) {
+    // טעינה מחדש לפני כל רכיב — כדי שכל שכבה תיסרק לבדה. בלי זה, פתיחת
+    // הרכיב השני (תפריט נייד) משאירה את הקודם (סרגל הנגישות) פתוח מאחוריו,
+    // ו-axe מודד את כפתורי הסרגל דרך הכיסוי של התפריט — ניגודיות מעורבת
+    // ששום משתמש לא ייתקל בה (אין דרך לפתוח את שתי השכבות יחד).
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500); // הרכיבים נטענים בייבוא דינמי אחרי הצביעה
     const trigger = page.locator(selector).first();
     if ((await trigger.count()) === 0) {
       console.log(`  ? ${name} — לא נמצא כפתור פתיחה (${selector})`);
@@ -113,7 +119,6 @@ for (const viewport of VIEWPORTS) {
         }
       }
     }
-    await page.keyboard.press('Escape');
   }
 
   await context.close();

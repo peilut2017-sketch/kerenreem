@@ -2,7 +2,12 @@
 
 import { useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { applySitePreference, readSitePreferences, type SiteA11yToggle } from '@/lib/a11y-preferences';
+import {
+  applySitePreference,
+  readSitePreferences,
+  resetSitePreferences,
+  type SiteA11yToggle,
+} from '@/lib/a11y-preferences';
 
 /**
  * סרגל הנגישות של האתר, מבוסס על החבילה הפתוחה accessibility (MIT).
@@ -36,6 +41,7 @@ export function AccessibilityWidget() {
   useEffect(() => {
     let instance: { destroy: () => void } | null = null;
     let cancelled = false;
+    let escapeCleanup: (() => void) | null = null;
 
     // ייבוא דינמי: החבילה נוגעת ב-document כבר בבנייה, ואין לה מה לעשות
     // בצד השרת. כך היא גם אינה נכנסת ל-bundle הראשוני של העמוד.
@@ -149,6 +155,27 @@ export function AccessibilityWidget() {
         },
       }) as unknown as { destroy: () => void };
 
+      // כפתור ה-Reset של החבילה (resetAll) מאפס רק את המודולים שלה ואינו
+      // יודע על ה-customFunctions שלנו — כך שאיפוס השאיר את הניגודיות
+      // והגופן הקריא דלוקים. מחברים כאן איפוס של העדפות האתר לאותו כפתור.
+      const resetBtn = document.querySelector('._menu-reset-btn');
+      resetBtn?.addEventListener('click', resetSitePreferences);
+
+      // Escape לסגירת התפריט — לחבילה אין טיפול במקש הזה כלל, כך שתפריט
+      // פתוח נסגר רק בלחיצה על ה-X. הוספה כאן: כשהתפריט פתוח, Escape
+      // לוחץ על כפתור הסגירה ומחזיר מיקוד לכפתור הפתיחה, כמצופה מדיאלוג.
+      const onEscape = (event: KeyboardEvent) => {
+        if (event.key !== 'Escape') return;
+        const menu = document.querySelector('._access-menu');
+        if (!menu || menu.classList.contains('close')) return;
+        menu
+          .querySelector('._menu-close-btn')
+          ?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+        (document.querySelector('._access-icon') as HTMLElement | null)?.focus();
+      };
+      document.addEventListener('keydown', onEscape);
+      escapeCleanup = () => document.removeEventListener('keydown', onEscape);
+
       // החבילה מזריקה <i tabIndex="0"> בלי role או aria-label — כלומר
       // כפתור הפתיחה לא נקרא כלחצן בקורא מסך, ורק ה-title (מקש הקיצור)
       // מזהה אותו. a11y.open קיים בתרגומים בדיוק לשם כך.
@@ -185,6 +212,7 @@ export function AccessibilityWidget() {
 
     return () => {
       cancelled = true;
+      escapeCleanup?.();
       // ניווט בצד הלקוח מרנדר את ה-layout מחדש; בלי destroy היו נערמים
       // כמה כפתורי נגישות זה על זה.
       try {
