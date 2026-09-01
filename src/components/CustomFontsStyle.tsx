@@ -1,5 +1,5 @@
 import { getCustomFonts } from '@/lib/data';
-import { isProjectStorageUrl } from '@/lib/image-src';
+import { isProjectStorageUrl, toCdnUrl } from '@/lib/image-src';
 
 /**
  * [1.11] הזרקת הגופנים המותקנים (custom_fonts) — ‏@font-face לכל גופן
@@ -20,12 +20,17 @@ function fontFormat(url: string): string {
 }
 
 export async function CustomFontsStyle() {
-  const fonts = (await getCustomFonts()).filter(
-    (font) =>
-      SLUG_PATTERN.test(font.slug) &&
-      isProjectStorageUrl(font.font_url) &&
-      !/['"\\)]/.test(font.font_url),
-  );
+  // toCdnUrl מיישרת גם כתובת מורשת (מארח אחסון ישן) לבסיס הנוכחי —
+  // בלעדיה גופן שהותקן לפני מעבר ספק אחסון פשוט נעלם. הסינון והבדיקות
+  // רצים על הכתובת *הסופית* שנכתבת ל-CSS.
+  const fonts = (await getCustomFonts())
+    .map((font) => ({ ...font, font_url: toCdnUrl(font.font_url) }))
+    .filter(
+      (font) =>
+        SLUG_PATTERN.test(font.slug) &&
+        isProjectStorageUrl(font.font_url) &&
+        !/['"\\)]/.test(font.font_url),
+    );
   if (fonts.length === 0) return null;
 
   const faces = fonts

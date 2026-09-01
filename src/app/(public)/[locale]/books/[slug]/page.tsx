@@ -75,7 +75,10 @@ export async function generateMetadata({
     htmlToPlainText(localized(book, 'description', locale), 160) ||
     subtitle ||
     bookTitle;
-  const ogImage = book.og_image_url ?? book.cover_image_url;
+  // toCdnUrl: כתובת שנשמרה לפני מעבר ספק אחסון מיושרת לבסיס הנוכחי —
+  // og:image שבור לא מפיל את העמוד, אבל שובר את התצוגה המקדימה בשיתוף.
+  const rawOgImage = book.og_image_url ?? book.cover_image_url;
+  const ogImage = rawOgImage ? toCdnUrl(rawOgImage) : rawOgImage;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
   const localePrefix = locale === routing.defaultLocale ? '' : `/${locale}`;
@@ -379,7 +382,7 @@ export default async function BookPage({
               <h2 id="book-sample" className="mb-4 font-serif text-h3 text-ink">
                 {t('readSample')}
               </h2>
-              <BookSampleViewer pdfUrl={book.sample_pdf_url!} title={title} locale={locale} />
+              <BookSampleViewer pdfUrl={toCdnUrl(book.sample_pdf_url!)} title={title} locale={locale} />
             </section>
           ) : null}
 
@@ -421,7 +424,7 @@ export default async function BookPage({
                 pageNumber: page.page_number,
               }))}
               title={title}
-              pdfUrl={book.sample_pdf_url}
+              pdfUrl={book.sample_pdf_url ? toCdnUrl(book.sample_pdf_url) : book.sample_pdf_url}
               locale={locale}
             />
           </section>
