@@ -21,6 +21,7 @@ import { RichTextEditor } from './RichTextEditor';
 import { SeriesOrderList } from './SeriesOrderList';
 import { createAuthorQuick, createCategoryQuick, createSeriesQuick, createTag } from '@/lib/admin/actions';
 import { COMPLETION_TAB_LABELS, computeCompletion, type CompletionTab } from '@/lib/completion';
+import { toCdnUrl } from '@/lib/image-src';
 import type { SeriesMemberBook } from '@/lib/admin/queries';
 import type {
   AttributeWithValues,
@@ -504,7 +505,7 @@ export function BookForm({
                         >
                           <BookPreviewGenerator
                             bookId={book.id}
-                            pdfUrl={book.sample_pdf_url}
+                            pdfUrl={book.sample_pdf_url ? toCdnUrl(book.sample_pdf_url) : book.sample_pdf_url}
                             existingPages={previewPages}
                           />
                         </FieldSet>

@@ -38,6 +38,10 @@ npm run dev                    # http://localhost:3000
 
 ## הקמת Supabase
 
+> **עברתם לאירוח עצמי?** (`supabase.kerenreem.org`) — מדריך המעבר המלא,
+> כולל משתני הסביבה בפרודקשן וצ'קליסט אימות אחרי deploy, נמצא ב-
+> [`docs/supabase-self-hosted-migration.md`](docs/supabase-self-hosted-migration.md).
+
 הריצו את הקבצים בתיקיית `supabase/` ב-SQL Editor, **לפי הסדר**:
 
 | # | קובץ | תוכן |

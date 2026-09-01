@@ -81,7 +81,10 @@ const CSP = [
   // הגופנים המובנים נשארים self (next/font מארח אותם מקומית).
   `font-src 'self' data:${supabaseHost ? ` https://${supabaseHost}` : ''}${cdnHost ? ` https://${cdnHost}` : ''}`,
   `img-src 'self' data: blob:${supabaseHost ? ` https://${supabaseHost}` : ''}${cdnHost ? ` https://${cdnHost}` : ''} https://i.ytimg.com${GA_IMG_SRC}`,
-  `connect-src 'self'${supabaseHost ? ` https://${supabaseHost} wss://${supabaseHost}` : ''}${GA_CONNECT_SRC}`,
+  // cdnHost גם ב-connect-src: דפדוף ה-PDF לדוגמה (pdf.js) מושך את הקובץ
+  // ב-fetch, וכתובות אחסון מיושרות ל-CDN בכל נקודת הצגה (toCdnUrl) —
+  // בלי ההיתר הזה ה-fetch נחסם בדיוק כשה-CDN מוגדר.
+  `connect-src 'self'${supabaseHost ? ` https://${supabaseHost} wss://${supabaseHost}` : ''}${cdnHost ? ` https://${cdnHost}` : ''}${GA_CONNECT_SRC}`,
   `frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com${CAPTCHA_FRAME_SRC}`,
   'upgrade-insecure-requests',
 ].join('; ');
