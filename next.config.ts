@@ -130,6 +130,21 @@ const PAYMENT_RETURN_CSP = CSP.replace("frame-ancestors 'none'", "frame-ancestor
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ['sharp'],
+  /**
+   * sharp ב-Vercel: ה-tracer של ה-build (NFT) עוקב אחרי require ב-JS,
+   * ולכן אורז את המודול הנייטיבי sharp-linux-x64-*.node — אבל *לא* את
+   * libvips-cpp.so.* שהמודול טוען ב-dlopen (תלות ELF, לא require, ראו
+   * RUNPATH של קובץ ה-node). התוצאה בפרודקשן: ERR_DLOPEN_FAILED,
+   * "libvips-cpp.so.8.18.6: cannot open shared object file" — עמוד 500
+   * בכל מסלול שנוגע ב-sharp (צבעי כריכה בעמוד ספר ובמדף, /app-icon).
+   * ההכללה המפורשת כאן מכריחה את האריזה של ספריות libvips ל-functions.
+   * שני מפתחות — גלוב רחב וגם המסלול הנייטיבי המרכזי — כי מפתח שאינו
+   * תואם מדולג בשקט, וכפילות היא no-op.
+   */
+  outputFileTracingIncludes: {
+    '/**': ['./node_modules/@img/sharp-libvips-linux-x64/**/*'],
+    '/app-icon': ['./node_modules/@img/sharp-libvips-linux-x64/**/*'],
+  },
   images: {
     remotePatterns: [
       ...(supabaseHost
