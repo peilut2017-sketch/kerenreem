@@ -126,6 +126,7 @@ const PAYMENT_RETURN_CSP = CSP.replace("frame-ancestors 'none'", "frame-ancestor
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ['sharp'],
   images: {
     remotePatterns: [
       ...(supabaseHost
