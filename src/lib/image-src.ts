@@ -68,6 +68,21 @@ function isLegacyStorageHost(hostname: string): boolean {
 }
 
 /**
+ * האם הכתובת יושבת על מארח אחסון מורשת — בכל נתיב, לא רק תחת
+ * ‎/storage/v1/object/public/‎. משמשת כשומר אחרון לפני fetch בצד שרת
+ * (ראו storage-fetch.ts): כתובת שנשארה על מארח ישן גם אחרי toCdnUrl
+ * (בסביבה בלי בסיס נוכחי, או נתיב שאינו אחסון ציבורי) לעולם אינה
+ * נשלפת — עדיף קובץ חסר מפניית רשת למארח שכבר אינו קיים (ENOTFOUND).
+ */
+export function isLegacyStorageUrl(src: string): boolean {
+  try {
+    return isLegacyStorageHost(new URL(src).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * דומיין ה-CDN (Cloudflare) שמונח מול Supabase Storage — CNAME שמצביע
  * על SUPABASE_HOST, מופעל דרך הענן הכתום, להפחתת ה-Egress ממנה.
  * NEXT_PUBLIC_CDN_URL הוא רשות: בלעדיו כל הפונקציות כאן מתנהגות בדיוק

@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { getSiteSettings } from '@/lib/data';
+import { fetchStoredFile } from '@/lib/storage-fetch';
 
 /**
  * [1.37] אייקון ריבועי (PNG) של האתר — לקובץ ה-manifest (התקנה כאפליקציה
@@ -44,15 +45,12 @@ export async function GET(request: Request) {
   const size = Number.isFinite(requested) ? Math.min(1024, Math.max(32, Math.round(requested))) : 512;
 
   const settings = await getSiteSettings();
-  let sourceBytes: Buffer | null = null;
-  if (settings.logo_url) {
-    try {
-      const upstream = await fetch(settings.logo_url, { next: { revalidate: 3600 } });
-      if (upstream.ok) sourceBytes = Buffer.from(await upstream.arrayBuffer());
-    } catch (error) {
-      console.error('[app-icon] נכשל בשליפת הלוגו, נופל לסימן ברירת המחדל', error);
-    }
-  }
+  // הצינור המשותף (storage-fetch) ולא fetch ישיר — אותו רציונל כמו
+  // ב-/site-icon: יישור כתובת מורשת, חסימת מארח ישן, timeout. כשל
+  // חוזר כ-null והרינדור ממשיך עם סימן ברירת המחדל.
+  const sourceBytes = settings.logo_url
+    ? ((await fetchStoredFile(settings.logo_url))?.bytes ?? null)
+    : null;
 
   try {
     const png = await render(size, sourceBytes);

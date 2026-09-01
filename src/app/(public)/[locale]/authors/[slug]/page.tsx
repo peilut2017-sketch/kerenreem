@@ -12,6 +12,7 @@ import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
 import { pageAlternates } from '@/lib/seo';
+import { toCdnUrl } from '@/lib/image-src';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -50,7 +51,7 @@ export async function generateMetadata({
     description: htmlToPlainText(localized(author, 'bio', locale), 160) || name,
     alternates: pageAlternates(locale, `/authors/${author.slug}`),
     openGraph: author.portrait_url
-      ? { title: name, images: [{ url: author.portrait_url, alt: name }] }
+      ? { title: name, images: [{ url: toCdnUrl(author.portrait_url), alt: name }] }
       : undefined,
   };
 }

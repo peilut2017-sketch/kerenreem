@@ -1,4 +1,5 @@
 import { getSiteSettings } from '@/lib/data';
+import { fetchStoredFile } from '@/lib/storage-fetch';
 
 /**
  * מגיש את הלוגו שהועלה ב-CMS כאייקון האתר (לשונית הדפדפן), עם נפילה
@@ -35,20 +36,18 @@ export async function GET() {
   const settings = await getSiteSettings();
   if (!settings.logo_url) return fallback();
 
-  try {
-    const upstream = await fetch(settings.logo_url, { next: { revalidate: 3600 } });
-    if (!upstream.ok) return fallback();
+  // הצינור המשותף (storage-fetch) ולא fetch ישיר: logo_url נשמר במסד
+  // ככתובת אבסולוטית, וערך מלפני מעבר ספק אחסון מצביע על מארח שכבר
+  // אינו קיים — פנייה ישירה אליו מציפה את הלוגים ב-ENOTFOUND בכל טעינת
+  // לשונית. הצינור מיישר את הכתובת, חוסם מארח ישן וקוצב זמן; כל כשל
+  // חוזר כ-null ונופל לסימן הקבוע, לא לאייקון שבור.
+  const fetched = await fetchStoredFile(settings.logo_url);
+  if (!fetched) return fallback();
 
-    const bytes = await upstream.arrayBuffer();
-    return new Response(bytes, {
-      headers: {
-        'Content-Type': upstream.headers.get('content-type') ?? 'image/png',
-        'Cache-Control': 'public, max-age=3600',
-      },
-    });
-  } catch (error) {
-    // רשת חסומה, כתובת שהתיישנה וכו' — נופלים לסימן הקבוע ולא לאייקון שבור.
-    console.error('[site-icon] נכשל בשליפת הלוגו, נופל לסימן ברירת המחדל', error);
-    return fallback();
-  }
+  return new Response(new Uint8Array(fetched.bytes), {
+    headers: {
+      'Content-Type': fetched.contentType ?? 'image/png',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  });
 }

@@ -16,6 +16,7 @@ import { localized } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { routing } from '@/i18n/routing';
 import { pageAlternates } from '@/lib/seo';
+import { toCdnUrl } from '@/lib/image-src';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -56,7 +57,7 @@ export async function generateMetadata({
     openGraph: {
       title,
       type: 'article',
-      images: event.cover_image_url ? [{ url: event.cover_image_url, alt: title }] : undefined,
+      images: event.cover_image_url ? [{ url: toCdnUrl(event.cover_image_url), alt: title }] : undefined,
     },
   };
 }
