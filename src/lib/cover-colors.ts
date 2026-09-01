@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import { rgbToHex, toSpine, toTint, type RGB } from './color';
-import { toCdnUrl } from './image-src';
+import { fetchStoredFile } from './storage-fetch';
 
 /**
  * שלושת הצבעים הדומיננטיים של הכריכה, ל-Hero של עמוד הספר.
@@ -29,13 +29,11 @@ async function readCoverBytes(url: string): Promise<Buffer | null> {
       // כאן בסיס URL בזמן רינדור שרת
       return await readFile(path.join(process.cwd(), 'public', url));
     }
-    // toCdnUrl: כתובת שנשמרה במסד לפני מעבר ספק אחסון מצביעה על המארח
-    // הישן — מיושרת לבסיס הנוכחי, כמו בכל נקודת הצגה. ה-timeout קשיח:
-    // רינדור העמוד ממתין לפונקציה הזו, ומארח ישן שאינו עונה (להבדיל
-    // מעונה בשגיאה) היה תוקע את העמוד כולו עד timeout של הפלטפורמה.
-    const response = await fetch(toCdnUrl(url), { signal: AbortSignal.timeout(8_000) });
-    if (!response.ok) return null;
-    return Buffer.from(await response.arrayBuffer());
+    // הצינור המשותף (storage-fetch): יישור כתובת מורשת לבסיס הנוכחי,
+    // חסימת מארח ישן שאין לו תחליף, ו-timeout — רינדור העמוד ממתין
+    // לפונקציה הזו, ואסור ששליפת כריכה תתקע או תפיל אותו.
+    const fetched = await fetchStoredFile(url);
+    return fetched?.bytes ?? null;
   } catch {
     return null;
   }
