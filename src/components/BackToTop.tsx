@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl';
  *
  * צד "start" (ימין ב-RTL) ולא "end": ב-FloatingActions של עמוד הספר
  * יש כבר כפתורים צפים בצד end-6, ו-AccessibilityWidget תפוס בפינת ה-
- * start הנמוכה — bottom-28 משאיר לו מרווח נקי מעליו.
+ * start הנמוכה — החץ יושב ישירות מעליו, באותו טור ובאותו גודל.
  *
  * הגלילה מכבדת prefers-reduced-motion — גלילה חלקה לאורך עמוד ארוך היא
  * בדיוק סוג התנועה שגורם לסחרחורת אצל מי שביקש להפחית תנועה.
@@ -37,10 +37,11 @@ export function BackToTop() {
         window.scrollTo({ top: 0, behavior: reduced ? 'instant' : 'smooth' });
       }}
       aria-label={t('backToTop')}
-      // [1.30] בעמוד ספר לחצן "דיווח על ספר" (ReportBookButton, #book-report)
-      // יושב ב-bottom-[6.5rem] מעל לחצן הנגישות — שם החץ עולה מדרגה נוספת
-      // כדי לא להתנגש בו.
-      className="glass fixed bottom-28 start-4 z-30 flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft shadow-[var(--shadow-float)] transition-[transform,color] duration-300 ease-[var(--ease-spring)] hover:scale-110 hover:text-burgundy [body:has(#book-report)_&]:bottom-[10.5rem]"
+      // [1.38] טור אחד מיושר בצד start: נגישות (bottom 1rem), ומעליו החץ
+      // ב-4.5rem — אותו גודל (2.75rem) ורווח קבוע של 0.75rem. בעמוד ספר
+      // לחצן "דיווח על ספר" (ReportBookButton, #book-report) תופס את
+      // המדרגה הזו, והחץ עולה מדרגה נוספת ל-8rem (ראו ReportBookButton).
+      className="glass fixed bottom-[4.5rem] start-4 z-30 flex h-11 w-11 items-center justify-center rounded-[var(--radius-pill)] text-ink-soft shadow-[var(--shadow-float)] transition-[transform,color] duration-300 ease-[var(--ease-spring)] hover:scale-110 hover:text-burgundy [body:has(#book-report)_&]:bottom-32"
     >
       <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">
         <path d="M10 16V5m0 0-5 5m5-5 5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />

@@ -192,6 +192,24 @@ export function AccessibilityWidget() {
       document.documentElement.style.setProperty('--_access-icon-border-radius', '50%');
       document.documentElement.style.setProperty('--_access-icon-bg', 'var(--color-navy)');
 
+      // [1.38] טור אחד עם "דיווח על ספר" (ReportBookButton) ו"חזרה למעלה"
+      // (BackToTop): אותו גודל בדיוק (2.75rem = h-11/w-11 שלהם), אותו צד
+      // (start — ימין ב-RTL, שמאל ב-LTR) ואותו מרחק מהקצה (1rem = start-4),
+      // ומתחתיהם ב-bottom 1rem. ברירות המחדל של החבילה (50px, ימין
+      // פיזי, 50px מהתחתית) לא הותאמו אליהם, והטור נראה עקום. גודל
+      // הסמל מוקטן יחסית לקופסה החדשה.
+      const rtl = document.documentElement.dir === 'rtl';
+      for (const [name, value] of [
+        ['--_access-icon-width', '2.75rem'],
+        ['--_access-icon-height', '2.75rem'],
+        ['--_access-icon-bottom', '1rem'],
+        [rtl ? '--_access-icon-right' : '--_access-icon-left', '1rem'],
+        [rtl ? '--_access-icon-left' : '--_access-icon-right', 'unset'],
+        ['--_access-icon-font', '1.5rem/2.75rem system-ui, sans-serif'],
+      ] as const) {
+        document.documentElement.style.setProperty(name, value);
+      }
+
       if (icon instanceof HTMLElement) {
         icon.style.transform = 'none';
         icon.style.boxShadow = 'var(--shadow-float)';
@@ -220,8 +238,18 @@ export function AccessibilityWidget() {
       } catch {
         /* החבילה כבר פורקה או שלא הספיקה להיטען */
       }
-      document.documentElement.style.removeProperty('--_access-icon-border-radius');
-      document.documentElement.style.removeProperty('--_access-icon-bg');
+      for (const name of [
+        '--_access-icon-border-radius',
+        '--_access-icon-bg',
+        '--_access-icon-width',
+        '--_access-icon-height',
+        '--_access-icon-bottom',
+        '--_access-icon-right',
+        '--_access-icon-left',
+        '--_access-icon-font',
+      ]) {
+        document.documentElement.style.removeProperty(name);
+      }
     };
   }, [locale, t]);
 
