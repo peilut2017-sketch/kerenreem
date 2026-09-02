@@ -5,7 +5,14 @@ import { useRouter } from 'next/navigation';
 import { createCustomFont, deleteCustomFont, toggleCustomFont } from '@/lib/admin/fonts-actions';
 import { uploadToBucket } from './ImageField';
 import { Spinner } from './SubmitButton';
+import { customFontFace, fontFaceRule } from '@/lib/custom-font-face';
 import type { CustomFont } from '@/lib/supabase/types';
+
+/**
+ * [1.38] טקסט הדוגמה לצד כל גופן: פנגרמה עברית (כל האותיות) וספרות —
+ * מה שמראה איך הגופן באמת נראה, לא רק את שמו בגופן הניהול.
+ */
+const FONT_SAMPLE = 'דג סקרן שט בים מאוכזב ולפתע מצא חברה · 0123456789';
 
 /**
  * [1.11] התקנת גופנים לאתר: העלאת קובץ (woff2 מומלץ), שם תצוגה,
@@ -19,6 +26,10 @@ export function FontsManager({ fonts }: { fonts: CustomFont[] }) {
   const [pending, startTransition] = useTransition();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const previewFaces = fonts
+    .map((font) => customFontFace(font, 'kr-font-preview'))
+    .filter((face) => face !== null);
 
   async function install() {
     const file = fileRef.current?.files?.[0];
@@ -70,12 +81,33 @@ export function FontsManager({ fonts }: { fonts: CustomFont[] }) {
         </p>
       </div>
 
+      {/* [1.38] ‎@font-face משלנו לכל גופן ברשימה — גם כבוי: המשתנים
+          שה-layout מזריק (CustomFontsStyle) קיימים רק לגופנים פעילים,
+          והתצוגה המקדימה צריכה להראות גם גופן לפני הפעלתו. קידומת
+          משפחה נפרדת (kr-font-preview) כדי לא להתערבב עם אלה. */}
+      {previewFaces.length > 0 ? <style>{previewFaces.map(fontFaceRule).join('\n')}</style> : null}
+
       {fonts.length > 0 ? (
         <ul className="divide-y divide-rule">
-          {fonts.map((font) => (
+          {fonts.map((font) => {
+            const face = previewFaces.find((candidate) => candidate.slug === font.slug) ?? null;
+            return (
             <li key={font.id} className="flex flex-wrap items-center gap-3 py-3">
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold text-ink">{font.name}</span>
+                {face ? (
+                  <span
+                    aria-hidden="true"
+                    className="mt-1 block truncate text-[1.375rem] leading-tight text-ink-soft"
+                    style={{ fontFamily: `'${face.family}', var(--font-assistant), sans-serif` }}
+                  >
+                    {FONT_SAMPLE}
+                  </span>
+                ) : (
+                  <span className="mt-1 block text-caption text-[var(--admin-danger)]">
+                    אין תצוגה מקדימה — כתובת הקובץ אינה מאחסון הפרויקט
+                  </span>
+                )}
                 <span className="block truncate text-caption text-muted" dir="ltr">
                   var(--font-custom-{font.slug})
                 </span>
@@ -104,7 +136,8 @@ export function FontsManager({ fonts }: { fonts: CustomFont[] }) {
                 הסרה
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       ) : (
         <p className="text-small text-muted">טרם הותקנו גופנים.</p>

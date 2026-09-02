@@ -1,46 +1,24 @@
 import { getCustomFonts } from '@/lib/data';
-import { isProjectStorageUrl, toCdnUrl } from '@/lib/image-src';
+import { customFontFace, fontFaceRule, type CustomFontFace } from '@/lib/custom-font-face';
 
 /**
  * [1.11] הזרקת הגופנים המותקנים (custom_fonts) — ‏@font-face לכל גופן
  * פעיל, ומשתנה CSS ‏--font-custom-<slug> שדרכו העורך והתוכן השמור
  * פונים אליו (ראו sanitize.ts).
  *
- * בטיחות ה-CSS: ה-slug מאומת במסד ([a-z0-9-] בלבד) וכתובת הקובץ חייבת
- * להיות באחסון הפרויקט/CDN — כתובת זרה מדולגת. כך אין דרך להזריק CSS
- * חופשי דרך שורת גופן, וה-CSP (font-src) ממילא סוגר את הדלת השנייה.
+ * כללי הבטיחות ויישור הכתובת (כתובת מלפני מעבר ספק אחסון) יושבים
+ * ב-custom-font-face.ts — משותפים לתצוגה המקדימה בניהול (FontsManager).
  */
-const SLUG_PATTERN = /^[a-z0-9-]{1,40}$/;
-
-function fontFormat(url: string): string {
-  if (url.endsWith('.woff2')) return 'woff2';
-  if (url.endsWith('.woff')) return 'woff';
-  if (url.endsWith('.otf')) return 'opentype';
-  return 'truetype';
-}
-
 export async function CustomFontsStyle() {
-  // toCdnUrl מיישרת גם כתובת מורשת (מארח אחסון ישן) לבסיס הנוכחי —
-  // בלעדיה גופן שהותקן לפני מעבר ספק אחסון פשוט נעלם. הסינון והבדיקות
-  // רצים על הכתובת *הסופית* שנכתבת ל-CSS.
-  const fonts = (await getCustomFonts())
-    .map((font) => ({ ...font, font_url: toCdnUrl(font.font_url) }))
-    .filter(
-      (font) =>
-        SLUG_PATTERN.test(font.slug) &&
-        isProjectStorageUrl(font.font_url) &&
-        !/['"\\)]/.test(font.font_url),
-    );
-  if (fonts.length === 0) return null;
+  const faces = (await getCustomFonts())
+    .map((font) => customFontFace(font))
+    .filter((face): face is CustomFontFace => face !== null);
+  if (faces.length === 0) return null;
 
-  const faces = fonts
-    .map(
-      (font) => `@font-face{font-family:'kr-font-${font.slug}';src:url('${font.font_url}') format('${fontFormat(font.font_url)}');font-display:swap;}`,
-    )
-    .join('\n');
-  const vars = fonts
-    .map((font) => `--font-custom-${font.slug}:'kr-font-${font.slug}',var(--font-assistant);`)
+  const rules = faces.map(fontFaceRule).join('\n');
+  const vars = faces
+    .map((face) => `--font-custom-${face.slug}:'${face.family}',var(--font-assistant);`)
     .join('');
 
-  return <style>{`${faces}\n:root{${vars}}`}</style>;
+  return <style>{`${rules}\n:root{${vars}}`}</style>;
 }

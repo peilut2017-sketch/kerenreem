@@ -4,13 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 
 /**
- * [1.30] לחצן "לכל הספרים" — ספר שוכב שנפתח.
+ * [1.30, עודכן 1.38] לחצן "לכל הספרים" — ספר שוכב, במבט מהצד ממש.
  *
- * במקום קישור טקסט, הלחצן הוא ספר קטן ששוכב על גבו (הטיה תלת-ממדית של
- * rotateX עם perspective). לחיצה מדמה את פתיחת הספר: הכריכה הקדמית
- * מסתובבת סביב השדרה (בצד ימין — ספר עברי נפתח מימין), נגלה עמוד פנימי,
- * ורק אז מתבצע המעבר לעמוד כל הספרים — כך האנימציה נקראת כ"נכנסים אל
- * תוך הספר".
+ * הספר שוכב סגור על גבו ורואים רק את הפרופיל שלו, בגובה העין של השולחן:
+ * כריכה תחתונה, גוש הדפים (פסים דקים — קצות הדפים), כריכה עליונה, והשדרה
+ * המעוגלת בצד ימין (ספר עברי — השדרה מימין). לחיצה פותחת אותו: הכריכה
+ * העליונה ושלושה "עלים" מתרוממים סביב השדרה ונפרשים ימינה, בהפרש קטן
+ * זה מזה כמניפת דפים, ורק אז מתבצע המעבר לעמוד כל הספרים — כך האנימציה
+ * נקראת כ"נכנסים אל תוך הספר".
+ *
+ * צירי הסיבוב פיזיים (origin-right, right-0) ולא לוגיים: השדרה של ספר
+ * עברי נמצאת מימין גם כשהממשק באנגלית.
  *
  * נגישות: זהו <a> אמיתי אל /books — קליק עם מקש עזר (פתיחה בכרטיסייה
  * חדשה), קורא מסך או כשל JS מנווטים כרגיל; ומי שביקש reduced-motion
@@ -42,61 +46,66 @@ export function AllBooksBook({ label }: { label: string }) {
     }
 
     setOpening(true);
-    // מעט אחרי סוף אנימציית הכריכה (700ms) — שהעין תספיק לקרוא את הפתיחה
-    timer.current = window.setTimeout(() => router.push('/books'), 750);
+    // מעט אחרי שהעלה האחרון נפרש (700ms + השהיות) — שהעין תספיק לקרוא את הפתיחה
+    timer.current = window.setTimeout(() => router.push('/books'), 850);
   }
+
+  /**
+   * העלים שנפרשים: זווית סופית וההשהיה של כל אחד. הכריכה נפתחת הכי רחוק
+   * (כמעט שוכבת מימין), והדפים אחריה נעצרים בזוויות הולכות וקטנות —
+   * כמו מניפה. רוטציה חיובית (עם כיוון השעון על המסך) סביב הקצה הימני
+   * מרימה את הקצה השמאלי החופשי ומעבירה אותו מעל השדרה ימינה — כמו מחוג
+   * שעון שעולה מ-9 דרך 12 לכיוון 3.
+   */
+  const leaves = [
+    { top: 'top-[5px]', open: '[transform:rotateZ(150deg)]', delay: 'delay-75' },
+    { top: 'top-[9px]', open: '[transform:rotateZ(110deg)]', delay: 'delay-150' },
+    { top: 'top-[13px]', open: '[transform:rotateZ(70deg)]', delay: 'delay-200' },
+  ];
 
   return (
     <Link
       href="/books"
       onClick={onClick}
       aria-label={label}
-      className="group inline-block rounded-[var(--radius-sm)] px-6 pb-2 pt-8 focus-visible:outline-offset-4"
+      className="group inline-flex flex-col items-center gap-3 rounded-[var(--radius-sm)] px-8 pb-2 pt-6 focus-visible:outline-offset-4"
     >
-      <span className="block [perspective:900px]">
-        <span
-          className={`relative block h-32 w-24 transition-transform duration-500 ease-[var(--ease-spring)] [transform-style:preserve-3d] motion-reduce:transition-none ${
-            opening
-              ? '[transform:rotateX(38deg)_rotateZ(0deg)]'
-              : '[transform:rotateX(56deg)_rotateZ(-7deg)] group-hover:[transform:rotateX(46deg)_rotateZ(-3deg)] group-focus-visible:[transform:rotateX(46deg)_rotateZ(-3deg)]'
-          }`}
-        >
-          {/* גוש הדפים — נגלה כשהכריכה נפתחת */}
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 rounded-[4px] rounded-e-[2px] border border-rule-strong bg-cream shadow-[var(--shadow-lift)]"
-          >
-            <span className="absolute inset-x-3 top-4 flex flex-col gap-2">
-              <span className="h-px bg-rule" />
-              <span className="h-px bg-rule" />
-              <span className="h-px w-3/4 bg-rule" />
-            </span>
-            <span className="absolute inset-x-0 bottom-5 text-center font-serif text-caption font-bold text-ink">
-              {label} ←
-            </span>
-          </span>
+      {/* הבמה: פרופיל הספר. overflow גלוי — הכריכה הנפתחת יוצאת מגבולותיה ימינה ולמעלה. */}
+      <span aria-hidden="true" className="relative block h-9 w-40">
+        {/* צל על "השולחן" */}
+        <span className="absolute -bottom-1 inset-x-2 h-2 rounded-[50%] bg-navy/20 blur-[3px]" />
 
-          {/* הכריכה הקדמית — ציר הסיבוב על השדרה שבצד ימין */}
+        {/* כריכה תחתונה */}
+        <span className="absolute inset-x-0 bottom-0 h-[5px] rounded-l-[2px] bg-navy" />
+
+        {/* גוש הדפים — פסי קצות הדפים */}
+        <span className="absolute bottom-[5px] left-[3px] right-[6px] top-[5px] border-y border-rule-strong bg-cream-2 [background-image:repeating-linear-gradient(to_bottom,transparent_0,transparent_2px,rgb(20_18_14/0.09)_2px,rgb(20_18_14/0.09)_3px)]" />
+
+        {/* עלים שנפרשים ימינה, במניפה */}
+        {leaves.map((leaf) => (
           <span
-            className={`absolute inset-0 origin-right transition-transform duration-700 ease-[var(--ease-soft)] [transform-style:preserve-3d] motion-reduce:transition-none ${
-              opening ? '[transform:rotateY(165deg)]' : '[transform:rotateY(0deg)]'
+            key={leaf.top}
+            className={`absolute left-[3px] right-[6px] ${leaf.top} h-[3px] origin-right border-t border-rule-strong bg-cream transition-transform duration-700 ease-[var(--ease-soft)] motion-reduce:transition-none ${leaf.delay} ${
+              opening ? leaf.open : '[transform:rotateZ(0deg)]'
             }`}
-          >
-            {/* פני הכריכה */}
-            <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[4px] rounded-e-[2px] border border-gold/60 bg-gradient-to-l from-navy-2 to-navy px-2 text-center shadow-[var(--shadow-soft)] [backface-visibility:hidden]">
-              <span aria-hidden="true" className="h-px w-10 bg-gold/70" />
-              <span className="font-serif text-small font-bold leading-snug text-gold-bright">
-                {label}
-              </span>
-              <span aria-hidden="true" className="h-px w-10 bg-gold/70" />
-            </span>
-            {/* גב הכריכה — נראה בזמן הפתיחה */}
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 rounded-[4px] rounded-s-[2px] border border-rule-strong bg-cream-2 [backface-visibility:hidden] [transform:rotateY(180deg)]"
-            />
-          </span>
-        </span>
+          />
+        ))}
+
+        {/* כריכה עליונה — נפתחת ראשונה והכי רחוק; במעבר עכבר מתרוממת מעט, כרמז */}
+        <span
+          className={`absolute inset-x-0 top-0 h-[5px] origin-right rounded-l-[2px] bg-navy transition-transform duration-700 ease-[var(--ease-soft)] motion-reduce:transition-none ${
+            opening
+              ? '[transform:rotateZ(165deg)]'
+              : '[transform:rotateZ(0deg)] group-hover:[transform:rotateZ(14deg)] group-focus-visible:[transform:rotateZ(14deg)]'
+          }`}
+        />
+
+        {/* השדרה — קצה מעוגל מימין, עם קו זהב דק */}
+        <span className="absolute inset-y-0 right-0 w-[7px] rounded-r-[4px] border-l border-gold/60 bg-navy-2" />
+      </span>
+
+      <span className="font-serif text-small font-bold text-ink transition-colors group-hover:text-burgundy group-focus-visible:text-burgundy">
+        {label} ←
       </span>
     </Link>
   );
