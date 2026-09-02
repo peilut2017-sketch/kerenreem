@@ -131,7 +131,7 @@ const books: BookWithRelations[] = [
  */
 const demoSeries: Series = {
   id: 's1', slug: 'mishkan-avraham', name_he: 'סדרת משכן אברהם', name_en: null,
-  description_he: '<p>מהדורה מוערת בשני כרכים.</p>', ...base,
+  description_he: '<p>מהדורה מוערת בתשעה כרכים.</p>', ...base,
 };
 
 books[2] = {
@@ -175,6 +175,22 @@ books[2] = {
   })),
 };
 books[4] = { ...books[4], series_id: demoSeries.id, series_position: 2, series: demoSeries, view_count: 96 };
+
+// [1.39] עוד שבעה כרכים לסדרת ההדגמה — מדף הסדרה (SeriesShelf) נבנה בדיוק
+// בשביל סדרות ארוכות, ובלי כמה כרכים אי אפשר לראות אותו גולל, ממורכז
+// ומסומן. שמות ה-slug באנגלית כדי שהניווט בדמו יעבוד בלי קידוד.
+const SERIES_VOLUME_TITLES = ['מועדים', 'שבת', 'תפילה', 'ברכות', 'כשרות', 'טהרה', 'אבלות'];
+SERIES_VOLUME_TITLES.forEach((part, index) => {
+  const position = index + 3;
+  const cover = ['mishkan-even', 'likutei-dvarim', 'machzik-yedidim', 'or-hahalacha', 'pnei-hamoadim'][index % 5];
+  books.push({
+    ...book(`b${position + 3}`, `mishkan-avraham-${position}`, `משכן אברהם — ${part}`, null, cover, 1, 0, 'תשפ״ה', 2025),
+    series_id: demoSeries.id,
+    series_position: position,
+    series: demoSeries,
+    view_count: 40 - index,
+  });
+});
 
 function daysFromNow(days: number) {
   const date = new Date();

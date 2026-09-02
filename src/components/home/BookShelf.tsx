@@ -245,7 +245,11 @@ function BookOnShelf({
  * [1.13] בלי שכבת ברק/טשטוש מעל התמונה — התמונה (שצולמה או תמונת
  * הבסיס) מוצגת נקייה; רק צל טקסט עדין שומר על קריאות הכיתוב.
  */
-function Spine({ book }: { book: ShelfBook }) {
+/**
+ * [1.39] מיוצא: מדף הסדרה בעמוד הספר (SeriesShelfClient) משתמש באותה
+ * שדרה בדיוק — כך הסדרה "עומדת" כמו על מדף עמוד הבית, לא כמו רכיב זר.
+ */
+export function Spine({ book }: { book: ShelfBook }) {
   const { spineUrl: baseSpineUrl } = usePlaceholderArt();
 
   if (book.spineUrl) {
