@@ -262,7 +262,7 @@
 ### ב.10 מקטעי התוכן בעמוד הספר (§20)
 
 **סטטוס:** ✅ בנוי כנדרש (למעט "מרחב ידע")
-**קבצים:** `SummaryCard.tsx` · `TableOfContents.tsx` · `BookSampleViewer.tsx` · `AuthorSection.tsx` · `SeriesTimeline.tsx` · `QuoteCards.tsx` · `ConnectionsSection.tsx` · `data.ts:295-364`
+**קבצים:** `SummaryCard.tsx` · `TableOfContents.tsx` · `BookSampleViewer.tsx` · `AuthorSection.tsx` · `SeriesShelf.tsx` · `QuoteCards.tsx` · `ConnectionsSection.tsx` · `data.ts:295-364`
 
 **מה עובד:** "על הספר" + "תמצית ב-30 שניות" עם מתג `aria-pressed` שאינו מוצג כשאין תמצית; תוכן עניינים כציר עם מספרי עמוד ותקציר נפתח (פרק בלי תקציר הוא `disabled` ולא כפתור מת); **קורא PDF אמיתי** על pdf.js בטעינה עצלה, מסך מלא עם Focus Trap וזום, ומוחלף ב-`BookFlipViewer` כשיש דפים מומרים מראש; אזור מחבר עשיר; ציר סדרה עם "הספר שלפניכם" מסומן; **ספרים קשורים מוגבלים** — קרוסלה אחת עם שבבי סינון, דדופ בשרת לפי עדיפות, `limit=8`, ולכל ספר "סיבה" גלויה, בלי "נרכשו יחד" מזויף. כל המקטעים מותנים בקיום תוכן, ורשימת הניווט נבנית מאותם תנאים — אין קישור ליעד שאינו קיים.
 

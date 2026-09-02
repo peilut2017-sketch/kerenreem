@@ -14,7 +14,7 @@ import { BookFlipViewer } from '@/components/book-page/BookFlipViewer';
 import { BookSampleViewer } from '@/components/book-page/BookSampleViewer';
 import { KnowledgeSpace } from '@/components/book-page/KnowledgeSpace';
 import { QuoteCards } from '@/components/book-page/QuoteCards';
-import { SeriesTimeline } from '@/components/book-page/SeriesTimeline';
+import { SeriesShelf } from '@/components/book-page/SeriesShelf';
 import { SpecGrid, type SpecItem } from '@/components/book-page/SpecGrid';
 import { StickyNav } from '@/components/book-page/StickyNav';
 import { SummaryCard } from '@/components/book-page/SummaryCard';
@@ -457,7 +457,7 @@ export default async function BookPage({
             ) : null}
 
             {book.series && connections.sameSeries.length > 0 ? (
-              <SeriesTimeline
+              <SeriesShelf
                 series={book.series}
                 currentBook={book}
                 volumes={connections.sameSeries}
