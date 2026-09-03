@@ -53,7 +53,8 @@ for _ in $(seq 1 45); do
   fi
 
   # לא די בתשובה: היא חייבת להגיע מהבנייה שזה עתה נוצרה
-  if curl -sf --max-time 3 "http://localhost:$PORT/" 2>/dev/null | grep -q "$BUILD_ID"; then
+  # ‎-F --‎: מזהה בנייה יכול להתחיל ב-"-" או "_" — בלי זה grep קורא אותו כאופציה ונכשל
+  if curl -sf --max-time 3 "http://localhost:$PORT/" 2>/dev/null | grep -qF -- "$BUILD_ID"; then
     echo "השרת עלה על פורט $PORT (pid $SERVER_PID, build $BUILD_ID)"
     exit 0
   fi
