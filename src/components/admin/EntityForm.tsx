@@ -168,9 +168,16 @@ export function EntityForm({
    */
   useUnsavedChangesWarning(dirty);
 
-  /** כל קלט בטופס מדליק את הדגל — פעם אחת, לא בכל הקשה. */
-  function markDirty() {
+  /**
+   * כל קלט בטופס מדליק את הדגל — פעם אחת, לא בכל הקשה. שדה autoSave
+   * (ToggleField עם entityKey+id, למשל "מלאי מנוהל" בטופס הספר) כבר
+   * נשמר לבדו ברגע הלחיצה — הוא אינו חלק מ"שמירה" הממתינה לכפתור,
+   * ואין להזהיר על אובדנו ביציאה.
+   */
+  function markDirty(event?: React.SyntheticEvent) {
     if (dirty) return;
+    const target = event?.target as HTMLElement | undefined;
+    if (target?.closest?.('[data-autosave]')) return;
     setDirty(true);
     reportUnsaved?.(true);
   }

@@ -52,7 +52,12 @@ export function StoreConfigForm({
       ref={formRef}
       action={formAction}
       onKeyDown={handleKeyDown}
-      onChange={() => setTouchedAt(state)}
+      onChange={(event) => {
+        // מתגי autoSave (ToggleField עם onToggle) נשמרים מיד בעצמם — לא חלק
+        // מהשמירה הכוללת של הטופס, ואין להם מה "לאבד" ביציאה.
+        if ((event.target as HTMLElement).closest('[data-autosave]')) return;
+        setTouchedAt(state);
+      }}
       className="space-y-8"
     >
       <FieldSet
