@@ -1,7 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
-import type { Book } from '@/lib/supabase/types';
 
 /**
  * עטיפות דקות לפונקציות המלאי האטומיות שבמסד (30_inventory.sql).

@@ -7,6 +7,9 @@ interface TimelineEntry {
   text: string;
 }
 
+type Row = TimelineEntry & { key: string };
+const makeKey = () => Math.random().toString(36).slice(2, 10);
+
 /**
  * ציר תולדות החיים של המחבר: שנה ומשפט קצר לכל תחנה, מוצג בעמוד הספר
  * כציר זמן אופקי. נשמר כ-jsonb על authors.timeline, לא כטבלה נפרדת —
@@ -24,7 +27,11 @@ export function AuthorTimelineField({
   hint?: string;
   defaultValue?: TimelineEntry[] | null;
 }) {
-  const [rows, setRows] = useState<TimelineEntry[]>(defaultValue && defaultValue.length > 0 ? defaultValue : []);
+  // מפתח יציב לכל שורה (לא index): הסרת שורה באמצע לא מרכיבה מחדש את כל
+  // השורות שאחריה — המיקוד ומצב ההקלדה נשארים במקומם (כמו RepeatableTextField)
+  const [rows, setRows] = useState<Row[]>(() =>
+    (defaultValue && defaultValue.length > 0 ? defaultValue : []).map((entry) => ({ ...entry, key: makeKey() })),
+  );
 
   const update = (index: number, patch: Partial<TimelineEntry>) =>
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -39,7 +46,7 @@ export function AuthorTimelineField({
       {rows.length > 0 ? (
         <ul className="mt-2 space-y-2">
           {rows.map((row, index) => (
-            <li key={index} className="flex items-start gap-2">
+            <li key={row.key} className="flex items-start gap-2">
               <input
                 type="text"
                 value={row.year}
@@ -71,13 +78,19 @@ export function AuthorTimelineField({
 
       <button
         type="button"
-        onClick={() => setRows((current) => [...current, { year: '', text: '' }])}
+        onClick={() => setRows((current) => [...current, { key: makeKey(), year: '', text: '' }])}
         className="mt-2 text-caption text-burgundy underline underline-offset-4"
       >
         + הוספת תחנה
       </button>
 
-      <input type="hidden" name={name} value={JSON.stringify(rows.filter((r) => r.year.trim() || r.text.trim()))} />
+      <input
+        type="hidden"
+        name={name}
+        value={JSON.stringify(
+          rows.filter((r) => r.year.trim() || r.text.trim()).map(({ year, text }) => ({ year, text })),
+        )}
+      />
     </div>
   );
 }
