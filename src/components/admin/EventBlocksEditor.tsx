@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Img as Image } from '@/components/Img';
 import { uploadToBucket } from './ImageField';
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 import { Spinner } from './SubmitButton';
 import { saveEventBlocks } from '@/lib/admin/actions';
 import type { EventBlock, EventBlockType } from '@/lib/supabase/types';
@@ -78,13 +79,17 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  useUnsavedChangesWarning(dirty);
 
   function update(key: number, patch: Partial<BlockRow>) {
     setStatus('idle');
+    setDirty(true);
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   }
 
   function move(key: number, direction: -1 | 1) {
+    setDirty(true);
     setRows((current) => {
       const index = current.findIndex((row) => row.key === key);
       const target = index + direction;
@@ -134,6 +139,7 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
         setStatus('error');
       } else {
         setStatus('saved');
+        setDirty(false);
       }
     });
   }
@@ -166,7 +172,10 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRows((current) => current.filter((r) => r.key !== row.key))}
+                  onClick={() => {
+                    setDirty(true);
+                    setRows((current) => current.filter((r) => r.key !== row.key));
+                  }}
                   className="text-caption text-burgundy underline underline-offset-4"
                 >
                   הסרה
@@ -323,7 +332,10 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
           <button
             key={type}
             type="button"
-            onClick={() => setRows((current) => [...current, makeBlockRow(type)])}
+            onClick={() => {
+              setDirty(true);
+              setRows((current) => [...current, makeBlockRow(type)]);
+            }}
             className="admin-btn admin-btn-quiet"
           >
             + {TYPE_LABELS[type]}

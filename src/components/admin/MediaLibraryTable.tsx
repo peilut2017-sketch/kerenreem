@@ -9,6 +9,7 @@ import { recordAdminStorageReplace } from '@/lib/admin/activity-audit-actions';
 import { deleteStorageFile } from '@/lib/admin/media-library-actions';
 import type { AdminStorageFile } from '@/lib/admin/queries';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export interface MediaFileRow extends AdminStorageFile {
   publicUrl: string;
   viewCount: number | null;
@@ -68,11 +69,7 @@ function formatBytes(bytes: number | null): string {
 }
 
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 /**

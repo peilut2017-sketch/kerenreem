@@ -58,6 +58,12 @@ export function BlockShell({
             {done ? '✓' : index}
           </span>
           {title}
+          {/* המצב (הושלם / עדיין נעול) מועבר כאן גם למי שאינו רואה צבע גבול או שקיפות */}
+          {done ? (
+            <span className="sr-only"> — {t('blockDone')}</span>
+          ) : !reachable ? (
+            <span className="sr-only"> — {t('blockLocked')}</span>
+          ) : null}
         </h2>
         {!open && done && reachable ? (
           <button

@@ -74,6 +74,12 @@ export function CheckoutClient() {
     setBootstrapError(false);
     try {
       const result = await startCheckout(items, locale);
+      if (result.alreadyPaid) {
+        // ההזמנה של הסל הזה כבר שולמה (חזרה אחורה מדף הסליקה) — עמוד
+        // התוצאה מציג את האישור ומרוקן את הסל; לא פותחים קופה חדשה.
+        router.replace('/checkout/result');
+        return;
+      }
       setBootstrap(result);
       if (result.session) {
         const hasContact = Boolean(result.session.contact_phone && result.session.contact_email);

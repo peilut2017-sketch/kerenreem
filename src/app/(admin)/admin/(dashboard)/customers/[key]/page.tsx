@@ -11,6 +11,7 @@ import {
   stateBadgeClass,
 } from '@/components/admin/orders/labels';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 const CONSENT_KIND_LABELS: Record<string, string> = {
@@ -31,11 +32,7 @@ const CONSENT_SOURCE_LABELS: Record<string, string> = {
 const OPT_IN_KINDS = ['marketing_email', 'channel_sms', 'channel_whatsapp'] as const;
 
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 /**

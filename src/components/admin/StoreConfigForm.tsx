@@ -1,10 +1,11 @@
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { ToggleField, FieldSet, SelectField, TextField } from './Fields';
 import { SubmitButton } from './SubmitButton';
 import { saveStoreConfig, toggleStoreConfigFlag, type StoreConfigState } from '@/lib/admin/store-config-actions';
 import { showAdminToast } from '@/lib/admin/toast-bus';
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 import type { StoreSettings } from '@/lib/supabase/types';
 
 /**
@@ -26,6 +27,11 @@ export function StoreConfigForm({
     status: 'idle',
   });
   const formRef = useRef<HTMLFormElement>(null);
+  // שינויים שלא נשמרו — אותו דפוס כמו SettingsForm: זוכרים איזו תגובת
+  // שרת הייתה על המסך כשנגעו בטופס; תגובת "נשמר" חדשה מאפסת מעצמה.
+  const [touchedAt, setTouchedAt] = useState<StoreConfigState | null>(null);
+  const dirty = touchedAt !== null && (touchedAt === state || state.status !== 'saved');
+  useUnsavedChangesWarning(dirty);
 
   useEffect(() => {
     if (state.status !== 'saved') return;
@@ -42,7 +48,13 @@ export function StoreConfigForm({
   }
 
   return (
-    <form ref={formRef} action={formAction} onKeyDown={handleKeyDown} className="space-y-8">
+    <form
+      ref={formRef}
+      action={formAction}
+      onKeyDown={handleKeyDown}
+      onChange={() => setTouchedAt(state)}
+      className="space-y-8"
+    >
       <FieldSet
         legend="דגלים שכבתיים"
         icon="store"

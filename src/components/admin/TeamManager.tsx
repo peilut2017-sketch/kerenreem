@@ -11,6 +11,7 @@ import { AdminIcon } from './AdminIcons';
 import { AdminCell, AdminRow, AdminTable } from './AdminList';
 import type { Profile, UserRole } from '@/lib/supabase/types';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 /**
  * מסך ניהול הצוות (מסך 15 במפרט המסכים): הזמנה במייל + סיסמה ראשונית,
  * טבלת חברי הצוות עם שינוי תפקיד, הרשאה מותאמת אישית פר-מסך (מודל 1.7,
@@ -205,9 +206,7 @@ export function TeamManager({
                 />
               </AdminCell>
               <AdminCell className="text-small text-muted">
-                {new Intl.DateTimeFormat('he-IL', { dateStyle: 'medium' }).format(
-                  new Date(profile.created_at),
-                )}
+                {formatAdminDate(profile.created_at, 'medium')}
               </AdminCell>
               <AdminCell className="text-end">
                 <button

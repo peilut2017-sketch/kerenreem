@@ -5,6 +5,7 @@ import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import { formatPrice } from '@/lib/commerce/pricing';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -149,9 +150,7 @@ export default async function AdminCustomersPage({
               {formatPrice(row.paidTotal, 'he', { alwaysAgorot: true })}
             </AdminCell>
             <AdminCell className="text-small text-muted">
-              {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(
-                new Date(row.lastOrderAt),
-              )}
+              {formatAdminDate(row.lastOrderAt, 'date')}
             </AdminCell>
             <AdminCell className="text-end">
               {row.key !== 'ללא-קשר' ? (

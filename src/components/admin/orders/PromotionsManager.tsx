@@ -5,6 +5,7 @@ import { deletePromotion, savePromotion } from '@/lib/admin/coupons-actions';
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import type { Promotion } from '@/lib/supabase/types';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export interface PromotionOption {
   id: string;
   label: string;
@@ -243,7 +244,7 @@ export function PromotionsManager({
                     ].filter(Boolean).join(' · ') || 'ללא'}
                   </td>
                   <td className="px-4 py-2.5 text-muted">
-                    {promo.ends_at ? new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(new Date(promo.ends_at)) : 'ללא הגבלה'}
+                    {promo.ends_at ? formatAdminDate(promo.ends_at, 'date') : 'ללא הגבלה'}
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`admin-badge ${promo.active ? 'admin-badge-success' : 'admin-badge-neutral'}`}>

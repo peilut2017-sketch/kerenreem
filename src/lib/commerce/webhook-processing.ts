@@ -475,6 +475,9 @@ export async function releaseExpiredReservations(): Promise<number> {
     await recordOrderEvent(service, payment.order_id, 'stock_released', SYSTEM_ACTOR, {
       reason: 'payment_expired',
     });
+    // תג גלוי בניהול: ההזמנה עדיין ניתנת לתשלום, אבל בלי שריון — ניסיון
+    // תשלום מאוחר עובר בדיקת זמינות (startPayment) לפני שגובים.
+    await addOrderTag(service, { id: payment.order_id }, 'reservation-released');
     released += 1;
   }
   return released;

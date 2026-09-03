@@ -353,8 +353,13 @@ function CartCouponField({
         </form>
       )}
       {error?.error ? (
-        <p role="alert" className="mt-2 text-caption text-burgundy">
-          {error.error === 'min_total' && error.minTotal != null
+        <p
+          role={error.error === 'needs_contact' ? 'status' : 'alert'}
+          className={`mt-2 text-caption ${error.error === 'needs_contact' ? 'text-muted' : 'text-burgundy'}`}
+        >
+          {error.error === 'needs_contact'
+            ? t('couponErrNeedsContact')
+            : error.error === 'min_total' && error.minTotal != null
             ? t('couponErrMinTotal', { amount: formatPrice(error.minTotal, locale) })
             : error.error === 'min_quantity' && error.minQuantity != null
               ? t('couponErrMinQuantity', { count: error.minQuantity })

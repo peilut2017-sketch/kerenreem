@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { saveBookCost } from '@/lib/admin/costs-actions';
 import { AdminIcon } from './AdminIcons';
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 
 /**
  * עלות ליחידה — פאנל נפרד מטופס הספר בכוונה (מודל 3.18): נטען ונשמר
@@ -22,6 +23,7 @@ export function BookCostPanel({
   const [pending, startTransition] = useTransition();
 
   const dirty = (value === '' ? null : Number(value)) !== saved;
+  useUnsavedChangesWarning(dirty);
 
   return (
     <section aria-labelledby="cost-heading" className="admin-card mt-8 max-w-xl">

@@ -110,17 +110,21 @@ export async function getUserPref<T>(key: string): Promise<T | null> {
  * קודם לכן הדשבורד שלף את *כל* הספרים ואת *כל* האירועים רק כדי להציג חמש
  * שורות מכל אחד. בקטלוג של מאות כותרים זו העברת נתונים מיותרת בכל טעינה.
  */
-export async function listRecentBooks(limit = 5): Promise<BookRow[]> {
+/** שורות הדשבורד — רק העמודות שנשלפות; לא Book/EventRecord מלאים שמסתירים undefined בזמן ריצה. */
+export type DashboardBookRow = Pick<Book, 'id' | 'title_he' | 'is_published' | 'updated_at'>;
+export type DashboardEventRow = Pick<EventRecord, 'id' | 'title_he' | 'event_date' | 'event_date_he' | 'is_published'>;
+
+export async function listRecentBooks(limit = 5): Promise<DashboardBookRow[]> {
   const supabase = await client();
   const { data } = await supabase
     .from('books')
     .select('id, title_he, is_published, updated_at')
     .order('updated_at', { ascending: false })
     .limit(limit);
-  return (data as BookRow[] | null) ?? [];
+  return (data as DashboardBookRow[] | null) ?? [];
 }
 
-export async function listDraftBooks(limit = 5): Promise<BookRow[]> {
+export async function listDraftBooks(limit = 5): Promise<DashboardBookRow[]> {
   const supabase = await client();
   const { data } = await supabase
     .from('books')
@@ -128,10 +132,10 @@ export async function listDraftBooks(limit = 5): Promise<BookRow[]> {
     .eq('is_published', false)
     .order('updated_at', { ascending: false })
     .limit(limit);
-  return (data as BookRow[] | null) ?? [];
+  return (data as DashboardBookRow[] | null) ?? [];
 }
 
-export async function listUpcomingEvents(limit = 5): Promise<EventRecord[]> {
+export async function listUpcomingEvents(limit = 5): Promise<DashboardEventRow[]> {
   const supabase = await client();
   const today = new Date();
   today.setDate(today.getDate() - 1);
@@ -141,7 +145,7 @@ export async function listUpcomingEvents(limit = 5): Promise<EventRecord[]> {
     .gte('event_date', today.toISOString().slice(0, 10))
     .order('event_date', { ascending: true })
     .limit(limit);
-  return (data as EventRecord[] | null) ?? [];
+  return (data as DashboardEventRow[] | null) ?? [];
 }
 
 export async function getBook(id: string): Promise<Book | null> {

@@ -113,11 +113,16 @@ export function useLocalList(key: string): {
   );
 
   const getSnapshot = useCallback(() => {
-    const raw = readRaw(key);
-    const cached = caches.get(key);
-    // אותה מחרוזת חייבת להחזיר אותה הפניה, אחרת React מרנדר בלולאה
-    if (!cached || cached.raw !== raw) caches.set(key, { raw, list: parse(raw) });
-    return caches.get(key)!.raw;
+    // האחסון נקרא פעם אחת ונשמר במטמון: write מעדכן אותו, ואירוע storage
+    // (לשונית אחרת) מוחק אותו — ולא קריאת localStorage סינכרונית בכל רינדור
+    // של כל צרכן (הקטלוג, העגלה). אותה מחרוזת ⇒ אותה הפניה, בלי לולאה.
+    let cached = caches.get(key);
+    if (!cached) {
+      const raw = readRaw(key);
+      cached = { raw, list: parse(raw) };
+      caches.set(key, cached);
+    }
+    return cached.raw;
   }, [key]);
 
   const raw = useSyncExternalStore(subscribe, getSnapshot, () => '[]');
@@ -225,10 +230,13 @@ export function useLocalMap(key: string): {
   );
 
   const getSnapshot = useCallback(() => {
-    const raw = readRaw(key);
-    const cached = mapCaches.get(key);
-    if (!cached || cached.raw !== raw) mapCaches.set(key, { raw, map: parseMap(raw) });
-    return mapCaches.get(key)!.raw;
+    let cached = mapCaches.get(key);
+    if (!cached) {
+      const raw = readRaw(key);
+      cached = { raw, map: parseMap(raw) };
+      mapCaches.set(key, cached);
+    }
+    return cached.raw;
   }, [key]);
 
   const raw = useSyncExternalStore(subscribe, getSnapshot, () => '{}');

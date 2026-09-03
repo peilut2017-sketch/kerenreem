@@ -8,6 +8,7 @@ import {
   listAuditLog,
 } from '@/lib/admin/audit-log-queries';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 const ACTION_BADGE: Record<string, string> = {
@@ -22,11 +23,7 @@ const ACTION_BADGE: Record<string, string> = {
 };
 
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 function diffFields(oldValues: Record<string, unknown> | null, newValues: Record<string, unknown> | null): string[] {

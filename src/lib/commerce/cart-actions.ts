@@ -1,6 +1,9 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { validateCart, type CartInputItem, type ValidatedCart } from './cart';
+import { CHECKOUT_SESSION_COOKIE, loadSession } from './checkout';
+import { getCustomerSession } from './account';
 import { validateCoupon, type CouponError } from './coupons';
 import { findBestPromotion } from './promotions';
 import { getCommerceFlags, getStoreSettings } from './settings';
@@ -47,6 +50,33 @@ export interface CartViewModel {
   supportPhone: string | null;
 }
 
+/**
+ * פרטי קשר שכבר ידועים בעגלה — מה-session של הקופה (אם התחילה) או מהחשבון
+ * המחובר — כדי שאימות הקופון בעגלה יהיה זהה לזה שבקופה: מגבלת שימוש
+ * ללקוח, "הזמנה ראשונה" וקופון אישי נבדקים מול אותם נתונים, ולא מציגים
+ * בעגלה הנחה שהקופה תסרב לה רגע אחר כך (או להפך).
+ */
+async function knownContact(): Promise<{ phone: string | null; email: string | null }> {
+  try {
+    const store = await cookies();
+    const sessionId = store.get(CHECKOUT_SESSION_COOKIE)?.value;
+    if (sessionId) {
+      const session = await loadSession(sessionId);
+      if (session?.contact_phone || session?.contact_email) {
+        return { phone: session.contact_phone ?? null, email: session.contact_email ?? null };
+      }
+    }
+    const account = await getCustomerSession();
+    if (account?.customer) {
+      const phone = account.customer.phone.startsWith('pending:') ? null : account.customer.phone;
+      return { phone, email: account.customer.email ?? account.email ?? null };
+    }
+  } catch {
+    // בלי הקשר בקשה (cookies לא זמינות) — ממשיכים בלי פרטי קשר
+  }
+  return { phone: null, email: null };
+}
+
 export async function getCartView(
   items: CartInputItem[],
   locale: string,
@@ -64,7 +94,8 @@ export async function getCartView(
   let coupon: CartCouponView | null = null;
   const code = couponCode?.trim().toUpperCase() ?? '';
   if (code && flags.couponsEnabled && cart.totalQuantity > 0) {
-    const result = await validateCoupon(code, cart, null);
+    const contact = await knownContact();
+    const result = await validateCoupon(code, cart, contact.phone, contact.email);
     coupon = {
       code,
       ok: result.ok,

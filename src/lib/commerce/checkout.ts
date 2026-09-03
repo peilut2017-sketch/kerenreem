@@ -51,6 +51,9 @@ export function computeTotals(
 
 /* ------------------------------- session ---------------------------------- */
 
+/** שם עוגיית ה-session של הקופה — httpOnly; נקראת גם בעגלה (פרטי קשר לאימות קופון). */
+export const CHECKOUT_SESSION_COOKIE = 'kr-checkout';
+
 export async function loadSession(sessionId: string): Promise<CheckoutSessionRecord | null> {
   const service = createServiceClient();
   if (!service) return null;

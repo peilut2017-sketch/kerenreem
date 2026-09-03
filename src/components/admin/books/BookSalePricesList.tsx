@@ -4,6 +4,7 @@ import { AdminRecordList, type AdminRecordColumn } from '@/components/admin/Admi
 import { formatPrice } from '@/lib/commerce/pricing';
 import type { BookRow } from '@/lib/admin/queries';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export type SaleStatus = 'active' | 'scheduled' | 'expired' | 'invalid';
 
 export interface SaleRow {
@@ -26,9 +27,7 @@ const STATUS_BADGE: Record<SaleStatus, string> = {
 };
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeZone: 'Asia/Jerusalem' }).format(
-    new Date(value),
-  );
+  return formatAdminDate(value, 'date');
 }
 
 function StatusBadge({ status }: { status: SaleStatus }) {

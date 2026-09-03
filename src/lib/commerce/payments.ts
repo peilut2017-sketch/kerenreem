@@ -19,7 +19,7 @@ export interface StartPaymentResult {
   ok: boolean;
   paymentUrl?: string;
   payment?: Payment;
-  error?: 'not_configured' | 'morning_error' | 'db_error' | 'order_not_payable';
+  error?: 'not_configured' | 'morning_error' | 'db_error' | 'order_not_payable' | 'out_of_stock';
   errorDetail?: string;
 }
 
@@ -46,6 +46,14 @@ export async function startPayment(
   if ((['cancelled', 'closed', 'cancel_pending_refund'] as string[]).includes(order.state)) {
     return { ok: false, error: 'order_not_payable' };
   }
+
+  // שריון שפקע: חצי שעה אחרי פתיחת דף התשלום השריון משתחרר
+  // (releaseExpiredReservations), אבל ההזמנה נשארת ניתנת לתשלום עד הביטול
+  // האוטומטי. בלי הבדיקה כאן הלקוח היה משלם על ספר שאולי כבר נמכר לאחר —
+  // וה-commit נכשל *אחרי* שהכסף נגבה. אין דרך לשריין מחדש (ה-RPC חד-פעמי
+  // להזמנה), ולכן לפחות מוודאים שהכמות עדיין זמינה לפני שגובים.
+  const stockGate = await assertReleasedItemsAvailable(service, order.id);
+  if (!stockGate.ok) return { ok: false, error: 'out_of_stock', errorDetail: stockGate.detail };
 
   // ניסיון פתוח בתוקף — ממוחזר (רענון/לחיצה כפולה אינם פותחים דף שני)
   const { data: open } = await service
@@ -190,6 +198,49 @@ export async function startPayment(
 }
 
 /** האם עסקה של מורנינג כבר שויכה — עוגן ההתאמה הכספית. */
+/**
+ * פריטים שהשריון שלהם שוחרר (תנועת release בלי sale אחריה) — האם עדיין
+ * זמינים בכמות שבהזמנה? books.stock_quantity הוא הזמין הנגזר
+ * (on_hand − reserved), ואחרי השחרור הוא כבר אינו כולל את ההזמנה הזו.
+ */
+async function assertReleasedItemsAvailable(
+  service: SupabaseClient,
+  orderId: string,
+): Promise<{ ok: boolean; detail?: string }> {
+  const { data: moves } = await service
+    .from('inventory_moves')
+    .select('book_id, move_type')
+    .eq('order_id', orderId)
+    .in('move_type', ['release', 'sale']);
+  if (!moves?.length) return { ok: true };
+  const sold = new Set(moves.filter((move) => move.move_type === 'sale').map((move) => String(move.book_id)));
+  const released = [
+    ...new Set(
+      moves
+        .filter((move) => move.move_type === 'release' && !sold.has(String(move.book_id)))
+        .map((move) => String(move.book_id)),
+    ),
+  ];
+  if (released.length === 0) return { ok: true };
+
+  const [{ data: items }, { data: books }] = await Promise.all([
+    service.from('order_items').select('book_id, quantity').eq('order_id', orderId).in('book_id', released),
+    service
+      .from('books')
+      .select('id, title_he, stock_quantity, is_stock_managed, preorder_enabled')
+      .in('id', released),
+  ]);
+  const bookById = new Map((books ?? []).map((book) => [String(book.id), book]));
+  for (const item of items ?? []) {
+    const book = item.book_id ? bookById.get(String(item.book_id)) : null;
+    if (!book || !book.is_stock_managed || book.preorder_enabled) continue;
+    if ((Number(book.stock_quantity) || 0) < Number(item.quantity)) {
+      return { ok: false, detail: String(book.title_he ?? item.book_id) };
+    }
+  }
+  return { ok: true };
+}
+
 export async function findPaymentByTransaction(
   service: SupabaseClient,
   transactionId: string,

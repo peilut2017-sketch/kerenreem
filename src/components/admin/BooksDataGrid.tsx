@@ -13,6 +13,7 @@ import { CompletionBadge } from './CompletionBadge';
 import { RowActions } from './RowActions';
 import { Spinner } from './SubmitButton';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 type ColumnId =
   | 'catalogue_number'
   | 'author'
@@ -97,9 +98,7 @@ const LANGUAGE_LABELS: Record<string, string> = {
 };
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeZone: 'Asia/Jerusalem' }).format(
-    new Date(value),
-  );
+  return formatAdminDate(value, 'date');
 }
 
 /**

@@ -119,11 +119,7 @@ function ViewChip({ href, label, active }: { href: string; label: string; active
     <Link
       href={href}
       aria-current={active ? 'true' : undefined}
-      className={`rounded-[var(--radius-pill)] px-3 py-1.5 text-caption transition-colors ${
-        active
-          ? 'bg-[var(--admin-accent)] text-white'
-          : 'bg-cream-2 text-ink-soft hover:bg-cream-3'
-      }`}
+      className="admin-chip"
     >
       {label}
     </Link>

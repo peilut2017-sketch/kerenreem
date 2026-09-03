@@ -8,7 +8,10 @@ import {
   cancellationPath,
   recordOrderEvent,
   transitionOrder,
-  type StateAxis, addOrderTag } from '@/lib/commerce/orders';
+  type StateAxis,
+  addOrderTag,
+  SYSTEM_ACTOR,
+} from '@/lib/commerce/orders';
 import {
   adjustReservation,
   adjustStock,
@@ -33,6 +36,7 @@ import {
   type ManualOrderPreview,
 } from '@/lib/commerce/manual-orders';
 import { startPayment } from '@/lib/commerce/payments';
+import { couponDiscountFor, type CouponCart, type CouponRow } from '@/lib/commerce/coupons';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
 import { getStoreSettings } from '@/lib/commerce/settings';
 import { round2 } from '@/lib/commerce/pricing';
@@ -1236,26 +1240,98 @@ export async function setStaffDiscount(
  * עם תרומה מחקה את התרומה מהסכום בשקט), ורכיב המע"מ מחושב מחדש —
  * אחרת tax_total הישן כבר אינו תואם את הסכום החדש.
  */
+interface OrderLineSnapshot {
+  book_id: string | null;
+  quantity: number;
+  unit_price: number;
+  unit_price_original: number | null;
+  line_total: number | null;
+}
+
+function lineTotalOf(item: OrderLineSnapshot): number {
+  return round2(Number(item.line_total ?? Number(item.unit_price) * item.quantity));
+}
+
+/**
+ * הנחת הקופון על הזמנה קיימת, מחושבת מחדש מול שורות ההזמנה הנוכחיות.
+ * מחזירה את סך "קופון + מבצע" המעודכן: חלק המבצע (מה שנשאר אחרי הפחתת
+ * סכום המימוש שנרשם ב-coupon_redemptions) נשמר, חלק הקופון מוחלף בחישוב
+ * הטרי, ורשומת המימוש מתעדכנת כדי שדוח הקופונים יישאר נכון. בלי רשומת
+ * מימוש (קופון שגלש על תקרתו במירוץ) אין דרך לפצל — הסכום נשאר כפי שהוא.
+ */
+async function recomputeCouponPortion(
+  service: NonNullable<ReturnType<typeof createServiceClient>>,
+  order: { id: string; coupon_id: string | null },
+  items: OrderLineSnapshot[],
+  couponAndPromo: number,
+): Promise<number> {
+  if (!order.coupon_id) return couponAndPromo;
+  const [{ data: coupon }, { data: redemption }] = await Promise.all([
+    service.from('coupons').select('*').eq('id', order.coupon_id).maybeSingle(),
+    service
+      .from('coupon_redemptions')
+      .select('id, amount_discounted')
+      .eq('order_id', order.id)
+      .eq('coupon_id', order.coupon_id)
+      .maybeSingle(),
+  ]);
+  if (!coupon || !redemption) return couponAndPromo;
+
+  const bookIds = items.map((item) => item.book_id).filter((id): id is string => Boolean(id));
+  const { data: books } = bookIds.length
+    ? await service.from('books').select('id, category_id').in('id', bookIds)
+    : { data: [] as { id: string; category_id: string | null }[] };
+  const categoryOf = new Map((books ?? []).map((book) => [book.id as string, (book.category_id as string | null) ?? null]));
+
+  const cart: CouponCart = {
+    subtotal: round2(items.reduce((sum, item) => sum + lineTotalOf(item), 0)),
+    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    lines: items.map((item) => ({
+      bookId: item.book_id ?? '',
+      onSale: item.unit_price_original != null && Number(item.unit_price_original) > Number(item.unit_price),
+      categoryId: item.book_id ? (categoryOf.get(item.book_id) ?? null) : null,
+      lineTotal: lineTotalOf(item),
+      removedReason: null,
+    })),
+  };
+  const fresh = couponDiscountFor(coupon as CouponRow, cart);
+  const nextCoupon = fresh.ok ? fresh.discountAmount : 0;
+  const previousCoupon = Number(redemption.amount_discounted ?? 0);
+  if (Math.abs(nextCoupon - previousCoupon) < 0.01) return couponAndPromo;
+
+  await service.from('coupon_redemptions').update({ amount_discounted: nextCoupon }).eq('id', redemption.id);
+  await recordOrderEvent(service, order.id, 'coupon_recomputed', SYSTEM_ACTOR, {
+    coupon_id: order.coupon_id,
+    previous: previousCoupon,
+    next: nextCoupon,
+    reason: fresh.ok ? 'items_changed' : (fresh.error ?? 'not_applicable'),
+  });
+  return round2(Math.max(couponAndPromo - previousCoupon, 0) + nextCoupon);
+}
+
 async function recomputeOrderTotals(
   service: NonNullable<ReturnType<typeof createServiceClient>>,
   orderId: string,
 ): Promise<void> {
   const [{ data: order }, { data: items }, settings] = await Promise.all([
     service.from('orders').select('*').eq('id', orderId).maybeSingle(),
-    service.from('order_items').select('line_total, unit_price, quantity').eq('order_id', orderId),
+    service
+      .from('order_items')
+      .select('book_id, line_total, unit_price, unit_price_original, quantity')
+      .eq('order_id', orderId),
     getStoreSettings(),
   ]);
   if (!order) return;
-  const subtotal = round2(
-    (items ?? []).reduce(
-      (sum, item) => sum + Number(item.line_total ?? Number(item.unit_price) * item.quantity),
-      0,
-    ),
-  );
-  // ההנחות הקיימות על ההזמנה נשמרות כמו שהן (קופון/מבצע צולמו ביצירה)
-  const couponAndPromo = Math.max(
-    Number(order.discount_total) - Number(order.staff_discount ?? 0),
-    0,
+  const lines = (items ?? []) as OrderLineSnapshot[];
+  const subtotal = round2(lines.reduce((sum, item) => sum + lineTotalOf(item), 0));
+  // המבצע האוטומטי שצולם ביצירה נשמר כמו שהוא; הנחת הקופון מחושבת מחדש
+  // מול הפריטים *אחרי* העריכה — קודם קופון שחל על ספר אחד המשיך לתת את
+  // מלוא ההנחה גם אחרי שאותו ספר הוסר מההזמנה.
+  const couponAndPromo = await recomputeCouponPortion(
+    service,
+    order,
+    lines,
+    Math.max(Number(order.discount_total) - Number(order.staff_discount ?? 0), 0),
   );
   const discountTotal = round2(Math.min(couponAndPromo + Number(order.staff_discount ?? 0), subtotal));
   const shippingTotal = Number(order.shipping_total ?? 0);

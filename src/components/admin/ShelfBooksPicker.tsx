@@ -4,6 +4,7 @@ import { useId, useMemo, useState, useTransition } from 'react';
 import { saveShelfBooks } from '@/lib/admin/settings-actions';
 import { toCdnUrl } from '@/lib/image-src';
 import { AdminIcon } from './AdminIcons';
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 import { Spinner } from './SubmitButton';
 
 interface PickerBook {
@@ -35,6 +36,9 @@ export function ShelfBooksPicker({ books, defaultIds }: { books: PickerBook[]; d
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // סידור מחדש של עשרים ספרים ואז רענון בטעות — בלי האזהרה הכול היה נמחק בשקט.
+  const [dirty, setDirty] = useState(false);
+  useUnsavedChangesWarning(dirty);
   const listId = useId();
 
   const byId = useMemo(() => new Map(books.map((book) => [book.id, book])), [books]);
@@ -52,7 +56,10 @@ export function ShelfBooksPicker({ books, defaultIds }: { books: PickerBook[]; d
     });
   }, [books, activeIds, query]);
 
-  const markDirty = () => setStatus('idle');
+  const markDirty = () => {
+    setStatus('idle');
+    setDirty(true);
+  };
 
   const addBook = (id: string) => {
     setActiveIds((current) => (current.includes(id) ? current : [...current, id]));
@@ -108,6 +115,7 @@ export function ShelfBooksPicker({ books, defaultIds }: { books: PickerBook[]; d
         return;
       }
       setStatus('saved');
+      setDirty(false);
     });
   }
 

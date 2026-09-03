@@ -16,6 +16,7 @@ import {
   undoShipment,
 } from '@/lib/admin/orders-actions';
 import { CardPaymentDrawer } from './CardPaymentDrawer';
+import { Spinner } from '../SubmitButton';
 import { RefundDialog, type RefundableItem } from './RefundDialog';
 import {
   FULFILLMENT_STATE_TRANSITIONS,
@@ -71,6 +72,9 @@ export function OrderActionsPanel({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // איזו פעולה רצה עכשיו — המחוון מוצג בכפתור שנלחץ, לא "כל הפאנל מאפיר"
+  // בלי לומר מה קורה ואם הלחיצה נקלטה.
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean; undo?: () => void } | null>(null);
   const [note, setNote] = useState('');
   const [tracking, setTracking] = useState({ company: '', trackingNumber: '', trackingUrl: '' });
@@ -85,17 +89,26 @@ export function OrderActionsPanel({
     action: () => Promise<{ ok: boolean; error?: string }>,
     confirmText?: string,
     undoAction?: () => void,
+    actionId = 'generic',
   ) {
     if (confirmText && !window.confirm(confirmText)) return;
+    setActiveAction(actionId);
     startTransition(async () => {
-      const result = await action();
-      setMessage(
-        result.ok
-          ? { text: 'בוצע.', ok: true, undo: undoAction }
-          : { text: result.error ?? 'הפעולה נכשלה', ok: false },
-      );
+      try {
+        const result = await action();
+        setMessage(
+          result.ok
+            ? { text: 'בוצע.', ok: true, undo: undoAction }
+            : { text: result.error ?? 'הפעולה נכשלה', ok: false },
+        );
+      } finally {
+        setActiveAction(null);
+      }
     });
   }
+
+  const busy = (id: string) =>
+    activeAction === id ? <Spinner className="me-1.5 inline-block h-3.5 w-3.5 align-[-2px]" /> : null;
 
   /**
    * סיבה לפעולה — שדה בתוך הפאנל ולא window.prompt: הסיבה נכתבת ליומן
@@ -144,7 +157,7 @@ export function OrderActionsPanel({
               event.preventDefault();
               const request = reasonRequest;
               setReasonRequest(null);
-              run(() => request.action(reasonText.trim() || 'ללא סיבה'));
+              run(() => request.action(reasonText.trim() || 'ללא סיבה'), undefined, undefined, 'reason');
             }}
           >
             <label htmlFor="order-action-reason" className="admin-field-label">
@@ -161,6 +174,7 @@ export function OrderActionsPanel({
             />
             <div className="flex flex-wrap gap-2">
               <button type="submit" disabled={pending} className="admin-btn admin-btn-danger">
+                {busy('reason')}
                 {reasonRequest.confirmLabel}
               </button>
               <button type="button" onClick={() => setReasonRequest(null)} className="admin-btn admin-btn-quiet">
@@ -242,9 +256,12 @@ export function OrderActionsPanel({
                 key={target}
                 type="button"
                 disabled={pending}
-                onClick={() => run(() => staffTransitionOrder(order.id, 'state', target))}
+                onClick={() =>
+                  run(() => staffTransitionOrder(order.id, 'state', target), undefined, undefined, `state:${target}`)
+                }
                 className="admin-btn admin-btn-quiet"
               >
+                {busy(`state:${target}`)}
                 {ORDER_STATE_LABELS[target]}
               </button>
             ))}
@@ -280,9 +297,17 @@ export function OrderActionsPanel({
           <button
             type="button"
             disabled={pending}
-            onClick={() => run(() => staffTransitionOrder(order.id, 'fulfillment_state', primaryFulfillment.target))}
+            onClick={() =>
+              run(
+                () => staffTransitionOrder(order.id, 'fulfillment_state', primaryFulfillment.target),
+                undefined,
+                undefined,
+                'fulfillment:primary',
+              )
+            }
             className="admin-btn admin-btn-solid mb-3 w-full sm:w-auto"
           >
+            {busy('fulfillment:primary')}
             {primaryFulfillment.label}
           </button>
         ) : null}
@@ -293,9 +318,17 @@ export function OrderActionsPanel({
                 key={target}
                 type="button"
                 disabled={pending}
-                onClick={() => run(() => staffTransitionOrder(order.id, 'fulfillment_state', target))}
+                onClick={() =>
+                  run(
+                    () => staffTransitionOrder(order.id, 'fulfillment_state', target),
+                    undefined,
+                    undefined,
+                    `fulfillment:${target}`,
+                  )
+                }
                 className="admin-btn admin-btn-quiet"
               >
+                {busy(`fulfillment:${target}`)}
                 {FULFILLMENT_STATE_LABELS[target]}
               </button>
             ))}
@@ -350,10 +383,12 @@ export function OrderActionsPanel({
                       'סיבת ביטול סימון המשלוח? שימו לב: מייל "נשלח" שכבר יצא ללקוח לא יבוטל.',
                       (reason) => undoShipment(order.id, reason),
                     ),
+                  'tracking',
                 )
               }
               className="admin-btn admin-btn-solid"
             >
+              {busy('tracking')}
               נמסר לשליח + מייל ללקוח
             </button>
           </div>
@@ -371,10 +406,13 @@ export function OrderActionsPanel({
                 run(
                   () => sendPaymentLink(order.id),
                   'לשלוח ללקוח מייל עם קישור לתשלום מאובטח במורנינג?',
+                  undefined,
+                  'payment-link',
                 )
               }
               className="admin-btn admin-btn-quiet"
             >
+              {busy('payment-link')}
               שליחת קישור תשלום במייל
             </button>
             {isAdmin ? (
@@ -389,10 +427,12 @@ export function OrderActionsPanel({
                       promptAndUndo('סיבת ביטול סימון התשלום? (לתיעוד בציר הזמן)', (reason) =>
                         undoManualPayment(order.id, reason),
                       ),
+                    'manual-payment',
                   )
                 }
                 className="admin-btn admin-btn-quiet"
               >
+                {busy('manual-payment')}
                 סימון תשלום חיצוני
               </button>
             ) : null}
@@ -420,17 +460,23 @@ export function OrderActionsPanel({
               onClick={() => {
                 if (!window.confirm('למחוק את ההזמנה לצמיתות? הפעולה בלתי הפיכה.')) return;
                 if (!window.confirm('אישור אחרון: ההזמנה, פריטיה וההיסטוריה שלה יימחקו סופית.')) return;
+                setActiveAction('delete');
                 startTransition(async () => {
-                  const result = await deleteOrder(order.id);
-                  if (result.ok) {
-                    router.push('/admin/orders');
-                  } else {
-                    setMessage({ text: result.error ?? 'המחיקה נכשלה', ok: false });
+                  try {
+                    const result = await deleteOrder(order.id);
+                    if (result.ok) {
+                      router.push('/admin/orders');
+                    } else {
+                      setMessage({ text: result.error ?? 'המחיקה נכשלה', ok: false });
+                    }
+                  } finally {
+                    setActiveAction(null);
                   }
                 });
               }}
               className="admin-btn admin-btn-danger w-full"
             >
+              {busy('delete')}
               מחיקת ההזמנה לצמיתות
             </button>
           </div>
@@ -456,15 +502,20 @@ export function OrderActionsPanel({
                 type="button"
                 disabled={pending}
                 onClick={() =>
-                  run(() =>
-                    setActualShippingCost(
-                      order.id,
-                      actualShipping.trim() === '' ? null : Number(actualShipping),
-                    ),
+                  run(
+                    () =>
+                      setActualShippingCost(
+                        order.id,
+                        actualShipping.trim() === '' ? null : Number(actualShipping),
+                      ),
+                    undefined,
+                    undefined,
+                    'shipping-cost',
                   )
                 }
                 className="admin-btn admin-btn-quiet shrink-0"
               >
+                {busy('shipping-cost')}
                 שמירה
               </button>
             </div>
@@ -485,14 +536,20 @@ export function OrderActionsPanel({
           type="button"
           disabled={pending || !note.trim()}
           onClick={() =>
-            run(async () => {
-              const result = await addOrderNote(order.id, note);
-              if (result.ok) setNote('');
-              return result;
-            })
+            run(
+              async () => {
+                const result = await addOrderNote(order.id, note);
+                if (result.ok) setNote('');
+                return result;
+              },
+              undefined,
+              undefined,
+              'note',
+            )
           }
           className="admin-btn admin-btn-quiet mt-2"
         >
+          {busy('note')}
           הוספה לציר הזמן
         </button>
       </section>
@@ -513,9 +570,10 @@ export function OrderActionsPanel({
               key={template}
               type="button"
               disabled={pending}
-              onClick={() => run(() => resendOrderEmail(order.id, template))}
+              onClick={() => run(() => resendOrderEmail(order.id, template), undefined, undefined, `email:${template}`)}
               className="admin-btn admin-btn-ghost"
             >
+              {busy(`email:${template}`)}
               {label}
             </button>
           ))}

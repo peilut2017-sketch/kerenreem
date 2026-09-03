@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState, type ReactNode } from 'rea
 import { useRouter } from 'next/navigation';
 import { saveEntity, type SaveState } from '@/lib/admin/actions';
 import { DeleteButton } from './DeleteButton';
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 import { SubmitButton } from './SubmitButton';
 import { restoreFormValues } from '@/lib/restore-form';
 import { showAdminToast } from '@/lib/admin/toast-bus';
@@ -165,14 +166,7 @@ export function EntityForm({
    * סגירת *הכרטיס הצף* (X, רקע, Escape) מטופלת במעטפת (EntityFormDrawer)
    * דרך UnsavedChangesContext — לדפדפן אין אירוע עבורה.
    */
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  useUnsavedChangesWarning(dirty);
 
   /** כל קלט בטופס מדליק את הדגל — פעם אחת, לא בכל הקשה. */
   function markDirty() {

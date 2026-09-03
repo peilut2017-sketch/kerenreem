@@ -4,6 +4,7 @@ import { listPagesAdmin } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 const REQUIRED_SLUGS = ['terms', 'privacy', 'accessibility'];
@@ -45,7 +46,7 @@ export default async function AdminPagesPage() {
               <span dir="ltr">/{page.slug}</span>
             </AdminCell>
             <AdminCell className="text-muted">
-              {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(new Date(page.updated_at))}
+              {formatAdminDate(page.updated_at, 'date')}
             </AdminCell>
             <AdminCell>
               {canEdit ? <RowActions
