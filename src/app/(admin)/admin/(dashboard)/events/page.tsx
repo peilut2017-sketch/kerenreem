@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { listEventsAdmin, listEventViewCounts } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -8,12 +8,15 @@ import { formatDate, parseDateOnly } from '@/lib/hebrew-date';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminEventsPage() {
-  await requireScreenPermission('events', 'view');
+  const session = await requireScreenPermission('events', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'events');
   const [events, viewCounts] = await Promise.all([listEventsAdmin(), listEventViewCounts()]);
 
   return (
     <>
-      <AdminHeader title="אירועים" action={{ href: '/admin/events/new', label: 'אירוע חדש' }} />
+      <AdminHeader title="אירועים" action={canEdit ? { href: '/admin/events/new', label: 'אירוע חדש' } : undefined} />
       <AdminTable
         columns={['שם האירוע', 'תאריך', 'צפיות', 'מצב ופעולות']}
         empty={events.length === 0 ? 'טרם נוספו אירועים.' : undefined}
@@ -37,12 +40,12 @@ export default async function AdminEventsPage() {
                 {(viewCounts.get(event.slug) ?? 0).toLocaleString('he-IL')}
               </AdminCell>
               <AdminCell>
-                <RowActions
+                {canEdit ? <RowActions
                 entity="events"
                 id={event.id}
                 label={event.title_he}
                 published={event.is_published}
-              />
+              /> : null}
               </AdminCell>
             </AdminRow>
           );

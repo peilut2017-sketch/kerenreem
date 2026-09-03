@@ -37,7 +37,7 @@ export function RepeatableTextField({
 
   return (
     <div>
-      <span className="field-label">{label}</span>
+      <span className="admin-field-label">{label}</span>
       <div className="mt-1 space-y-2">
         {rows.map((row, index) => (
           // key הוא מזהה יציב ולא אינדקס: השדות אינם מבוקרים
@@ -51,7 +51,7 @@ export function RepeatableTextField({
               placeholder={placeholder}
               rows={multiline ? 3 : undefined}
               aria-label={`${label} ${index + 1}`}
-              className="field-input flex-1"
+              className="admin-field-input flex-1"
             />
             <button
               type="button"
@@ -72,7 +72,7 @@ export function RepeatableTextField({
         + הוספת שורה
       </button>
       {hint ? (
-        <span id={`${id}-hint`} className="field-hint block">
+        <span id={`${id}-hint`} className="admin-field-hint block">
           {hint}
         </span>
       ) : null}

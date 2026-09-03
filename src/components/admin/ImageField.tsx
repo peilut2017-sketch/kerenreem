@@ -107,7 +107,7 @@ export function ImageField({
 
   return (
     <div>
-      <label htmlFor={`${id}-url`} className="field-label">
+      <label htmlFor={`${id}-url`} className="admin-field-label">
         {label}
       </label>
 
@@ -131,7 +131,7 @@ export function ImageField({
             onChange={(event) => setUrl(event.target.value)}
             aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
             aria-invalid={error ? true : undefined}
-            className="field-input"
+            className="admin-field-input"
           />
 
           <div className="flex items-center gap-3">
@@ -163,17 +163,17 @@ export function ImageField({
       </div>
 
       {error ? (
-        <span id={`${id}-error`} className="field-error">
+        <span id={`${id}-error`} className="admin-field-error">
           {error}
         </span>
       ) : hint ? (
-        <span id={`${id}-hint`} className="field-hint">
+        <span id={`${id}-hint`} className="admin-field-hint">
           {hint}
         </span>
       ) : null}
 
       {foreignUrl ? (
-        <span role="status" className="field-error">
+        <span role="status" className="admin-field-error">
           הכתובת אינה מאחסון האתר, ולכן התמונה לא תוצג בעמוד הציבורי. יש להעלות
           את הקובץ בכפתור ההעלאה שלמעלה.
         </span>

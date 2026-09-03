@@ -175,26 +175,26 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
             </div>
 
             <label className="mb-4 block max-w-xs">
-              <span className="field-label">תג תחנה (רשות)</span>
+              <span className="admin-field-label">תג תחנה (רשות)</span>
               <input
                 value={row.stage_label}
                 onChange={(event) => update(row.key, { stage_label: event.target.value })}
                 placeholder="קבלת פנים, השיעור, סיום…"
-                className="field-input mt-1"
+                className="admin-field-input mt-1"
               />
-              <span className="field-hint">
+              <span className="admin-field-hint">
                 מופיע במד ההתקדמות שבראש העמוד. משאירים ריק ברוב הבלוקים.
               </span>
             </label>
 
             {row.type === 'text' ? (
               <label className="block">
-                <span className="field-label">טקסט</span>
+                <span className="admin-field-label">טקסט</span>
                 <textarea
                   value={row.body_he}
                   onChange={(event) => update(row.key, { body_he: event.target.value })}
                   rows={4}
-                  className="field-input mt-1"
+                  className="admin-field-input mt-1"
                 />
               </label>
             ) : null}
@@ -260,7 +260,7 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
                   <button
                     type="button"
                     onClick={() => update(row.key, { images: [...row.images, makeImageRow()] })}
-                    className="btn btn-quiet mt-3"
+                    className="admin-btn admin-btn-quiet mt-3"
                   >
                     + הוספת תמונה לשורה
                   </button>
@@ -271,22 +271,22 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
             {row.type === 'video' ? (
               <div className="space-y-3">
                 <label className="block">
-                  <span className="field-label">כתובת הסרטון</span>
+                  <span className="admin-field-label">כתובת הסרטון</span>
                   <input
                     type="url"
                     dir="ltr"
                     value={row.video_url}
                     onChange={(event) => update(row.key, { video_url: event.target.value })}
                     placeholder="https://youtube.com/watch?v=…"
-                    className="field-input mt-1"
+                    className="admin-field-input mt-1"
                   />
                 </label>
                 <label className="block">
-                  <span className="field-label">כיתוב (רשות)</span>
+                  <span className="admin-field-label">כיתוב (רשות)</span>
                   <input
                     value={row.video_caption_he}
                     onChange={(event) => update(row.key, { video_caption_he: event.target.value })}
-                    className="field-input mt-1"
+                    className="admin-field-input mt-1"
                   />
                 </label>
               </div>
@@ -295,21 +295,21 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
             {row.type === 'quote' ? (
               <div className="space-y-3">
                 <label className="block">
-                  <span className="field-label">הציטוט</span>
+                  <span className="admin-field-label">הציטוט</span>
                   <textarea
                     value={row.quote_text}
                     onChange={(event) => update(row.key, { quote_text: event.target.value })}
                     rows={3}
-                    className="field-input mt-1"
+                    className="admin-field-input mt-1"
                   />
                 </label>
                 <label className="block">
-                  <span className="field-label">מקור הציטוט (רשות)</span>
+                  <span className="admin-field-label">מקור הציטוט (רשות)</span>
                   <input
                     value={row.quote_attribution_he}
                     onChange={(event) => update(row.key, { quote_attribution_he: event.target.value })}
                     placeholder="הרב…"
-                    className="field-input mt-1"
+                    className="admin-field-input mt-1"
                   />
                 </label>
               </div>
@@ -324,7 +324,7 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
             key={type}
             type="button"
             onClick={() => setRows((current) => [...current, makeBlockRow(type)])}
-            className="btn btn-quiet"
+            className="admin-btn admin-btn-quiet"
           >
             + {TYPE_LABELS[type]}
           </button>
@@ -332,7 +332,7 @@ export function EventBlocksEditor({ eventId, blocks }: { eventId: string; blocks
       </div>
 
       <div className="mt-5 flex items-center gap-3 border-t border-rule pt-5">
-        <button type="button" onClick={save} disabled={pending} className="btn btn-solid">
+        <button type="button" onClick={save} disabled={pending} className="admin-btn admin-btn-solid">
           {pending ? 'שומר…' : 'שמירת רצף הסיפור'}
         </button>
         {status === 'saved' ? <span className="text-small text-ink-soft">נשמר.</span> : null}
@@ -392,15 +392,15 @@ function ImagePicker({
       </div>
       <div className="space-y-3">
         <label className="block">
-          <span className="field-label">טקסט חלופי</span>
-          <input value={alt} onChange={(event) => onAlt(event.target.value)} className="field-input mt-1" />
+          <span className="admin-field-label">טקסט חלופי</span>
+          <input value={alt} onChange={(event) => onAlt(event.target.value)} className="admin-field-input mt-1" />
         </label>
         <label className="block">
-          <span className="field-label">כיתוב</span>
+          <span className="admin-field-label">כיתוב</span>
           <input
             value={caption}
             onChange={(event) => onCaption(event.target.value)}
-            className="field-input mt-1"
+            className="admin-field-input mt-1"
           />
         </label>
       </div>

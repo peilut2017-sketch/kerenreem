@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { getSettings, listBanners } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -9,7 +9,10 @@ import { toCdnUrl } from '@/lib/image-src';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminBannersPage() {
-  await requireScreenPermission('banners', 'view');
+  const session = await requireScreenPermission('banners', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'banners');
   const [banners, settings] = await Promise.all([listBanners(), getSettings()]);
   // extra יכול להיות null בפועל גם שהעמודה במסד not null default '{}':
   // שורה ישנה יכולה עדיין להחזיק ערך null. גישה ישירה ל-extra.X בלי
@@ -21,7 +24,7 @@ export default async function AdminBannersPage() {
       <AdminHeader
         title="באנרים"
         description="הקרוסלה בראש עמוד הבית. מוצגים לפי סדר, רק מה שמסומן כמוצג ובתוך חלון התאריכים."
-        action={{ href: '/admin/banners/new', label: 'באנר חדש' }}
+        action={canEdit ? { href: '/admin/banners/new', label: 'באנר חדש' } : undefined}
       />
 
       <div className="mb-6">
@@ -59,12 +62,12 @@ export default async function AdminBannersPage() {
             </AdminCell>
             <AdminCell className="tabular-nums text-muted">{banner.sort_order}</AdminCell>
             <AdminCell>
-              <RowActions
+              {canEdit ? <RowActions
                 entity="banners"
                 id={banner.id}
                 label={banner.title_he}
                 published={banner.is_published}
-              />
+              /> : null}
             </AdminCell>
           </AdminRow>
         ))}

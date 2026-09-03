@@ -128,7 +128,7 @@ export function OrderActionsPanel({
 
         {message ? (
           <p
-            role="status"
+            role={message.ok ? 'status' : 'alert'}
             className={`mb-3 flex flex-wrap items-center gap-x-2 rounded-[var(--radius-sm)] px-3 py-2 text-caption ${
               message.ok
                 ? 'bg-[var(--admin-success-soft)] text-[var(--admin-success)]'
@@ -264,6 +264,7 @@ export function OrderActionsPanel({
             <p className="text-caption font-semibold text-ink">מסירה לשליח</p>
             <input
               type="text"
+              aria-label="חברת משלוחים"
               placeholder="חברת משלוחים"
               value={tracking.company}
               onChange={(e) => setTracking((v) => ({ ...v, company: e.target.value }))}
@@ -272,6 +273,7 @@ export function OrderActionsPanel({
             <input
               type="text"
               dir="ltr"
+              aria-label="מספר מעקב"
               placeholder="מספר מעקב"
               value={tracking.trackingNumber}
               onChange={(e) => setTracking((v) => ({ ...v, trackingNumber: e.target.value }))}
@@ -280,6 +282,7 @@ export function OrderActionsPanel({
             <input
               type="url"
               dir="ltr"
+              aria-label="קישור מעקב"
               placeholder="קישור מעקב (רשות)"
               value={tracking.trackingUrl}
               onChange={(e) => setTracking((v) => ({ ...v, trackingUrl: e.target.value }))}
@@ -398,7 +401,8 @@ export function OrderActionsPanel({
                 dir="ltr"
                 min={0}
                 step={0.01}
-                placeholder='מה שולם לחברת המשלוחים בש"ח'
+                aria-label="עלות משלוח בפועל"
+              placeholder='מה שולם לחברת המשלוחים בש"ח'
                 value={actualShipping}
                 onChange={(e) => setActualShipping(e.target.value)}
                 className="admin-field-input"

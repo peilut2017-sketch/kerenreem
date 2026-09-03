@@ -284,12 +284,12 @@ export function ToggleField({
           onChange={(event) => handleChange(event.target.checked)}
           disabled={isDisabled}
           aria-checked={checked}
-          aria-describedby={hint || error ? `${id}-hint` : undefined}
+          aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
           className="sr-only"
         />
       </label>
       {error ? (
-        <span role="alert" className="admin-field-hint ms-1 block text-[var(--admin-danger)]">
+        <span id={`${id}-error`} role="alert" className="admin-field-hint ms-1 block text-[var(--admin-danger)]">
           {error}
         </span>
       ) : hint ? (

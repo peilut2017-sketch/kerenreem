@@ -115,7 +115,7 @@ export function RelationPicker<T extends NamedEntity>({
 
       {allVisible ? (
         <>
-          <p className="field-label">{label}</p>
+          <p className="admin-field-label">{label}</p>
           <ul role="list" className="flex flex-wrap gap-2">
             {known.map((item) => {
               const isSelected = selected.includes(item.id);
@@ -151,7 +151,7 @@ export function RelationPicker<T extends NamedEntity>({
             <button
               type="button"
               onClick={() => setFullFormOpen(true)}
-              className="btn btn-quiet mt-3"
+              className="admin-btn admin-btn-quiet mt-3"
             >
               + {itemLabel} חדשה
             </button>
@@ -189,7 +189,7 @@ export function RelationPicker<T extends NamedEntity>({
             </ul>
           ) : null}
 
-          <label htmlFor={id} className="field-label">
+          <label htmlFor={id} className="admin-field-label">
             {label}
           </label>
         </>
@@ -218,14 +218,14 @@ export function RelationPicker<T extends NamedEntity>({
             }
           }}
           placeholder={allVisible ? `חיפוש ${itemLabel}…` : placeholder}
-          className="field-input"
+          className="admin-field-input"
         />
         {query.trim() && !exactExists ? (
           <button
             type="button"
             onClick={() => void create()}
             disabled={creating}
-            className="btn btn-quiet whitespace-nowrap"
+            className="admin-btn admin-btn-quiet whitespace-nowrap"
           >
             {creating ? 'יוצר…' : 'יצירה מהירה'}
           </button>
@@ -233,7 +233,7 @@ export function RelationPicker<T extends NamedEntity>({
       </div>
 
       {error ? (
-        <p role="alert" className="field-error">
+        <p role="alert" className="admin-field-error">
           {error}
         </p>
       ) : null}

@@ -77,7 +77,7 @@ export default async function AdminCustomersPage({
   }
 
   const query = q?.trim() ?? '';
-  const rows = [...byKey.values()]
+  const matching = [...byKey.values()]
     .filter(
       (row) =>
         !query ||
@@ -86,7 +86,10 @@ export default async function AdminCustomersPage({
         (row.email ?? '').includes(query),
     )
     .sort((a, b) => b.lastOrderAt.localeCompare(a.lastOrderAt))
-    .slice(0, 200);
+    ;
+  // הרשימה נבנית מ-2,000 ההזמנות האחרונות ונחתכת ל-200 — הקיטוע מדווח ולא שקט
+  const rows = matching.slice(0, 200);
+  const truncated = matching.length > rows.length;
 
   return (
     <>
@@ -115,6 +118,11 @@ export default async function AdminCustomersPage({
         <div role="alert" className="admin-card mb-4 px-6 py-6 text-center text-small text-[var(--admin-danger)]">
           שגיאה בטעינת הלקוחות מהמסד. זו לא רשימה ריקה — נסו לרענן, ואם זה חוזר פנו לתמיכה הטכנית.
         </div>
+      ) : null}
+      {truncated ? (
+        <p className="mb-3 text-caption text-muted">
+          מוצגים 200 הלקוחות האחרונים מתוך {matching.length} (מבין 2,000 ההזמנות האחרונות) — צמצמו בחיפוש כדי למצוא לקוח ותיק.
+        </p>
       ) : null}
       <AdminTable
         columns={['לקוח', 'קשר', 'הזמנות', 'סה״כ שולם', 'אחרונה', '']}

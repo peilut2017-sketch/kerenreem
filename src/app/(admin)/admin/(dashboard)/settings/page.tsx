@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireRole } from '@/lib/admin/auth';
+import { requireScreenPermission } from '@/lib/admin/auth';
 import { getSettings, listCustomFontsAdmin } from '@/lib/admin/queries';
 import { EDITOR_FONT_CHOICES } from '@/lib/fonts';
 import { AdminHeader } from '@/components/admin/AdminList';
@@ -13,7 +13,8 @@ export default async function AdminSettingsPage() {
   // משתמשים" — ראו saveSettings/toggleStoreEnabled/saveBannersEnabled ב-
   // settings-actions.ts, שירדו לאותה דרגה, וscreens.ts (org-settings אינו
   // ב-ADMIN_ONLY_SCREENS).
-  await requireRole('manager');
+  // org-settings — המפתח שלוח ההרשאות מציג; קודם היה שם checkbox שלא אכף דבר
+  await requireScreenPermission('org-settings', 'view');
   const [settings, customFonts] = await Promise.all([getSettings(), listCustomFontsAdmin()]);
 
   // רשימת הבחירה לגופני ברירת המחדל — כל הגופנים החינמיים המובנים, ואחריהם

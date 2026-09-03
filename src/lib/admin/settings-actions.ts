@@ -26,7 +26,7 @@ export async function saveSettings(
   _prev: SettingsState,
   formData: FormData,
 ): Promise<SettingsState> {
-  const session = await assertRole('manager');
+  const session = await assertScreenPermission('org-settings', 'edit');
   if ('error' in session) return { status: 'error', message: session.error };
 
   const supabase = await createClient();
@@ -118,7 +118,7 @@ export async function saveSettings(
  * הייתה קוראת אותם כריקים ומוחקת אותם בפועל.
  */
 export async function toggleStoreEnabled(value: boolean): Promise<{ ok: boolean; error?: string }> {
-  const session = await assertRole('manager');
+  const session = await assertScreenPermission('org-settings', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
 
   const supabase = await createClient();
@@ -173,7 +173,7 @@ async function mergeExtra(
  */
 export async function saveBannersEnabled(enabled: boolean): Promise<ActionResult> {
   // [1.7] הורד מ-admin ל-manager — ראו הערה ב-saveSettings למעלה.
-  const session = await assertRole('manager');
+  const session = await assertScreenPermission('org-settings', 'edit');
   if ('error' in session) return session;
 
   const supabase = await createClient();

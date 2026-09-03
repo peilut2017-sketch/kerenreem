@@ -348,6 +348,8 @@ export function Catalogue({
         onChange={changeFilters}
       />
 
+      {/* h2 סמוי: כותרות הכרטיסים הן h3, ובלי רמה 2 ביניהן ל-h1 קורא מסך שומע קפיצה */}
+      <h2 className="sr-only">{t('resultsHeading')}</h2>
       {shown.length > 0 ? (
         view === 'list' ? (
           <ul className="space-y-4">

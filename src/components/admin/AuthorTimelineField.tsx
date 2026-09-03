@@ -33,8 +33,8 @@ export function AuthorTimelineField({
 
   return (
     <div>
-      <span className="field-label">{label}</span>
-      {hint ? <span className="field-hint mb-2 block">{hint}</span> : null}
+      <span className="admin-field-label">{label}</span>
+      {hint ? <span className="admin-field-hint mb-2 block">{hint}</span> : null}
 
       {rows.length > 0 ? (
         <ul className="mt-2 space-y-2">
@@ -46,7 +46,7 @@ export function AuthorTimelineField({
                 onChange={(event) => update(index, { year: event.target.value })}
                 placeholder="תרי״ט"
                 aria-label={`שנה — תחנה ${index + 1}`}
-                className="field-input w-28 shrink-0"
+                className="admin-field-input w-28 shrink-0"
               />
               <input
                 type="text"
@@ -54,7 +54,7 @@ export function AuthorTimelineField({
                 onChange={(event) => update(index, { text: event.target.value })}
                 placeholder="נולד בוורבוי, הונגריה"
                 aria-label={`תיאור — תחנה ${index + 1}`}
-                className="field-input flex-1"
+                className="admin-field-input flex-1"
               />
               <button
                 type="button"

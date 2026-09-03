@@ -7,6 +7,7 @@ import { AdminIcon, type AdminIconName } from './AdminIcons';
 import { hasPermission, type AdminPermission } from '@/lib/admin/permissions';
 import type { ScreenAccess, ScreenKey } from '@/lib/admin/screens';
 import type { UserRole } from '@/lib/supabase/types';
+import { ROLE_RANK } from '@/lib/admin/roles';
 
 /**
  * [1.31] Sidebar קבועה במקום קפסולת ניווט עליונה עם תפריטים נפתחים.
@@ -80,22 +81,13 @@ const SECTIONS: Section[] = [
     items: [
       { href: '/admin/media-library', label: 'ספריית מדיה', icon: 'image', screen: 'media-library' },
       { href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
-      { href: '/admin/settings', label: 'הגדרות', icon: 'settings', minRole: 'manager' },
+      { href: '/admin/settings', label: 'הגדרות', icon: 'settings', screen: 'org-settings' },
       { href: '/admin/audit-log', label: 'יומן ביקורת', icon: 'list', minRole: 'admin' },
       { href: '/admin/diagnostics', label: 'אבחון', icon: 'diagnostics', minRole: 'admin' },
     ],
   },
 ];
 
-const RANK: Record<UserRole, number> = {
-  viewer: 0,
-  picker: 1,
-  seller: 2,
-  store_manager: 2,
-  editor: 3,
-  manager: 4,
-  admin: 5,
-};
 
 /**
  * screen ⇒ נבדק ישירות מול מפת ההרשאות (כולל override מותאם אישית) —
@@ -109,9 +101,9 @@ function canSee(role: UserRole, screenAccess: Record<ScreenKey, ScreenAccess>, a
   const storeRole = role === 'seller' || role === 'picker' || role === 'store_manager';
   if (access.perm && !access.minRole) return hasPermission(role, access.perm);
   if (access.perm && access.minRole) {
-    return storeRole ? hasPermission(role, access.perm) : RANK[role] >= RANK[access.minRole];
+    return storeRole ? hasPermission(role, access.perm) : ROLE_RANK[role] >= ROLE_RANK[access.minRole];
   }
-  if (access.minRole) return !storeRole && RANK[role] >= RANK[access.minRole];
+  if (access.minRole) return !storeRole && ROLE_RANK[role] >= ROLE_RANK[access.minRole];
   return false;
 }
 

@@ -46,13 +46,13 @@ export default function AdminError({
       </dl>
 
       <div className="mt-8 flex flex-wrap gap-4">
-        <button type="button" onClick={reset} className="btn btn-quiet">
+        <button type="button" onClick={reset} className="admin-btn admin-btn-quiet">
           נסו שוב
         </button>
         {/* טעינה מלאה במכוון, ולא next/link: העץ שנשבר עלול לשבור גם ניווט
             רך, והמטרה כאן היא רינדור נקי מהשרת. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/admin/diagnostics" className="btn btn-quiet">
+        <a href="/admin/diagnostics" className="admin-btn admin-btn-quiet">
           אבחון
         </a>
       </div>

@@ -121,7 +121,7 @@ export function MediaLibraryTable({ files }: { files: MediaFileRow[] }) {
             value={bucket}
             onChange={(event) => setBucket(event.target.value)}
             aria-label="סינון לפי תיקייה"
-            className="field-input !w-auto"
+            className="admin-field-input !w-auto"
           >
             <option value="all">כל התיקיות</option>
             {buckets.map((b) => (
@@ -136,7 +136,7 @@ export function MediaLibraryTable({ files }: { files: MediaFileRow[] }) {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="חיפוש לפי שם קובץ…"
             aria-label="חיפוש לפי שם קובץ"
-            className="field-input !w-auto"
+            className="admin-field-input !w-auto"
           />
         </div>
       </div>

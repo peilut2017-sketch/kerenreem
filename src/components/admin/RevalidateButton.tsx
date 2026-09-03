@@ -43,7 +43,7 @@ export function RevalidateButton() {
               }
             })
           }
-          className="btn btn-quiet inline-flex shrink-0 items-center gap-2 whitespace-nowrap"
+          className="admin-btn admin-btn-quiet inline-flex shrink-0 items-center gap-2 whitespace-nowrap"
         >
           {pending ? <Spinner className="h-3.5 w-3.5" /> : null}
           {pending ? 'מרענן…' : 'רענון האתר הציבורי עכשיו'}

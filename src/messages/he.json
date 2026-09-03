@@ -140,6 +140,7 @@
     "filterTagsHint": "בחירת כמה תגיות מצמצמת: יוצגו רק ספרים שנושאים את כולן.",
     "filterSeries": "סדרה",
     "filterActiveChips": "מסננים פעילים",
+    "resultsHeading": "תוצאות",
     "filterRemove": "הסרת הסינון {label}",
     "filterLanguage": "שפה",
     "filterYear": "שנת הוצאה",

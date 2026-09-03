@@ -56,7 +56,7 @@ export function BookCostPanel({
         className="mt-4 flex items-end gap-3"
       >
         <div>
-          <label htmlFor="book-cost" className="field-label">
+          <label htmlFor="book-cost" className="admin-field-label">
             עלות בש״ח
           </label>
           <input
@@ -68,10 +68,10 @@ export function BookCostPanel({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="ללא עלות"
-            className="field-input w-36"
+            className="admin-field-input w-36"
           />
         </div>
-        <button type="submit" disabled={pending || !dirty} className="btn btn-solid">
+        <button type="submit" disabled={pending || !dirty} className="admin-btn admin-btn-solid">
           {pending ? 'שומר…' : 'שמירה'}
         </button>
         {!dirty && saved != null ? (

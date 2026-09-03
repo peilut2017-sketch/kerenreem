@@ -857,3 +857,15 @@ html[data-a11y-motion='off'] .group:hover .icon-chip { transform: none !importan
 @media (prefers-reduced-motion: reduce) {
   .book-flip-page { animation: none; opacity: 0.6; }
 }
+
+/* סרגל הנגישות (חבילת accessibility): כפתורי הסגירה והאיפוס בכותרת התפריט
+   רחבים 17–22px בלבד — יעד מגע קטן מדי. לא בתוך @layer בכוונה: הכלל של
+   החבילה מוזרק ללא שכבה, וכלל משוכב היה נדרס. */
+._access-menu ._menu-close-btn,
+._access-menu ._menu-reset-btn {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -248,16 +248,19 @@ export function useLocalMap(key: string): {
     [key],
   );
 
-  return {
-    map,
-    get: (id: string) => map[id],
-    set: (id: string, value: string) => write({ ...map, [id]: value }),
-    clear: (id: string) => {
+  // זהויות יציבות: בלעדיהן כל רינדור של הצרכן (CartProvider) קיבל set/clear
+  // חדשים, ה-useCallback-ים שלו התבטלו, וכל צרכן useCart() רונדר מחדש
+  const get = useCallback((id: string) => map[id], [map]);
+  const set = useCallback((id: string, value: string) => write({ ...map, [id]: value }), [map, write]);
+  const clear = useCallback(
+    (id: string) => {
       const next = { ...map };
       delete next[id];
       write(next);
     },
-  };
+    [map, write],
+  );
+  return { map, get, set, clear };
 }
 
 /* -------------------------------------------------------------------------- */

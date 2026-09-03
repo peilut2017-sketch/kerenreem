@@ -144,10 +144,14 @@ export function ScreenPermissionsPanel({
       </div>
 
       <div className="mt-4 flex items-center gap-3">
-        <button type="button" onClick={save} disabled={pending} className="btn btn-solid">
+        <button type="button" onClick={save} disabled={pending} className="admin-btn admin-btn-solid">
           {pending ? 'שומר…' : 'שמירת הרשאות'}
         </button>
-        {notice ? <span role="status" className="text-caption text-muted">{notice}</span> : null}
+        {notice ? (
+          <span role={notice === 'נשמר.' ? 'status' : 'alert'} className={`text-caption ${notice === 'נשמר.' ? 'text-muted' : 'text-[var(--admin-danger)]'}`}>
+            {notice}
+          </span>
+        ) : null}
       </div>
     </div>
   );

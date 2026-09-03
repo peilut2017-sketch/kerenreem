@@ -42,6 +42,13 @@ export function ShippingManager({ methods, zones }: { methods: ShippingMethod[];
             </tr>
           </thead>
           <tbody>
+            {methods.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-small text-muted">
+                  עדיין לא הוגדרו שיטות אספקה — הוסיפו את הראשונה למטה.
+                </td>
+              </tr>
+            ) : null}
             {methods.map((method) => (
               <tr key={method.id} className="border-b border-rule/60">
                 <td className="px-4 py-2.5 font-semibold">{method.name_he}</td>

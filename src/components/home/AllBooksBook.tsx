@@ -105,7 +105,8 @@ export function AllBooksBook({ label }: { label: string }) {
         <span className="absolute inset-y-0 right-0 w-[7px] rounded-r-[4px] border-l border-gold/60 bg-navy-2" />
       </span>
 
-      <span className="font-serif text-small font-bold text-ink transition-colors group-hover:text-burgundy group-focus-visible:text-burgundy">
+      <span // קרם על רקע הנייבי של המדף (text-ink נתן ניגודיות 1.01 — axe)
+      className="font-serif text-small font-bold text-cream transition-colors group-hover:text-gold-bright group-focus-visible:text-gold-bright">
         {label} <DirArrow />
       </span>
     </Link>

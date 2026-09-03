@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { listSeriesAdmin, countBooksBySeries } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -7,7 +7,10 @@ import { RowActions } from '@/components/admin/RowActions';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminSeriesPage() {
-  await requireScreenPermission('series', 'view');
+  const session = await requireScreenPermission('series', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'series');
   const [series, counts] = await Promise.all([listSeriesAdmin(), countBooksBySeries()]);
 
   return (
@@ -15,7 +18,7 @@ export default async function AdminSeriesPage() {
       <AdminHeader
         title="סדרות"
         description="קבוצות כרכים — שיוך ספר לסדרה נעשה בטופס הספר עצמו."
-        action={{ href: '/admin/series/new', label: 'סדרה חדשה' }}
+        action={canEdit ? { href: '/admin/series/new', label: 'סדרה חדשה' } : undefined}
       />
 
       <AdminTable
@@ -34,7 +37,7 @@ export default async function AdminSeriesPage() {
             </AdminCell>
             <AdminCell className="text-muted tabular-nums">{counts.get(item.id) ?? 0}</AdminCell>
             <AdminCell>
-              <RowActions entity="series" id={item.id} label={item.name_he} />
+              {canEdit ? <RowActions entity="series" id={item.id} label={item.name_he} /> : null}
             </AdminCell>
           </AdminRow>
         ))}

@@ -261,7 +261,7 @@ export function RefundDialog({
         {step === 'done' && result ? (
           <div className="space-y-3">
             <p
-              role="status"
+              role={result.ok ? 'status' : 'alert'}
               className={`rounded-[var(--radius-sm)] px-4 py-3 text-small ${
                 result.ok
                   ? 'bg-[var(--admin-success-soft)] text-[var(--admin-success)]'

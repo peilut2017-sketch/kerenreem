@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { listCategoriesAdmin, countBooksByCategory } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -7,7 +7,10 @@ import { RowActions } from '@/components/admin/RowActions';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminCategoriesPage() {
-  await requireScreenPermission('categories', 'view');
+  const session = await requireScreenPermission('categories', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'categories');
   const [categories, counts] = await Promise.all([listCategoriesAdmin(), countBooksByCategory()]);
 
   return (
@@ -15,7 +18,7 @@ export default async function AdminCategoriesPage() {
       <AdminHeader
         title="קטגוריות"
         description="חלוקת הקטלוג. כל קטגוריה היא אפשרות בטופס הספר ומסנן בעמוד הספרים."
-        action={{ href: '/admin/categories/new', label: 'קטגוריה חדשה' }}
+        action={canEdit ? { href: '/admin/categories/new', label: 'קטגוריה חדשה' } : undefined}
       />
 
       <AdminTable
@@ -40,7 +43,7 @@ export default async function AdminCategoriesPage() {
             </AdminCell>
             <AdminCell className="text-muted tabular-nums">{category.sort_order ?? '—'}</AdminCell>
             <AdminCell>
-              <RowActions entity="categories" id={category.id} label={category.name_he} />
+              {canEdit ? <RowActions entity="categories" id={category.id} label={category.name_he} /> : null}
             </AdminCell>
           </AdminRow>
         ))}

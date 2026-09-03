@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { listContactFields } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable, PublishBadge } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -14,7 +14,10 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
 };
 
 export default async function AdminContactFieldsPage() {
-  await requireScreenPermission('contact-fields', 'view');
+  const session = await requireScreenPermission('contact-fields', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'contact-fields');
   const fields = await listContactFields();
 
   return (
@@ -22,7 +25,7 @@ export default async function AdminContactFieldsPage() {
       <AdminHeader
         title="שדות מותאמים"
         description="שאלות נוספות שמתווספות לטופס יצירת הקשר הציבורי, אחרי השדות הקבועים (שם, דוא״ל, טלפון, נושא, הודעה)."
-        action={{ href: '/admin/contact-fields/new', label: 'שדה חדש' }}
+        action={canEdit ? { href: '/admin/contact-fields/new', label: 'שדה חדש' } : undefined}
       />
 
       <AdminTable
@@ -43,7 +46,7 @@ export default async function AdminContactFieldsPage() {
               <PublishBadge published={field.is_published} />
             </AdminCell>
             <AdminCell>
-              <RowActions entity="contact_fields" id={field.id} label={field.label_he} published={field.is_published} />
+              {canEdit ? <RowActions entity="contact_fields" id={field.id} label={field.label_he} published={field.is_published} /> : null}
             </AdminCell>
           </AdminRow>
         ))}

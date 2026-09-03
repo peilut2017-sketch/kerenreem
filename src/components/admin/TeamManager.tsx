@@ -72,7 +72,7 @@ export function TeamManager({
   return (
     <div className="space-y-6">
       {/* הזמנת איש צוות */}
-      <div className="admin-card">
+      <div className="admin-card px-5 py-4">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -100,7 +100,7 @@ export function TeamManager({
             className="mt-5 grid gap-4 border-t border-[var(--admin-border)] pt-5 sm:grid-cols-2"
           >
             <div>
-              <label htmlFor="invite-name" className="field-label">
+              <label htmlFor="invite-name" className="admin-field-label">
                 שם מלא
               </label>
               <input
@@ -108,11 +108,11 @@ export function TeamManager({
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="field-input"
+                className="admin-field-input"
               />
             </div>
             <div>
-              <label htmlFor="invite-email" className="field-label">
+              <label htmlFor="invite-email" className="admin-field-label">
                 כתובת מייל
               </label>
               <input
@@ -122,11 +122,11 @@ export function TeamManager({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="field-input"
+                className="admin-field-input"
               />
             </div>
             <div className="sm:col-span-2">
-              <span className="field-label">תפקיד</span>
+              <span className="admin-field-label">תפקיד</span>
               <div className="mt-1 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {ASSIGNABLE_ROLES.map((value) => (
                   <label
@@ -158,7 +158,7 @@ export function TeamManager({
               </div>
             </div>
             <div className="sm:col-span-2">
-              <button type="submit" disabled={pending} className="btn btn-solid">
+              <button type="submit" disabled={pending} className="admin-btn admin-btn-solid">
                 {pending ? 'יוצר…' : 'הזמנה ושליחת פרטי כניסה'}
               </button>
             </div>
@@ -269,7 +269,7 @@ export function TeamManager({
             const profile = profiles.find((p) => p.id === permissionsOpenFor);
             if (!profile) return null;
             return (
-              <div className="admin-card">
+              <div className="admin-card px-5 py-4">
                 <h3 className="mb-1 text-small font-bold text-ink">
                   הרשאות מותאמות אישית — {profile.full_name || 'משתמש'}
                 </h3>

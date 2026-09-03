@@ -271,7 +271,7 @@ export function BookForm({
                         )}
                       </div>
 
-                      <p className="field-hint">
+                      <p className="admin-field-hint">
                         הקטגוריות נבחרות בלשונית &quot;קטגוריות ותגיות&quot; — הראשונה שתיבחר שם
                         היא זו שמופיעה בכרטיס ובכתובת (?category=).
                       </p>

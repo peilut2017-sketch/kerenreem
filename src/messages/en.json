@@ -140,6 +140,7 @@
     "filterTagsHint": "Selecting several tags narrows the list: only books carrying all of them are shown.",
     "filterSeries": "Series",
     "filterActiveChips": "Active filters",
+    "resultsHeading": "Results",
     "filterRemove": "Remove filter {label}",
     "filterLanguage": "Language",
     "filterYear": "Year of publication",
