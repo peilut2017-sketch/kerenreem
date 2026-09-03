@@ -861,7 +861,7 @@ export async function getOtherEventWithMedia(
 /* עמודי תוכן והגדרות                                                          */
 /* -------------------------------------------------------------------------- */
 
-export async function getPageBySlug(slug: string): Promise<ContentPage | null> {
+export const getPageBySlug = cache(async (slug: string): Promise<ContentPage | null> => {
   const supabase = createStaticClient();
   if (!supabase) return isDemoContent ? demo.page(slug) : null;
 
@@ -874,7 +874,7 @@ export async function getPageBySlug(slug: string): Promise<ContentPage | null> {
 
   warn('getPageBySlug', error);
   return (data as ContentPage | null) ?? null;
-}
+});
 
 const EMPTY_SETTINGS: SiteSettings = {
   id: 1,

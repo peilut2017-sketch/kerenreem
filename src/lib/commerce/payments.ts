@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { getStoreSettings } from './settings';
 import { createPaymentForm, isMorningConfigured } from './morning';
 import { recordOrderEvent, SYSTEM_ACTOR, type Actor } from './orders';
+import { localizedSiteUrl } from './site-url';
 
 /**
  * התחלת תשלום (תרשים 7): רשומת payment → דף תשלום במורנינג → הפניה.
@@ -146,8 +147,10 @@ export async function startPayment(
     vatIncluded: settings.vat_mode === 'included',
     maxInstallments: installmentsAllowed,
     preferredMethod: options.wallet ?? null,
-    successUrl: options.successUrl ?? `${options.siteUrl}/checkout/result?order=${order.id}&outcome=success`,
-    failureUrl: options.failureUrl ?? `${options.siteUrl}/checkout/result?order=${order.id}&outcome=failure`,
+    // בלי ?order=<uuid>: getResultState פותר את ההזמנה מעוגיית kr-checkout
+    // בלבד, והמזהה רק נחת בהיסטוריית הדפדפן וב-Referer למורנינג לחינם.
+    successUrl: options.successUrl ?? localizedSiteUrl(order.locale, '/checkout/result?outcome=success'),
+    failureUrl: options.failureUrl ?? localizedSiteUrl(order.locale, '/checkout/result?outcome=failure'),
     notifyUrl: `${options.siteUrl}/api/webhooks/morning`,
     externalReference: order.id,
     lang: order.locale === 'en' ? 'en' : 'he',

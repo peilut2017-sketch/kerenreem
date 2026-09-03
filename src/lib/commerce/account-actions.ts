@@ -104,6 +104,10 @@ async function claimOriginOrderById(
     .eq('id', orderId)
     .maybeSingle();
   if (!origin || origin.user_id) return;
+  // עוגיית ה-checkout מוכיחה "אותו דפדפן", לא "אותו אדם": במחשב משותף
+  // (ספרייה, משרד) הלקוח הבא שנכנס לחשבונו היה סופח את הזמנת קודמו —
+  // כולל שם, טלפון וכתובת. רק מייל מאומת שתואם למייל ההזמנה משייך.
+  if ((origin.contact_email ?? '').trim().toLowerCase() !== verifiedEmail.trim().toLowerCase()) return;
 
   await service.from('orders').update({ user_id: userId }).eq('id', origin.id).is('user_id', null);
   if (origin.contact_phone && origin.contact_email === verifiedEmail) {

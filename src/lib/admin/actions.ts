@@ -877,13 +877,14 @@ export async function saveSeriesOrder(seriesId: string, bookIds: string[]): Prom
     const memberIds = new Set((rows ?? []).map((row) => row.id));
     const ordered = bookIds.filter((id) => memberIds.has(id));
 
-    for (const [index, id] of ordered.entries()) {
-      const { error } = await supabase
-        .from('books')
-        .update({ series_position: index + 1 })
-        .eq('id', id);
-      if (error) return { error: error.message };
-    }
+    // במקביל ולא בטור: סדרה של 40 כרכים הייתה 40 סבבי רשת עוקבים
+    const results = await Promise.all(
+      ordered.map((id, index) =>
+        supabase.from('books').update({ series_position: index + 1 }).eq('id', id),
+      ),
+    );
+    const failed = results.find((result) => result.error);
+    if (failed?.error) return { error: failed.error.message };
 
     await writeAudit(supabase, session.userId, 'reorder', 'series', seriesId, {
       context: `סידור מחדש של ${ordered.length} כרכים בסדרה`,

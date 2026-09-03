@@ -19,6 +19,7 @@ export interface CartCouponView {
   ok: boolean;
   error?: CouponError;
   minTotal?: number;
+  minQuantity?: number;
   discountAmount: number;
   freeShipping: boolean;
 }
@@ -69,6 +70,7 @@ export async function getCartView(
       ok: result.ok,
       error: result.error,
       minTotal: result.minTotal,
+      minQuantity: result.minQuantity,
       discountAmount: result.discountAmount,
       freeShipping: result.freeShipping,
     };

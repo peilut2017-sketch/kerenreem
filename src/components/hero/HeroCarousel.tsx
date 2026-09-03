@@ -12,8 +12,9 @@ const FOCAL_CLASS: Record<string, string> = {
   center: 'object-center',
   top: 'object-top',
   bottom: 'object-bottom',
-  start: 'object-right',
-  end: 'object-left',
+  // start/end לוגיים — נקודת המיקוד "בצד הטקסט" מתהפכת עם כיוון הממשק
+  start: 'object-right ltr:object-left',
+  end: 'object-left ltr:object-right',
 };
 
 /**
@@ -38,13 +39,12 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
   // חצים במקלדת כשהמיקוד בתוך הקרוסלה
   function onKeyDown(event: React.KeyboardEvent) {
-    if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      go(index + 1);
-    } else if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      go(index - 1);
-    }
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    // "הבא" הוא הכיוון שהשקופיות נעות בו: שמאלה בעברית, ימינה באנגלית
+    const rtl = document.documentElement.dir === 'rtl';
+    const forward = rtl ? event.key === 'ArrowLeft' : event.key === 'ArrowRight';
+    event.preventDefault();
+    go(forward ? index + 1 : index - 1);
   }
 
   if (count === 0) return null;
@@ -85,7 +85,8 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               onClick={() => go(i)}
               aria-label={t('goTo', { index: i + 1, title: slide.title })}
               aria-current={i === index ? 'true' : undefined}
-              className={`h-1.5 rounded-full transition-all duration-500 ease-[var(--ease-spring)] ${
+              // הנקודה נשארת זעירה, אבל אזור ההקשה (before:) מגיע ל-24px+
+              className={`relative h-1.5 rounded-full transition-all duration-500 ease-[var(--ease-spring)] before:absolute before:-inset-2.5 before:content-[''] ${
                 i === index ? 'w-8 bg-gold' : 'w-1.5 bg-white/50 hover:bg-white/80'
               }`}
             />

@@ -52,8 +52,14 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   // allSettled ולא all: תקלה במשימה אחת (מורנינג איטית, טבלה נעולה)
   // אינה מפילה את כל שאר משימות התחזוקה של אותה ריצה.
-  const results = await Promise.allSettled([
-    pollPendingPayments(10),
+  //
+  // ה-poll רץ לבדו *לפני* השאר: שחרור שריונות שפגו וביטול הזמנות תקועות
+  // נוגעים באותן הזמנות שה-poll עשוי לאשר — במקביל, שחרור שנוחת רגע לפני
+  // commit היה מפחית on_hand ומאפס reserved של הזמנה *אחרת*.
+  const polled = await Promise.allSettled([pollPendingPayments(10)]);
+  const results = [
+    ...polled,
+    ...(await Promise.allSettled([
     releaseExpiredReservations(),
     reconcileRecentPayments(3),
     purgeOldWebhookPayloads(90),
@@ -63,7 +69,8 @@ export async function GET(request: Request): Promise<NextResponse> {
     notifyBackInStock(),
     purgeStaleRateLimits(),
     purgeOldAnalytics(),
-  ]);
+    ])),
+  ];
 
   const keys = [
     'polled',

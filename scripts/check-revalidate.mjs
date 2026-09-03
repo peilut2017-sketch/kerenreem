@@ -18,7 +18,13 @@ import { ENTITIES } from '../src/lib/admin/schema.ts';
 const dataSource = readFileSync('src/lib/data.ts', 'utf8');
 
 /** טבלאות שמצורפות דרך select משותף ולא דרך from() נפרד. */
-const JOINED = { BOOK_SELECT: ['authors', 'categories'] };
+// גם ה-select-ים המורחבים מצרפים ישויות — בלעדיהם הבדיקה לא ידעה ששם
+// הסדרה מוצג בעמוד הספר (SeriesShelf) ובסינון הקטלוג
+const JOINED = {
+  BOOK_SELECT: ['authors', 'categories'],
+  BOOK_SELECT_WITH_SERIES: ['authors', 'categories', 'series'],
+  BOOK_DETAIL_SELECT: ['authors', 'categories', 'series'],
+};
 
 /** שם שולף → הטבלאות שהוא נוגע בהן. */
 function mapGettersToTables() {

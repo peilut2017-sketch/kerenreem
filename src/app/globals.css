@@ -229,13 +229,16 @@ body::before {
     color: var(--color-gold-deep);
     transition: color 160ms ease, gap 160ms ease;
   }
+  /* החץ מצביע לכיוון ההתקדמות: ← בעברית, → באנגלית — וגם תזוזת הריחוף */
   .link-more::after {
-    content: '←';
+    content: '\2192';
     font-size: 0.9em;
     transition: transform 200ms ease;
   }
+  [dir='rtl'] .link-more::after { content: '\2190'; }
   .link-more:hover { color: var(--color-burgundy); }
-  .link-more:hover::after { transform: translateX(-0.2em); }
+  .link-more:hover::after { transform: translateX(0.2em); }
+  [dir='rtl'] .link-more:hover::after { transform: translateX(-0.2em); }
   .on-dark .link-more { color: var(--color-gold); }
   .on-dark .link-more:hover { color: var(--color-gold-bright); }
 

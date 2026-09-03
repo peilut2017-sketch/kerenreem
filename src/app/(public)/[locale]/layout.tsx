@@ -116,16 +116,17 @@ export default async function PublicLayout({
                 רצועה גלובלית, לא רק בקופה: ניתוק פוגע בסל ובמועדפים לא
                 פחות מבתשלום עצמו. */}
             <OfflineBanner />
-            {/* [1.4] הקופה מקבלת כותרת רזה בלי ניווט מלא/פוטר/באנר עוגיות/
-                וידג'ט נגישות (ביקורת המימוש ב.17) — הבחירה בפועל ב-ChromeGate,
-                לפי הנתיב הנוכחי בצד הלקוח. */}
+            {/* [1.4] הקופה מקבלת כותרת רזה בלי ניווט מלא/פוטר/באנר עוגיות
+                (ביקורת המימוש ב.17) — הבחירה בפועל ב-ChromeGate, לפי הנתיב
+                הנוכחי בצד הלקוח. [1.40] סרגל הנגישות *אינו* חלק מהחלפה
+                הזו: הוא חובה בכל עמוד (ת"י 5568), ודווקא בהזנת פרטי תשלום
+                מי שנשען על ניגודיות/גופן קריא זקוק לו. */}
             <ChromeGate
               header={<SiteHeader settings={settings} />}
               checkoutHeader={<CheckoutHeader />}
               footer={
                 <>
                   <SiteFooter settings={settings} locale={locale} />
-                  <AccessibilityWidget />
                   <BackToTop />
                   <CookieConsentBanner />
                 </>
@@ -133,6 +134,7 @@ export default async function PublicLayout({
             >
               {children}
             </ChromeGate>
+            <AccessibilityWidget />
             <AnalyticsBeacon />
             <MiniCart />
           </CartProvider>

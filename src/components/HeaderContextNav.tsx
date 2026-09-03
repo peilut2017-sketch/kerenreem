@@ -28,8 +28,13 @@ export function HeaderContextNav({ items, activeId, onSelect }: ContextNavValue)
     // גלילה פנימית של הרצועה בלבד — scrollIntoView על העמוד היה מזיז
     // גם את הגלילה האנכית של המסמך בזמן שהמשתמש קורא.
     if (active) {
-      const target = active.offsetLeft - (list.clientWidth - active.offsetWidth) / 2;
-      list.scrollTo({ left: target, behavior: 'smooth' });
+      // הפרש מרכזים ולא offsetLeft: ב-RTL הדפדפנים מודדים scrollLeft שלילי,
+      // וערך חיובי נחסם ל-0 — השבב הפעיל לא נגלל לעולם (ראו SeriesShelfClient)
+      const listRect = list.getBoundingClientRect();
+      const activeRect = active.getBoundingClientRect();
+      const delta = activeRect.left + activeRect.width / 2 - (listRect.left + listRect.width / 2);
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      list.scrollBy({ left: delta, behavior: reduced ? 'instant' : 'smooth' });
     }
   }, [activeId]);
 

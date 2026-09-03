@@ -22,6 +22,7 @@ import { openServiceRequest } from './service-requests';
 import { recordRedemption, validateCoupon, type CouponError } from './coupons';
 import { findBestPromotion } from './promotions';
 import { getCustomerSession, getMyAddresses } from './account';
+import { localizedSiteUrl } from './site-url';
 
 /**
  * פעולות ה-Checkout (תרשימים 4–7). העיקרון: הדפדפן שולח כוונות; כל
@@ -618,7 +619,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   const service = createServiceClient();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
   const trackUrl = created.guestToken
-    ? `${siteUrl}/orders/track/${created.guestToken}`
+    ? localizedSiteUrl(session.locale, `/orders/track/${created.guestToken}`)
     : undefined;
 
   // [1.6] קישור מעקב בעמוד התודה (ח.12, ביקורת ב.23) — הטוקן הגולמי לעולם

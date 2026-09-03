@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { formatPrice } from '@/lib/commerce/pricing';
 
 /**
  * מגמת ערכים יומית — סדרה אחת ומעלה (במקור: צפיות/מבקרים ייחודיים
@@ -56,8 +57,7 @@ function niceMax(value: number): number {
  */
 const VALUE_FORMATTERS: Record<'number' | 'currency', (value: number) => string> = {
   number: (value) => value.toLocaleString('he-IL'),
-  currency: (value) =>
-    new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(value),
+  currency: (value) => formatPrice(value, 'he', { alwaysAgorot: true }),
 };
 
 export function DailyTrendChart<T extends { date: string }>({

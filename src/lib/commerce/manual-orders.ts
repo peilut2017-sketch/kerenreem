@@ -72,7 +72,8 @@ async function resolvePricing(
   if (fulfillment.type === 'pickup') {
     shippingMethod = { id: null, name: 'איסוף עצמי', isPickup: true };
   } else {
-    const methods = await getAvailableMethods(shape, settings);
+    // אזורי המשלוח נאכפים גם בהזמנה טלפונית — כמו בקופה הציבורית
+    const methods = await getAvailableMethods(shape, settings, fulfillment.address?.city ?? null);
     const chosen = methods.find(({ method }) => method.id === fulfillment.methodId);
     if (!chosen || chosen.method.kind === 'pickup') {
       return {
@@ -271,6 +272,9 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
         fulfillment.type === 'shipping' ? fulfillment.courierNotes?.trim().slice(0, 500) || null : null,
       coupon_id: pricing.coupon?.id ?? null,
       coupon_code_snapshot: pricing.coupon?.code ?? null,
+      // כמו ב-createOrderFromSession: המבצע שהוחל נרשם, לא רק הסכום שלו
+      promotion_id: pricing.promotionId,
+      promotion_name_snapshot: pricing.promotionName,
       guest_token_hash: hash,
       guest_token_expires_at: guestExpiry.toISOString(),
       contact_name: name,

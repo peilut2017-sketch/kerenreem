@@ -12,6 +12,7 @@ import { sendOrderEmail } from './notifications';
 import { getStoreSettings } from './settings';
 import { formatPromisedDate } from './delivery-date';
 import { round2 } from './pricing';
+import { localizedSiteUrl } from './site-url';
 
 /**
  * עיבוד התראות מורנינג — תרשים 8 במלואו:
@@ -341,11 +342,10 @@ async function handlePaymentSucceeded(
     const promised = order.promised_delivery_date
       ? formatPromisedDate(new Date(order.promised_delivery_date), order.locale)
       : null;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
     await sendOrderEmail(service, 'payment_received', fresh, {
       documentUrl: docUrl,
       promisedDateLabel: promised,
-      trackUrl: order.guest_token_hash ? undefined : `${siteUrl}/account/orders/${order.order_number}`,
+      trackUrl: order.guest_token_hash ? undefined : localizedSiteUrl(order.locale, `/account/orders/${order.order_number}`),
     });
   }
 }

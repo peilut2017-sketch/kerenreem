@@ -825,6 +825,10 @@ export async function staffAdjustStock(input: {
     });
   }
   revalidatePath('/admin/inventory');
+  // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
+  revalidatePath('/admin/books');
+  revalidatePath('/[locale]/books', 'page');
+  revalidatePath('/[locale]/books/[slug]', 'page');
   return { ok: true, onHand: result.onHand };
 }
 
@@ -869,6 +873,10 @@ export async function staffTransferStock(input: {
     });
   }
   revalidatePath('/admin/inventory');
+  // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
+  revalidatePath('/admin/books');
+  revalidatePath('/[locale]/books', 'page');
+  revalidatePath('/[locale]/books/[slug]', 'page');
   return { ok: true };
 }
 
@@ -895,6 +903,10 @@ export async function createStockLocation(input: {
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/inventory');
+  // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
+  revalidatePath('/admin/books');
+  revalidatePath('/[locale]/books', 'page');
+  revalidatePath('/[locale]/books/[slug]', 'page');
   return { ok: true };
 }
 
@@ -1115,25 +1127,41 @@ export async function editOrderItems(
   const byId = new Map((items ?? []).map((item) => [item.id, item]));
   const summary: string[] = [];
 
+  // שני שלבים במכוון: קודם *כל* השריונים, ורק אז כתיבת השורות. קודם
+  // הלולאה כתבה שורה-שורה ויצאה באמצע כשלפריט מאוחר לא היה מלאי — שורה
+  // ראשונה כבר הוקטנה בזמן ש-orders.total נשאר ישן (הלקוח חויב על
+  // ספרים שכבר אינם בהזמנה). שריון שנכשל מגלגל אחורה את מה שכבר שוריין.
+  const planned: { item: (typeof byId extends Map<string, infer V> ? V : never); next: number }[] = [];
   for (const change of changes) {
     const item = byId.get(change.itemId);
     if (!item) continue;
     const next = Math.max(0, Math.floor(change.quantity));
     if (next === item.quantity) continue;
+    planned.push({ item, next });
+  }
+  if (planned.length === 0) return { ok: false, error: 'לא בוצע שינוי' };
 
-    // התאמת השריון במלאי דרך commerce_adjust_reservation — לא דרך
-    // reserveStock/releaseStock: אלה חד-פעמיות לכל הזמנה (idempotent
-    // לפי order+book+move_type), כך שקריאה שנייה מהן כאן החזירה
-    // 'already_*' בלי לעשות דבר — הגדלת כמות לא שריינה את התוספת
-    // (מכירת יתר), והקטנה שרפה את תנועת ה-release כך שהשחרור המלא
-    // בביטול מאוחר יותר הפך ל-no-op והיתרה נתקעה משוריינת לנצח.
-    if (item.book_id) {
-      const adjust = await adjustReservation(service, item.book_id, next - item.quantity, orderId);
-      if (!adjust.ok) {
-        return { ok: false, error: `אין מספיק מלאי זמין עבור ${item.title_snapshot}` };
+  // התאמת השריון במלאי דרך commerce_adjust_reservation — לא דרך
+  // reserveStock/releaseStock: אלה חד-פעמיות לכל הזמנה (idempotent
+  // לפי order+book+move_type), כך שקריאה שנייה מהן כאן החזירה
+  // 'already_*' בלי לעשות דבר — הגדלת כמות לא שריינה את התוספת
+  // (מכירת יתר), והקטנה שרפה את תנועת ה-release כך שהשחרור המלא
+  // בביטול מאוחר יותר הפך ל-no-op והיתרה נתקעה משוריינת לנצח.
+  const adjusted: { bookId: string; delta: number }[] = [];
+  for (const { item, next } of planned) {
+    if (!item.book_id) continue;
+    const delta = next - item.quantity;
+    const adjust = await adjustReservation(service, item.book_id, delta, orderId);
+    if (!adjust.ok) {
+      for (const done of adjusted) {
+        await adjustReservation(service, done.bookId, -done.delta, orderId);
       }
+      return { ok: false, error: `אין מספיק מלאי זמין עבור ${item.title_snapshot}` };
     }
+    adjusted.push({ bookId: item.book_id, delta });
+  }
 
+  for (const { item, next } of planned) {
     if (next === 0) {
       await service.from('order_items').delete().eq('id', item.id);
       summary.push(`${item.title_snapshot}: הוסר`);
@@ -1145,7 +1173,6 @@ export async function editOrderItems(
       summary.push(`${item.title_snapshot}: ${item.quantity} → ${next}`);
     }
   }
-  if (summary.length === 0) return { ok: false, error: 'לא בוצע שינוי' };
 
   await recomputeOrderTotals(service, orderId);
   const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
@@ -1242,6 +1269,19 @@ async function recomputeOrderTotals(
     .from('orders')
     .update({ subtotal, discount_total: discountTotal, total, tax_total: taxTotal })
     .eq('id', orderId);
+
+  // דף תשלום פתוח נושא את הסכום הישן: startPayment ממחזר כל ניסיון
+  // initiated/pending בתוקף, כך שאחרי עריכה/הנחה הלקוח היה משלם את הסכום
+  // הקודם, ה-Webhook היה מזהה amount_mismatch, וההזמנה הייתה נתקעת עם
+  // כסף שנגבה. הניסיונות הפתוחים פוקעים — הקישור הבא יפתח דף בסכום הנכון.
+  if (Number(order.total) !== total) {
+    await service
+      .from('payments')
+      .update({ status: 'expired' })
+      .eq('order_id', orderId)
+      .eq('kind', 'charge')
+      .in('status', ['initiated', 'pending']);
+  }
 }
 
 /**

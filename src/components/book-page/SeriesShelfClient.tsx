@@ -76,8 +76,9 @@ export function SeriesShelfClient({
   const page = (direction: 1 | -1) => {
     const list = scroller.current;
     if (!list) return;
-    // ב-RTL הכרכים הבאים נמצאים משמאל — scrollBy שלילי מתקדם בסדרה.
-    list.scrollBy({ left: -direction * list.clientWidth * 0.6, behavior: behavior() });
+    // ב-RTL הכרכים הבאים נמצאים משמאל (scrollBy שלילי מתקדם); באנגלית להפך.
+    const rtl = document.documentElement.dir === 'rtl';
+    list.scrollBy({ left: (rtl ? -1 : 1) * direction * list.clientWidth * 0.6, behavior: behavior() });
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLOListElement>) => {
@@ -86,8 +87,10 @@ export function SeriesShelfClient({
     const focused = items.indexOf(document.activeElement as HTMLElement);
     if (focused < 0) return;
     event.preventDefault();
-    // ב-RTL חץ שמאלה = הכרך הבא
-    const next = event.key === 'ArrowLeft' ? Math.min(items.length - 1, focused + 1) : Math.max(0, focused - 1);
+    // ב-RTL חץ שמאלה = הכרך הבא; באנגלית חץ ימינה
+    const rtl = document.documentElement.dir === 'rtl';
+    const forward = rtl ? event.key === 'ArrowLeft' : event.key === 'ArrowRight';
+    const next = forward ? Math.min(items.length - 1, focused + 1) : Math.max(0, focused - 1);
     items[next].focus({ preventScroll: true });
     centerItem(next, true);
   };
@@ -101,7 +104,7 @@ export function SeriesShelfClient({
           aria-label={labels.prev}
           className="glass absolute -start-1 top-[4.25rem] z-10 hidden h-9 w-9 place-items-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy [@media(hover:hover)]:grid"
         >
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">
+          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 ltr:-scale-x-100" fill="none">
             <path d="m8 5 5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
@@ -111,7 +114,7 @@ export function SeriesShelfClient({
           aria-label={labels.next}
           className="glass absolute -end-1 top-[4.25rem] z-10 hidden h-9 w-9 place-items-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy [@media(hover:hover)]:grid"
         >
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">
+          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 ltr:-scale-x-100" fill="none">
             <path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
@@ -205,7 +208,7 @@ export function SeriesShelfClient({
                   onClick={() => centerItem(index, true)}
                   aria-label={volume.jumpLabel}
                   aria-current={volume.isCurrent ? 'true' : undefined}
-                  className={`block h-2.5 w-2.5 rounded-full transition-transform ${
+                  className={`relative block h-2.5 w-2.5 rounded-full transition-transform before:absolute before:-inset-2 before:content-[''] ${
                     volume.isCurrent ? 'scale-125 bg-gold-deep' : 'bg-rule-strong hover:bg-navy-3'
                   }`}
                 />

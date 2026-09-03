@@ -5,6 +5,7 @@ import { round2 } from './pricing';
 import { hashContact, legacyHashContact } from './guest-token';
 import { normalizePhone } from './phone';
 import type { ValidatedCart } from './cart';
+import { addOrderTag, recordOrderEvent, SYSTEM_ACTOR } from './orders';
 
 /**
  * קופונים (פרק 12 במסמך האב, מודל 3.14): האימות בצד השרת בלבד —
@@ -45,12 +46,17 @@ export type CouponError =
   | 'used_up'
   | 'not_applicable'
   /** [1.1] קופון קיים או חדש אינו מסומן "ניתן לצירוף" (ברירת מחדל: לא) */
-  | 'not_combinable';
+  | 'not_combinable'
+  /** "קנה N יחידות ומעלה" — עם minQuantity, במקום min_total בלי סכום */
+  | 'min_quantity'
+  /** להזמנה ראשונה בלבד (first_order_only) — נבדק רק כשיש פרטי קשר */
+  | 'first_order_only';
 
 export interface CouponResult {
   ok: boolean;
   error?: CouponError;
   minTotal?: number;
+  minQuantity?: number;
   coupon?: CouponRow;
   /** הנחת סכום על ההזמנה (0 לקופון משלוח חינם) */
   discountAmount: number;
@@ -124,12 +130,29 @@ export async function validateCoupon(
     }
   }
 
+  // "להזמנה ראשונה בלבד" — היה מוגדר במסד ובטופס אך מעולם לא נאכף.
+  // נבדק רק כשיש פרטי קשר (בקופה); בעגלה, בלי קשר, ההודעה מגיעה בקופה.
+  if (coupon.first_order_only && (contactPhone || contactEmail)) {
+    let priorOrders = service
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .not('state', 'in', '("cancelled","draft")');
+    const identities: string[] = [];
+    if (contactPhone) identities.push(`contact_phone.eq.${normalizePhone(contactPhone)}`);
+    if (contactEmail) identities.push(`contact_email.eq.${contactEmail.trim().toLowerCase()}`);
+    priorOrders = priorOrders.or(identities.join(','));
+    const { count: prior } = await priorOrders;
+    if ((prior ?? 0) > 0) return { ...NO_COUPON, error: 'first_order_only' };
+  }
+
   if (coupon.min_total != null && cart.subtotal < coupon.min_total) {
     return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total };
   }
   // [1.3] "קנה X יחידות ומעלה"
   if (coupon.min_quantity != null && cart.totalQuantity < coupon.min_quantity) {
-    return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total ?? undefined };
+    // שגיאה משלה: קודם דווח כ-min_total בלי סכום, והלקוח קיבל "קוד לא
+    // תקין" במקום "נדרשים לפחות N פריטים"
+    return { ...NO_COUPON, error: 'min_quantity', minQuantity: coupon.min_quantity };
   }
   // [1.3] קופון אישי — מזוהה מול טלפון/מייל ההזמנה; בלי פרטי קשר (עגלה)
   // או בלי התאמה — נדחה בהודעה גנרית (לא מדליפים למי הקופון שייך)
@@ -179,7 +202,17 @@ export async function recordRedemption(
     contact_hash: hashContact(input.contactPhone),
     amount_discounted: input.amountDiscounted,
   });
-  if (error && error.code !== '23505' && error.code !== '23514') {
+  if (error?.code === '23514') {
+    // הקופון גלש על תקרתו במירוץ: ההזמנה כבר נוצרה *עם* ההנחה אבל בלי
+    // שורת מימוש — הנחה שאינה מגובה. אירוע ותג כדי שהכספים יראו זאת.
+    await recordOrderEvent(service, input.orderId, 'coupon_cap_exceeded', SYSTEM_ACTOR, {
+      coupon_id: input.couponId,
+      amount_discounted: input.amountDiscounted,
+    });
+    await addOrderTag(service, { id: input.orderId }, 'coupon-cap-exceeded');
+    return;
+  }
+  if (error && error.code !== '23505') {
     console.error('[commerce:coupons] redemption', error.message);
   }
 }

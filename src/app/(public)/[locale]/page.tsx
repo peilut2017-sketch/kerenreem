@@ -152,7 +152,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   const opening =
     htmlToPlainText(localized(home, 'body', locale), 200) ||
-    'הפצת תורה ברבים — בהוצאה לאור של כתבי גדולי ישראל, בתמיכה בלומדיה ובמעשי חסד.';
+    // נפילה מתורגמת ולא משפט עברי קבוע — אחרת /en קיבל h1 בעברית בהתקנה
+    // טרייה או כשגוף העמוד באנגלית ריק
+    t('site.tagline');
 
   const aboutExcerpt = htmlToPlainText(localized(about, 'body', locale), 330);
 

@@ -59,6 +59,12 @@ export default async function AdminOrdersPage({
 
       {/* חיפוש */}
       <form method="get" action="/admin/orders" className="mb-5 flex gap-2">
+        {/* התצוגה והסינון הפעילים נשמרים בחיפוש — קודם הטופס נשא רק q והחזיר
+            את המשתמש לרשימה הלא-מסוננת */}
+        {filter.state ? <input type="hidden" name="state" value={filter.state} /> : null}
+        {filter.payment ? <input type="hidden" name="payment" value={filter.payment} /> : null}
+        {filter.fulfillment ? <input type="hidden" name="fulfillment" value={filter.fulfillment} /> : null}
+        {filter.view ? <input type="hidden" name="view" value={filter.view} /> : null}
         <input
           type="search"
           name="q"

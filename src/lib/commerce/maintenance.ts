@@ -79,7 +79,8 @@ export async function autoCloseCompletedOrders(returnWindowDays = 30): Promise<n
     const result = await transitionOrder(service, order.id, 'state', 'closed', SYSTEM_ACTOR, {
       reason: 'return_window_elapsed',
     });
-    if (result.ok) closed += 1;
+    // changed ולא ok: ok=true גם למי שכבר היה closed — הדוח ניפח "נסגרו"
+    if (result.ok && result.changed) closed += 1;
   }
   return closed;
 }

@@ -44,7 +44,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className="text-small text-cream-2/80 transition-colors hover:text-gold"
+                    className="inline-block py-1 text-small text-cream-2/80 transition-colors hover:text-gold"
                   >
                     {t(`nav.${item.key}`)}
                   </Link>
@@ -62,7 +62,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className="text-small text-cream-2/80 transition-colors hover:text-gold"
+                    className="inline-block py-1 text-small text-cream-2/80 transition-colors hover:text-gold"
                   >
                     {t(`pages.${item.key}`)}
                   </Link>
@@ -83,7 +83,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
                   <a
                     href={`tel:${contact.phone.replace(/[^+\d]/g, '')}`}
                     dir="ltr"
-                    className="transition-colors hover:text-gold"
+                    className="inline-block py-1 transition-colors hover:text-gold"
                   >
                     {contact.phone}
                   </a>
@@ -94,7 +94,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
                   <a
                     href={`mailto:${contact.email}`}
                     dir="ltr"
-                    className="transition-colors hover:text-gold"
+                    className="inline-block py-1 transition-colors hover:text-gold"
                   >
                     {contact.email}
                   </a>

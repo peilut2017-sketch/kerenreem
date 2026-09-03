@@ -35,7 +35,8 @@ export function BlockShell({
     if (!open) return;
     const node = contentRef.current;
     if (!node) return;
-    node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    node.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'start' });
     node.querySelector<HTMLElement>('input, select, textarea, button')?.focus({ preventScroll: true });
   }, [open]);
 

@@ -573,6 +573,7 @@ function ActiveFilterChips({
           <button
             type="button"
             onClick={chip.onRemove}
+            aria-label={t('filterRemove', { label: chip.label })}
             className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border border-burgundy/25 bg-burgundy/[0.06] px-3 py-1.5 text-caption text-burgundy transition-colors hover:bg-burgundy/15"
           >
             {chip.label}

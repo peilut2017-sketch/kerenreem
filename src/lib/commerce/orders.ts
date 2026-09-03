@@ -36,12 +36,18 @@ export const MORNING_ACTOR: Actor = { type: 'morning' };
  */
 export async function addOrderTag(
   service: SupabaseClient,
-  order: Pick<Order, 'id' | 'tags'>,
+  order: Pick<Order, 'id'> & { tags?: string[] | null },
   tag: string,
 ): Promise<void> {
+  let current = order.tags;
+  if (current === undefined) {
+    // בלי צילום התגים — נשלפים, כדי שהאיחוד לא ידרוס תגים קיימים
+    const { data } = await service.from('orders').select('tags').eq('id', order.id).maybeSingle();
+    current = (data?.tags as string[] | null) ?? [];
+  }
   const { error } = await service
     .from('orders')
-    .update({ tags: [...new Set([...(order.tags ?? []), tag])] })
+    .update({ tags: [...new Set([...(current ?? []), tag])] })
     .eq('id', order.id);
   if (error) console.error('[commerce:orders] add tag', tag, error.message);
 }

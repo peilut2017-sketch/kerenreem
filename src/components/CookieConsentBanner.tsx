@@ -16,8 +16,10 @@ export const COOKIE_CONSENT_KEY = 'kr:cookie-consent';
  * ראו CookieSettingsButton בפוטר לדרך לשנות החלטה מאוחר יותר, כנדרש
  * (בחירה שאי אפשר לשנות אינה הסכמה חופשית).
  *
- * left-4 מוחלט ולא start-4/end-4: המיקום המבוקש הוא "צד שמאל של המסך"
- * פיזית, בשני הלוקיילים — end-4 היה הופך לימין בגרסה האנגלית (LTR).
+ * end-4 לוגי ולא left-4 פיזי: בצד start יושב טור הלחצנים הצפים (נגישות,
+ * דיווח, חזרה למעלה) בשני הלוקיילים; left-4 פיזי כיסה אותו באנגלית (שם
+ * start=left) — מבקר אנגלי לא הגיע לסרגל הנגישות עד שדחה את העוגיות.
+ * סרגל הקנייה של עמוד הספר (end-6) מתרומם מעל הבאנר בשני הלוקיילים.
  * כרטיס קטן ולא רצועה על פני כל הרוחב, כדי להסתיר כמה שפחות מהתוכן
  * מתחתיו; זה עדיין כולל את כל מה שנדרש (הסבר, קישור למדיניות הפרטיות,
  * אישור ודחייה) — הצמצום הוא בגודל ובמיקום, לא בתוכן המשפטי הנדרש.
@@ -32,7 +34,7 @@ export function CookieConsentBanner() {
     <div
       role="region"
       aria-label={t('bannerLabel')}
-      className="glass fixed bottom-4 left-4 z-50 w-[calc(100vw-2rem)] max-w-[19rem] rounded-[var(--radius-lg)] p-4 shadow-[var(--shadow-float)]"
+      className="glass fixed bottom-4 end-4 z-50 w-[calc(100vw-2rem)] max-w-[19rem] rounded-[var(--radius-lg)] p-4 shadow-[var(--shadow-float)]"
     >
       <p className="text-caption leading-relaxed text-ink-soft">
         {t('message')}{' '}

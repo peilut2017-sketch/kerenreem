@@ -103,9 +103,12 @@ function LightboxOverlay({
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();
-      // RTL: ← חזותית הוא "הבא" (ימין לשמאל), חץ מקלדת נשאר לפי כיוונו הפיזי
-      else if (event.key === 'ArrowRight') onStep(-1);
-      else if (event.key === 'ArrowLeft') onStep(1);
+      else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        // "הבא" לפי כיוון הממשק: שמאלה בעברית, ימינה באנגלית
+        const rtl = document.documentElement.dir === 'rtl';
+        const forward = rtl ? event.key === 'ArrowLeft' : event.key === 'ArrowRight';
+        onStep(forward ? 1 : -1);
+      }
     }
     document.addEventListener('keydown', onKeyDown);
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -146,24 +149,26 @@ function LightboxOverlay({
     >
       <button type="button" aria-label={t('close')} onClick={onClose} className="absolute inset-0" />
 
-      <button
-        type="button"
-        onClick={() => onStep(1)}
-        aria-label={t('nextImage')}
-        className="absolute start-3 top-1/2 z-10 -translate-y-1/2 rounded-[var(--radius-pill)] bg-white/10 p-3 text-white transition-colors hover:bg-white/20 sm:start-6"
-      >
-        <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none">
-          <path d="M12 4 6 10l6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
+      {/* אותה מוסכמה כמו בקרוסלות: "הקודם" בצד start, "הבא" בצד end, והחץ
+          מצביע החוצה אל צדו — משורטט ל-RTL ומתהפך באנגלית (ltr:) */}
       <button
         type="button"
         onClick={() => onStep(-1)}
         aria-label={t('prevImage')}
+        className="absolute start-3 top-1/2 z-10 -translate-y-1/2 rounded-[var(--radius-pill)] bg-white/10 p-3 text-white transition-colors hover:bg-white/20 sm:start-6"
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5 ltr:-scale-x-100" fill="none">
+          <path d="M8 4l6 6-6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={() => onStep(1)}
+        aria-label={t('nextImage')}
         className="absolute end-3 top-1/2 z-10 -translate-y-1/2 rounded-[var(--radius-pill)] bg-white/10 p-3 text-white transition-colors hover:bg-white/20 sm:end-6"
       >
-        <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="none">
-          <path d="M8 4l6 6-6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5 ltr:-scale-x-100" fill="none">
+          <path d="M12 4 6 10l6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 

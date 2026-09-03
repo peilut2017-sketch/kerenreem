@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { saveScreenOverrides, clearScreenOverrides } from '@/lib/admin/team-actions';
 import { SCREENS, ADMIN_ONLY_SCREENS, defaultScreenAccess, type ScreenKey } from '@/lib/admin/screens';
 import type { UserRole } from '@/lib/supabase/types';
+import { useRouter } from 'next/navigation';
 
 const FAMILY_LABELS: Record<'content' | 'store' | 'system', string> = {
   content: 'תוכן',
@@ -44,6 +45,7 @@ export function ScreenPermissionsPanel({
 }) {
   const [access, setAccess] = useState<AccessMap>(() => accessMapFor(role, overrides));
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
   const [notice, setNotice] = useState<string | null>(null);
 
   const grouped = useMemo(() => {
@@ -70,6 +72,8 @@ export function ScreenPermissionsPanel({
       const rows = PICKABLE_SCREENS.map((s) => ({ screen: s.key, ...access[s.key] }));
       const result = await saveScreenOverrides(userId, rows);
       setNotice(result.ok ? 'נשמר.' : (result.error ?? 'שגיאה'));
+      // בלי רענון סימון "(מותאם)" ולחצן האיפוס במסך הצוות נשארו במצב שלפני השמירה
+      if (result.ok) router.refresh();
     });
   }
 

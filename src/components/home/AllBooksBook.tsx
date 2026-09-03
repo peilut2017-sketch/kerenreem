@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
+import { DirArrow } from '@/components/DirArrow';
 
 /**
  * [1.30, עודכן 1.38] לחצן "לכל הספרים" — ספר שוכב, במבט מהצד ממש.
@@ -105,7 +106,7 @@ export function AllBooksBook({ label }: { label: string }) {
       </span>
 
       <span className="font-serif text-small font-bold text-ink transition-colors group-hover:text-burgundy group-focus-visible:text-burgundy">
-        {label} ←
+        {label} <DirArrow />
       </span>
     </Link>
   );
