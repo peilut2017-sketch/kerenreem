@@ -36,7 +36,7 @@ export function HeaderContextNav({ items, activeId, onSelect }: ContextNavValue)
   return (
     <div
       ref={listRef}
-      role="list"
+      role="group"
       aria-label={t('pageNavigation')}
       className="hidden max-w-[26rem] items-center gap-0.5 overflow-x-auto border-s border-rule ps-3 [scrollbar-width:none] lg:flex"
     >

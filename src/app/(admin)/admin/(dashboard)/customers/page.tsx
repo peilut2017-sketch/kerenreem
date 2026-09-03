@@ -43,6 +43,11 @@ export default async function AdminCustomersPage({
         supabase.from('customers').select('id, phone, email, full_name'),
       ])
     : [{ data: [] }, { data: [] }];
+  // שגיאת RLS/הרשאות אינה רשימה ריקה — בלי הסימון הזה המסך הציג
+  // "עדיין אין לקוחות" בדיוק כמו חנות ריקה באמת (כמו ב-/admin/orders)
+  const loadFailed = Boolean(
+    ('error' in ordersRes && ordersRes.error) || ('error' in customersRes && customersRes.error),
+  );
 
   const registeredByPhone = new Map(
     (customersRes.data ?? []).map((c) => [c.phone, c] as const),
@@ -106,9 +111,14 @@ export default async function AdminCustomersPage({
         </div>
       </form>
 
+      {loadFailed ? (
+        <div role="alert" className="admin-card mb-4 px-6 py-6 text-center text-small text-[var(--admin-danger)]">
+          שגיאה בטעינת הלקוחות מהמסד. זו לא רשימה ריקה — נסו לרענן, ואם זה חוזר פנו לתמיכה הטכנית.
+        </div>
+      ) : null}
       <AdminTable
         columns={['לקוח', 'קשר', 'הזמנות', 'סה״כ שולם', 'אחרונה', '']}
-        empty={rows.length === 0 ? (query ? 'אין תוצאות לחיפוש.' : 'עדיין אין לקוחות.') : undefined}
+        empty={rows.length === 0 && !loadFailed ? (query ? 'אין תוצאות לחיפוש.' : 'עדיין אין לקוחות.') : undefined}
       >
         {rows.map((row) => (
           <AdminRow key={row.key}>

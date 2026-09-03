@@ -187,7 +187,20 @@ export async function startCheckout(
       const { data: existingOrder } = service
         ? await service.from('orders').select('payment_state').eq('id', existing.order_id).maybeSingle()
         : { data: null };
-      if (existingOrder && existingOrder.payment_state !== 'paid') {
+      // ורק אם הסל לא השתנה מאז: ההזמנה הקיימת נבנתה מפריטי ה-session,
+      // ואם הלקוח הוסיף/הסיר ספר מאז, המשך על אותה session היה מציג לו
+      // את סכום הסל החדש בכפתור אבל גובה את סכום ההזמנה הישנה. סל שונה
+      // ⇒ session חדשה (וההזמנה הישנה פגה בשגרת התחזוקה).
+      const signature = (pairs: { book_id: string; quantity: number }[]) =>
+        pairs.map((pair) => `${pair.book_id}:${pair.quantity}`).sort().join('|');
+      const liveItems = cart.lines
+        .filter((line) => line.removedReason === null)
+        .map((line) => ({ book_id: line.bookId, quantity: line.quantity }));
+      if (
+        existingOrder &&
+        existingOrder.payment_state !== 'paid' &&
+        signature(liveItems) === signature(existing.items ?? [])
+      ) {
         session = existing;
       }
     }
@@ -335,8 +348,26 @@ export async function saveFulfillment(input: {
     return { ok: false, error: 'session' };
   }
 
+  // אותם חסמי אורך כמו בכתובות החשבון (saveMyAddress): הכתובת נכתבת
+  // ל-jsonb בלי constraint במסד ומודפסת בכל מדבקה ודוח — ערך פרוע היה
+  // מנפח את ההזמנה ואת כל מסכי ההדפסה שלה.
+  const cap = (value: string | undefined, max: number) => value?.trim().slice(0, max) || undefined;
+  const address: Partial<ShippingAddress> | undefined = input.isPickup
+    ? undefined
+    : {
+        recipient_name: cap(input.address?.recipient_name, 120),
+        phone: cap(input.address?.phone, 30),
+        city: cap(input.address?.city, 80),
+        street: cap(input.address?.street, 120),
+        house_number: cap(input.address?.house_number, 20),
+        entrance: cap(input.address?.entrance, 20),
+        floor: cap(input.address?.floor, 20),
+        apartment: cap(input.address?.apartment, 20),
+        zip: cap(input.address?.zip, 12),
+      };
+
   if (!input.isPickup) {
-    const a = input.address ?? {};
+    const a = address ?? {};
     const fieldErrors: Record<string, string> = {};
     if (!a.recipient_name?.trim()) fieldErrors.recipient_name = 'required';
     if (!a.city?.trim()) fieldErrors.city = 'required';
@@ -350,8 +381,8 @@ export async function saveFulfillment(input: {
     fulfillment: {
       type: input.isPickup ? 'pickup' : 'shipping',
       method_id: input.methodId,
-      address: input.isPickup ? undefined : input.address,
-      courier_notes: input.courierNotes?.slice(0, 500),
+      address,
+      courier_notes: input.courierNotes?.trim().slice(0, 500),
     },
   });
   return { ok: Boolean(updated) };
@@ -492,7 +523,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
 
   // Idempotency: ההזמנה כבר נוצרה מה-session הזה — ממשיכים ממנה
   if (session.order_id) {
-    return resumeExistingOrder(session.order_id);
+    return resumeExistingOrder(session.order_id, input.displayedTotal);
   }
 
   if (!session.terms_accepted_at) return { ok: false, error: 'terms' };
@@ -708,7 +739,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   };
 }
 
-async function resumeExistingOrder(orderId: string): Promise<PlaceOrderResult> {
+async function resumeExistingOrder(orderId: string, displayedTotal: number): Promise<PlaceOrderResult> {
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'server' };
   const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
@@ -716,6 +747,11 @@ async function resumeExistingOrder(orderId: string): Promise<PlaceOrderResult> {
 
   if (order.payment_state === 'paid') {
     return { ok: true, mode: 'created_no_payment', orderNumber: order.order_number, orderId };
+  }
+  // אותו שומר "הסכום השתנה" כמו ביצירת הזמנה חדשה: מה שהלקוח ראה בכפתור
+  // חייב להיות מה שייגבה על ההזמנה שממשיכים ממנה.
+  if (Math.abs(Number(order.total) - displayedTotal) >= 0.01) {
+    return { ok: false, error: 'total_changed', serverTotal: Number(order.total) };
   }
   const flags = await getCommerceFlags();
   if (!flags.paymentsEnabled) {

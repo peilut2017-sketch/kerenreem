@@ -43,9 +43,16 @@ export async function saveSettings(
   };
 
   const socialKeys = ['facebook', 'youtube', 'instagram', 'x', 'linkedin', 'whatsapp', 'telegram'];
-  const social_links = Object.fromEntries(
-    socialKeys.map((key) => [key, text(formData, `social_${key}`)]).filter(([, value]) => value),
-  );
+  const socialEntries = socialKeys
+    .map((key) => [key, text(formData, `social_${key}`)] as const)
+    .filter(([, value]) => value);
+  // אותו כלל שנאכף על banners.link_url: הערכים נכנסים ל-href בכותרת
+  // התחתונה ובעמוד יצירת הקשר, ו-javascript: היה עובר עד עכשיו.
+  const badSocial = socialEntries.find(([, value]) => !/^https?:\/\/\S+$/i.test(value));
+  if (badSocial) {
+    return { status: 'error', message: `קישור ${badSocial[0]}: נדרשת כתובת מלאה שמתחילה ב-https://` };
+  }
+  const social_links = Object.fromEntries(socialEntries);
 
   const { error } = await supabase
     .from('site_settings')

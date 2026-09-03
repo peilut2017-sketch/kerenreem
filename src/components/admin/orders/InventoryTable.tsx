@@ -57,7 +57,7 @@ export function InventoryTable({
   const [newLocationKind, setNewLocationKind] =
     useState<(typeof LOCATION_KINDS)[number][0]>('warehouse');
   const [showLocations, setShowLocations] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   const activeLocations = locations.filter((loc) => loc.active);
@@ -88,7 +88,9 @@ export function InventoryTable({
         locationId: locationId || defaultLocation?.id || null,
       });
       setMessage(
-        result.ok ? `עודכן. מלאי פיזי חדש במיקום: ${result.onHand}` : (result.error ?? 'הפעולה נכשלה'),
+        result.ok
+          ? { ok: true, text: `עודכן. מלאי פיזי חדש במיקום: ${result.onHand}` }
+          : { ok: false, text: result.error ?? 'הפעולה נכשלה' },
       );
       if (result.ok) {
         setDelta('');
@@ -106,7 +108,11 @@ export function InventoryTable({
         toLocationId: toLocation,
         qty: Math.abs(Number(transferQty)),
       });
-      setMessage(result.ok ? 'ההעברה נרשמה (יציאה + כניסה ב-ledger).' : (result.error ?? 'ההעברה נכשלה'));
+      setMessage(
+        result.ok
+          ? { ok: true, text: 'ההעברה נרשמה (יציאה + כניסה ב-ledger).' }
+          : { ok: false, text: result.error ?? 'ההעברה נכשלה' },
+      );
       if (result.ok) setTransferQty('');
     });
   }
@@ -178,7 +184,7 @@ export function InventoryTable({
                     name: newLocationName,
                     kind: newLocationKind,
                   });
-                  setMessage(result.ok ? 'המיקום נוסף.' : (result.error ?? 'הוספת המיקום נכשלה'));
+                  setMessage(result.ok ? { ok: true, text: 'המיקום נוסף.' } : { ok: false, text: result.error ?? 'הוספת המיקום נכשלה' });
                   if (result.ok) setNewLocationName('');
                 });
               }}
@@ -452,8 +458,13 @@ export function InventoryTable({
             )}
 
             {message ? (
-              <p role="status" className="text-caption text-ink-soft">
-                {message}
+              // כשל נבדל מהצלחה גם בצבע וגם סמנטית (alert) — קודם שניהם
+              // נראו אותו אפור, ו"אין הרשאה" נקרא כמו "עודכן"
+              <p
+                role={message.ok ? 'status' : 'alert'}
+                className={`text-caption ${message.ok ? 'text-[var(--admin-success)]' : 'text-[var(--admin-danger)]'}`}
+              >
+                {message.text}
               </p>
             ) : null}
           </div>

@@ -106,6 +106,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
           type="search"
           autoFocus
           role="combobox"
+          aria-label={t('searchPlaceholder')}
           aria-expanded={hasResults}
           aria-controls={`${titleId}-list`}
           aria-activedescendant={active >= 0 ? `${titleId}-option-${active}` : undefined}
@@ -221,11 +222,16 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
   );
 }
 
+/**
+ * קבוצה בתוך ה-listbox: listbox מתיר רק option/group כצאצאים — רשימת
+ * <ul> עם תפקיד list בתוכו מנתקת את ה-options מה-aria-activedescendant
+ * ומשאירה את ניווט החצים בלי הקראה. לכן group עם שם, ורשימה presentational.
+ */
 function ResultGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <p className="mb-1.5 px-3 text-caption font-semibold text-muted">{label}</p>
-      <ul className="space-y-0.5">{children}</ul>
+    <div role="group" aria-label={label}>
+      <p aria-hidden="true" className="mb-1.5 px-3 text-caption font-semibold text-muted">{label}</p>
+      <ul role="presentation" className="space-y-0.5">{children}</ul>
     </div>
   );
 }

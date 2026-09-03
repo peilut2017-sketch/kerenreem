@@ -1,4 +1,5 @@
 import 'server-only';
+import { clientIp } from '@/lib/client-ip';
 import { createServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -29,11 +30,7 @@ export async function allowRequest(
   return data === true;
 }
 
-/** מפתח דלי לפי IP מהכותרות — לספירה בלבד, לעולם לא להרשאה. */
+/** מפתח דלי לפי IP מהכותרות — לספירה בלבד, לעולם לא להרשאה (ראו client-ip.ts). */
 export function ipBucket(scope: string, headers: Headers): string {
-  const ip =
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    headers.get('x-real-ip') ||
-    'unknown';
-  return `${scope}:${ip}`;
+  return `${scope}:${clientIp(headers)}`;
 }

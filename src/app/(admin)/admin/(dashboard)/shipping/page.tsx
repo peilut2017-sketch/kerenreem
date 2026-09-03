@@ -28,6 +28,9 @@ export default async function AdminShippingPage() {
     : [{ data: [] }, { data: [] }];
 
   const zones = (zonesRes.data ?? []) as ShippingZone[];
+  const loadFailed = Boolean(
+    ('error' in methodsRes && methodsRes.error) || ('error' in zonesRes && zonesRes.error),
+  );
 
   return (
     <>
@@ -35,6 +38,11 @@ export default async function AdminShippingPage() {
         title="שיטות אספקה"
         description="תאריך ההבטחה ללקוח = היום + ימי הכנה + ימי השיטה + מרווח ביטחון (בדילוג על שישי/שבת/חגים). מחירים כוללים מע״מ לפי הגדרת החנות."
       />
+      {loadFailed ? (
+        <div role="alert" className="admin-card mb-4 px-6 py-6 text-center text-small text-[var(--admin-danger)]">
+          שגיאה בטעינת שיטות האספקה מהמסד. זו לא רשימה ריקה — נסו לרענן, ואם זה חוזר פנו לתמיכה הטכנית.
+        </div>
+      ) : null}
       <ShippingManager methods={(methodsRes.data ?? []) as ShippingMethod[]} zones={zones} />
 
       <h2 className="mt-10 mb-4 font-serif text-h3 text-ink">אזורי משלוח</h2>

@@ -5,7 +5,7 @@ import type { Order, PaymentMethod } from '@/lib/supabase/types';
 import { createServiceClient } from '@/lib/supabase/service';
 import { verifyWebhookSignature, normalizeStatusPayload, getTransactionStatus } from './morning';
 import { findPaymentByTransaction, markPaymentFailed, markPaymentSucceeded } from './payments';
-import { transitionOrder, recordOrderEvent, MORNING_ACTOR, SYSTEM_ACTOR } from './orders';
+import { transitionOrder, recordOrderEvent, MORNING_ACTOR, SYSTEM_ACTOR, addOrderTag } from './orders';
 import { commitStock, releaseStock } from './inventory';
 import { recordDocument } from './documents';
 import { sendOrderEmail } from './notifications';
@@ -239,10 +239,7 @@ async function applyTransactionUpdate(
         expected: order.total,
         received: normalized.amount,
       });
-      await service
-        .from('orders')
-        .update({ tags: [...new Set([...(order.tags ?? []), 'amount-mismatch'])] })
-        .eq('id', order.id);
+      await addOrderTag(service, order, 'amount-mismatch');
       await finalizeEvent(service, webhookEventId, 'failed', 'amount mismatch');
       return { status: 'amount_mismatch', httpStatus: 200 };
     }
@@ -267,7 +264,18 @@ async function handlePaymentSucceeded(
   method: PaymentMethod | null,
   payload: Record<string, unknown>,
 ): Promise<void> {
-  await markPaymentSucceeded(service, paymentId, method);
+  const marked = await markPaymentSucceeded(service, paymentId, method);
+  if (marked.duplicate) {
+    // חיוב כפול אמיתי (ראו markPaymentSucceeded): ההזמנה כבר שולמה בחיוב
+    // אחר — לא מעבירים מצב, לא מפחיתים מלאי, לא שולחים מייל; מתייגים
+    // כדי שהכספים יזכו את החיוב העודף.
+    await recordOrderEvent(service, order.id, 'duplicate_charge_detected', MORNING_ACTOR, {
+      payment_id: paymentId,
+      method,
+    });
+    await addOrderTag(service, order, 'double-charge');
+    return;
+  }
 
   const paymentTransition = await transitionOrder(service, order.id, 'payment_state', 'paid', MORNING_ACTOR, {
     payment_id: paymentId,
@@ -277,17 +285,37 @@ async function handlePaymentSucceeded(
   // ב-changed ולא ב-ok: ok=true מוחזר גם למי שהפסיד את המירוץ ומצא paid,
   // ואז המייל "התקבל תשלום" היה נשלח פעמיים. ההפחתה עצמה idempotent במסד.
   const firstTime = paymentTransition.changed === true;
-  await transitionOrder(service, order.id, 'state', 'confirmed', MORNING_ACTOR);
+  const stateTransition = await transitionOrder(service, order.id, 'state', 'confirmed', MORNING_ACTOR);
+  if (!stateTransition.ok) {
+    // תשלום שהתקבל על הזמנה שאינה יכולה להתאשר (בוטלה בינתיים וכד'):
+    // קודם המעבר הכושל נזרק בשקט והכסף "נעלם" בין הצירים. עכשיו: אירוע
+    // ותג, כדי שהכספים יטפלו — זיכוי או החייאת ההזמנה.
+    await recordOrderEvent(service, order.id, 'state_transition_blocked', MORNING_ACTOR, {
+      from: order.state,
+      to: 'confirmed',
+      error: stateTransition.error ?? null,
+    });
+    await addOrderTag(service, order, 'paid-in-blocked-state');
+  }
   await recordOrderEvent(service, order.id, 'payment_succeeded', MORNING_ACTOR, { method });
 
-  // הפחתת מלאי: reserve → sale (idempotent פר פריט)
+  // הפחתת מלאי: reserve → sale (idempotent פר פריט). תוצאה שאינה ok
+  // (למשל insufficient_on_hand אחרי ששריון פג ושוחרר) אינה נבלעת יותר:
+  // הזמנה ששולמה בלי הפחתת מלאי מנפחת את המלאי, וביטול מאוחר היה
+  // מוסיף עותק שמעולם לא הופחת.
   const { data: items } = await service
     .from('order_items')
     .select('book_id, quantity, is_preorder')
     .eq('order_id', order.id);
+  const shortfalls: { book_id: string; quantity: number; reason: string }[] = [];
   for (const item of items ?? []) {
     if (!item.book_id || item.is_preorder) continue;
-    await commitStock(service, item.book_id, item.quantity, order.id);
+    const committed = await commitStock(service, item.book_id, item.quantity, order.id);
+    if (!committed.ok) shortfalls.push({ book_id: item.book_id, quantity: item.quantity, reason: committed.reason });
+  }
+  if (shortfalls.length > 0) {
+    await recordOrderEvent(service, order.id, 'stock_commit_failed', MORNING_ACTOR, { items: shortfalls });
+    await addOrderTag(service, order, 'stock-shortfall');
   }
 
   // מסמך: אם ההתראה נושאת פרטי מסמך — נרשם; אחרת ממתין (Retry/Polling)
@@ -381,6 +409,18 @@ export async function pollPendingPayments(olderThanMinutes: number = 10): Promis
     if (!order) continue;
 
     if (statusResult.data.status === 'paid') {
+      // אותה בדיקת סכום כמו בנתיב ה-Webhook: בלעדיה מי שעוצר את ה-Webhook
+      // ומשלם סכום חלקי היה מאושר דרך ה-poll בלי השוואה.
+      const received = statusResult.data.amount;
+      if (received != null && round2(received) !== round2(order.total)) {
+        await recordOrderEvent(service, order.id, 'webhook_amount_mismatch', MORNING_ACTOR, {
+          expected: order.total,
+          received,
+          source: 'poll',
+        });
+        await addOrderTag(service, order as Order, 'amount-mismatch');
+        continue;
+      }
       await handlePaymentSucceeded(
         service,
         order as Order,

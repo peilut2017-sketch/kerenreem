@@ -87,7 +87,9 @@ export function CartPageClient() {
               key={line.bookId}
               className="group flex gap-4 rounded-[var(--radius-lg)] border border-rule/70 bg-cream px-4 py-4 shadow-[var(--shadow-soft)] transition-shadow duration-300 hover:shadow-[var(--shadow-float)] sm:px-5"
             >
-              <Link href={`/books/${line.slug}`} className="w-20 shrink-0 self-start">
+              {/* קישור הכריכה משוכפל לקישור הכותרת שלידו — מוסתר מעץ הנגישות,
+                  כדי שקורא מסך לא יכריז "קישור" ריק לכל שורה (כמו ב-MiniCart) */}
+              <Link href={`/books/${line.slug}`} aria-hidden="true" tabIndex={-1} className="w-20 shrink-0 self-start">
                 <BookCover src={line.coverImageUrl} title={line.title} alt="" sizes="80px" />
               </Link>
               <div className="min-w-0 flex-1">

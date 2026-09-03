@@ -15,7 +15,7 @@ export function HeaderContextNavMobile({ items, activeId, onSelect }: ContextNav
 
   return (
     <div
-      role="list"
+      role="group"
       aria-label={t('pageNavigation')}
       className="flex items-center gap-1.5 overflow-x-auto border-t border-rule/60 px-3 py-2 lg:hidden"
     >

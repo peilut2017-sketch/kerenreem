@@ -314,11 +314,17 @@ function InquiryDetail({
   const customEntries = Object.entries(message.custom_field_values ?? {});
 
   function changeStatus(next: InquiryStatus) {
+    const previous = status;
     onStatusChange(next);
     startTransition(async () => {
       setError(null);
       const result = await setInquiryStatus(message.id, next);
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        // העדכון האופטימי מוחזר: בלי זה הרשימה הציגה "טופלה" בזמן שהמסד
+        // עדיין אומר "חדשה", עד רענון קשיח
+        onStatusChange(previous);
+      }
       router.refresh();
     });
   }

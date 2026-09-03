@@ -1,4 +1,5 @@
 import 'server-only';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 import { filterVisibleAttributes } from '@/lib/attributes';
 import type {
@@ -517,7 +518,16 @@ export async function listContactMessages(): Promise<ContactMessage[]> {
     .select('*, topic:contact_topics ( name_he, name_en ), book:books ( title_he, slug )')
     .order('created_at', { ascending: false })
     .limit(200);
-  return (data as ContactMessage[] | null) ?? [];
+  // ניקוי גם בקריאה, לא רק בקליטה: מדיניות ה-insert על contact_messages
+  // פתוחה ל-anon (with check true), ולכן כל מי שמחזיק את המפתח הציבורי
+  // יכול להכניס שורה ישירות דרך PostgREST — עם message_html שלא עבר את
+  // sanitizeHtml של טופס יצירת הקשר. הניהול מרנדר את השדה הזה כ-HTML
+  // (InquiriesInbox), כך שבלי הניקוי כאן זו הזרקת סקריפט לתוך session
+  // של איש צוות מאומת. הניקוי אידמפוטנטי — תוכן שכבר נוקה אינו משתנה.
+  return ((data as ContactMessage[] | null) ?? []).map((row) => ({
+    ...row,
+    message_html: row.message_html ? sanitizeHtml(row.message_html) : row.message_html,
+  }));
 }
 
 /**

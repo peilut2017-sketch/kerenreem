@@ -115,7 +115,7 @@ export function renderEmail(
       return {
         subject: `המסמך החשבונאי מוכן — הזמנה ${n}`,
         html: `${orderHeader(order)}<p>המסמך החשבונאי על הזמנה <strong>${n}</strong> מוכן.</p>${
-          extra.documentUrl ? `<p><a href="${extra.documentUrl}">לצפייה ולהורדה</a></p>` : ''
+          isHttpUrl(extra.documentUrl) ? `<p><a href="${escapeHtml(extra.documentUrl)}">לצפייה ולהורדה</a></p>` : ''
         }${track}${FOOTER}`,
       };
     case 'shipped':
@@ -126,7 +126,9 @@ export function renderEmail(
         }${
           extra.trackingNumber
             ? `<p>מספר מעקב: <strong dir="ltr">${escapeHtml(extra.trackingNumber)}</strong>${
-                extra.trackingUrl ? ` · <a href="${extra.trackingUrl}">מעקב אצל חברת המשלוחים</a>` : ''
+                isHttpUrl(extra.trackingUrl)
+                  ? ` · <a href="${escapeHtml(extra.trackingUrl)}">מעקב אצל חברת המשלוחים</a>`
+                  : ''
               }</p>`
             : ''
         }${extra.promisedDateLabel ? `<p>אספקה משוערת: ${extra.promisedDateLabel}</p>` : ''}${track}${FOOTER}`,
@@ -154,6 +156,15 @@ export function renderEmail(
 }
 
 /** מיוצא לכל מי שמרכיב HTML לדואר עם קלט משתמש (מענה לפנייה, הזמנת צוות). */
+/**
+ * רק http(s) נכנס ל-href במייל: הערך מגיע מטופס בניהול (או מ-API חיצוני)
+ * ובלי הבדיקה javascript: או מחרוזת שסוגרת את התג הייתה יוצאת ללקוח
+ * חתומה ב-DKIM של המכון.
+ */
+function isHttpUrl(value: string | null | undefined): value is string {
+  return typeof value === 'string' && /^https?:\/\/\S+$/i.test(value.trim());
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')

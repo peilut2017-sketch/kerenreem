@@ -52,6 +52,16 @@ export interface RelationSpec {
   targetColumn: string;
 }
 
+/**
+ * מקטע הנתיב בניהול של ישות: מפתחות הישויות נכתבים בקו תחתון
+ * (contact_topics) ואילו תיקיות המסלול במקף (/admin/contact-topics).
+ * שלושה מקומות בנו כתובות מהמפתח ישירות — עריכה מהרשימה, ההפניה אחרי
+ * שמירה, וההפניה אחרי מחיקה — וכולם נחתו ב-404 עבור שתי ישויות. מקור אחד.
+ */
+export function entityRoute(key: string): string {
+  return key.replaceAll('_', '-');
+}
+
 export interface EntitySpec {
   table: string;
   /** [1.7] מסך ההרשאה הגרגרי (screens.ts) — assertScreenPermission(screenKey, 'edit') */

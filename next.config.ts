@@ -146,6 +146,10 @@ const nextConfig: NextConfig = {
     '/app-icon': ['./node_modules/@img/sharp-libvips-linux-x64/**/*'],
   },
   images: {
+    // Next 16 מקבל רק איכויות שברשימה (ברירת מחדל: [75]) ומחזיר 400 לכל
+    // ערך אחר — ו-BookShelf/Spine מבקשים quality={90} לכריכות ולשדרות.
+    // בלי השורה הזו מדף עמוד הבית ומדף הסדרה נשברים בשקט בפרודקשן.
+    qualities: [75, 90],
     remotePatterns: [
       ...(supabaseHost
         ? [{ protocol: 'https' as const, hostname: supabaseHost, pathname: '/storage/v1/object/public/**' }]

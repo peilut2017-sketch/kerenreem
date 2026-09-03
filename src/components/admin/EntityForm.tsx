@@ -10,6 +10,7 @@ import { showAdminToast } from '@/lib/admin/toast-bus';
 import { useModalClose } from './modal-close-context';
 import { useUnsavedChangesReporter } from './unsaved-context';
 import { UploadTrackerProvider } from './upload-context';
+import { entityRoute } from '@/lib/admin/schema';
 
 /** מזהה איזה משני כפתורי השמירה הפעיל את השליחה — ראו name="intent" למטה. */
 type Intent = 'save' | 'save-new';
@@ -137,7 +138,7 @@ export function EntityForm({
 
     if (state.intent === 'save-new') {
       if (id) {
-        router.replace(`/admin/${entity}/new`);
+        router.replace(`/admin/${entityRoute(entity)}/new`);
         router.refresh();
       }
       return;
@@ -155,7 +156,7 @@ export function EntityForm({
       return;
     }
 
-    router.replace(`/admin/${entity}`);
+    router.replace(`/admin/${entityRoute(entity)}`);
     router.refresh();
   }, [state, entity, id, router, closeModal, reportUnsaved]);
 

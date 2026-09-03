@@ -19,14 +19,16 @@ export default async function AdminCouponsPage() {
   let promotions: Promotion[] = [];
   let categories: PromotionOption[] = [];
   let books: PromotionOption[] = [];
+  let loadFailed = false;
   if (supabase) {
-    const [{ data: rows }, { data: redemptions }, promosRes, categoriesRes, booksRes] = await Promise.all([
+    const [{ data: rows, error: couponsError }, { data: redemptions }, promosRes, categoriesRes, booksRes] = await Promise.all([
       supabase.from('coupons').select('*').order('created_at', { ascending: false }),
       supabase.from('coupon_redemptions').select('coupon_id'),
       supabase.from('promotions').select('*').order('created_at', { ascending: false }),
       supabase.from('categories').select('id, name_he').order('sort_order'),
       supabase.from('books').select('id, title_he').eq('is_purchasable', true).order('title_he'),
     ]);
+    loadFailed = Boolean(couponsError || promosRes.error);
     promotions = (promosRes.data ?? []) as Promotion[];
     categories = (categoriesRes.data ?? []).map((c) => ({ id: c.id, label: c.name_he }));
     books = (booksRes.data ?? []).map((b) => ({ id: b.id, label: b.title_he }));
@@ -61,6 +63,11 @@ export default async function AdminCouponsPage() {
         title="קופונים"
         description="אחוז, סכום קבוע או משלוח חינם. האימות תמיד בצד השרת; ההצגה ללקוחות כפופה לדגל הקופונים בהגדרות החנות."
       />
+      {loadFailed ? (
+        <div role="alert" className="admin-card mb-4 px-6 py-6 text-center text-small text-[var(--admin-danger)]">
+          שגיאה בטעינת הקופונים מהמסד. זו לא רשימה ריקה — נסו לרענן, ואם זה חוזר פנו לתמיכה הטכנית.
+        </div>
+      ) : null}
       <CouponsManager coupons={coupons} categories={categories} books={books} />
       <PromotionsManager promotions={promotions} categories={categories} books={books} />
     </>

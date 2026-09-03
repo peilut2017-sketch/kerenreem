@@ -39,6 +39,12 @@ export async function startPayment(
   if (order.payment_state !== 'pending' && order.payment_state !== 'failed') {
     return { ok: false, error: 'order_not_payable' };
   }
+  // גם ציר ההזמנה נבדק, לא רק ציר התשלום: הזמנה שבוטלה נשארה עם
+  // payment_state=pending, קישור התשלום מהמייל פתח דף חדש, הלקוח שילם —
+  // והמעבר cancelled→confirmed נכשל בשקט. כסף נגבה, ההזמנה נשארה מבוטלת.
+  if ((['cancelled', 'closed', 'cancel_pending_refund'] as string[]).includes(order.state)) {
+    return { ok: false, error: 'order_not_payable' };
+  }
 
   // ניסיון פתוח בתוקף — ממוחזר (רענון/לחיצה כפולה אינם פותחים דף שני)
   const { data: open } = await service
@@ -113,6 +119,13 @@ export async function startPayment(
   if (order.donation_amount > 0) {
     lines.push({ description: 'תרומה', quantity: 1, price: order.donation_amount });
   }
+  // ההנחה כשורה שלילית: amount הוא הסכום *אחרי* הנחה, אבל השורות נבנות
+  // ממחירי היחידה המלאים — בלעדיה סכום השורות במסמך החשבונאי גדול מהסכום
+  // שחויב בפועל (מסמך פגום), ואם מורנינג מתמחרת לפי השורות, הלקוח מחויב
+  // ביתר. עם השורה: sum(lines) === amount תמיד.
+  if (order.discount_total > 0) {
+    lines.push({ description: 'הנחה', quantity: 1, price: -order.discount_total });
+  }
 
   const installmentsAllowed =
     !options.wallet && order.total >= settings.installments_min_total
@@ -186,15 +199,30 @@ export async function findPaymentByTransaction(
   return (data as Payment | null) ?? null;
 }
 
+/**
+ * מחזירה duplicate=true כשכבר קיים חיוב מוצלח אחר על אותה הזמנה
+ * (uq_payments_one_success_per_order, ‎54_commerce_concurrency.sql‎) — כלומר
+ * שני דפי תשלום ששניהם שולמו: חיוב כפול אמיתי. קודם השגיאה נבלעה ב-log
+ * והמערכת המשיכה כאילו זה אירוע כפול רגיל; הקורא חייב לתייג את ההזמנה
+ * כדי שהכסף העודף יוחזר.
+ */
 export async function markPaymentSucceeded(
   service: SupabaseClient,
   paymentId: string,
   method: PaymentMethod | null,
-): Promise<void> {
+): Promise<{ duplicate: boolean }> {
   const patch: Record<string, unknown> = { status: 'succeeded' };
   if (method) patch.method = method;
   const { error } = await service.from('payments').update(patch).eq('id', paymentId);
+  if (error?.code === '23505') {
+    await service
+      .from('payments')
+      .update({ error: { duplicate_success: true, method } })
+      .eq('id', paymentId);
+    return { duplicate: true };
+  }
   if (error) console.error('[commerce:payments] mark succeeded', error.message);
+  return { duplicate: false };
 }
 
 export async function markPaymentFailed(

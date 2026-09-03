@@ -8,8 +8,7 @@ import {
   cancellationPath,
   recordOrderEvent,
   transitionOrder,
-  type StateAxis,
-} from '@/lib/commerce/orders';
+  type StateAxis, addOrderTag } from '@/lib/commerce/orders';
 import {
   adjustReservation,
   adjustStock,
@@ -258,7 +257,10 @@ export async function addTracking(
     .update({
       tracking_company: input.company.trim().slice(0, 80) || null,
       tracking_number: input.trackingNumber.trim().slice(0, 80),
-      tracking_url: input.trackingUrl?.trim().slice(0, 500) || null,
+      // רק כתובת http(s) נשמרת — היא נכנסת ל-href במייל ללקוח ובעמוד המעקב
+      tracking_url: /^https?:\/\/\S+$/i.test(input.trackingUrl?.trim() ?? '')
+        ? input.trackingUrl!.trim().slice(0, 500)
+        : null,
     })
     .eq('id', orderId);
 
@@ -430,9 +432,16 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
     .from('order_items')
     .select('book_id, quantity, is_preorder')
     .eq('order_id', orderId);
+  const shortfalls: { book_id: string; quantity: number; reason: string }[] = [];
   for (const item of manualItems ?? []) {
     if (!item.book_id || item.is_preorder) continue;
-    await commitStock(service, item.book_id, item.quantity, orderId);
+    const committed = await commitStock(service, item.book_id, item.quantity, orderId);
+    if (!committed.ok) shortfalls.push({ book_id: item.book_id, quantity: item.quantity, reason: committed.reason });
+  }
+  if (shortfalls.length > 0) {
+    // כמו בנתיב ה-Webhook: הפחתה שנכשלה אינה נבלעת — אירוע ותג לטיפול
+    await recordOrderEvent(service, orderId, 'stock_commit_failed', { type: 'staff', id: session.userId }, { items: shortfalls });
+    await addOrderTag(service, { id: orderId, tags: order.tags }, 'stock-shortfall');
   }
   await transitionOrder(service, orderId, 'document_state', 'pending', {
     type: 'staff',

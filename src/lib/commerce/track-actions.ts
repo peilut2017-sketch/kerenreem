@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies, headers } from 'next/headers';
+import { routing } from '@/i18n/routing';
 import { redirect } from 'next/navigation';
 import { createServiceClient } from '@/lib/supabase/service';
 import { hashGuestToken, guestTokenMatches } from './guest-token';
@@ -120,5 +121,9 @@ export async function beginAccountClaim(token: string, locale: string): Promise<
       path: '/',
     });
   }
-  redirect(locale === 'he' ? '/account/login' : `/${locale}/account/login`);
+  // locale הוא פרמטר של Server Action — ערך כמו "/evil.com" היה מייצר
+  // ‎//evil.com/account/login‎, כתובת יחסית-פרוטוקול שיוצאת מהאתר. רק
+  // לוקייל מהרשימה, ואחרת ברירת המחדל.
+  const safeLocale = (routing.locales as readonly string[]).includes(locale) ? locale : routing.defaultLocale;
+  redirect(safeLocale === routing.defaultLocale ? '/account/login' : `/${safeLocale}/account/login`);
 }

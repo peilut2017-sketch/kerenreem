@@ -12,8 +12,7 @@ import {
   type EntityKey,
   type EntitySpec,
   type FieldSpec,
-  type RelationSpec,
-} from './schema';
+  type RelationSpec, entityRoute } from './schema';
 import { sanitizeHtml } from '@/lib/sanitize';
 import type { Author, Category, Series, Tag } from '@/lib/supabase/types';
 
@@ -585,7 +584,7 @@ export async function deleteEntity(entityKey: string, id: string): Promise<Actio
     return { error: error instanceof Error ? error.message : String(error) };
   }
 
-  if (done) redirect(`/admin/${entityKey}`);
+  if (done) redirect(`/admin/${entityRoute(entityKey)}`);
   return {};
 }
 
