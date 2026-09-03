@@ -18,7 +18,7 @@ import { isValidIsraeliPhone, normalizePhone } from './guest-token';
 import { allowRequest, ipBucket } from './rate-limit';
 import { startPayment } from './payments';
 import { sendOrderEmail } from './notifications';
-import { openServiceRequest } from './service-requests';
+
 import { recordRedemption, validateCoupon, type CouponError } from './coupons';
 import { findBestPromotion } from './promotions';
 import { getCustomerSession, getMyAddresses } from './account';
@@ -824,26 +824,3 @@ export async function getResultState(): Promise<ResultState> {
   };
 }
 
-/** רישום ביטול מצד הלקוח מעמוד המעקב — פותח בקשה, אינו מבטל אוטומטית. */
-export async function requestCancelFromResult(reason: string): Promise<ActionResult> {
-  const sessionId = await readSessionId();
-  if (!sessionId) return { ok: false, error: 'session' };
-  const headerList = await headers();
-  if (!(await allowRequest(ipBucket('cancel-request', headerList), 5, 3600))) {
-    return { ok: false, error: 'server' };
-  }
-  const session = await loadSession(sessionId);
-  if (!session?.order_id) return { ok: false, error: 'session' };
-
-  const service = createServiceClient();
-  if (!service) return { ok: false, error: 'server' };
-  const result = await openServiceRequest(service, {
-    orderId: session.order_id,
-    kind: 'cancel',
-    reason: reason.slice(0, 300),
-    requestedBy: 'customer',
-    actor: { type: 'customer' },
-  });
-  if (!result.ok) return { ok: false, error: 'server' };
-  return { ok: true };
-}

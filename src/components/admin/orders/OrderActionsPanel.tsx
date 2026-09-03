@@ -97,13 +97,24 @@ export function OrderActionsPanel({
     });
   }
 
+  /**
+   * סיבה לפעולה — שדה בתוך הפאנל ולא window.prompt: הסיבה נכתבת ליומן
+   * הביקורת ולמייל ללקוח, ותיבה מקורית של הדפדפן אינה נגישה, אינה RTL
+   * ואינה ניתנת לאימות (ראו DeleteButton/RowActions לאותה הכרעה).
+   */
+  const [reasonRequest, setReasonRequest] = useState<{
+    prompt: string;
+    confirmLabel: string;
+    action: (reason: string) => Promise<{ ok: boolean; error?: string }>;
+  } | null>(null);
+  const [reasonText, setReasonText] = useState('');
+
   function promptAndUndo(
     promptText: string,
     action: (reason: string) => Promise<{ ok: boolean; error?: string }>,
   ) {
-    const reason = window.prompt(promptText);
-    if (reason === null) return;
-    run(() => action(reason.trim() || 'ללא סיבה'));
+    setReasonText('');
+    setReasonRequest({ prompt: promptText, confirmLabel: 'אישור', action });
   }
 
   // ביטול אינו מוצע כמעבר רגיל — יש לו זרימה משלו (תרשים 13 המתוקן)
@@ -125,6 +136,39 @@ export function OrderActionsPanel({
     <aside className="space-y-5 xl:sticky xl:top-6">
       <section className="admin-card px-5 py-4">
         <h2 className="mb-3 text-small font-bold text-ink">פעולות</h2>
+
+        {reasonRequest ? (
+          <form
+            className="mb-4 space-y-2 rounded-[var(--radius-sm)] border border-rule bg-[var(--admin-surface-soft,#faf7f2)] p-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const request = reasonRequest;
+              setReasonRequest(null);
+              run(() => request.action(reasonText.trim() || 'ללא סיבה'));
+            }}
+          >
+            <label htmlFor="order-action-reason" className="admin-field-label">
+              {reasonRequest.prompt}
+            </label>
+            <input
+              id="order-action-reason"
+              type="text"
+              autoFocus
+              value={reasonText}
+              onChange={(event) => setReasonText(event.target.value)}
+              maxLength={300}
+              className="admin-field-input"
+            />
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" disabled={pending} className="admin-btn admin-btn-danger">
+                {reasonRequest.confirmLabel}
+              </button>
+              <button type="button" onClick={() => setReasonRequest(null)} className="admin-btn admin-btn-quiet">
+                ביטול
+              </button>
+            </div>
+          </form>
+        ) : null}
 
         {message ? (
           <p
@@ -208,13 +252,14 @@ export function OrderActionsPanel({
               type="button"
               disabled={pending}
               onClick={() => {
-                const reason = window.prompt(
-                  paidNeedsRefund
+                setReasonText('');
+                setReasonRequest({
+                  prompt: paidNeedsRefund
                     ? 'סיבת הביטול? ההזמנה שולמה — היא תמתין במצב "ממתינה לזיכוי" ותבוטל סופית רק אחרי זיכוי מלא (תרשים 13).'
                     : 'סיבת הביטול?',
-                );
-                if (reason === null) return;
-                run(() => cancelOrder(order.id, reason.trim() || 'ללא סיבה'));
+                  confirmLabel: 'ביטול הזמנה',
+                  action: (reason) => cancelOrder(order.id, reason),
+                });
               }}
               className="admin-btn admin-btn-danger"
             >

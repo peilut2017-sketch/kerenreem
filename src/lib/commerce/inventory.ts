@@ -12,11 +12,6 @@ import type { Book } from '@/lib/supabase/types';
  * מדלג על שמירה/הפחתה: אין מה לשמור.
  */
 
-type ManagedBook = Pick<Book, 'id' | 'is_stock_managed' | 'preorder_enabled'>;
-
-export function needsStockManagement(book: ManagedBook): boolean {
-  return book.is_stock_managed !== false && !book.preorder_enabled;
-}
 
 export interface StockOpResult {
   ok: boolean;

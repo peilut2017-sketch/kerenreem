@@ -118,6 +118,13 @@ export function CartProvider({
           if (raw != null) previousPrices[item.bookId] = Number(raw);
         }
         const next = await getCartView(items, locale, previousPrices, couponCode);
+        // כמות שהשרת הקטין למלאי הזמין נכתבת חזרה: אחרת התג בכותרת המשיך
+        // לספור את הכמות המבוקשת והבאנר "הכמות הותאמה" נשאר לנצח
+        for (const line of next.cart?.lines ?? []) {
+          if (line.adjusted && line.quantity > 0 && Number(map[line.bookId]) !== line.quantity) {
+            set(line.bookId, String(line.quantity));
+          }
+        }
         if (requestId.current === id) {
           setView(next);
           for (const line of next.cart.lines) {
