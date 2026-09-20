@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react';
 import { deleteEntity, togglePublished } from '@/lib/admin/actions';
 import { AdminIcon } from './AdminIcons';
 import { Spinner } from './SubmitButton';
+import { entityRoute } from '@/lib/admin/schema';
 
 /**
  * מתג פרסום מתוך שורת הרשימה.
@@ -165,7 +166,7 @@ export function RowActions({
       ) : null}
 
       <Link
-        href={`/admin/${entity}/${id}`}
+        href={`/admin/${entityRoute(entity)}/${id}`}
         aria-label={`עריכת ${label}`}
         title="עריכה"
         className="admin-btn admin-btn-icon admin-btn-ghost"

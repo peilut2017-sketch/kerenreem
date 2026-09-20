@@ -9,6 +9,8 @@ import {
   recordOrderEvent,
   transitionOrder,
   type StateAxis,
+  addOrderTag,
+  SYSTEM_ACTOR,
 } from '@/lib/commerce/orders';
 import {
   adjustReservation,
@@ -34,6 +36,7 @@ import {
   type ManualOrderPreview,
 } from '@/lib/commerce/manual-orders';
 import { startPayment } from '@/lib/commerce/payments';
+import { couponDiscountFor, type CouponCart, type CouponRow } from '@/lib/commerce/coupons';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
 import { getStoreSettings } from '@/lib/commerce/settings';
 import { round2 } from '@/lib/commerce/pricing';
@@ -258,7 +261,10 @@ export async function addTracking(
     .update({
       tracking_company: input.company.trim().slice(0, 80) || null,
       tracking_number: input.trackingNumber.trim().slice(0, 80),
-      tracking_url: input.trackingUrl?.trim().slice(0, 500) || null,
+      // רק כתובת http(s) נשמרת — היא נכנסת ל-href במייל ללקוח ובעמוד המעקב
+      tracking_url: /^https?:\/\/\S+$/i.test(input.trackingUrl?.trim() ?? '')
+        ? input.trackingUrl!.trim().slice(0, 500)
+        : null,
     })
     .eq('id', orderId);
 
@@ -430,9 +436,16 @@ export async function markManualPayment(orderId: string): Promise<OrderActionRes
     .from('order_items')
     .select('book_id, quantity, is_preorder')
     .eq('order_id', orderId);
+  const shortfalls: { book_id: string; quantity: number; reason: string }[] = [];
   for (const item of manualItems ?? []) {
     if (!item.book_id || item.is_preorder) continue;
-    await commitStock(service, item.book_id, item.quantity, orderId);
+    const committed = await commitStock(service, item.book_id, item.quantity, orderId);
+    if (!committed.ok) shortfalls.push({ book_id: item.book_id, quantity: item.quantity, reason: committed.reason });
+  }
+  if (shortfalls.length > 0) {
+    // כמו בנתיב ה-Webhook: הפחתה שנכשלה אינה נבלעת — אירוע ותג לטיפול
+    await recordOrderEvent(service, orderId, 'stock_commit_failed', { type: 'staff', id: session.userId }, { items: shortfalls });
+    await addOrderTag(service, { id: orderId, tags: order.tags }, 'stock-shortfall');
   }
   await transitionOrder(service, orderId, 'document_state', 'pending', {
     type: 'staff',
@@ -816,6 +829,10 @@ export async function staffAdjustStock(input: {
     });
   }
   revalidatePath('/admin/inventory');
+  // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
+  revalidatePath('/admin/books');
+  revalidatePath('/[locale]/books', 'page');
+  revalidatePath('/[locale]/books/[slug]', 'page');
   return { ok: true, onHand: result.onHand };
 }
 
@@ -860,6 +877,10 @@ export async function staffTransferStock(input: {
     });
   }
   revalidatePath('/admin/inventory');
+  // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
+  revalidatePath('/admin/books');
+  revalidatePath('/[locale]/books', 'page');
+  revalidatePath('/[locale]/books/[slug]', 'page');
   return { ok: true };
 }
 
@@ -886,6 +907,10 @@ export async function createStockLocation(input: {
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/inventory');
+  // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
+  revalidatePath('/admin/books');
+  revalidatePath('/[locale]/books', 'page');
+  revalidatePath('/[locale]/books/[slug]', 'page');
   return { ok: true };
 }
 
@@ -1106,25 +1131,41 @@ export async function editOrderItems(
   const byId = new Map((items ?? []).map((item) => [item.id, item]));
   const summary: string[] = [];
 
+  // שני שלבים במכוון: קודם *כל* השריונים, ורק אז כתיבת השורות. קודם
+  // הלולאה כתבה שורה-שורה ויצאה באמצע כשלפריט מאוחר לא היה מלאי — שורה
+  // ראשונה כבר הוקטנה בזמן ש-orders.total נשאר ישן (הלקוח חויב על
+  // ספרים שכבר אינם בהזמנה). שריון שנכשל מגלגל אחורה את מה שכבר שוריין.
+  const planned: { item: (typeof byId extends Map<string, infer V> ? V : never); next: number }[] = [];
   for (const change of changes) {
     const item = byId.get(change.itemId);
     if (!item) continue;
     const next = Math.max(0, Math.floor(change.quantity));
     if (next === item.quantity) continue;
+    planned.push({ item, next });
+  }
+  if (planned.length === 0) return { ok: false, error: 'לא בוצע שינוי' };
 
-    // התאמת השריון במלאי דרך commerce_adjust_reservation — לא דרך
-    // reserveStock/releaseStock: אלה חד-פעמיות לכל הזמנה (idempotent
-    // לפי order+book+move_type), כך שקריאה שנייה מהן כאן החזירה
-    // 'already_*' בלי לעשות דבר — הגדלת כמות לא שריינה את התוספת
-    // (מכירת יתר), והקטנה שרפה את תנועת ה-release כך שהשחרור המלא
-    // בביטול מאוחר יותר הפך ל-no-op והיתרה נתקעה משוריינת לנצח.
-    if (item.book_id) {
-      const adjust = await adjustReservation(service, item.book_id, next - item.quantity, orderId);
-      if (!adjust.ok) {
-        return { ok: false, error: `אין מספיק מלאי זמין עבור ${item.title_snapshot}` };
+  // התאמת השריון במלאי דרך commerce_adjust_reservation — לא דרך
+  // reserveStock/releaseStock: אלה חד-פעמיות לכל הזמנה (idempotent
+  // לפי order+book+move_type), כך שקריאה שנייה מהן כאן החזירה
+  // 'already_*' בלי לעשות דבר — הגדלת כמות לא שריינה את התוספת
+  // (מכירת יתר), והקטנה שרפה את תנועת ה-release כך שהשחרור המלא
+  // בביטול מאוחר יותר הפך ל-no-op והיתרה נתקעה משוריינת לנצח.
+  const adjusted: { bookId: string; delta: number }[] = [];
+  for (const { item, next } of planned) {
+    if (!item.book_id) continue;
+    const delta = next - item.quantity;
+    const adjust = await adjustReservation(service, item.book_id, delta, orderId);
+    if (!adjust.ok) {
+      for (const done of adjusted) {
+        await adjustReservation(service, done.bookId, -done.delta, orderId);
       }
+      return { ok: false, error: `אין מספיק מלאי זמין עבור ${item.title_snapshot}` };
     }
+    adjusted.push({ bookId: item.book_id, delta });
+  }
 
+  for (const { item, next } of planned) {
     if (next === 0) {
       await service.from('order_items').delete().eq('id', item.id);
       summary.push(`${item.title_snapshot}: הוסר`);
@@ -1136,7 +1177,6 @@ export async function editOrderItems(
       summary.push(`${item.title_snapshot}: ${item.quantity} → ${next}`);
     }
   }
-  if (summary.length === 0) return { ok: false, error: 'לא בוצע שינוי' };
 
   await recomputeOrderTotals(service, orderId);
   const actor = { type: 'staff' as const, id: session.userId, label: session.profile.full_name ?? undefined };
@@ -1200,26 +1240,98 @@ export async function setStaffDiscount(
  * עם תרומה מחקה את התרומה מהסכום בשקט), ורכיב המע"מ מחושב מחדש —
  * אחרת tax_total הישן כבר אינו תואם את הסכום החדש.
  */
+interface OrderLineSnapshot {
+  book_id: string | null;
+  quantity: number;
+  unit_price: number;
+  unit_price_original: number | null;
+  line_total: number | null;
+}
+
+function lineTotalOf(item: OrderLineSnapshot): number {
+  return round2(Number(item.line_total ?? Number(item.unit_price) * item.quantity));
+}
+
+/**
+ * הנחת הקופון על הזמנה קיימת, מחושבת מחדש מול שורות ההזמנה הנוכחיות.
+ * מחזירה את סך "קופון + מבצע" המעודכן: חלק המבצע (מה שנשאר אחרי הפחתת
+ * סכום המימוש שנרשם ב-coupon_redemptions) נשמר, חלק הקופון מוחלף בחישוב
+ * הטרי, ורשומת המימוש מתעדכנת כדי שדוח הקופונים יישאר נכון. בלי רשומת
+ * מימוש (קופון שגלש על תקרתו במירוץ) אין דרך לפצל — הסכום נשאר כפי שהוא.
+ */
+async function recomputeCouponPortion(
+  service: NonNullable<ReturnType<typeof createServiceClient>>,
+  order: { id: string; coupon_id: string | null },
+  items: OrderLineSnapshot[],
+  couponAndPromo: number,
+): Promise<number> {
+  if (!order.coupon_id) return couponAndPromo;
+  const [{ data: coupon }, { data: redemption }] = await Promise.all([
+    service.from('coupons').select('*').eq('id', order.coupon_id).maybeSingle(),
+    service
+      .from('coupon_redemptions')
+      .select('id, amount_discounted')
+      .eq('order_id', order.id)
+      .eq('coupon_id', order.coupon_id)
+      .maybeSingle(),
+  ]);
+  if (!coupon || !redemption) return couponAndPromo;
+
+  const bookIds = items.map((item) => item.book_id).filter((id): id is string => Boolean(id));
+  const { data: books } = bookIds.length
+    ? await service.from('books').select('id, category_id').in('id', bookIds)
+    : { data: [] as { id: string; category_id: string | null }[] };
+  const categoryOf = new Map((books ?? []).map((book) => [book.id as string, (book.category_id as string | null) ?? null]));
+
+  const cart: CouponCart = {
+    subtotal: round2(items.reduce((sum, item) => sum + lineTotalOf(item), 0)),
+    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    lines: items.map((item) => ({
+      bookId: item.book_id ?? '',
+      onSale: item.unit_price_original != null && Number(item.unit_price_original) > Number(item.unit_price),
+      categoryId: item.book_id ? (categoryOf.get(item.book_id) ?? null) : null,
+      lineTotal: lineTotalOf(item),
+      removedReason: null,
+    })),
+  };
+  const fresh = couponDiscountFor(coupon as CouponRow, cart);
+  const nextCoupon = fresh.ok ? fresh.discountAmount : 0;
+  const previousCoupon = Number(redemption.amount_discounted ?? 0);
+  if (Math.abs(nextCoupon - previousCoupon) < 0.01) return couponAndPromo;
+
+  await service.from('coupon_redemptions').update({ amount_discounted: nextCoupon }).eq('id', redemption.id);
+  await recordOrderEvent(service, order.id, 'coupon_recomputed', SYSTEM_ACTOR, {
+    coupon_id: order.coupon_id,
+    previous: previousCoupon,
+    next: nextCoupon,
+    reason: fresh.ok ? 'items_changed' : (fresh.error ?? 'not_applicable'),
+  });
+  return round2(Math.max(couponAndPromo - previousCoupon, 0) + nextCoupon);
+}
+
 async function recomputeOrderTotals(
   service: NonNullable<ReturnType<typeof createServiceClient>>,
   orderId: string,
 ): Promise<void> {
   const [{ data: order }, { data: items }, settings] = await Promise.all([
     service.from('orders').select('*').eq('id', orderId).maybeSingle(),
-    service.from('order_items').select('line_total, unit_price, quantity').eq('order_id', orderId),
+    service
+      .from('order_items')
+      .select('book_id, line_total, unit_price, unit_price_original, quantity')
+      .eq('order_id', orderId),
     getStoreSettings(),
   ]);
   if (!order) return;
-  const subtotal = round2(
-    (items ?? []).reduce(
-      (sum, item) => sum + Number(item.line_total ?? Number(item.unit_price) * item.quantity),
-      0,
-    ),
-  );
-  // ההנחות הקיימות על ההזמנה נשמרות כמו שהן (קופון/מבצע צולמו ביצירה)
-  const couponAndPromo = Math.max(
-    Number(order.discount_total) - Number(order.staff_discount ?? 0),
-    0,
+  const lines = (items ?? []) as OrderLineSnapshot[];
+  const subtotal = round2(lines.reduce((sum, item) => sum + lineTotalOf(item), 0));
+  // המבצע האוטומטי שצולם ביצירה נשמר כמו שהוא; הנחת הקופון מחושבת מחדש
+  // מול הפריטים *אחרי* העריכה — קודם קופון שחל על ספר אחד המשיך לתת את
+  // מלוא ההנחה גם אחרי שאותו ספר הוסר מההזמנה.
+  const couponAndPromo = await recomputeCouponPortion(
+    service,
+    order,
+    lines,
+    Math.max(Number(order.discount_total) - Number(order.staff_discount ?? 0), 0),
   );
   const discountTotal = round2(Math.min(couponAndPromo + Number(order.staff_discount ?? 0), subtotal));
   const shippingTotal = Number(order.shipping_total ?? 0);
@@ -1233,6 +1345,19 @@ async function recomputeOrderTotals(
     .from('orders')
     .update({ subtotal, discount_total: discountTotal, total, tax_total: taxTotal })
     .eq('id', orderId);
+
+  // דף תשלום פתוח נושא את הסכום הישן: startPayment ממחזר כל ניסיון
+  // initiated/pending בתוקף, כך שאחרי עריכה/הנחה הלקוח היה משלם את הסכום
+  // הקודם, ה-Webhook היה מזהה amount_mismatch, וההזמנה הייתה נתקעת עם
+  // כסף שנגבה. הניסיונות הפתוחים פוקעים — הקישור הבא יפתח דף בסכום הנכון.
+  if (Number(order.total) !== total) {
+    await service
+      .from('payments')
+      .update({ status: 'expired' })
+      .eq('order_id', orderId)
+      .eq('kind', 'charge')
+      .in('status', ['initiated', 'pending']);
+  }
 }
 
 /**

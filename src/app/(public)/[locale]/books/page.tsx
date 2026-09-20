@@ -4,6 +4,7 @@ import { Catalogue } from '@/components/books/Catalogue';
 import { getAuthors, getAttributes, getBooks, getCategories, getTags } from '@/lib/data';
 import { getCommerceFlags } from '@/lib/commerce/settings';
 import { pageAlternates } from '@/lib/seo';
+import { htmlToPlainText } from '@/lib/html-text';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -67,10 +68,19 @@ export default async function BooksPage({ params }: { params: Promise<{ locale: 
   const usedTagSlugs = new Set(books.flatMap((book) => (book.tags ?? []).map((tag) => tag.slug)));
   const usedTags = tags.filter((tag) => usedTagSlugs.has(tag.slug));
 
+  // הקטלוג הוא רכיב לקוח, וכל הספרים נשלחים אליו ב-RSC payload. ה-HTML
+  // המלא של התיאור (העורך העשיר) משמש שם רק כטקסט לחיפוש — לכן הוא
+  // מומר כאן לטקסט קצוץ: ~2KB HTML לספר ⇒ מאות KB שהרשת לא צריכה.
+  const catalogueBooks = books.map((book) => ({
+    ...book,
+    description_he: book.description_he ? htmlToPlainText(book.description_he, 1200) : book.description_he,
+    description_en: book.description_en ? htmlToPlainText(book.description_en, 1200) : book.description_en,
+  }));
+
   return (
     <div className="pb-20">
       <Catalogue
-        books={books}
+        books={catalogueBooks}
         categories={usedCategories}
         authors={authorsWithBooks}
         tags={usedTags}

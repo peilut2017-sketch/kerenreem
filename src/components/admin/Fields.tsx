@@ -283,13 +283,19 @@ export function ToggleField({
           checked={checked}
           onChange={(event) => handleChange(event.target.checked)}
           disabled={isDisabled}
+          // הטופס העוטף (StoreConfigForm) עוקב אחר שינויים שלא נשמרו כדי
+          // להזהיר לפני יציאה — אבל מתג autoSave כבר נשמר בעצמו ברגע
+          // הלחיצה (ומשוחזר לבדו אם נכשל), ואינו חלק מ"שמירה" הממתינה
+          // ללחיצה על הכפתור. הסימון כאן חוסך מהעורך אזהרת "לצאת בלי לשמור"
+          // מזויפת על מתג שכבר שמור.
+          data-autosave={autoSave || undefined}
           aria-checked={checked}
-          aria-describedby={hint || error ? `${id}-hint` : undefined}
+          aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
           className="sr-only"
         />
       </label>
       {error ? (
-        <span role="alert" className="admin-field-hint ms-1 block text-[var(--admin-danger)]">
+        <span id={`${id}-error`} role="alert" className="admin-field-hint ms-1 block text-[var(--admin-danger)]">
           {error}
         </span>
       ) : hint ? (

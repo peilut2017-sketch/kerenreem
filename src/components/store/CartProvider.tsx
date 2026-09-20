@@ -118,6 +118,13 @@ export function CartProvider({
           if (raw != null) previousPrices[item.bookId] = Number(raw);
         }
         const next = await getCartView(items, locale, previousPrices, couponCode);
+        // כמות שהשרת הקטין למלאי הזמין נכתבת חזרה: אחרת התג בכותרת המשיך
+        // לספור את הכמות המבוקשת והבאנר "הכמות הותאמה" נשאר לנצח
+        for (const line of next.cart?.lines ?? []) {
+          if (line.adjusted && line.quantity > 0 && Number(map[line.bookId]) !== line.quantity) {
+            set(line.bookId, String(line.quantity));
+          }
+        }
         if (requestId.current === id) {
           setView(next);
           for (const line of next.cart.lines) {
@@ -178,36 +185,66 @@ export function CartProvider({
     [set, removeItem, sessionKey, locale],
   );
 
-  const value: CartContextValue = {
-    enabled,
-    count,
-    items,
-    view: effectiveView,
-    loading,
-    add,
-    setQuantity,
-    remove: removeItem,
-    clear: () => {
-      for (const item of items) clearEntry(item.bookId);
-      setView(null);
-    },
-    miniCartOpen,
-    openMiniCart: () => {
-      setMiniCartOpen(true);
-      void recordCommerceEvent('cart_viewed', { sessionKey, locale }).catch(() => {});
-    },
-    closeMiniCart: () => setMiniCartOpen(false),
-    sessionKey,
-    couponCode,
-    setCouponCode: (code: string) => {
+  const clear = useCallback(() => {
+    for (const item of items) clearEntry(item.bookId);
+    setView(null);
+  }, [items, clearEntry]);
+  const openMiniCart = useCallback(() => {
+    setMiniCartOpen(true);
+    void recordCommerceEvent('cart_viewed', { sessionKey, locale }).catch(() => {});
+  }, [sessionKey, locale]);
+  const closeMiniCart = useCallback(() => setMiniCartOpen(false), []);
+  const setCouponCode = useCallback(
+    (code: string) => {
       const normalized = code.trim().toUpperCase().slice(0, 40);
       if (normalized) {
         setCouponValue(normalized);
         void recordCommerceEvent('coupon_applied', { sessionKey, locale }).catch(() => {});
       }
     },
-    clearCoupon: clearCouponValue,
-  };
+    [setCouponValue, sessionKey, locale],
+  );
+
+  // ערך ה-context ממואז: אובייקט חדש בכל רינדור (למשל בכל הצגת toast) רינדר
+  // מחדש את כל צרכני useCart() — כותרת, מיני-סל, כפתורי הוספה, סל, קופה
+  const value = useMemo<CartContextValue>(
+    () => ({
+      enabled,
+      count,
+      items,
+      view: effectiveView,
+      loading,
+      add,
+      setQuantity,
+      remove: removeItem,
+      clear,
+      miniCartOpen,
+      openMiniCart,
+      closeMiniCart,
+      sessionKey,
+      couponCode,
+      setCouponCode,
+      clearCoupon: clearCouponValue,
+    }),
+    [
+      enabled,
+      count,
+      items,
+      effectiveView,
+      loading,
+      add,
+      setQuantity,
+      removeItem,
+      clear,
+      miniCartOpen,
+      openMiniCart,
+      closeMiniCart,
+      sessionKey,
+      couponCode,
+      setCouponCode,
+      clearCouponValue,
+    ],
+  );
 
   return (
     <CartContext.Provider value={value}>

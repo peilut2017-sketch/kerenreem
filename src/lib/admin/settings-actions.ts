@@ -26,7 +26,7 @@ export async function saveSettings(
   _prev: SettingsState,
   formData: FormData,
 ): Promise<SettingsState> {
-  const session = await assertRole('manager');
+  const session = await assertScreenPermission('org-settings', 'edit');
   if ('error' in session) return { status: 'error', message: session.error };
 
   const supabase = await createClient();
@@ -43,9 +43,16 @@ export async function saveSettings(
   };
 
   const socialKeys = ['facebook', 'youtube', 'instagram', 'x', 'linkedin', 'whatsapp', 'telegram'];
-  const social_links = Object.fromEntries(
-    socialKeys.map((key) => [key, text(formData, `social_${key}`)]).filter(([, value]) => value),
-  );
+  const socialEntries = socialKeys
+    .map((key) => [key, text(formData, `social_${key}`)] as const)
+    .filter(([, value]) => value);
+  // אותו כלל שנאכף על banners.link_url: הערכים נכנסים ל-href בכותרת
+  // התחתונה ובעמוד יצירת הקשר, ו-javascript: היה עובר עד עכשיו.
+  const badSocial = socialEntries.find(([, value]) => !/^https?:\/\/\S+$/i.test(value));
+  if (badSocial) {
+    return { status: 'error', message: `קישור ${badSocial[0]}: נדרשת כתובת מלאה שמתחילה ב-https://` };
+  }
+  const social_links = Object.fromEntries(socialEntries);
 
   const { error } = await supabase
     .from('site_settings')
@@ -111,7 +118,7 @@ export async function saveSettings(
  * הייתה קוראת אותם כריקים ומוחקת אותם בפועל.
  */
 export async function toggleStoreEnabled(value: boolean): Promise<{ ok: boolean; error?: string }> {
-  const session = await assertRole('manager');
+  const session = await assertScreenPermission('org-settings', 'edit');
   if ('error' in session) return { ok: false, error: session.error };
 
   const supabase = await createClient();
@@ -166,7 +173,7 @@ async function mergeExtra(
  */
 export async function saveBannersEnabled(enabled: boolean): Promise<ActionResult> {
   // [1.7] הורד מ-admin ל-manager — ראו הערה ב-saveSettings למעלה.
-  const session = await assertRole('manager');
+  const session = await assertScreenPermission('org-settings', 'edit');
   if ('error' in session) return session;
 
   const supabase = await createClient();

@@ -1,11 +1,12 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
-/** הסברים קבועים לתגיות מערכת, לספר בלי description_he משלה. */
-const SYSTEM_EXPLANATIONS: Record<string, string> = {
-  new: 'נוסף לקטלוג לאחרונה.',
-  bestseller: 'מהספרים המבוקשים ביותר של המכון.',
+/** מפתחות התרגום של הסברי תגיות המערכת, לספר בלי description_he משלה. */
+const SYSTEM_EXPLANATION_KEYS: Record<string, string> = {
+  new: 'tagNewExplanation',
+  bestseller: 'tagBestsellerExplanation',
 };
 
 /**
@@ -24,7 +25,9 @@ export function SmartTag({
 }) {
   const [open, setOpen] = useState(false);
   const tooltipId = useId();
-  const explanation = description || SYSTEM_EXPLANATIONS[slug];
+  const t = useTranslations('books');
+  const explanationKey = SYSTEM_EXPLANATION_KEYS[slug];
+  const explanation = description || (explanationKey ? t(explanationKey) : undefined);
 
   if (!explanation) {
     return (

@@ -43,10 +43,11 @@ export function FreeShippingBar({ view }: { view: CartViewModel }) {
           ? t('freeShippingAchieved')
           : remaining != null
             ? t('freeShippingProgress', { amount: formatPrice(remaining, locale) })
-            : null}
+            : t('freeShippingIneligible')}
       </p>
       <div
         role="progressbar"
+        aria-label={t('freeShippingProgressLabel')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(progress)}

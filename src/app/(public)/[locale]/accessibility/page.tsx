@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ContentPageView } from '@/components/ContentPageView';
 import { pageAlternates } from '@/lib/seo';
+import { htmlToPlainText } from '@/lib/html-text';
+import { localized } from '@/lib/localized';
+import { getPageBySlug } from '@/lib/data';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -22,8 +25,17 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: 'pages' });
-  return { title: t('accessibility'), alternates: pageAlternates(locale, '/accessibility') };
+  const [t, page] = await Promise.all([
+    getTranslations({ locale, namespace: 'pages' }),
+    getPageBySlug('accessibility'),
+  ]);
+  // תיאור מגוף העמוד (כמו בעמוד הספר) — בלעדיו העמוד ירש את סלוגן האתר
+  const description = page ? htmlToPlainText(localized(page, 'body', locale), 160) : '';
+  return {
+    title: t('accessibility'),
+    description: description || undefined,
+    alternates: pageAlternates(locale, '/accessibility'),
+  };
 }
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {

@@ -92,13 +92,12 @@ export function BannerStrip({
       // (w/max-w) חוזר על מבנה תוכן ה-header (max-w-[82rem]) כדי
       // ששניהם יתיישרו לאותם קצוות.
       onKeyDown={(event) => {
-        if (event.key === 'ArrowRight') {
-          event.preventDefault();
-          go(index + 1);
-        } else if (event.key === 'ArrowLeft') {
-          event.preventDefault();
-          go(index - 1);
-        }
+        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+        // "הבא" לפי כיוון הממשק (ראו HeroCarousel)
+        const rtl = document.documentElement.dir === 'rtl';
+        const forward = rtl ? event.key === 'ArrowLeft' : event.key === 'ArrowRight';
+        event.preventDefault();
+        go(forward ? index + 1 : index - 1);
       }}
       className="group relative isolate mx-auto mt-5 w-[calc(100%-2.5rem)] max-w-[82rem] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-float)] sm:mt-7 sm:w-[calc(100%-4rem)]"
     >
@@ -144,7 +143,7 @@ export function BannerStrip({
                   onClick={() => go(position)}
                   aria-label={t('goToBanner', { position: position + 1, count })}
                   aria-current={position === index ? 'true' : undefined}
-                  className={`h-1.5 rounded-full transition-all duration-500 ease-[var(--ease-spring)] ${
+                  className={`relative h-1.5 rounded-full transition-all duration-500 ease-[var(--ease-spring)] before:absolute before:-inset-2.5 before:content-[''] ${
                     position === index ? 'w-7 bg-gold' : 'w-1.5 bg-white/50 hover:bg-white/80'
                   }`}
                 />

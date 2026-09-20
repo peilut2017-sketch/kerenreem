@@ -9,6 +9,7 @@ import { useCart } from './CartProvider';
 import { FreeShippingBar } from './FreeShippingBar';
 import { QuantityStepper } from './MiniCart';
 import { useLocalList } from '@/lib/client-hooks';
+import { DirArrow } from '@/components/DirArrow';
 
 /**
  * גוף עמוד העגלה (פרק 6.4) — רענון 1.1: שורות ככרטיסים קלים, קופון כבר
@@ -87,7 +88,9 @@ export function CartPageClient() {
               key={line.bookId}
               className="group flex gap-4 rounded-[var(--radius-lg)] border border-rule/70 bg-cream px-4 py-4 shadow-[var(--shadow-soft)] transition-shadow duration-300 hover:shadow-[var(--shadow-float)] sm:px-5"
             >
-              <Link href={`/books/${line.slug}`} className="w-20 shrink-0 self-start">
+              {/* קישור הכריכה משוכפל לקישור הכותרת שלידו — מוסתר מעץ הנגישות,
+                  כדי שקורא מסך לא יכריז "קישור" ריק לכל שורה (כמו ב-MiniCart) */}
+              <Link href={`/books/${line.slug}`} aria-hidden="true" tabIndex={-1} className="w-20 shrink-0 self-start">
                 <BookCover src={line.coverImageUrl} title={line.title} alt="" sizes="80px" />
               </Link>
               <div className="min-w-0 flex-1">
@@ -167,7 +170,7 @@ export function CartPageClient() {
 
         <div className="mt-5 flex items-center justify-between">
           <Link href="/books" className="text-small text-muted hover:text-burgundy">
-            ← {t('continueShopping')}
+            <DirArrow direction="back" /> {t('continueShopping')}
           </Link>
           <button
             type="button"
@@ -286,7 +289,8 @@ function CartCouponField({
 }: {
   appliedCode: string | null;
   freeShipping: boolean;
-  error: { error?: string; minTotal?: number; code: string } | null;
+  error: { error?: string; minTotal?: number;
+  minQuantity?: number; code: string } | null;
   onApply: (code: string) => void;
   onRemove: () => void;
 }) {
@@ -349,9 +353,18 @@ function CartCouponField({
         </form>
       )}
       {error?.error ? (
-        <p role="alert" className="mt-2 text-caption text-burgundy">
-          {error.error === 'min_total' && error.minTotal != null
+        <p
+          role={error.error === 'needs_contact' ? 'status' : 'alert'}
+          className={`mt-2 text-caption ${error.error === 'needs_contact' ? 'text-muted' : 'text-burgundy'}`}
+        >
+          {error.error === 'needs_contact'
+            ? t('couponErrNeedsContact')
+            : error.error === 'min_total' && error.minTotal != null
             ? t('couponErrMinTotal', { amount: formatPrice(error.minTotal, locale) })
+            : error.error === 'min_quantity' && error.minQuantity != null
+              ? t('couponErrMinQuantity', { count: error.minQuantity })
+              : error.error === 'first_order_only'
+                ? t('couponErrFirstOrder')
             : error.error === 'used_up'
               ? t('couponErrUsedUp')
               : error.error === 'not_applicable'

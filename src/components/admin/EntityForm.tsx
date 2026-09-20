@@ -4,12 +4,14 @@ import { useActionState, useEffect, useRef, useState, type ReactNode } from 'rea
 import { useRouter } from 'next/navigation';
 import { saveEntity, type SaveState } from '@/lib/admin/actions';
 import { DeleteButton } from './DeleteButton';
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 import { SubmitButton } from './SubmitButton';
 import { restoreFormValues } from '@/lib/restore-form';
 import { showAdminToast } from '@/lib/admin/toast-bus';
 import { useModalClose } from './modal-close-context';
 import { useUnsavedChangesReporter } from './unsaved-context';
 import { UploadTrackerProvider } from './upload-context';
+import { entityRoute } from '@/lib/admin/schema';
 
 /** מזהה איזה משני כפתורי השמירה הפעיל את השליחה — ראו name="intent" למטה. */
 type Intent = 'save' | 'save-new';
@@ -137,7 +139,7 @@ export function EntityForm({
 
     if (state.intent === 'save-new') {
       if (id) {
-        router.replace(`/admin/${entity}/new`);
+        router.replace(`/admin/${entityRoute(entity)}/new`);
         router.refresh();
       }
       return;
@@ -155,7 +157,7 @@ export function EntityForm({
       return;
     }
 
-    router.replace(`/admin/${entity}`);
+    router.replace(`/admin/${entityRoute(entity)}`);
     router.refresh();
   }, [state, entity, id, router, closeModal, reportUnsaved]);
 
@@ -164,18 +166,18 @@ export function EntityForm({
    * סגירת *הכרטיס הצף* (X, רקע, Escape) מטופלת במעטפת (EntityFormDrawer)
    * דרך UnsavedChangesContext — לדפדפן אין אירוע עבורה.
    */
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  useUnsavedChangesWarning(dirty);
 
-  /** כל קלט בטופס מדליק את הדגל — פעם אחת, לא בכל הקשה. */
-  function markDirty() {
+  /**
+   * כל קלט בטופס מדליק את הדגל — פעם אחת, לא בכל הקשה. שדה autoSave
+   * (ToggleField עם entityKey+id, למשל "מלאי מנוהל" בטופס הספר) כבר
+   * נשמר לבדו ברגע הלחיצה — הוא אינו חלק מ"שמירה" הממתינה לכפתור,
+   * ואין להזהיר על אובדנו ביציאה.
+   */
+  function markDirty(event?: React.SyntheticEvent) {
     if (dirty) return;
+    const target = event?.target as HTMLElement | undefined;
+    if (target?.closest?.('[data-autosave]')) return;
     setDirty(true);
     reportUnsaved?.(true);
   }

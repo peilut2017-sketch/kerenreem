@@ -47,7 +47,8 @@ export function EventJourneyProgress({ stages }: { stages: string[] }) {
     const header = document.querySelector('header');
     const offset = (header?.getBoundingClientRect().height ?? 0) + 16;
     const top = target.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({ top, behavior: 'smooth' });
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top, behavior: reduced ? 'instant' : 'smooth' });
   }, []);
 
   usePublishHeaderContextNav(items, String(active), scrollToStage);

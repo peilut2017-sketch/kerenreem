@@ -13,6 +13,7 @@ import {
 import { formatPrice } from '@/lib/commerce/pricing';
 import type { Order } from '@/lib/supabase/types';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 /**
  * [1.5] בחירה מרובה + פעולות מרוכזות — האפיון כבר הכיר Bulk actions
  * ברשימת הספרים (BooksDataGrid); כאן אותו דפוס לרשימת ההזמנות, כדי
@@ -69,9 +70,7 @@ export function OrdersTable({ orders }: { orders: Order[] }) {
       header: 'תאריך',
       className: 'text-muted',
       render: (order) =>
-        new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Jerusalem' }).format(
-          new Date(order.created_at),
-        ),
+        formatAdminDate(order.created_at, 'dateTime'),
     },
     {
       key: 'total',

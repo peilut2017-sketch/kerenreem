@@ -1,4 +1,5 @@
 import type { ReportFamily, ReportPriority } from './types';
+import type { ScreenKey } from '../screens';
 
 /**
  * [1.5] קטלוג כל 26 הדוחות שהוגדרו — גם אלה שכבר בנויים וגם אלה שעדיין
@@ -13,6 +14,12 @@ export interface ReportDefinition {
   blurb: string;
   priority: ReportPriority;
   href: string | null;
+  /**
+   * מסך יעד עם הרשאה משלו (מלאי, לקוחות, הזמנות, יומן ביקורת, רווחיות,
+   * תנועות מלאי): אינדקס הדוחות מציג אותו ככרטיס כבוי למי שאין לו גישה,
+   * במקום קישור שמוביל ל"אין הרשאה". ריק ⇒ די בהרשאת reports.
+   */
+  screen?: ScreenKey;
 }
 
 export const REPORTS: ReportDefinition[] = [
@@ -32,6 +39,7 @@ export const REPORTS: ReportDefinition[] = [
     blurb: 'הכנסות פחות עלות הספרים, הנחות וזיכויים — רווח גולמי לפי ספר, מחבר, סדרה וקטגוריה.',
     priority: 'important',
     href: '/admin/reports/profitability',
+    screen: 'reports-profitability',
   },
   {
     id: 'coupons',
@@ -58,6 +66,7 @@ export const REPORTS: ReportDefinition[] = [
     blurb: 'מספר הזמנות, סכום, סטטוס, תשלום, אספקה, אמצעי תשלום, אורח/חשבון, טלפוניות/אתר, בוטלו/זוכו.',
     priority: 'important',
     href: '/admin/orders',
+    screen: 'orders',
   },
   {
     id: 'attention',
@@ -100,6 +109,7 @@ export const REPORTS: ReportDefinition[] = [
     blurb: 'מלאי פיזי, שמור וזמין; מלאי נמוך; אזל; ספרים שלא זזים; קצב מכירה וימי מלאי צפויים.',
     priority: 'critical',
     href: '/admin/inventory',
+    screen: 'inventory',
   },
   {
     id: 'inventory_moves',
@@ -108,6 +118,7 @@ export const REPORTS: ReportDefinition[] = [
     blurb: 'Ledger מלא: קליטה, מכירה, ביטול, החזרה, נזק, ספירה ותיקון ידני — מי ביצע ומתי.',
     priority: 'important',
     href: '/admin/reports/inventory-moves',
+    screen: 'reports-inventory-moves',
   },
   {
     id: 'catalog_quality',
@@ -126,6 +137,7 @@ export const REPORTS: ReportDefinition[] = [
     blurb: 'חדשים/חוזרים, הזמנות ללקוח, סכום מצטבר, AOV, זמן בין רכישות, לא פעילים, LTV — בלי PII מיותר.',
     priority: 'later',
     href: '/admin/customers',
+    screen: 'customers',
   },
   {
     id: 'funnel',
@@ -227,6 +239,7 @@ export const REPORTS: ReportDefinition[] = [
     // מומש בפועל (/admin/audit-log, מקושר גם מניווט המערכת) — לא "בקרוב".
     priority: 'important',
     href: '/admin/audit-log',
+    screen: 'audit-log',
   },
   {
     id: 'exceptions',

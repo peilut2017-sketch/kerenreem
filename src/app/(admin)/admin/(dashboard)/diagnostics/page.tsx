@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
 import { createClient, createStaticClient } from '@/lib/supabase/server';
 import { getBooks } from '@/lib/data';
@@ -69,8 +70,16 @@ async function probeBucket(
     : { label: bucket, ok: true, detail: 'העלאה ומחיקה הצליחו' };
 }
 
-export default async function DiagnosticsPage() {
+export default async function DiagnosticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ probe?: string }>;
+}) {
   const session = await requireRole('admin');
+  // בדיקות הכתיבה והאחסון מבצעות כתיבה אמיתית (רשומה זמנית, קובץ זמני,
+  // שורה ביומן הביקורת) — לכן רק לפי דרישה, ולא בכל רענון של עמוד GET
+  const { probe } = await searchParams;
+  const runProbe = probe === '1';
   const supabase = await createClient();
 
   if (!supabase) {
@@ -99,8 +108,9 @@ export default async function DiagnosticsPage() {
   );
 
   /* --- 2. ניסיון כתיבה אמיתי --- */
-  const probeSlug = makeProbeSlug();
   const writeChecks: Check[] = [];
+  if (runProbe) {
+  const probeSlug = makeProbeSlug();
 
   const insert = await supabase
     .from('authors')
@@ -144,6 +154,7 @@ export default async function DiagnosticsPage() {
       ? `${audit.error.code ?? '—'}: ${audit.error.message} — הריצו 02_site_additions.sql`
       : 'הצליח',
   });
+  }
 
   /*
    * --- 2א. מיגרציות אחרונות (19, 20) ---
@@ -319,14 +330,16 @@ export default async function DiagnosticsPage() {
   }
 
   /* --- 4. אחסון קבצים --- */
-  const storage: Check[] = await Promise.all(BUCKETS.map((name) => probeBucket(supabase, name)));
+  const storage: Check[] = runProbe
+    ? await Promise.all(BUCKETS.map((name) => probeBucket(supabase, name)))
+    : [];
 
   const allOk =
     reads.every((c) => c.ok) &&
-    writeChecks.every((c) => c.ok) &&
+    (!runProbe || writeChecks.every((c) => c.ok)) &&
     migrationChecks.every((c) => c.ok) &&
     publicChecks.every((c) => c.ok) &&
-    storage.every((c) => c.ok);
+    (!runProbe || storage.every((c) => c.ok));
 
   return (
     <>
@@ -379,9 +392,24 @@ export default async function DiagnosticsPage() {
         (Ctrl+Shift+R) עוקף מטמון של הדפדפן בלבד ולא של השרת.
       </p>
 
-      <Section title="הרשאת כתיבה — ניסיון אמיתי" checks={writeChecks} />
+      {runProbe ? (
+        <>
+          <Section title="הרשאת כתיבה — ניסיון אמיתי" checks={writeChecks} />
+        </>
+      ) : (
+        <section className="admin-card mt-6 px-5 py-4">
+          <h2 className="text-small font-bold text-ink">הרשאת כתיבה ואחסון — ניסיון אמיתי</h2>
+          <p className="mt-1 text-caption text-muted">
+            הבדיקה מוסיפה ומוחקת רשומת מחבר זמנית, מעלה ומוחקת קובץ בכל bucket ורושמת שורה
+            ביומן הביקורת — לכן היא רצה רק לפי דרישה, לא בכל טעינה של העמוד.
+          </p>
+          <Link href="/admin/diagnostics?probe=1" className="admin-btn admin-btn-quiet mt-3">
+            הרצת בדיקת כתיבה ואחסון
+          </Link>
+        </section>
+      )}
       <Section title="קריאה מהטבלאות" checks={reads} />
-      <Section title="אחסון קבצים" checks={storage} />
+      {runProbe ? <Section title="אחסון קבצים" checks={storage} /> : null}
 
       <section className="mt-10 border-t border-rule pt-6">
         <h2 className="eyebrow mb-3">משמעות קודי השגיאה</h2>

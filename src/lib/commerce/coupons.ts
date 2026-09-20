@@ -4,7 +4,8 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { round2 } from './pricing';
 import { hashContact, legacyHashContact } from './guest-token';
 import { normalizePhone } from './phone';
-import type { ValidatedCart } from './cart';
+import type { ValidatedCartLine } from './cart';
+import { addOrderTag, recordOrderEvent, SYSTEM_ACTOR } from './orders';
 
 /**
  * קופונים (פרק 12 במסמך האב, מודל 3.14): האימות בצד השרת בלבד —
@@ -45,12 +46,19 @@ export type CouponError =
   | 'used_up'
   | 'not_applicable'
   /** [1.1] קופון קיים או חדש אינו מסומן "ניתן לצירוף" (ברירת מחדל: לא) */
-  | 'not_combinable';
+  | 'not_combinable'
+  /** "קנה N יחידות ומעלה" — עם minQuantity, במקום min_total בלי סכום */
+  | 'min_quantity'
+  /** להזמנה ראשונה בלבד (first_order_only) — נבדק רק כשיש פרטי קשר */
+  | 'first_order_only'
+  /** קופון אישי שנבדק בלי פרטי קשר (עגלה) — יאומת בקופה; לא "לא תקין" */
+  | 'needs_contact';
 
 export interface CouponResult {
   ok: boolean;
   error?: CouponError;
   minTotal?: number;
+  minQuantity?: number;
   coupon?: CouponRow;
   /** הנחת סכום על ההזמנה (0 לקופון משלוח חינם) */
   discountAmount: number;
@@ -60,12 +68,23 @@ export interface CouponResult {
 const NO_COUPON: CouponResult = { ok: false, discountAmount: 0, freeShipping: false };
 
 /**
+ * מה שאימות קופון צריך מהסל — תת-קבוצה של ValidatedCart, כדי שגם הזמנה
+ * קיימת (order_items) תיבדק מחדש אחרי עריכת פריטים בלי לבנות ValidatedCart
+ * מלא ממחירים חיים שאינם רלוונטיים להזמנה שכבר נסגרה.
+ */
+export interface CouponCart {
+  subtotal: number;
+  totalQuantity: number;
+  lines: Pick<ValidatedCartLine, 'bookId' | 'onSale' | 'categoryId' | 'lineTotal' | 'removedReason'>[];
+}
+
+/**
  * שורות העגלה שהקופון חל עליהן — מחריג ספרים מוחרגים ומבצעים
  * לא-ניתנים-לשילוב. [1.4] תחולה לפי ספרים ו/או קטגוריות (כמו
  * findBestPromotion): בלי book_ids/category_ids מוגדרים — כל העגלה;
  * עם הגדרה — שורה זכאית אם היא בספרים המפורשים *או* בקטגוריה המפורשת.
  */
-function eligibleAmount(cart: ValidatedCart, coupon: CouponRow): number {
+function eligibleAmount(cart: CouponCart, coupon: CouponRow): number {
   const applies = coupon.applies_to ?? {};
   const hasScope = Boolean(applies.book_ids?.length) || Boolean(applies.category_ids?.length);
   const lines = cart.lines.filter((line) => {
@@ -82,7 +101,7 @@ function eligibleAmount(cart: ValidatedCart, coupon: CouponRow): number {
 
 export async function validateCoupon(
   code: string,
-  cart: ValidatedCart,
+  cart: CouponCart,
   contactPhone?: string | null,
   contactEmail?: string | null,
 ): Promise<CouponResult> {
@@ -124,36 +143,61 @@ export async function validateCoupon(
     }
   }
 
-  if (coupon.min_total != null && cart.subtotal < coupon.min_total) {
-    return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total };
+  // "להזמנה ראשונה בלבד" — היה מוגדר במסד ובטופס אך מעולם לא נאכף.
+  // נבדק רק כשיש פרטי קשר (בקופה); בעגלה, בלי קשר, ההודעה מגיעה בקופה.
+  if (coupon.first_order_only && (contactPhone || contactEmail)) {
+    let priorOrders = service
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .not('state', 'in', '("cancelled","draft")');
+    const identities: string[] = [];
+    if (contactPhone) identities.push(`contact_phone.eq.${normalizePhone(contactPhone)}`);
+    if (contactEmail) identities.push(`contact_email.eq.${contactEmail.trim().toLowerCase()}`);
+    priorOrders = priorOrders.or(identities.join(','));
+    const { count: prior } = await priorOrders;
+    if ((prior ?? 0) > 0) return { ...NO_COUPON, error: 'first_order_only' };
   }
-  // [1.3] "קנה X יחידות ומעלה"
-  if (coupon.min_quantity != null && cart.totalQuantity < coupon.min_quantity) {
-    return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total ?? undefined };
-  }
-  // [1.3] קופון אישי — מזוהה מול טלפון/מייל ההזמנה; בלי פרטי קשר (עגלה)
-  // או בלי התאמה — נדחה בהודעה גנרית (לא מדליפים למי הקופון שייך)
+
+  // [1.3] קופון אישי — מזוהה מול טלפון/מייל ההזמנה; בלי התאמה — נדחה
+  // בהודעה גנרית (לא מדליפים למי הקופון שייך). בלי פרטי קשר בכלל (עגלה
+  // של אורח) אין מה להשוות: needs_contact — "יאומת בקופה", לא "לא תקין".
   if (coupon.restricted_contact) {
+    if (!contactPhone && !contactEmail) return { ...NO_COUPON, error: 'needs_contact' };
     const target = String(coupon.restricted_contact).trim().toLowerCase();
     const phoneMatch = contactPhone ? normalizePhone(contactPhone) === normalizePhone(target) : false;
     const emailMatch = contactEmail ? contactEmail.trim().toLowerCase() === target : false;
     if (!phoneMatch && !emailMatch) return { ...NO_COUPON, error: 'invalid' };
   }
 
-  const typedCoupon = coupon as CouponRow;
-  if (typedCoupon.kind === 'free_shipping') {
-    return { ok: true, coupon: typedCoupon, discountAmount: 0, freeShipping: true };
+  return couponDiscountFor(coupon as CouponRow, cart);
+}
+
+/**
+ * חלק ההיקף והסכום של האימות — בלי מגבלות שימוש, תוקף וזהות. משמש גם
+ * לחישוב מחדש של הנחת קופון על הזמנה קיימת אחרי עריכת פריטים
+ * (recomputeOrderTotals בניהול): שם המימוש כבר נרשם, והשאלה היחידה היא
+ * כמה הקופון שווה מול הפריטים *הנוכחיים*.
+ */
+export function couponDiscountFor(coupon: CouponRow, cart: CouponCart): CouponResult {
+  if (coupon.min_total != null && cart.subtotal < coupon.min_total) {
+    return { ...NO_COUPON, error: 'min_total', minTotal: coupon.min_total };
+  }
+  // [1.3] "קנה X יחידות ומעלה" — שגיאה משלה: קודם דווח כ-min_total בלי
+  // סכום, והלקוח קיבל "קוד לא תקין" במקום "נדרשים לפחות N פריטים"
+  if (coupon.min_quantity != null && cart.totalQuantity < coupon.min_quantity) {
+    return { ...NO_COUPON, error: 'min_quantity', minQuantity: coupon.min_quantity };
+  }
+  if (coupon.kind === 'free_shipping') {
+    return { ok: true, coupon, discountAmount: 0, freeShipping: true };
   }
 
-  const base = eligibleAmount(cart, typedCoupon);
+  const base = eligibleAmount(cart, coupon);
   if (base <= 0) return { ...NO_COUPON, error: 'not_applicable' };
 
   const discount =
-    typedCoupon.kind === 'percent'
-      ? round2((base * typedCoupon.value) / 100)
-      : Math.min(round2(typedCoupon.value), base);
+    coupon.kind === 'percent' ? round2((base * coupon.value) / 100) : Math.min(round2(coupon.value), base);
 
-  return { ok: true, coupon: typedCoupon, discountAmount: discount, freeShipping: false };
+  return { ok: true, coupon, discountAmount: discount, freeShipping: false };
 }
 
 /**
@@ -179,7 +223,17 @@ export async function recordRedemption(
     contact_hash: hashContact(input.contactPhone),
     amount_discounted: input.amountDiscounted,
   });
-  if (error && error.code !== '23505' && error.code !== '23514') {
+  if (error?.code === '23514') {
+    // הקופון גלש על תקרתו במירוץ: ההזמנה כבר נוצרה *עם* ההנחה אבל בלי
+    // שורת מימוש — הנחה שאינה מגובה. אירוע ותג כדי שהכספים יראו זאת.
+    await recordOrderEvent(service, input.orderId, 'coupon_cap_exceeded', SYSTEM_ACTOR, {
+      coupon_id: input.couponId,
+      amount_discounted: input.amountDiscounted,
+    });
+    await addOrderTag(service, { id: input.orderId }, 'coupon-cap-exceeded');
+    return;
+  }
+  if (error && error.code !== '23505') {
     console.error('[commerce:coupons] redemption', error.message);
   }
 }

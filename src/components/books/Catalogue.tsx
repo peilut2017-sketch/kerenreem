@@ -348,6 +348,8 @@ export function Catalogue({
         onChange={changeFilters}
       />
 
+      {/* h2 סמוי: כותרות הכרטיסים הן h3, ובלי רמה 2 ביניהן ל-h1 קורא מסך שומע קפיצה */}
+      <h2 className="sr-only">{t('resultsHeading')}</h2>
       {shown.length > 0 ? (
         view === 'list' ? (
           <ul className="space-y-4">
@@ -573,6 +575,7 @@ function ActiveFilterChips({
           <button
             type="button"
             onClick={chip.onRemove}
+            aria-label={t('filterRemove', { label: chip.label })}
             className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border border-burgundy/25 bg-burgundy/[0.06] px-3 py-1.5 text-caption text-burgundy transition-colors hover:bg-burgundy/15"
           >
             {chip.label}

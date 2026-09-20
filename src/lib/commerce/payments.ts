@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { getStoreSettings } from './settings';
 import { createPaymentForm, isMorningConfigured } from './morning';
 import { recordOrderEvent, SYSTEM_ACTOR, type Actor } from './orders';
+import { localizedSiteUrl } from './site-url';
 
 /**
  * התחלת תשלום (תרשים 7): רשומת payment → דף תשלום במורנינג → הפניה.
@@ -18,7 +19,7 @@ export interface StartPaymentResult {
   ok: boolean;
   paymentUrl?: string;
   payment?: Payment;
-  error?: 'not_configured' | 'morning_error' | 'db_error' | 'order_not_payable';
+  error?: 'not_configured' | 'morning_error' | 'db_error' | 'order_not_payable' | 'out_of_stock';
   errorDetail?: string;
 }
 
@@ -39,6 +40,20 @@ export async function startPayment(
   if (order.payment_state !== 'pending' && order.payment_state !== 'failed') {
     return { ok: false, error: 'order_not_payable' };
   }
+  // גם ציר ההזמנה נבדק, לא רק ציר התשלום: הזמנה שבוטלה נשארה עם
+  // payment_state=pending, קישור התשלום מהמייל פתח דף חדש, הלקוח שילם —
+  // והמעבר cancelled→confirmed נכשל בשקט. כסף נגבה, ההזמנה נשארה מבוטלת.
+  if ((['cancelled', 'closed', 'cancel_pending_refund'] as string[]).includes(order.state)) {
+    return { ok: false, error: 'order_not_payable' };
+  }
+
+  // שריון שפקע: חצי שעה אחרי פתיחת דף התשלום השריון משתחרר
+  // (releaseExpiredReservations), אבל ההזמנה נשארת ניתנת לתשלום עד הביטול
+  // האוטומטי. בלי הבדיקה כאן הלקוח היה משלם על ספר שאולי כבר נמכר לאחר —
+  // וה-commit נכשל *אחרי* שהכסף נגבה. אין דרך לשריין מחדש (ה-RPC חד-פעמי
+  // להזמנה), ולכן לפחות מוודאים שהכמות עדיין זמינה לפני שגובים.
+  const stockGate = await assertReleasedItemsAvailable(service, order.id);
+  if (!stockGate.ok) return { ok: false, error: 'out_of_stock', errorDetail: stockGate.detail };
 
   // ניסיון פתוח בתוקף — ממוחזר (רענון/לחיצה כפולה אינם פותחים דף שני)
   const { data: open } = await service
@@ -113,6 +128,13 @@ export async function startPayment(
   if (order.donation_amount > 0) {
     lines.push({ description: 'תרומה', quantity: 1, price: order.donation_amount });
   }
+  // ההנחה כשורה שלילית: amount הוא הסכום *אחרי* הנחה, אבל השורות נבנות
+  // ממחירי היחידה המלאים — בלעדיה סכום השורות במסמך החשבונאי גדול מהסכום
+  // שחויב בפועל (מסמך פגום), ואם מורנינג מתמחרת לפי השורות, הלקוח מחויב
+  // ביתר. עם השורה: sum(lines) === amount תמיד.
+  if (order.discount_total > 0) {
+    lines.push({ description: 'הנחה', quantity: 1, price: -order.discount_total });
+  }
 
   const installmentsAllowed =
     !options.wallet && order.total >= settings.installments_min_total
@@ -133,8 +155,10 @@ export async function startPayment(
     vatIncluded: settings.vat_mode === 'included',
     maxInstallments: installmentsAllowed,
     preferredMethod: options.wallet ?? null,
-    successUrl: options.successUrl ?? `${options.siteUrl}/checkout/result?order=${order.id}&outcome=success`,
-    failureUrl: options.failureUrl ?? `${options.siteUrl}/checkout/result?order=${order.id}&outcome=failure`,
+    // בלי ?order=<uuid>: getResultState פותר את ההזמנה מעוגיית kr-checkout
+    // בלבד, והמזהה רק נחת בהיסטוריית הדפדפן וב-Referer למורנינג לחינם.
+    successUrl: options.successUrl ?? localizedSiteUrl(order.locale, '/checkout/result?outcome=success'),
+    failureUrl: options.failureUrl ?? localizedSiteUrl(order.locale, '/checkout/result?outcome=failure'),
     notifyUrl: `${options.siteUrl}/api/webhooks/morning`,
     externalReference: order.id,
     lang: order.locale === 'en' ? 'en' : 'he',
@@ -174,6 +198,49 @@ export async function startPayment(
 }
 
 /** האם עסקה של מורנינג כבר שויכה — עוגן ההתאמה הכספית. */
+/**
+ * פריטים שהשריון שלהם שוחרר (תנועת release בלי sale אחריה) — האם עדיין
+ * זמינים בכמות שבהזמנה? books.stock_quantity הוא הזמין הנגזר
+ * (on_hand − reserved), ואחרי השחרור הוא כבר אינו כולל את ההזמנה הזו.
+ */
+async function assertReleasedItemsAvailable(
+  service: SupabaseClient,
+  orderId: string,
+): Promise<{ ok: boolean; detail?: string }> {
+  const { data: moves } = await service
+    .from('inventory_moves')
+    .select('book_id, move_type')
+    .eq('order_id', orderId)
+    .in('move_type', ['release', 'sale']);
+  if (!moves?.length) return { ok: true };
+  const sold = new Set(moves.filter((move) => move.move_type === 'sale').map((move) => String(move.book_id)));
+  const released = [
+    ...new Set(
+      moves
+        .filter((move) => move.move_type === 'release' && !sold.has(String(move.book_id)))
+        .map((move) => String(move.book_id)),
+    ),
+  ];
+  if (released.length === 0) return { ok: true };
+
+  const [{ data: items }, { data: books }] = await Promise.all([
+    service.from('order_items').select('book_id, quantity').eq('order_id', orderId).in('book_id', released),
+    service
+      .from('books')
+      .select('id, title_he, stock_quantity, is_stock_managed, preorder_enabled')
+      .in('id', released),
+  ]);
+  const bookById = new Map((books ?? []).map((book) => [String(book.id), book]));
+  for (const item of items ?? []) {
+    const book = item.book_id ? bookById.get(String(item.book_id)) : null;
+    if (!book || !book.is_stock_managed || book.preorder_enabled) continue;
+    if ((Number(book.stock_quantity) || 0) < Number(item.quantity)) {
+      return { ok: false, detail: String(book.title_he ?? item.book_id) };
+    }
+  }
+  return { ok: true };
+}
+
 export async function findPaymentByTransaction(
   service: SupabaseClient,
   transactionId: string,
@@ -186,15 +253,30 @@ export async function findPaymentByTransaction(
   return (data as Payment | null) ?? null;
 }
 
+/**
+ * מחזירה duplicate=true כשכבר קיים חיוב מוצלח אחר על אותה הזמנה
+ * (uq_payments_one_success_per_order, ‎54_commerce_concurrency.sql‎) — כלומר
+ * שני דפי תשלום ששניהם שולמו: חיוב כפול אמיתי. קודם השגיאה נבלעה ב-log
+ * והמערכת המשיכה כאילו זה אירוע כפול רגיל; הקורא חייב לתייג את ההזמנה
+ * כדי שהכסף העודף יוחזר.
+ */
 export async function markPaymentSucceeded(
   service: SupabaseClient,
   paymentId: string,
   method: PaymentMethod | null,
-): Promise<void> {
+): Promise<{ duplicate: boolean }> {
   const patch: Record<string, unknown> = { status: 'succeeded' };
   if (method) patch.method = method;
   const { error } = await service.from('payments').update(patch).eq('id', paymentId);
+  if (error?.code === '23505') {
+    await service
+      .from('payments')
+      .update({ error: { duplicate_success: true, method } })
+      .eq('id', paymentId);
+    return { duplicate: true };
+  }
   if (error) console.error('[commerce:payments] mark succeeded', error.message);
+  return { duplicate: false };
 }
 
 export async function markPaymentFailed(

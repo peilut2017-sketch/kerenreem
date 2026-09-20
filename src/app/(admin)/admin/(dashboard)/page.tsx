@@ -17,6 +17,7 @@ import { AdminIcon, type AdminIconName } from '@/components/admin/AdminIcons';
 import { DailyTrendChart } from '@/components/admin/analytics/DailyTrendChart';
 import { formatDate, parseDateOnly } from '@/lib/hebrew-date';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 /** [1.4] תחילת "היום" בזמן ישראל (כולל שעון קיץ), כ-ISO ב-UTC. */
@@ -380,9 +381,7 @@ export default async function AdminDashboard({
                   >
                     {book.title_he}
                     <span className="shrink-0 text-caption text-muted">
-                      {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(
-                        new Date(book.updated_at),
-                      )}
+                      {formatAdminDate(book.updated_at, 'date')}
                     </span>
                   </Link>
                 </li>

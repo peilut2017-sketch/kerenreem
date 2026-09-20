@@ -3,6 +3,7 @@ import { getPickupQueue } from '@/lib/admin/print/print-data';
 import { PrintSheet } from '@/components/admin/print/PrintSheet';
 import { PrintToolbar } from '@/components/admin/print/PrintToolbar';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 const STALE_DAYS = 3;
@@ -15,7 +16,7 @@ export default async function PickupReportPrintPage() {
   await requireScreenPermission('orders', 'view');
   const orders = await getPickupQueue();
   const now = new Date().getTime();
-  const dateFmt = new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' });
+  const dateFmt = (value: string | number | Date) => formatAdminDate(value, 'date');
 
   return (
     <>
@@ -24,7 +25,7 @@ export default async function PickupReportPrintPage() {
         <header className="mb-6 border-b-2 border-black pb-3">
           <h1 className="text-2xl font-bold">הזמנות ממתינות לאיסוף</h1>
           <p className="mt-1 text-sm text-gray-600">
-            {dateFmt.format(new Date())} · {orders.length} הזמנות
+            {dateFmt(new Date())} · {orders.length} הזמנות
           </p>
         </header>
 
@@ -50,7 +51,7 @@ export default async function PickupReportPrintPage() {
                     <td className="py-2 pe-2 font-semibold">#{order.order_number}</td>
                     <td className="py-2 pe-2">{order.contact_name}</td>
                     <td className="py-2 pe-2" dir="ltr">{order.contact_phone}</td>
-                    <td className="py-2 pe-2">{dateFmt.format(new Date(order.updated_at))}</td>
+                    <td className="py-2 pe-2">{dateFmt(new Date(order.updated_at))}</td>
                     <td className="py-2 text-center">{stale ? '⚠ לא נאסף' : 'מוכן'}</td>
                   </tr>
                 );

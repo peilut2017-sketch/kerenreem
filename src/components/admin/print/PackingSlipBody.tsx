@@ -1,5 +1,6 @@
 import type { Order } from '@/lib/supabase/types';
 import type { PrintItem } from '@/lib/admin/print/print-data';
+import { formatPrice } from '@/lib/commerce/pricing';
 
 const ORG_NAME = 'מכון קרן רא״ם';
 
@@ -61,9 +62,7 @@ export function PackingSlipBody({
               <td className="py-1.5 pe-2 text-center">{item.quantity}</td>
               {showPrices ? (
                 <td className="py-1.5 ps-2 text-left">
-                  {new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(
-                    Number(item.line_total ?? 0),
-                  )}
+                  {formatPrice(Number(item.line_total ?? 0), 'he', { alwaysAgorot: true })}
                 </td>
               ) : null}
             </tr>

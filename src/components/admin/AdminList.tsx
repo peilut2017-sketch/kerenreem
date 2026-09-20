@@ -66,7 +66,7 @@ export function AdminTable({
   empty?: string;
 }) {
   return (
-    <div className="admin-table-wrap overflow-x-auto">
+    <div className="admin-table-wrap">
       <table className="admin-table min-w-[36rem]">
         <thead>
           <tr>

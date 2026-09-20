@@ -55,7 +55,7 @@ export default async function AccountOrdersPage({ params }: { params: Promise<{ 
               return (
                 <li key={order.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
                   <span className="flex items-center gap-3">
-                    <span className="w-10 shrink-0">
+                    <span className="w-10 shrink-0" aria-hidden="true">
                       <BookCover src={cover?.coverImageUrl ?? null} title="" alt="" sizes="40px" />
                     </span>
                     <span>

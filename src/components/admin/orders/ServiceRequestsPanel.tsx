@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { closeServiceRequest, openReturnRequest } from '@/lib/admin/orders-actions';
 import type { ServiceRequestRow } from '@/lib/commerce/service-requests';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 /**
  * [1.5] בקשות שירות (ביטול/החזרה) על ההזמנה — ישות אמיתית (migration 40)
  * במקום תג cancel-requested שאף פעם לא התנקה. גם פותחת בקשת החזרה ידנית
@@ -53,7 +54,7 @@ export function ServiceRequestsPanel({
 
   const open = requests.filter((r) => r.status === 'open' || r.status === 'in_progress');
   const closed = requests.filter((r) => r.status === 'resolved' || r.status === 'declined');
-  const dateFmt = new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' });
+  const dateFmt = (value: string | number | Date) => formatAdminDate(value, 'dateTime');
 
   return (
     <section className="admin-card px-5 py-4">
@@ -87,7 +88,7 @@ export function ServiceRequestsPanel({
                   {KIND_LABELS[req.kind] ?? req.kind}
                   <span className="ms-1.5 text-caption font-normal text-muted">
                     · {req.requested_by === 'customer' ? 'ע״י הלקוח' : 'ע״י הצוות'} ·{' '}
-                    {dateFmt.format(new Date(req.created_at))}
+                    {dateFmt(new Date(req.created_at))}
                   </span>
                 </span>
                 <span className={`admin-badge ${STATUS_CLASS[req.status] ?? ''}`}>

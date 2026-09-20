@@ -6,14 +6,11 @@ import { isMorningConfigured } from '@/lib/commerce/morning';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { RunReconciliationButton } from '@/components/admin/reporting/RunReconciliationButton';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 /**

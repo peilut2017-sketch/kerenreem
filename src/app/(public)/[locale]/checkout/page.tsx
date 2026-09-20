@@ -30,7 +30,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
   if (!flags.checkoutEnabled) {
     return (
       <Container className="py-20 text-center">
-        <p className="text-lead text-muted">{t('disabled')}</p>
+        <h1 className="font-serif text-[clamp(1.6rem,3.4vw,2.2rem)] text-ink">{t('checkoutTitle')}</h1>
+        <p className="mt-4 text-lead text-muted">{t('disabled')}</p>
       </Container>
     );
   }

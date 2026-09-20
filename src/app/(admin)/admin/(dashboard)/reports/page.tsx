@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
+import type { ScreenKey } from '@/lib/admin/screens';
 import { createClient } from '@/lib/supabase/server';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { AdminIcon } from '@/components/admin/AdminIcons';
@@ -11,7 +12,7 @@ import { formatDeltaHint } from '@/lib/admin/reporting/format';
 import { formatPrice } from '@/lib/commerce/pricing';
 import { getStoreSettings } from '@/lib/commerce/settings';
 import { FAMILY_ORDER, FAMILY_LABELS, FAMILY_ICONS } from '@/lib/admin/reporting/types';
-import { reportsByFamily } from '@/lib/admin/reporting/registry';
+import { REPORTS, reportsByFamily } from '@/lib/admin/reporting/registry';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,8 +25,16 @@ const DASHBOARD_DAYS = 30;
  * גלוי מהיום הראשון גם לפני שכל דוח נבנה (registry.ts).
  */
 export default async function ReportsIndexPage() {
-  await requireScreenPermission('reports', 'view');
+  const session = await requireScreenPermission('reports', 'view');
   const range = rangeFromDays(DASHBOARD_DAYS);
+  // דוחות שיש להם מסך משלהם נבדקים מול הרשאת המסך היעד: מי שאין לו
+  // גישה רואה כרטיס כבוי עם הסבר, לא קישור שמוביל ל-/admin?denied=1.
+  const gatedScreens = [...new Set(REPORTS.map((report) => report.screen).filter((s): s is ScreenKey => Boolean(s)))];
+  const canOpen = new Map(
+    await Promise.all(
+      gatedScreens.map(async (screen) => [screen, (await screenAccess(session, screen)).view] as const),
+    ),
+  );
   const compareRange = previousPeriod(range);
   const supabase = await createClient();
 
@@ -102,7 +111,7 @@ export default async function ReportsIndexPage() {
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {reportsByFamily(family).map((report) =>
-                report.href ? (
+                report.href && (!report.screen || canOpen.get(report.screen)) ? (
                   <Link
                     key={report.id}
                     href={report.href}
@@ -120,7 +129,7 @@ export default async function ReportsIndexPage() {
                   <div key={report.id} className="admin-card px-4 py-3.5 opacity-70">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold text-ink">{report.title}</span>
-                      <span className="admin-badge admin-badge-neutral">בקרוב</span>
+                      <span className="admin-badge admin-badge-neutral">{report.href ? 'אין הרשאה' : 'בקרוב'}</span>
                     </div>
                     <p className="mt-1 text-caption text-muted">{report.blurb}</p>
                   </div>

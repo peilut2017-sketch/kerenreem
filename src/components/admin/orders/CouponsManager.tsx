@@ -6,6 +6,7 @@ import { deleteCoupon, saveCoupon, setCouponActive } from '@/lib/admin/coupons-a
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import type { PromotionOption } from './PromotionsManager';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export interface AdminCoupon {
   id: string;
   code: string;
@@ -32,7 +33,7 @@ const KIND_LABELS: Record<AdminCoupon['kind'], string> = {
   free_shipping: 'משלוח חינם',
 };
 
-const dateFmt = new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' });
+const dateFmt = (value: string | number | Date) => formatAdminDate(value, 'date');
 
 type Step = 'details' | 'scope' | 'limits' | 'preview';
 const STEPS: Step[] = ['details', 'scope', 'limits', 'preview'];
@@ -175,7 +176,7 @@ export function CouponsManager({
           .join(' + ');
   const preview =
     form.code.trim() && (form.kind === 'free_shipping' || Number(form.value) > 0)
-      ? `${form.code.trim().toUpperCase()} · ${form.kind === 'free_shipping' ? 'משלוח חינם' : `${valueLabel} הנחה`} · ${scopeLabel}${form.endsAt ? ` · עד ${dateFmt.format(new Date(form.endsAt))}` : ''}`
+      ? `${form.code.trim().toUpperCase()} · ${form.kind === 'free_shipping' ? 'משלוח חינם' : `${valueLabel} הנחה`} · ${scopeLabel}${form.endsAt ? ` · עד ${dateFmt(new Date(form.endsAt))}` : ''}`
       : null;
 
   const detailsValid = Boolean(form.code.trim()) && (form.kind === 'free_shipping' || Number(form.value) > 0);
@@ -512,7 +513,7 @@ export function CouponsManager({
                           .join(' + ')}
                   </td>
                   <td dir="ltr" className="px-4 py-2.5 text-muted">
-                    {coupon.endsAt ? dateFmt.format(new Date(coupon.endsAt)) : '—'}
+                    {coupon.endsAt ? dateFmt(new Date(coupon.endsAt)) : '—'}
                   </td>
                   <td className="px-4 py-2.5 tabular-nums">
                     {coupon.uses}

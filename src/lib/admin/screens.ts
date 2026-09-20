@@ -133,7 +133,11 @@ export function defaultScreenAccess(role: UserRole, screen: ScreenKey): ScreenAc
   }
 
   if (role === 'store_manager') {
-    const inFamily = STORE_SCREENS.includes(screen);
+    // רווחיות (ועלויות) נשארות admin+manager כברירת מחדל — כפי שההערה למעלה
+    // ו-permissions.ts (costs) כבר קובעים; קודם ה-family כלל אותן בטעות,
+    // ומנהל חנות ראה עלות מכר ומרווח בלי יכולת לערוך אף עלות.
+    const managerOnly: readonly ScreenKey[] = ['reports-profitability'];
+    const inFamily = STORE_SCREENS.includes(screen) && !managerOnly.includes(screen);
     return { view: inFamily, edit: inFamily };
   }
 

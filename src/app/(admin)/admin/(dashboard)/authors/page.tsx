@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { listAuthorsAdmin } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -7,14 +7,17 @@ import { RowActions } from '@/components/admin/RowActions';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminAuthorsPage() {
-  await requireScreenPermission('authors', 'view');
+  const session = await requireScreenPermission('authors', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'authors');
   const authors = await listAuthorsAdmin();
 
   return (
     <>
       <AdminHeader
         title="מחברים ודמויות"
-        action={{ href: '/admin/authors/new', label: 'מחבר חדש' }}
+        action={canEdit ? { href: '/admin/authors/new', label: 'מחבר חדש' } : undefined}
       />
       <AdminTable
         columns={['#', 'שם', 'שנים', 'מצב ופעולות']}
@@ -32,12 +35,12 @@ export default async function AdminAuthorsPage() {
               {[author.birth_year, author.death_year].filter(Boolean).join('–') || '—'}
             </AdminCell>
             <AdminCell>
-              <RowActions
+              {canEdit ? <RowActions
                 entity="authors"
                 id={author.id}
                 label={author.name_he}
                 published={author.is_published}
-              />
+              /> : null}
             </AdminCell>
           </AdminRow>
         ))}

@@ -64,8 +64,8 @@ export function GalleryField({
 
   return (
     <div>
-      <span className="field-label">{label}</span>
-      {hint ? <span className="field-hint mb-2 block">{hint}</span> : null}
+      <span className="admin-field-label">{label}</span>
+      {hint ? <span className="admin-field-hint mb-2 block">{hint}</span> : null}
 
       <input
         id={`${id}-files`}
@@ -83,7 +83,7 @@ export function GalleryField({
         </span>
       ) : null}
       {error ? (
-        <span role="alert" className="field-error">
+        <span role="alert" className="admin-field-error">
           {error}
         </span>
       ) : null}
@@ -96,7 +96,7 @@ export function GalleryField({
               <img src={toCdnUrl(image.url)} alt="" className="h-20 w-20 border border-rule object-cover" />
 
               <div className="min-w-56 flex-1">
-                <label htmlFor={`${id}-caption-${index}`} className="field-label">
+                <label htmlFor={`${id}-caption-${index}`} className="admin-field-label">
                   כיתוב (משמש גם כטקסט חלופי)
                 </label>
                 <input
@@ -104,7 +104,7 @@ export function GalleryField({
                   type="text"
                   value={image.caption_he ?? ''}
                   onChange={(event) => update(index, { caption_he: event.target.value })}
-                  className="field-input"
+                  className="admin-field-input"
                 />
               </div>
 

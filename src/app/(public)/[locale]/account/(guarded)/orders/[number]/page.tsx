@@ -9,6 +9,7 @@ import { formatPrice } from '@/lib/commerce/pricing';
 import { formatPromisedDate } from '@/lib/commerce/delivery-date';
 import { BookCover } from '@/components/BookCover';
 import type { CommerceDocument, OrderItem } from '@/lib/supabase/types';
+import { DirArrow } from '@/components/DirArrow';
 
 /**
  * עמוד הזמנה באזור האישי (פרק 4.7) — היעד של הקישור שנשלח במיילים
@@ -179,7 +180,7 @@ export default async function AccountOrderPage({
 
       <p className="mt-8 text-center">
         <Link href="/account" className="text-small text-muted underline-offset-2 hover:text-burgundy hover:underline">
-          ← {t('accountBackToAccount')}
+          <DirArrow direction="back" /> {t('accountBackToAccount')}
         </Link>
       </p>
     </>

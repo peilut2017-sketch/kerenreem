@@ -47,7 +47,7 @@ export function RoleSelect({
             }
           });
         }}
-        className="field-input max-w-36 py-1.5"
+        className="admin-field-input max-w-36 py-1.5"
       >
         {OPTIONS.map((value) => (
           <option key={value} value={value}>

@@ -21,6 +21,7 @@ import type {
 } from '@/lib/admin/queries';
 import type { ContactField } from '@/lib/supabase/types';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 /**
  * [1.11] מערכת הפניות המחודשת בדשבורד: רשימה מודרנית עם חלוקה לסוגי
  * פנייה, חמישה סטטוסי טיפול, כניסה לפנייה בלחיצה, מענה בדואר עם עורך
@@ -43,11 +44,7 @@ const STATUS_META: Record<InquiryStatus, { label: string; badge: string; dot: st
 const STATUS_ORDER: InquiryStatus[] = ['new', 'read', 'in_progress', 'todo', 'resolved'];
 
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 export function InquiriesInbox({
@@ -314,11 +311,17 @@ function InquiryDetail({
   const customEntries = Object.entries(message.custom_field_values ?? {});
 
   function changeStatus(next: InquiryStatus) {
+    const previous = status;
     onStatusChange(next);
     startTransition(async () => {
       setError(null);
       const result = await setInquiryStatus(message.id, next);
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        // העדכון האופטימי מוחזר: בלי זה הרשימה הציגה "טופלה" בזמן שהמסד
+        // עדיין אומר "חדשה", עד רענון קשיח
+        onStatusChange(previous);
+      }
       router.refresh();
     });
   }

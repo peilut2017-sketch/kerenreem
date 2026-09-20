@@ -22,6 +22,7 @@ import { ContactBlock, type ContactValues } from './ContactBlock';
 import { FulfillmentBlock, type FulfillmentValues } from './FulfillmentBlock';
 import { ReviewBlock, type ExtrasValues } from './ReviewBlock';
 import { ExpressStrip } from './ExpressStrip';
+import { DirArrow } from '@/components/DirArrow';
 
 /**
  * גוף ה-Checkout (תרשים 4): שלושה בלוקים בעמוד אחד — זיהוי → אספקה →
@@ -73,6 +74,12 @@ export function CheckoutClient() {
     setBootstrapError(false);
     try {
       const result = await startCheckout(items, locale);
+      if (result.alreadyPaid) {
+        // ההזמנה של הסל הזה כבר שולמה (חזרה אחורה מדף הסליקה) — עמוד
+        // התוצאה מציג את האישור ומרוקן את הסל; לא פותחים קופה חדשה.
+        router.replace('/checkout/result');
+        return;
+      }
       setBootstrap(result);
       if (result.session) {
         const hasContact = Boolean(result.session.contact_phone && result.session.contact_email);
@@ -192,7 +199,9 @@ export function CheckoutClient() {
     await removeCoupon();
     setCoupon(null);
     setServerTotal(null);
-  }, []);
+    // גם kr:coupon המקומי — אחרת runBootstrap מחיל אותו מחדש ברענון/חזרה
+    cart?.clearCoupon();
+  }, [cart]);
 
   const submitOrder = useCallback(
     async (extras: ExtrasValues) => {
@@ -222,6 +231,12 @@ export function CheckoutClient() {
             setPlaceError(t('errRateLimited'));
           } else if (result.error === 'terms') {
             setPlaceError(t('errTerms'));
+          } else if (result.error === 'fulfillment') {
+            setPlaceError(t('errFulfillment'));
+          } else if (result.error === 'contact') {
+            setPlaceError(t('errContact'));
+          } else if (result.error === 'session') {
+            setPlaceError(t('errSession'));
           } else {
             setPlaceError(t('errServer'));
           }
@@ -314,7 +329,7 @@ export function CheckoutClient() {
       <div className="space-y-4">
         <p className="text-small text-muted">
           <Link href="/cart" className="hover:text-burgundy">
-            ← {t('backToCart')}
+            <DirArrow direction="back" /> {t('backToCart')}
           </Link>
         </p>
 

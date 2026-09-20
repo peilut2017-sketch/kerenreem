@@ -189,7 +189,7 @@ export function BookSampleViewer({
           <motion.img
             key={pageIndex}
             src={pages[pageIndex].dataUrl}
-            alt=""
+            alt={t('pdfPage', { current: pageIndex + 1, total: displayTotal })}
             className="max-h-72 w-auto object-contain shadow-[var(--shadow-soft)]"
             initial={reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}

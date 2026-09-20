@@ -11,7 +11,7 @@ import { FloatingActions } from '@/components/book-page/FloatingActions';
 import { ReportBookButton } from '@/components/book-page/ReportBookButton';
 import { Gallery } from '@/components/book-page/Gallery';
 import { BookFlipViewer } from '@/components/book-page/BookFlipViewer';
-import { BookSampleViewer } from '@/components/book-page/BookSampleViewer';
+import dynamic from 'next/dynamic';
 import { KnowledgeSpace } from '@/components/book-page/KnowledgeSpace';
 import { QuoteCards } from '@/components/book-page/QuoteCards';
 import { SeriesShelf } from '@/components/book-page/SeriesShelf';
@@ -43,6 +43,13 @@ import { routing } from '@/i18n/routing';
  * שומר על מרבית התועלת של מטמון קצה עבור תעבורה אמיתית.
  */
 export const revalidate = 60;
+
+// טעינה עצלה: BookSampleViewer מייבא את motion/react; ייבוא סטטי היה מכניס
+// את זמן הריצה של motion לכל עמוד ספר — גם לרוב שאין להם PDF לדוגמה
+// (BookFlipViewer כבר עושה זאת לספריית הדפדוף).
+const BookSampleViewer = dynamic(() =>
+  import('@/components/book-page/BookSampleViewer').then((module) => module.BookSampleViewer),
+);
 // ספר שנוסף אחרי הבנייה יירנדר בבקשה הראשונה ואז ייכנס למטמון.
 export const dynamicParams = true;
 
@@ -263,7 +270,8 @@ export default async function BookPage({
   ].filter((badge): badge is string => badge !== null);
 
   const nav = await getTranslations('nav');
-  const organizationLd = { '@type': 'Organization', name: 'מכון קרן רא״ם', url: siteUrl };
+  const site = await getTranslations('site');
+  const organizationLd = { '@type': 'Organization', name: site('name'), url: siteUrl };
 
   const breadcrumbItems = [
     { name: nav('home'), url: siteUrl + localePrefix },

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { hasPermission, type AdminPermission } from './permissions';
 import { ADMIN_ONLY_SCREENS, SCREENS, defaultScreenAccess, type ScreenAccess, type ScreenKey } from './screens';
 import type { Profile, UserRole } from '@/lib/supabase/types';
+import { hasRole } from './roles';
 
 export interface AdminSession {
   userId: string;
@@ -46,19 +47,7 @@ export type AdminSessionResult =
  * *החנות* אינם משתמשים בדירוג — הם דו-ממדיים ועוברים דרך requirePermission
  * (ובהדרגה — requireScreenPermission, screens.ts).
  */
-const RANK: Record<UserRole, number> = {
-  viewer: 0,
-  picker: 1,
-  seller: 2,
-  store_manager: 2,
-  editor: 3,
-  manager: 4,
-  admin: 5,
-};
-
-export function hasRole(role: UserRole, minimum: UserRole): boolean {
-  return RANK[role] >= RANK[minimum];
-}
+export { hasRole };
 
 /**
  * מחזיר את מצב ההרשאה של הבקשה הנוכחית.

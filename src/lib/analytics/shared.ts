@@ -17,14 +17,8 @@ export function dailyVisitorHash(ip: string, userAgent: string): string {
   return createHash('sha256').update(`${today}:${ip}:${userAgent}:${salt}`).digest('hex');
 }
 
-/** ה-IP מכותרות ה-proxy — לספירה בלבד, לא להרשאה (x-forwarded-for נשלט בלקוח). */
-export function clientIp(headers: Headers): string {
-  return (
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    headers.get('x-real-ip') ||
-    'unknown'
-  );
-}
+/** ה-IP מכותרות ה-proxy — לספירה בלבד, לא להרשאה. מקור אחד: client-ip.ts. */
+export { clientIp } from '@/lib/client-ip';
 
 /** מזהה UUID תקין — לסינון book_id/order_id שמגיעים מהלקוח לפני כתיבה. */
 export function isUuid(value: unknown): value is string {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useLocalList, useLocalValue } from '@/lib/client-hooks';
 import { COOKIE_CONSENT_KEY } from '../CookieConsentBanner';
 import { useCart } from '../store/CartProvider';
@@ -44,19 +44,17 @@ export function FloatingActions({
   availability: BookAvailability;
 }) {
   const t = useTranslations('books');
-  const locale = useLocale();
   const cart = useCart();
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const { has, toggle } = useLocalList('kr:favourites');
   const isFavourite = has(bookId);
 
-  // באנר העוגיות יושב bottom-left פיזי בשני הלוקיילים; ב-RTL סרגל הקנייה
-  // (end-6) יושב אף הוא משמאל, וכל עוד לא הוכרעה ההסכמה הבאנר מכסה אותו
-  // בביקור ראשון (בעיקר בנייד) — בדיוק ה-CTA הראשי. מרימים את הסרגל כדי
-  // לפנות מקום; reactive — ברגע שההסכמה נבחרת הבאנר נעלם והסרגל חוזר.
+  // באנר העוגיות יושב בצד end (כמו הסרגל הזה), וכל עוד לא הוכרעה ההסכמה
+  // הוא מכסה אותו בביקור ראשון (בעיקר בנייד) — בדיוק ה-CTA הראשי. מרימים
+  // את הסרגל כדי לפנות מקום; reactive — ברגע שההסכמה נבחרת הבאנר נעלם.
   const { value: cookieConsent } = useLocalValue(COOKIE_CONSENT_KEY);
-  const liftForBanner = cookieConsent === null && locale === 'he';
+  const liftForBanner = cookieConsent === null;
 
   useEffect(() => {
     if (!showBuy || typeof IntersectionObserver === 'undefined') return;

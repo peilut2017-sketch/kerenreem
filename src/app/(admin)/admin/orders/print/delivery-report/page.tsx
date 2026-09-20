@@ -3,6 +3,7 @@ import { getManyOrdersForPrint } from '@/lib/admin/print/print-data';
 import { PrintSheet } from '@/components/admin/print/PrintSheet';
 import { PrintToolbar } from '@/components/admin/print/PrintToolbar';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -18,7 +19,7 @@ export default async function DeliveryReportPrintPage({
   const { ids } = await searchParams;
   const orderIds = (ids ?? '').split(',').map((v) => v.trim()).filter(Boolean);
   const orders = await getManyOrdersForPrint(orderIds);
-  const dateFmt = new Intl.DateTimeFormat('he-IL', { dateStyle: 'long' });
+  const dateFmt = (value: string | number | Date) => formatAdminDate(value, 'long');
 
   return (
     <>
@@ -26,7 +27,7 @@ export default async function DeliveryReportPrintPage({
       <PrintSheet>
         <header className="mb-6 border-b-2 border-black pb-3">
           <h1 className="text-2xl font-bold">מסירת משלוחים</h1>
-          <p className="mt-1 text-sm text-gray-600">{dateFmt.format(new Date())}</p>
+          <p className="mt-1 text-sm text-gray-600">{dateFmt(new Date())}</p>
         </header>
 
         <table className="w-full border-collapse text-sm">

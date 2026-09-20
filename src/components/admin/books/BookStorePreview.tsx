@@ -5,6 +5,7 @@ import { BookCover } from '@/components/BookCover';
 import { getBookAvailability } from '@/lib/books/availability';
 import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export interface BookPreviewInitial {
   price: number | null;
   salePrice: number | null;
@@ -21,7 +22,7 @@ export interface BookPreviewInitial {
 function formatReleaseDate(value: string): string {
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('he-IL', { dateStyle: 'long' }).format(date);
+  return formatAdminDate(date, 'long');
 }
 
 /**

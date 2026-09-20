@@ -5,6 +5,7 @@ import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin
 import { AdminIcon } from '@/components/admin/AdminIcons';
 import { formatPrice } from '@/lib/commerce/pricing';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -43,6 +44,11 @@ export default async function AdminCustomersPage({
         supabase.from('customers').select('id, phone, email, full_name'),
       ])
     : [{ data: [] }, { data: [] }];
+  // שגיאת RLS/הרשאות אינה רשימה ריקה — בלי הסימון הזה המסך הציג
+  // "עדיין אין לקוחות" בדיוק כמו חנות ריקה באמת (כמו ב-/admin/orders)
+  const loadFailed = Boolean(
+    ('error' in ordersRes && ordersRes.error) || ('error' in customersRes && customersRes.error),
+  );
 
   const registeredByPhone = new Map(
     (customersRes.data ?? []).map((c) => [c.phone, c] as const),
@@ -72,7 +78,7 @@ export default async function AdminCustomersPage({
   }
 
   const query = q?.trim() ?? '';
-  const rows = [...byKey.values()]
+  const matching = [...byKey.values()]
     .filter(
       (row) =>
         !query ||
@@ -81,7 +87,10 @@ export default async function AdminCustomersPage({
         (row.email ?? '').includes(query),
     )
     .sort((a, b) => b.lastOrderAt.localeCompare(a.lastOrderAt))
-    .slice(0, 200);
+    ;
+  // הרשימה נבנית מ-2,000 ההזמנות האחרונות ונחתכת ל-200 — הקיטוע מדווח ולא שקט
+  const rows = matching.slice(0, 200);
+  const truncated = matching.length > rows.length;
 
   return (
     <>
@@ -106,9 +115,19 @@ export default async function AdminCustomersPage({
         </div>
       </form>
 
+      {loadFailed ? (
+        <div role="alert" className="admin-card mb-4 px-6 py-6 text-center text-small text-[var(--admin-danger)]">
+          שגיאה בטעינת הלקוחות מהמסד. זו לא רשימה ריקה — נסו לרענן, ואם זה חוזר פנו לתמיכה הטכנית.
+        </div>
+      ) : null}
+      {truncated ? (
+        <p className="mb-3 text-caption text-muted">
+          מוצגים 200 הלקוחות האחרונים מתוך {matching.length} (מבין 2,000 ההזמנות האחרונות) — צמצמו בחיפוש כדי למצוא לקוח ותיק.
+        </p>
+      ) : null}
       <AdminTable
         columns={['לקוח', 'קשר', 'הזמנות', 'סה״כ שולם', 'אחרונה', '']}
-        empty={rows.length === 0 ? (query ? 'אין תוצאות לחיפוש.' : 'עדיין אין לקוחות.') : undefined}
+        empty={rows.length === 0 && !loadFailed ? (query ? 'אין תוצאות לחיפוש.' : 'עדיין אין לקוחות.') : undefined}
       >
         {rows.map((row) => (
           <AdminRow key={row.key}>
@@ -131,9 +150,7 @@ export default async function AdminCustomersPage({
               {formatPrice(row.paidTotal, 'he', { alwaysAgorot: true })}
             </AdminCell>
             <AdminCell className="text-small text-muted">
-              {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(
-                new Date(row.lastOrderAt),
-              )}
+              {formatAdminDate(row.lastOrderAt, 'date')}
             </AdminCell>
             <AdminCell className="text-end">
               {row.key !== 'ללא-קשר' ? (

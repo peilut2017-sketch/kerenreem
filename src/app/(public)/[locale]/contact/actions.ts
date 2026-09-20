@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { getTranslations } from 'next-intl/server';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { clientIp } from '@/lib/client-ip';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -115,13 +116,10 @@ export async function submitContact(
     return { status: 'success' };
   }
 
-  // מזהה הפונה לצורך הגבלת הקצב. x-forwarded-for נשלט על ידי הלקוח ואינו
-  // ראיה קבילה לזהות — אבל כאן הוא לא משמש להרשאה, רק לספירה, ולכן די בו.
+  // מזהה הפונה לצורך הגבלת הקצב — לספירה בלבד, לא להרשאה (client-ip.ts
+  // מסביר למה לא הערך הראשון ב-x-forwarded-for).
   const requestHeaders = await headers();
-  const ip =
-    requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    requestHeaders.get('x-real-ip') ||
-    'unknown';
+  const ip = clientIp(requestHeaders);
 
   if (rateLimited(ip)) {
     return { status: 'error', message: t('tooMany') };
@@ -171,7 +169,8 @@ export async function submitContact(
       continue;
     }
 
-    const value = String(formData.get(key) ?? '').trim();
+    // חסם אורך כמו לשדות הקבועים (MAX): ערך jsonb ללא מגבלה במסד
+    const value = String(formData.get(key) ?? '').trim().slice(0, 500);
     if (customField.is_required && !value) fieldErrors[key] = t('required');
     else if (value) customFieldValues[customField.id] = value;
   }
@@ -260,6 +259,12 @@ export async function submitBookFeedback(
     return { status: 'error', message: t('error') };
   }
 
+  // גודל הקלט נבדק *לפני* הניקוי: sanitizeHtml מפרסר את כל הגוף, והחסם
+  // של 20,000 תווים למטה חל על התוצאה — בלי הבדיקה הזו גוף של מגה-בייטים
+  // היה מעסיק את המנקה לחינם לפני שנדחה.
+  if (rawHtml.length > 60_000) {
+    return { status: 'error', message: t('error') };
+  }
   const messageHtml = sanitizeHtml(rawHtml);
   const messageText = htmlToPlainText(messageHtml);
 

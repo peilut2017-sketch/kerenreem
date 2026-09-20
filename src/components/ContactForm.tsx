@@ -33,6 +33,7 @@ export function ContactForm({
   const t = useTranslations('contact');
   const locale = useLocale();
   const formRef = useRef<HTMLFormElement>(null);
+  const successRef = useRef<HTMLParagraphElement>(null);
   const submitted = useRef<FormData | null>(null);
 
   // React מאפס את הטופס אחרי הפעולה; בלי השחזור הזה שגיאה בשדה אחד מוחקת
@@ -49,6 +50,17 @@ export function ContactForm({
   useEffect(() => {
     if (state.status !== 'error' || !formRef.current || !submitted.current) return;
     restoreFormValues(formRef.current, submitted.current);
+  }, [state]);
+
+  // מיקוד אחרי שליחה: בכשל — לשדה הראשון עם שגיאה (אחרת קורא מסך נשאר על
+  // כפתור השליחה ולא שומע מה נכשל); בהצלחה — להודעת האישור, כי הטופס
+  // כולו (והכפתור הממוקד) הוחלף בה והמיקוד היה נופל ל-body.
+  useEffect(() => {
+    if (state.status === 'error') {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    } else if (state.status === 'success') {
+      successRef.current?.focus();
+    }
   }, [state]);
 
   const field = (name: string) => ({
@@ -68,7 +80,7 @@ export function ContactForm({
 
   if (state.status === 'success') {
     return (
-      <p role="status" className="border-s-2 border-burgundy bg-cream-2 px-5 py-4 text-ink">
+      <p ref={successRef} tabIndex={-1} role="status" className="border-s-2 border-burgundy bg-cream-2 px-5 py-4 text-ink outline-none">
         {t('success')}
       </p>
     );
@@ -223,6 +235,8 @@ function CustomFieldInput({
             id={inputId}
             name={name}
             required={customField.is_required}
+            aria-invalid={fieldProps(name)['aria-invalid']}
+            aria-describedby={fieldProps(name)['aria-describedby']}
             className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
           />
           <span>

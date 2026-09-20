@@ -9,12 +9,13 @@ import { toCdnUrl } from '@/lib/image-src';
 import type { Order } from '@/lib/supabase/types';
 import type { PrintItem } from '@/lib/admin/print/print-data';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 /**
  * [1.5] דף הזמנה פנימי — תמונת ההזמנה המלאה לצוות. כאן כן מותר מחיר/
  * אמצעי תשלום/הנחה — בניגוד לתעודת המשלוח/מדבקה שנכנסות לחבילה.
  */
 export function OrderSheetBody({ order, items }: { order: Order; items: PrintItem[] }) {
-  const dateFmt = new Intl.DateTimeFormat('he-IL', { dateStyle: 'long', timeStyle: 'short' });
+  const dateFmt = (value: string | number | Date) => formatAdminDate(value, 'longDateTime');
   const channelLabel = order.channel === 'web' ? 'מהאתר' : order.channel === 'phone' ? 'הזמנה טלפונית' : 'ידנית';
   const address = order.shipping_address as Record<string, string> | null;
 
@@ -24,7 +25,7 @@ export function OrderSheetBody({ order, items }: { order: Order; items: PrintIte
         <div>
           <h1 className="text-2xl font-bold">הזמנה #{order.order_number}</h1>
           <p className="mt-1 text-sm text-gray-600">
-            {order.placed_at ? dateFmt.format(new Date(order.placed_at)) : ''} · {channelLabel}
+            {order.placed_at ? dateFmt(new Date(order.placed_at)) : ''} · {channelLabel}
           </p>
         </div>
         <div className="text-left text-sm">

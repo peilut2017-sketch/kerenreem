@@ -107,7 +107,7 @@ export function QuickAddSelect({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="btn btn-quiet mb-0.5 whitespace-nowrap"
+          className="admin-btn admin-btn-quiet mb-0.5 whitespace-nowrap"
         >
           {addLabel}
         </button>
@@ -137,13 +137,13 @@ export function QuickAddSelect({
               type="button"
               disabled={pending || !draft.trim()}
               onClick={submit}
-              className="btn btn-solid flex-1"
+              className="admin-btn admin-btn-solid flex-1"
             >
               {pending ? 'שומר…' : 'יצירה ובחירה'}
             </button>
           }
         >
-          <label htmlFor={inputId} className="field-label">
+          <label htmlFor={inputId} className="admin-field-label">
             {fieldLabel}
           </label>
           <input
@@ -160,10 +160,10 @@ export function QuickAddSelect({
                 submit();
               }
             }}
-            className="field-input"
+            className="admin-field-input"
           />
           {error ? (
-            <p role="alert" className="field-error mt-2">
+            <p role="alert" className="admin-field-error mt-2">
               {error}
             </p>
           ) : null}

@@ -82,8 +82,9 @@ export function Toolbar({
   const sortId = useId();
 
   return (
-    /* top-[5.5rem] מפנה מקום לכותרת הצפה, אחרת הסרגל נדבק מתחתיה */
-    <div className="sticky top-[5.5rem] z-20 -mx-2 mb-8 px-2">
+    /* מרווח מהכותרת הצפה לפי גובהה הנמדד (SiteHeaderHeightVar) — ערך קבוע
+       נשבר כשסרגל הנגישות מגדיל את הגופן או כשיש שורת ניווט שנייה */
+    <div className="sticky top-[calc(var(--site-header-h,4.75rem)+0.75rem)] z-20 -mx-2 mb-8 px-2">
       <div className="glass flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[var(--radius-lg)] px-4 py-3">
         <RollingCount value={count} label={countLabel} />
 

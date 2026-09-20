@@ -208,34 +208,29 @@ export async function saveEventChapters(
     : await supabase.from('event_chapters').delete().eq('event_id', eventId);
   if (removal.error) return { error: removal.error.message };
 
-  const ids: string[] = [];
-  for (const [index, chapter] of kept.entries()) {
-    if (chapter.id) {
-      const { error } = await supabase
-        .from('event_chapters')
-        .update({
-          title_he: chapter.title_he.trim(),
-          description_he: chapter.description_he.trim() || null,
-          sort_order: index,
-        })
-        .eq('id', chapter.id);
-      if (error) return { error: error.message };
-      ids.push(chapter.id);
-    } else {
+  // במקביל ולא בטור (סבב רשת לכל פרק); הסדר נשמר לפי האינדקס
+  const results = await Promise.all(
+    kept.map(async (chapter, index): Promise<{ id: string | null; error: string | null }> => {
+      const row = {
+        title_he: chapter.title_he.trim(),
+        description_he: chapter.description_he.trim() || null,
+        sort_order: index,
+      };
+      if (chapter.id) {
+        const { error } = await supabase.from('event_chapters').update(row).eq('id', chapter.id);
+        return { id: chapter.id, error: error?.message ?? null };
+      }
       const { data, error } = await supabase
         .from('event_chapters')
-        .insert({
-          event_id: eventId,
-          title_he: chapter.title_he.trim(),
-          description_he: chapter.description_he.trim() || null,
-          sort_order: index,
-        })
+        .insert({ event_id: eventId, ...row })
         .select('id')
         .maybeSingle();
-      if (error) return { error: error.message };
-      if (data) ids.push(data.id);
-    }
-  }
+      return { id: data?.id ?? null, error: error?.message ?? null };
+    }),
+  );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) return { error: failed.error };
+  const ids = results.map((result) => result.id).filter((id): id is string => id !== null);
 
   await writeAuditLog(supabase, session.userId, 'update', 'event_chapters', eventId, {
     context: `עדכון שלבי אירוע — ${kept.length} שלבים`,

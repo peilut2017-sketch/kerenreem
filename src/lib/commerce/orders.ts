@@ -29,6 +29,29 @@ export const SYSTEM_ACTOR: Actor = { type: 'system' };
 export const MORNING_ACTOR: Actor = { type: 'morning' };
 
 /** רישום אירוע בציר הזמן. best-effort ביחס לזרימה שכבר הצליחה במסד. */
+/**
+ * תיוג הזמנה לטיפול ידני (amount-mismatch, double-charge, stock-shortfall,
+ * paid-in-blocked-state) — איחוד קבוצתי, אידמפוטנטי. מקום אחד במקום
+ * update מפוזר בכל נתיב שמזהה חריגה.
+ */
+export async function addOrderTag(
+  service: SupabaseClient,
+  order: Pick<Order, 'id'> & { tags?: string[] | null },
+  tag: string,
+): Promise<void> {
+  let current = order.tags;
+  if (current === undefined) {
+    // בלי צילום התגים — נשלפים, כדי שהאיחוד לא ידרוס תגים קיימים
+    const { data } = await service.from('orders').select('tags').eq('id', order.id).maybeSingle();
+    current = (data?.tags as string[] | null) ?? [];
+  }
+  const { error } = await service
+    .from('orders')
+    .update({ tags: [...new Set([...(current ?? []), tag])] })
+    .eq('id', order.id);
+  if (error) console.error('[commerce:orders] add tag', tag, error.message);
+}
+
 export async function recordOrderEvent(
   service: SupabaseClient,
   orderId: string,

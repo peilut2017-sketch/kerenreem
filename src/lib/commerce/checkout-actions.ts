@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import type { CheckoutSessionRecord, ShippingAddress } from '@/lib/supabase/types';
 import { validateCart, type CartInputItem, type ValidatedCart } from './cart';
 import {
+  CHECKOUT_SESSION_COOKIE,
   computeTotals,
   createOrderFromSession,
   createSession,
@@ -18,10 +19,11 @@ import { isValidIsraeliPhone, normalizePhone } from './guest-token';
 import { allowRequest, ipBucket } from './rate-limit';
 import { startPayment } from './payments';
 import { sendOrderEmail } from './notifications';
-import { openServiceRequest } from './service-requests';
+
 import { recordRedemption, validateCoupon, type CouponError } from './coupons';
 import { findBestPromotion } from './promotions';
 import { getCustomerSession, getMyAddresses } from './account';
+import { localizedSiteUrl } from './site-url';
 
 /**
  * פעולות ה-Checkout (תרשימים 4–7). העיקרון: הדפדפן שולח כוונות; כל
@@ -29,7 +31,7 @@ import { getCustomerSession, getMyAddresses } from './account';
  * מזוהה ב-cookie httpOnly; רענון משחזר את ההתקדמות.
  */
 
-const SESSION_COOKIE = 'kr-checkout';
+const SESSION_COOKIE = CHECKOUT_SESSION_COOKIE;
 const SESSION_TTL_DAYS = 7;
 /** [1.6] טוקן המעקב הגולמי — לעולם לא נשמר במסד; עוגייה קצרת-חיים מעבירה אותו לעמוד התודה (ח.12) */
 const TRACK_TOKEN_COOKIE = 'kr-track-token';
@@ -92,6 +94,11 @@ export interface CheckoutBootstrap {
   pickup: { address: Record<string, string>; hours: string | null } | null;
   /** [1.6] שיעור מע"מ להצגה בסיכום (ח.10) — 0 כש-vat_mode אינו included, כמו ב-computeTotals */
   vatRate: number;
+  /**
+   * ההזמנה של הסל הזה כבר שולמה (חזרה אחורה מדף הסליקה): הלקוח מופנה
+   * לעמוד התוצאה במקום לקופה חדשה — אחרת הזמנה כפולה במרחק לחיצה.
+   */
+  alreadyPaid: boolean;
 }
 
 async function buildMethodOptions(
@@ -133,6 +140,13 @@ async function buildMethodOptions(
 }
 
 /** כניסה ל-Checkout: יצירת session (או שחזור הקיים) + כל נתוני העמוד. */
+/** שולמה בשעתיים האחרונות — חלון "חזרה אחורה" סביר; מעבר לו סל זהה הוא הזמנה חדשה מכוונת. */
+function paidRecently(paidAt: string | null | undefined): boolean {
+  if (!paidAt) return false;
+  const at = new Date(paidAt).getTime();
+  return Number.isFinite(at) && Date.now() - at < 2 * 60 * 60_000;
+}
+
 export async function startCheckout(
   items: CartInputItem[],
   locale: string,
@@ -154,6 +168,7 @@ export async function startCheckout(
     supportPhone: null,
     pickup: null,
     vatRate: 0,
+    alreadyPaid: false,
   };
   if (!flags.checkoutEnabled) return disabled;
 
@@ -185,10 +200,30 @@ export async function startCheckout(
       // חדשה בלי order_id (שהייתה שוברת את מסלול "ניסיון תשלום חוזר").
       const service = createServiceClient();
       const { data: existingOrder } = service
-        ? await service.from('orders').select('payment_state').eq('id', existing.order_id).maybeSingle()
+        ? await service
+            .from('orders')
+            .select('payment_state, paid_at')
+            .eq('id', existing.order_id)
+            .maybeSingle()
         : { data: null };
-      if (existingOrder && existingOrder.payment_state !== 'paid') {
+      // ורק אם הסל לא השתנה מאז: ההזמנה הקיימת נבנתה מפריטי ה-session,
+      // ואם הלקוח הוסיף/הסיר ספר מאז, המשך על אותה session היה מציג לו
+      // את סכום הסל החדש בכפתור אבל גובה את סכום ההזמנה הישנה. סל שונה
+      // ⇒ session חדשה (וההזמנה הישנה פגה בשגרת התחזוקה).
+      const signature = (pairs: { book_id: string; quantity: number }[]) =>
+        pairs.map((pair) => `${pair.book_id}:${pair.quantity}`).sort().join('|');
+      const liveItems = cart.lines
+        .filter((line) => line.removedReason === null)
+        .map((line) => ({ book_id: line.bookId, quantity: line.quantity }));
+      const sameCart = signature(liveItems) === signature(existing.items ?? []);
+      if (existingOrder && existingOrder.payment_state !== 'paid' && sameCart) {
         session = existing;
+      } else if (existingOrder?.payment_state === 'paid' && sameCart && paidRecently(existingOrder.paid_at)) {
+        // חזרה אחורה מדף הסליקה אחרי תשלום שהצליח: הסל המקומי עדיין מלא
+        // (הוא מתרוקן רק בעמוד התוצאה), ו-startCheckout היה פותח session
+        // חדשה על אותו סל — הזמנה כפולה במרחק לחיצה. אותו סל, אותה הזמנה,
+        // שולמה זה עתה ⇒ עמוד התוצאה (שגם מרוקן את הסל), לא קופה.
+        return { ...disabled, ok: false, enabled: true, cart, alreadyPaid: true };
       }
     }
   }
@@ -283,6 +318,7 @@ export async function startCheckout(
       ? { address: settings.pickup_address, hours: settings.pickup_hours }
       : null,
     vatRate: settings.vat_mode === 'included' ? settings.vat_rate : 0,
+    alreadyPaid: false,
   };
 }
 
@@ -335,8 +371,26 @@ export async function saveFulfillment(input: {
     return { ok: false, error: 'session' };
   }
 
+  // אותם חסמי אורך כמו בכתובות החשבון (saveMyAddress): הכתובת נכתבת
+  // ל-jsonb בלי constraint במסד ומודפסת בכל מדבקה ודוח — ערך פרוע היה
+  // מנפח את ההזמנה ואת כל מסכי ההדפסה שלה.
+  const cap = (value: string | undefined, max: number) => value?.trim().slice(0, max) || undefined;
+  const address: Partial<ShippingAddress> | undefined = input.isPickup
+    ? undefined
+    : {
+        recipient_name: cap(input.address?.recipient_name, 120),
+        phone: cap(input.address?.phone, 30),
+        city: cap(input.address?.city, 80),
+        street: cap(input.address?.street, 120),
+        house_number: cap(input.address?.house_number, 20),
+        entrance: cap(input.address?.entrance, 20),
+        floor: cap(input.address?.floor, 20),
+        apartment: cap(input.address?.apartment, 20),
+        zip: cap(input.address?.zip, 12),
+      };
+
   if (!input.isPickup) {
-    const a = input.address ?? {};
+    const a = address ?? {};
     const fieldErrors: Record<string, string> = {};
     if (!a.recipient_name?.trim()) fieldErrors.recipient_name = 'required';
     if (!a.city?.trim()) fieldErrors.city = 'required';
@@ -350,8 +404,8 @@ export async function saveFulfillment(input: {
     fulfillment: {
       type: input.isPickup ? 'pickup' : 'shipping',
       method_id: input.methodId,
-      address: input.isPickup ? undefined : input.address,
-      courier_notes: input.courierNotes?.slice(0, 500),
+      address,
+      courier_notes: input.courierNotes?.trim().slice(0, 500),
     },
   });
   return { ok: Boolean(updated) };
@@ -492,7 +546,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
 
   // Idempotency: ההזמנה כבר נוצרה מה-session הזה — ממשיכים ממנה
   if (session.order_id) {
-    return resumeExistingOrder(session.order_id);
+    return resumeExistingOrder(session.order_id, input.displayedTotal);
   }
 
   if (!session.terms_accepted_at) return { ok: false, error: 'terms' };
@@ -587,7 +641,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   const service = createServiceClient();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
   const trackUrl = created.guestToken
-    ? `${siteUrl}/orders/track/${created.guestToken}`
+    ? localizedSiteUrl(session.locale, `/orders/track/${created.guestToken}`)
     : undefined;
 
   // [1.6] קישור מעקב בעמוד התודה (ח.12, ביקורת ב.23) — הטוקן הגולמי לעולם
@@ -708,7 +762,7 @@ export async function placeOrder(input: { displayedTotal: number }): Promise<Pla
   };
 }
 
-async function resumeExistingOrder(orderId: string): Promise<PlaceOrderResult> {
+async function resumeExistingOrder(orderId: string, displayedTotal: number): Promise<PlaceOrderResult> {
   const service = createServiceClient();
   if (!service) return { ok: false, error: 'server' };
   const { data: order } = await service.from('orders').select('*').eq('id', orderId).maybeSingle();
@@ -716,6 +770,11 @@ async function resumeExistingOrder(orderId: string): Promise<PlaceOrderResult> {
 
   if (order.payment_state === 'paid') {
     return { ok: true, mode: 'created_no_payment', orderNumber: order.order_number, orderId };
+  }
+  // אותו שומר "הסכום השתנה" כמו ביצירת הזמנה חדשה: מה שהלקוח ראה בכפתור
+  // חייב להיות מה שייגבה על ההזמנה שממשיכים ממנה.
+  if (Math.abs(Number(order.total) - displayedTotal) >= 0.01) {
+    return { ok: false, error: 'total_changed', serverTotal: Number(order.total) };
   }
   const flags = await getCommerceFlags();
   if (!flags.paymentsEnabled) {
@@ -725,6 +784,11 @@ async function resumeExistingOrder(orderId: string): Promise<PlaceOrderResult> {
     wallet: null,
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? '',
   });
+  // השריון פקע והספר אזל בינתיים — לא גובים על מה שאין; ההודעה הקיימת
+  // "אחד הספרים אזל בינתיים" מכוונת את הלקוח לבדוק את הסל.
+  if (!payment.ok && payment.error === 'out_of_stock') {
+    return { ok: false, error: 'insufficient_stock' };
+  }
   if (payment.ok && payment.paymentUrl) {
     return {
       ok: true,
@@ -787,26 +851,3 @@ export async function getResultState(): Promise<ResultState> {
   };
 }
 
-/** רישום ביטול מצד הלקוח מעמוד המעקב — פותח בקשה, אינו מבטל אוטומטית. */
-export async function requestCancelFromResult(reason: string): Promise<ActionResult> {
-  const sessionId = await readSessionId();
-  if (!sessionId) return { ok: false, error: 'session' };
-  const headerList = await headers();
-  if (!(await allowRequest(ipBucket('cancel-request', headerList), 5, 3600))) {
-    return { ok: false, error: 'server' };
-  }
-  const session = await loadSession(sessionId);
-  if (!session?.order_id) return { ok: false, error: 'session' };
-
-  const service = createServiceClient();
-  if (!service) return { ok: false, error: 'server' };
-  const result = await openServiceRequest(service, {
-    orderId: session.order_id,
-    kind: 'cancel',
-    reason: reason.slice(0, 300),
-    requestedBy: 'customer',
-    actor: { type: 'customer' },
-  });
-  if (!result.ok) return { ok: false, error: 'server' };
-  return { ok: true };
-}

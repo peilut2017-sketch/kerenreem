@@ -36,12 +36,9 @@ import type {
   Tag,
 } from '@/lib/supabase/types';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 /** רשימה סגורה: שפות אינן נערכות מהממשק ואין להן נתונים נלווים. */
@@ -271,7 +268,7 @@ export function BookForm({
                         )}
                       </div>
 
-                      <p className="field-hint">
+                      <p className="admin-field-hint">
                         הקטגוריות נבחרות בלשונית &quot;קטגוריות ותגיות&quot; — הראשונה שתיבחר שם
                         היא זו שמופיעה בכרטיס ובכתובת (?category=).
                       </p>

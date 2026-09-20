@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { listActivitiesAdmin } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -7,7 +7,10 @@ import { RowActions } from '@/components/admin/RowActions';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminActivitiesPage() {
-  await requireScreenPermission('activities', 'view');
+  const session = await requireScreenPermission('activities', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'activities');
   const activities = await listActivitiesAdmin();
 
   return (
@@ -15,7 +18,7 @@ export default async function AdminActivitiesPage() {
       <AdminHeader
         title="צירי פעילות"
         description="הצירים שבהם פועל המכון, כפי שהם מופיעים בעמוד הבית ובעמוד הפעילות."
-        action={{ href: '/admin/activities/new', label: 'ציר חדש' }}
+        action={canEdit ? { href: '/admin/activities/new', label: 'ציר חדש' } : undefined}
       />
       <AdminTable
         columns={['שם', 'סדר', 'מצב ופעולות']}
@@ -30,12 +33,12 @@ export default async function AdminActivitiesPage() {
             </AdminCell>
             <AdminCell className="tabular-nums text-muted">{activity.sort_order}</AdminCell>
             <AdminCell>
-              <RowActions
+              {canEdit ? <RowActions
                 entity="activities"
                 id={activity.id}
                 label={activity.title_he}
                 published={activity.is_published}
-              />
+              /> : null}
             </AdminCell>
           </AdminRow>
         ))}

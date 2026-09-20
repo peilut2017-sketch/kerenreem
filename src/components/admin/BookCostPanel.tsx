@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { saveBookCost } from '@/lib/admin/costs-actions';
 import { AdminIcon } from './AdminIcons';
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 
 /**
  * עלות ליחידה — פאנל נפרד מטופס הספר בכוונה (מודל 3.18): נטען ונשמר
@@ -22,6 +23,7 @@ export function BookCostPanel({
   const [pending, startTransition] = useTransition();
 
   const dirty = (value === '' ? null : Number(value)) !== saved;
+  useUnsavedChangesWarning(dirty);
 
   return (
     <section aria-labelledby="cost-heading" className="admin-card mt-8 max-w-xl">
@@ -56,7 +58,7 @@ export function BookCostPanel({
         className="mt-4 flex items-end gap-3"
       >
         <div>
-          <label htmlFor="book-cost" className="field-label">
+          <label htmlFor="book-cost" className="admin-field-label">
             עלות בש״ח
           </label>
           <input
@@ -68,10 +70,10 @@ export function BookCostPanel({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="ללא עלות"
-            className="field-input w-36"
+            className="admin-field-input w-36"
           />
         </div>
-        <button type="submit" disabled={pending || !dirty} className="btn btn-solid">
+        <button type="submit" disabled={pending || !dirty} className="admin-btn admin-btn-solid">
           {pending ? 'שומר…' : 'שמירה'}
         </button>
         {!dirty && saved != null ? (

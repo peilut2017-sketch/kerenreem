@@ -9,6 +9,7 @@ import { recordAdminStorageReplace } from '@/lib/admin/activity-audit-actions';
 import { deleteStorageFile } from '@/lib/admin/media-library-actions';
 import type { AdminStorageFile } from '@/lib/admin/queries';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export interface MediaFileRow extends AdminStorageFile {
   publicUrl: string;
   viewCount: number | null;
@@ -68,11 +69,7 @@ function formatBytes(bytes: number | null): string {
 }
 
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 /**
@@ -121,7 +118,7 @@ export function MediaLibraryTable({ files }: { files: MediaFileRow[] }) {
             value={bucket}
             onChange={(event) => setBucket(event.target.value)}
             aria-label="סינון לפי תיקייה"
-            className="field-input !w-auto"
+            className="admin-field-input !w-auto"
           >
             <option value="all">כל התיקיות</option>
             {buckets.map((b) => (
@@ -136,7 +133,7 @@ export function MediaLibraryTable({ files }: { files: MediaFileRow[] }) {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="חיפוש לפי שם קובץ…"
             aria-label="חיפוש לפי שם קובץ"
-            className="field-input !w-auto"
+            className="admin-field-input !w-auto"
           />
         </div>
       </div>

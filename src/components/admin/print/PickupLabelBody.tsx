@@ -2,6 +2,7 @@ import type { Order } from '@/lib/supabase/types';
 import type { PrintItem } from '@/lib/admin/print/print-data';
 import { trackingQrSvg } from '@/lib/admin/print/qr';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 /**
  * [1.5] מדבקת איסוף עצמי — לא מדבקת משלוח מלאה. המטרה: שכשהלקוח מגיע,
  * לא צריך לחפש בין עשרות שקיות. QR פותח את עמוד ההזמנה באדמין לעובד.
@@ -17,7 +18,7 @@ export async function PickupLabelBody({
 }) {
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const qr = await trackingQrSvg(adminUrl);
-  const readyDate = new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(new Date(order.updated_at));
+  const readyDate = formatAdminDate(order.updated_at, 'date');
 
   return (
     <div className="flex h-full flex-col justify-between">

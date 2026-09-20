@@ -1,10 +1,11 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { saveSettings, type SettingsState } from '@/lib/admin/settings-actions';
 import { SITE_FONT_ROLES } from '@/lib/fonts';
 import { FieldSet, SelectField, TextField } from './Fields';
 import { ImageField } from './ImageField';
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 import type { SiteSettings } from '@/lib/supabase/types';
 
 const INITIAL: SettingsState = { status: 'idle' };
@@ -17,12 +18,19 @@ export function SettingsForm({
   fontChoices: { label: string; value: string }[];
 }) {
   const [state, action, pending] = useActionState(saveSettings, INITIAL);
+  // טופס ארוך (תשעה מקטעים) בלי שמירה אוטומטית — רענון/סגירה עם שינויים
+  // שלא נשמרו מזהירים, כמו ב-EntityForm. במקום setState בתוך effect:
+  // זוכרים *איזו* תגובת שרת הייתה על המסך כשנגעו בטופס — תגובת "נשמר"
+  // חדשה מאפסת מעצמה, ותגובת שגיאה משאירה את השינויים "לא שמורים".
+  const [touchedAt, setTouchedAt] = useState<SettingsState | null>(null);
+  const dirty = touchedAt !== null && (touchedAt === state || state.status !== 'saved');
+  useUnsavedChangesWarning(dirty);
   const contact = settings.contact ?? {};
   const social = settings.social_links ?? {};
   const extra = (settings.extra ?? {}) as Record<string, unknown>;
 
   return (
-    <form action={action} className="space-y-8">
+    <form action={action} onChange={() => setTouchedAt(state)} className="space-y-8">
       <FieldSet legend="זהות">
         <ImageField name="logo_url" label="לוגו" bucket="site" defaultValue={settings.logo_url} />
         <ImageField

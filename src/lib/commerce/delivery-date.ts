@@ -14,21 +14,47 @@ import type { StoreSettings } from '@/lib/supabase/types';
 
 const CHAG_MASK = flags.CHAG | flags.EREV | flags.YOM_TOV_ENDS;
 
+/**
+ * כל חשבון היום נעשה בזמן ירושלים, לא בזמן השרת: ב-Vercel השרת רץ ב-UTC,
+ * והזמנה ב-01:00 בלילה בישראל היא עדיין "אתמול" ב-UTC — כך שדילוג שישי/
+ * שבת/ערב חג התייחס ליום הלא נכון, והתאריך שנשמר (promised_delivery_date)
+ * היה שונה ביום מהכיתוב שהוצג ללקוח (formatPromisedDate, שכן מוצג
+ * בזמן ירושלים).
+ */
+const JERUSALEM_PARTS = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Jerusalem',
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  weekday: 'short',
+});
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function jerusalemParts(date: Date): { y: number; m: number; d: number; weekday: number } {
+  const parts = Object.fromEntries(JERUSALEM_PARTS.formatToParts(date).map((part) => [part.type, part.value]));
+  return {
+    y: Number(parts.year),
+    m: Number(parts.month),
+    d: Number(parts.day),
+    weekday: WEEKDAYS.indexOf(parts.weekday),
+  };
+}
+
 function isWorkingDay(date: Date, extraNonWorking: Set<string>): boolean {
-  const day = date.getDay();
+  const { y, m, d, weekday } = jerusalemParts(date);
   // שישי (5) ושבת (6) אינם ימי עבודה
-  if (day === 5 || day === 6) return false;
+  if (weekday === 5 || weekday === 6) return false;
   if (extraNonWorking.has(toIsoDate(date))) return false;
 
-  const events = HebrewCalendar.getHolidaysOnDate(new HDate(date), true) ?? [];
+  // HDate מ-Date קורא רכיבי זמן מקומיים — לכן נבנה Date מקומי מהרכיבים
+  // הירושלמיים (בצהריים, רחוק מגבולות יום), ולא מה-Date המקורי.
+  const events = HebrewCalendar.getHolidaysOnDate(new HDate(new Date(y, m - 1, d, 12)), true) ?? [];
   return !events.some((event) => (event.getFlags() & CHAG_MASK) !== 0);
 }
 
 function toIsoDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  const { y, m, d } = jerusalemParts(date);
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 /** מוסיפה n ימי עבודה לתאריך, מדלגת על ימים שאינם ימי עבודה. */

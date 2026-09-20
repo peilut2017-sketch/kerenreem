@@ -38,7 +38,7 @@ export function SectionHeading({
         </Heading>
         <span
           aria-hidden="true"
-          className="h-px flex-1 translate-y-[-0.35em] bg-linear-to-l from-gold to-transparent"
+          className="h-px flex-1 translate-y-[-0.35em] bg-linear-to-r from-gold to-transparent rtl:bg-linear-to-l"
         />
         {action ? (
           <Link href={action.href} className="link-more shrink-0">

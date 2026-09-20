@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { listContactTopics } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable, PublishBadge } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
@@ -7,7 +7,10 @@ import { RowActions } from '@/components/admin/RowActions';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminContactTopicsPage() {
-  await requireScreenPermission('contact-topics', 'view');
+  const session = await requireScreenPermission('contact-topics', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'contact-topics');
   const topics = await listContactTopics();
 
   return (
@@ -15,7 +18,7 @@ export default async function AdminContactTopicsPage() {
       <AdminHeader
         title="תחומי פנייה"
         description="הרשימה שמוצגת כבורר רשות בטופס יצירת הקשר הציבורי, למשל תמיכה, ספרים, הזמנות."
-        action={{ href: '/admin/contact-topics/new', label: 'תחום חדש' }}
+        action={canEdit ? { href: '/admin/contact-topics/new', label: 'תחום חדש' } : undefined}
       />
 
       <AdminTable
@@ -34,7 +37,7 @@ export default async function AdminContactTopicsPage() {
               <PublishBadge published={topic.is_published} />
             </AdminCell>
             <AdminCell>
-              <RowActions entity="contact_topics" id={topic.id} label={topic.name_he} published={topic.is_published} />
+              {canEdit ? <RowActions entity="contact_topics" id={topic.id} label={topic.name_he} published={topic.is_published} /> : null}
             </AdminCell>
           </AdminRow>
         ))}

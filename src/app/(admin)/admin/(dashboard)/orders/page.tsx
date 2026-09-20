@@ -59,6 +59,12 @@ export default async function AdminOrdersPage({
 
       {/* חיפוש */}
       <form method="get" action="/admin/orders" className="mb-5 flex gap-2">
+        {/* התצוגה והסינון הפעילים נשמרים בחיפוש — קודם הטופס נשא רק q והחזיר
+            את המשתמש לרשימה הלא-מסוננת */}
+        {filter.state ? <input type="hidden" name="state" value={filter.state} /> : null}
+        {filter.payment ? <input type="hidden" name="payment" value={filter.payment} /> : null}
+        {filter.fulfillment ? <input type="hidden" name="fulfillment" value={filter.fulfillment} /> : null}
+        {filter.view ? <input type="hidden" name="view" value={filter.view} /> : null}
         <input
           type="search"
           name="q"
@@ -113,11 +119,7 @@ function ViewChip({ href, label, active }: { href: string; label: string; active
     <Link
       href={href}
       aria-current={active ? 'true' : undefined}
-      className={`rounded-[var(--radius-pill)] px-3 py-1.5 text-caption transition-colors ${
-        active
-          ? 'bg-[var(--admin-accent)] text-white'
-          : 'bg-cream-2 text-ink-soft hover:bg-cream-3'
-      }`}
+      className="admin-chip"
     >
       {label}
     </Link>

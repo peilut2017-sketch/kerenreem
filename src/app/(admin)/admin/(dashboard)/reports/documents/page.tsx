@@ -5,15 +5,12 @@ import { StatTile } from '@/components/admin/analytics/StatTile';
 import { DOC_TYPE_LABELS } from '@/components/admin/orders/labels';
 import { getDocumentsReport } from '@/lib/admin/reporting/documents-data';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 function formatDateTime(value: string | null): string {
   if (!value) return '—';
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 /** [1.5] מסמכים חשבונאיים — סטטוס הפקה מול מורנינג, לפי סוג, ורשימת כשלים לטיפול. */

@@ -34,7 +34,8 @@ export default async function AccountLoginPage({
   if (!flags.accountsEnabled) {
     return (
       <Container className="py-20 text-center">
-        <p className="text-lead text-muted">{t('disabled')}</p>
+        <h1 className="font-serif text-[clamp(1.6rem,3.4vw,2.2rem)] text-ink">{t('accountLoginTitle')}</h1>
+        <p className="mt-4 text-lead text-muted">{t('disabled')}</p>
       </Container>
     );
   }

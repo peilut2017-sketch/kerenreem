@@ -13,6 +13,7 @@ import { toCdnUrl } from '@/lib/image-src';
 import { localized, localizedOrNull } from '@/lib/localized';
 import type { SuggestedEvent } from '@/lib/data';
 import type { EventChapter, EventMediaItem } from '@/lib/supabase/types';
+import { DirArrow } from '@/components/DirArrow';
 
 /**
  * [1.11] Event Story Gallery — תצוגת המדיה של אירוע כסיפור, לא כרשת
@@ -248,7 +249,7 @@ export function EventStoryGallery({
                 {t('momentsCount', { count: media.length })}
               </span>
               <span className="mt-1 inline-block text-small font-semibold text-burgundy">
-                {t('momentsCta')} ←
+                {t('momentsCta')} <DirArrow />
               </span>
             </span>
           </span>
@@ -481,12 +482,12 @@ function MediaViewer({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
-      // RTL: חץ שמאלה מתקדם. ניווט מקלדת מציג את הפילם-סטריפ לרגע כמשוב.
-      else if (event.key === 'ArrowLeft') {
-        step(1);
-        activity.wakeBriefly();
-      } else if (event.key === 'ArrowRight') {
-        step(-1);
+      // "הבא" לפי כיוון הממשק (שמאלה בעברית, ימינה באנגלית). ניווט מקלדת
+      // מציג את הפילם-סטריפ לרגע כמשוב.
+      else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        const rtl = document.documentElement.dir === 'rtl';
+        const forward = rtl ? event.key === 'ArrowLeft' : event.key === 'ArrowRight';
+        step(forward ? 1 : -1);
         activity.wakeBriefly();
       }
     };
@@ -873,7 +874,7 @@ function EventReels({
                 href={`/events/${suggestedEvent.slug}`}
                 className="btn btn-solid mt-6 inline-flex"
               >
-                {t('viewOtherGallery')}
+                {t('viewOtherGallery')} <DirArrow />
               </Link>
             </div>
           </div>

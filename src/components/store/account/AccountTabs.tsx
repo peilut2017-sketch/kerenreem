@@ -10,8 +10,9 @@ interface TabDef {
 
 /**
  * [1.6] טאבים לאזור האישי (ט.2) — role="tab"/"tabpanel" נגיש, בכוונה בלי
- * ניווט חצים RTL-aware (Tab/Shift+Tab בין הכפתורים עצמם עדיין עובד; זו
- * פשטה מכוונת, לא כל ARIA Authoring Practice למקרה שימוש כה קטן).
+ * ניווט חצים RTL-aware: כל הטאבים נשארים בסדר ה-Tab הרגיל (tabIndex 0).
+ * [1.40] קודם היה כאן roving tabIndex (-1 ללא-נבחר) *בלי* מטפל חצים —
+ * כלומר שאר הטאבים הוצאו מסדר ה-Tab בלי שום דרך חלופית להגיע אליהם.
  * תוכן כל טאב מגיע מוכן מרכיב שרת — הרכיב הזה רק מחליט מה גלוי.
  */
 export function AccountTabs({ tabs, ariaLabel }: { tabs: TabDef[]; ariaLabel: string }) {
@@ -30,7 +31,6 @@ export function AccountTabs({ tabs, ariaLabel }: { tabs: TabDef[]; ariaLabel: st
               id={`account-tab-${tab.key}`}
               aria-selected={selected}
               aria-controls={`account-panel-${tab.key}`}
-              tabIndex={selected ? 0 : -1}
               onClick={() => setActive(tab.key)}
               className={`-mb-px rounded-t-[var(--radius-md)] border border-b-0 px-4 py-2.5 text-small font-semibold transition-colors ${
                 selected

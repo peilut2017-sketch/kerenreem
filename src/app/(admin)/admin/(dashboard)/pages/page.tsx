@@ -1,15 +1,19 @@
 import Link from 'next/link';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { listPagesAdmin } from '@/lib/admin/queries';
 import { AdminCell, AdminHeader, AdminRow, AdminTable } from '@/components/admin/AdminList';
 import { RowActions } from '@/components/admin/RowActions';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 const REQUIRED_SLUGS = ['terms', 'privacy', 'accessibility'];
 
 export default async function AdminPagesPage() {
-  await requireScreenPermission('pages', 'view');
+  const session = await requireScreenPermission('pages', 'view');
+  // לחצני יצירה/עריכה/מחיקה רק למי שרשאי לערוך — אחרת משתמש בצפייה בלבד
+  // לחץ על כפתור נראה והוחזר לדשבורד עם denied=1 (כמו ב-/admin/books)
+  const { edit: canEdit } = await screenAccess(session, 'pages');
   const pages = await listPagesAdmin();
   const missing = REQUIRED_SLUGS.filter((slug) => !pages.some((page) => page.slug === slug));
 
@@ -18,7 +22,7 @@ export default async function AdminPagesPage() {
       <AdminHeader
         title="עמודי תוכן"
         description="אודות, תרומה, ועמודי החובה החוקיים."
-        action={{ href: '/admin/pages/new', label: 'עמוד חדש' }}
+        action={canEdit ? { href: '/admin/pages/new', label: 'עמוד חדש' } : undefined}
       />
 
       {missing.length > 0 ? (
@@ -42,15 +46,15 @@ export default async function AdminPagesPage() {
               <span dir="ltr">/{page.slug}</span>
             </AdminCell>
             <AdminCell className="text-muted">
-              {new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(new Date(page.updated_at))}
+              {formatAdminDate(page.updated_at, 'date')}
             </AdminCell>
             <AdminCell>
-              <RowActions
+              {canEdit ? <RowActions
                 entity="pages"
                 id={page.id}
                 label={page.title_he}
                 published={page.is_published}
-              />
+              /> : null}
             </AdminCell>
           </AdminRow>
         ))}

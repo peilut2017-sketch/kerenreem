@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { requireScreenPermission } from '@/lib/admin/auth';
+import { requireScreenPermission, screenAccess } from '@/lib/admin/auth';
 import { hasPermission } from '@/lib/admin/permissions';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { getOrderDetail } from '@/lib/admin/commerce-queries';
@@ -25,6 +25,7 @@ import {
   stateBadgeClass,
 } from '@/components/admin/orders/labels';
 
+import { formatAdminDate } from '@/lib/admin/reporting/format';
 export const dynamic = 'force-dynamic';
 
 const EVENT_LABELS: Record<string, string> = {
@@ -65,11 +66,7 @@ const ACTOR_LABELS: Record<string, string> = {
 };
 
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jerusalem',
-  }).format(new Date(value));
+  return formatAdminDate(value, 'dateTime');
 }
 
 /**
@@ -87,8 +84,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   // [1.4/1.4] המלקט (store_view) חייב לראות את פאנל הליקוט; רק 'store'
   // ומעלה עורכים את ההזמנה עצמה — ורק הם רואים PII וסכומים (ראו הערה
   // בפאנל הליקוט: תפקיד שנוצר כדי ללקט אינו צריך לראות שם/טלפון/מחיר).
-  const canPick = hasPermission(session.profile.role, 'store_view');
-  const canEdit = hasPermission(session.profile.role, 'store');
+  // [1.40] לפי מודל ההרשאות פר-מסך — אותו שער שהפעולות עצמן אוכפות
+  // (assertScreenPermission('orders', …)). קודם המסך גזר מהמודל הישן, כך
+  // ש-override ששלל עריכה השאיר פאנל שכל לחצניו נכשלו בשרת, ולהפך.
+  const ordersAccess = await screenAccess(session, 'orders');
+  const canPick = ordersAccess.view;
+  const canEdit = ordersAccess.edit;
   const canSeeMoney = canEdit;
   const succeededCharge = payments.find((p) => p.kind === 'charge' && p.status === 'succeeded');
   const refundedTotal = payments
