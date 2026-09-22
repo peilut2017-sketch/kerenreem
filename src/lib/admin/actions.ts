@@ -549,7 +549,12 @@ export async function toggleEntityField(
     if (error) return { ok: false, error: describeDbError(error, entity).message };
     if (!data) return { ok: false, error: 'העדכון לא נשמר: הרשומה לא נמצאה או שאין לך הרשאה לערוך אותה.' };
 
+    // [1.40] גם הערך הקודם נרשם, כדי שיומן הפעולות של הרשומה יוכל
+    // להציג "מה היה ← מה הוחלף" גם למתגים ולא רק לשמירות טופס. אין
+    // כאן שליפה נוספת: המתג מציג תמיד את הערך השמור, ולכן המצב שלפני
+    // לחיצה הוא בהכרח ההפך ממה שנשלח.
     await writeAudit(supabase, session.userId, 'update', entity.table, id, {
+      oldValues: { [fieldName]: !value },
       newValues: { [fieldName]: value },
       context: `שינוי מהיר של ${fieldName}`,
     });

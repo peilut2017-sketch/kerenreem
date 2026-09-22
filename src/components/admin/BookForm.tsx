@@ -6,6 +6,7 @@ import { EntityForm } from './EntityForm';
 import { BookFormTabs } from './BookFormTabs';
 import { ToggleField, FieldSet, TextAreaField, TextField } from './Fields';
 import { ImageField } from './ImageField';
+import { BookActivityLog } from './BookActivityLog';
 import { BookImagesEditor } from './BookImagesEditor';
 import { BookTocEditor } from './BookTocEditor';
 import { BookPreviewGenerator } from './books/BookPreviewGenerator';
@@ -1016,6 +1017,31 @@ export function BookForm({
                   </FieldSet>
                 ),
               },
+              /*
+                [1.40] יומן הפעולות של הספר — לשונית אחרונה, וקיימת רק
+                לספר שכבר נשמר: לרשומה חדשה אין עדיין היסטוריה, ולשונית
+                שתמיד ריקה היא רעש. התוכן נטען לפי דרישה (ראו
+                BookActivityLog), ולכן היא אינה מאטה את פתיחת הכרטיס.
+              */
+              ...(book
+                ? [
+                    {
+                      id: 'activity',
+                      label: 'יומן פעולות',
+                      icon: 'list' as const,
+                      hasError: false,
+                      content: (
+                        <FieldSet
+                          legend="כל הפעולות שנעשו בספר"
+                          icon="list"
+                          description="יצירה ועריכה, לפי תאריך ושעה, מי ביצע ומה בדיוק השתנה — כולל הערך שהיה והערך שהוחלף."
+                        >
+                          <BookActivityLog bookId={book.id} />
+                        </FieldSet>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
           />
         </>
