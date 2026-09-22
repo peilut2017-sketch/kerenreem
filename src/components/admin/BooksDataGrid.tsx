@@ -148,6 +148,8 @@ const STOCK_STATUS_BADGE: Record<StockStatus, string> = {
 type PublishFilter = 'all' | 'published' | 'draft';
 type PurchasableFilter = 'all' | 'yes' | 'no';
 type StockFilter = 'all' | 'out_of_stock' | 'low_stock' | 'no_price';
+/** [1.40] סינון לפי נכסי התמונה של הספר — ראו BookMediaCell. */
+type MediaFilter = 'all' | 'no_cover' | 'no_spine' | 'no_images';
 
 type SortKey = ColumnId | 'title';
 type SortState = { key: SortKey; direction: 'asc' | 'desc' } | null;
@@ -196,6 +198,7 @@ export function BooksDataGrid({
   const [publishFilter, setPublishFilter] = useState<PublishFilter>('all');
   const [purchasableFilter, setPurchasableFilter] = useState<PurchasableFilter>('all');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
+  const [mediaFilter, setMediaFilter] = useState<MediaFilter>('all');
   const categoryName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const seriesName = useMemo(() => new Map(series.map((s) => [s.id, s.name])), [series]);
 
@@ -276,9 +279,12 @@ export function BooksDataGrid({
       if (stockFilter === 'out_of_stock' && stockStatus(book, lowStockThreshold) !== 'out_of_stock') return false;
       if (stockFilter === 'low_stock' && stockStatus(book, lowStockThreshold) !== 'low_stock') return false;
       if (stockFilter === 'no_price' && book.price != null) return false;
+      if (mediaFilter === 'no_cover' && book.cover_image_url) return false;
+      if (mediaFilter === 'no_spine' && book.spine_image_url) return false;
+      if (mediaFilter === 'no_images' && (book.cover_image_url || book.spine_image_url)) return false;
       return true;
     });
-  }, [rows, query, publishFilter, purchasableFilter, stockFilter, lowStockThreshold]);
+  }, [rows, query, publishFilter, purchasableFilter, stockFilter, mediaFilter, lowStockThreshold]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
@@ -603,13 +609,27 @@ export function BooksDataGrid({
           <option value="low_stock">מלאי נמוך</option>
           <option value="no_price">ללא מחיר</option>
         </select>
-        {publishFilter !== 'all' || purchasableFilter !== 'all' || stockFilter !== 'all' ? (
+        {/* [1.40] סינון לפי נכסי תמונה — הדרך המהירה למצוא את הספרים
+            שחסרה להם כריכה או שדרה, ולא לסרוק את כל הרשימה בעין. */}
+        <select
+          value={mediaFilter}
+          onChange={(e) => setMediaFilter(e.target.value as MediaFilter)}
+          aria-label="סינון לפי תמונות"
+          className="admin-field-input w-auto py-1.5"
+        >
+          <option value="all">תמונות — הכל</option>
+          <option value="no_cover">בלי כריכה</option>
+          <option value="no_spine">בלי שדרה</option>
+          <option value="no_images">בלי כריכה ובלי שדרה</option>
+        </select>
+        {publishFilter !== 'all' || purchasableFilter !== 'all' || stockFilter !== 'all' || mediaFilter !== 'all' ? (
           <button
             type="button"
             onClick={() => {
               setPublishFilter('all');
               setPurchasableFilter('all');
               setStockFilter('all');
+              setMediaFilter('all');
             }}
             className="admin-btn admin-btn-ghost"
           >
@@ -635,7 +655,7 @@ export function BooksDataGrid({
                   className="h-4 w-4 accent-[var(--admin-accent)]"
                 />
               </th>
-              <th scope="col" aria-label="כריכה" />
+              <th scope="col" aria-label="כריכה ושדרה" />
               {shown('catalogue_number') ? (
                 <SortableHeader label="#" active={sortIndicator('catalogue_number')} onClick={() => toggleSort('catalogue_number')} />
               ) : null}
@@ -668,27 +688,21 @@ export function BooksDataGrid({
                     />
                   </td>
                   <td>
-                    {book.cover_image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- תמונונת קטנה בטבלה; אין צורך באופטימיזציית next/image
-                      <img
-                        src={toCdnUrl(book.cover_image_url)}
-                        alt=""
-                        className="h-10 w-8 rounded-[4px] border border-rule object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-10 w-8 items-center justify-center rounded-[4px] bg-cream-2 text-muted">
-                        <AdminIcon name="books" className="h-4 w-4" />
-                      </span>
-                    )}
+                    <BookMediaCell book={book} />
                   </td>
                   {shown('catalogue_number') ? cellFor('catalogue_number', row) : null}
                   <td>
-                    <Link href={`/admin/books/${book.id}`} className="font-semibold hover:text-[var(--admin-accent)]">
+                    {/* [1.40] כותרת המשנה הוסרה מהשורה: היא הוסיפה שורה
+                        שנייה כמעט לכל ספר והאריכה את הרשימה בלי להוסיף
+                        מידע שמחפשים בה. היא נשארת ב-title לריחוף, ובכרטיס
+                        הספר עצמו היא כמובן במקומה. */}
+                    <Link
+                      href={`/admin/books/${book.id}`}
+                      title={book.subtitle_he ?? undefined}
+                      className="font-semibold hover:text-[var(--admin-accent)]"
+                    >
                       {book.title_he}
                     </Link>
-                    {book.subtitle_he ? (
-                      <span className="mt-0.5 block text-caption text-muted">{book.subtitle_he}</span>
-                    ) : null}
                   </td>
                   {activeColumns
                     .filter((column) => column.id !== 'catalogue_number')
@@ -714,6 +728,71 @@ export function BooksDataGrid({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * [1.40] חיווי נכסי התמונה של הספר — כריכה ראשית ושדרה, זו לצד זו,
+ * בתא אחד במקום התמונונת הבודדת שהייתה כאן.
+ *
+ * שתי המסגרות תמיד מוצגות, גם כשהקובץ חסר: מסגרת מקווקווית ריקה אומרת
+ * "כאן אמורה להיות שדרה ואין" — מידע. הסתרה של החסר הייתה אומרת בדיוק
+ * כלום, וזו הייתה הבעיה: אי אפשר היה לדעת מהרשימה למי חסרה שדרה בלי
+ * להיכנס לכל ספר.
+ *
+ * הפרופורציות מחקות את המציאות — כריכה רחבה ונמוכה יחסית, שדרה צרה
+ * וגבוהה — כדי שאפשר יהיה להבחין ביניהן בלי לקרוא.
+ */
+function BookMediaCell({ book }: { book: BookRow }) {
+  return (
+    <div className="flex items-end gap-1.5" aria-label="כריכה ושדרה">
+      <MediaThumb
+        url={book.cover_image_url}
+        label="כריכה"
+        missingLabel="אין כריכה ראשית"
+        className="h-10 w-8"
+      />
+      <MediaThumb
+        url={book.spine_image_url}
+        label="שדרה"
+        missingLabel="אין תמונת רצועת צד (שדרה)"
+        className="h-10 w-3"
+      />
+    </div>
+  );
+}
+
+function MediaThumb({
+  url,
+  label,
+  missingLabel,
+  className,
+}: {
+  url: string | null;
+  label: string;
+  missingLabel: string;
+  className: string;
+}) {
+  if (url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- תמונונת קטנה בטבלה; אין צורך באופטימיזציית next/image
+      <img
+        src={toCdnUrl(url)}
+        alt=""
+        title={label}
+        loading="lazy"
+        className={`${className} rounded-[3px] border border-rule object-cover`}
+      />
+    );
+  }
+  return (
+    <span
+      title={missingLabel}
+      aria-label={missingLabel}
+      className={`${className} flex items-center justify-center rounded-[3px] border border-dashed border-[var(--admin-danger)]/45 bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]`}
+    >
+      <AdminIcon name="image" className="h-3 w-3" />
+    </span>
   );
 }
 

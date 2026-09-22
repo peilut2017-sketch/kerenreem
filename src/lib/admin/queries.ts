@@ -718,29 +718,120 @@ export async function listStorageFiles(): Promise<StorageFilesResult> {
   // הקבצים החדשים והעלימה את השאר בשקט. עמוד-עמוד עם range() עד לעמוד חסר.
   const PAGE = 1000;
   const files: AdminStorageFile[] = [];
+  let rpcError: string | null = null;
+
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase
       .rpc('admin_list_storage_files')
       .range(offset, offset + PAGE - 1);
     if (error) {
       console.error('[admin:mediaLibrary]', error.code, error.message);
-      const hint =
-        error.code === 'PGRST202' || /function .* does not exist/i.test(error.message)
-          ? ' — יש להריץ את supabase/50_media_library.sql על מסד הנתונים.'
-          : '';
-      return { files, error: `${error.code ?? '—'}: ${error.message}${hint}` };
+      const missing =
+        error.code === 'PGRST202' || /function .* does not exist/i.test(error.message);
+      rpcError = `${error.code ?? '—'}: ${error.message}${
+        missing ? ' — יש להריץ את supabase/50_media_library.sql על מסד הנתונים.' : ''
+      }`;
+      break;
     }
     const page = (data as AdminStorageFile[] | null) ?? [];
     files.push(...page);
     if (page.length < PAGE) break;
   }
 
+  /*
+   * [1.40] נפילה חזרה ל-Storage API כשה-RPC לא החזיר דבר.
+   *
+   * זו הסיבה שספריית המדיה נראתה ריקה למרות שהאתר מגיש את הקבצים
+   * בפועל: admin_list_storage_files היא פונקציית עזר ממיגרציה נפרדת
+   * (50_media_library.sql), ומסד שטרם הריץ אותה — או שבו ה-RLS על
+   * storage.objects חוסם את הקריאה — מחזיר שגיאה או אפס שורות, ולא
+   * היה שום מסלול חלופי. העמוד הציג "לא נמצאו קבצים", וזה נקרא כאילו
+   * לא הועלה דבר.
+   *
+   * ה-Storage API אינו זקוק לשום מיגרציה. מה שהוא לא יודע לתת זה מי
+   * העלה את הקובץ (owner_id יושב ב-storage.objects ומצטלב מול
+   * auth.users רק דרך הפונקציה) — ולכן זו נפילה חזרה ולא תחליף:
+   * הרשימה מלאה, ועמודת "הועלה" מציגה תאריך בלי שם.
+   */
+  if (files.length === 0) {
+    const viaApi = await listStorageFilesViaApi(supabase);
+    if (viaApi.length > 0) {
+      return {
+        files: viaApi,
+        // השגיאה עדיין מדווחת כשהייתה כזו — המנהל צריך לדעת שהוא
+        // מסתכל על הרשימה החלופית, ושכדאי להריץ את המיגרציה.
+        error: rpcError
+          ? `${rpcError} הרשימה שלמטה נטענה ישירות מהאחסון, בלי פרטי המעלה.`
+          : null,
+      };
+    }
+  }
+
   // שורות placeholder שספריית האחסון יוצרת לתיקיות ריקות אינן קבצים
   // שהועלו — אין מה להציג או למחוק בהן דרך ספריית המדיה.
   return {
     files: files.filter((file) => !file.path.endsWith('.emptyFolderPlaceholder')),
-    error: null,
+    error: rpcError,
   };
+}
+
+/** ה-buckets הציבוריים שספריית המדיה מציגה — אותם חמישה שבפונקציית ה-SQL. */
+const MEDIA_BUCKETS = ['covers', 'events', 'portraits', 'samples', 'site'] as const;
+
+/**
+ * סריקת ה-buckets דרך Storage API. list() אינו רקורסיבי ומחזיר תיקיות
+ * כרשומות בלי metadata — לכן הליכה לרוחב עם תור, ולא רקורסיה עמוקה:
+ * התור שטוח, קל להגביל אותו, ואין סיכון לגלישת מחסנית על מבנה עמוק.
+ */
+async function listStorageFilesViaApi(
+  supabase: Awaited<ReturnType<typeof client>>,
+): Promise<AdminStorageFile[]> {
+  const PAGE = 1000;
+  /** תקרת בטיחות: ספרייה עם עשרות אלפי קבצים אינה אמורה לחנוק את המסך. */
+  const MAX_FILES = 20_000;
+  const out: AdminStorageFile[] = [];
+
+  for (const bucket of MEDIA_BUCKETS) {
+    const prefixes: string[] = [''];
+    while (prefixes.length > 0 && out.length < MAX_FILES) {
+      const prefix = prefixes.shift()!;
+      for (let offset = 0; ; offset += PAGE) {
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .list(prefix, { limit: PAGE, offset, sortBy: { column: 'created_at', order: 'desc' } });
+        if (error) {
+          console.error('[admin:mediaLibrary:api]', bucket, prefix, error.message);
+          break;
+        }
+        const rows = data ?? [];
+        for (const row of rows) {
+          const path = prefix ? `${prefix}/${row.name}` : row.name;
+          // תיקייה מוחזרת בלי id ובלי metadata — נכנסת לתור, לא לרשימה.
+          if (!row.id) {
+            if (row.name !== '.emptyFolderPlaceholder') prefixes.push(path);
+            continue;
+          }
+          if (path.endsWith('.emptyFolderPlaceholder')) continue;
+          const metadata = (row.metadata ?? {}) as { size?: number; mimetype?: string };
+          out.push({
+            id: row.id,
+            bucket_id: bucket,
+            path,
+            owner_id: null,
+            uploader_email: null,
+            uploader_name: null,
+            created_at: row.created_at ?? row.updated_at ?? new Date().toISOString(),
+            updated_at: row.updated_at ?? row.created_at ?? new Date().toISOString(),
+            size_bytes: typeof metadata.size === 'number' ? metadata.size : null,
+            mime_type: typeof metadata.mimetype === 'string' ? metadata.mimetype : null,
+          });
+        }
+        if (rows.length < PAGE) break;
+      }
+    }
+  }
+
+  return out.sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
 /**

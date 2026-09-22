@@ -206,6 +206,7 @@ export function ToggleField({
   entityKey,
   id: recordId,
   onToggle,
+  saveWithForm = false,
 }: {
   name: string;
   label: string;
@@ -217,9 +218,17 @@ export function ToggleField({
   id?: string | null;
   /** פעולת שמירה מותאמת — חלופה ל-entityKey+id לטפסים מחוץ ל-ENTITIES. */
   onToggle?: (next: boolean) => Promise<{ ok: boolean; error?: string }>;
+  /**
+   * [1.40] ביטול מפורש של השמירה-המיידית, גם ברשומה קיימת. נחוץ למתג
+   * שתלוי בשדות אחרים *באותו מסך* שעדיין לא נשמרו: שמירה מיידית קוראת
+   * את מצב הרשומה מהמסד, לא מהטופס, ולכן היא נדחית על ערכים שהעורך
+   * כבר הקליד אך טרם שמר. מתג כזה נשמר עם הטופס ועובר את אותה
+   * ולידציה חוצת-שדות שכבר קיימת ב-saveEntity.
+   */
+  saveWithForm?: boolean;
 }) {
   const id = useId();
-  const autoSave = Boolean(onToggle) || Boolean(entityKey && recordId);
+  const autoSave = !saveWithForm && (Boolean(onToggle) || Boolean(entityKey && recordId));
   const [checked, setChecked] = useState(defaultChecked ?? false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -275,6 +284,16 @@ export function ToggleField({
         {/* ה-checkbox מבוקר ב-checked בשני המצבים כדי שהסליידר יזוז תמיד.
             במצב שאינו autoSave (רשומה חדשה) יש לו name כדי שערכו יישלח
             עם הטופס; במצב autoSave השינוי נשמר דרך הפעולה, לא בשליחת טופס. */}
+        {/*
+          [1.40] סמן "המתג הזה משתתף בשמירת הטופס".
+
+          saveEntity מדלג ברירת-מחדל על שדות בוליאניים של רשומה קיימת,
+          כי הם נשמרים לבדם (autoSave) ואינם נשלחים עם הטופס — בלי
+          הדילוג, כל שמירה הייתה כותבת false על מתג שלא נגעו בו. מתג
+          שאינו autoSave כן נשלח, וצריך דרך להגיד זאת: השם שלו נוסף
+          לרשימת __bool, ו-saveEntity מכבד אותה. ראו actions.ts.
+        */}
+        {autoSave ? null : <input type="hidden" name="__bool" value={name} />}
         <input
           id={id}
           name={autoSave ? undefined : name}

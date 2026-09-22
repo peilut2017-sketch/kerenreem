@@ -32,6 +32,7 @@ export function Drawer({
   onClose,
   titleId,
   title,
+  headerExtra,
   children,
   footer,
   widthClassName = 'max-w-[24rem]',
@@ -43,6 +44,12 @@ export function Drawer({
   onClose: () => void;
   titleId: string;
   title: string;
+  /**
+   * [1.40] תוכן נוסף בשורת הכותרת, בין השם לכפתור הסגירה — למשל חיווי
+   * "שינויים שלא נשמרו" בכרטיס עריכה. שורת הכותרת היא השורה שהעין
+   * חוזרת אליה בכל סגירה, ולכן היא המקום הנכון לאזהרה כזו.
+   */
+  headerExtra?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   widthClassName?: string;
@@ -206,10 +213,11 @@ export function Drawer({
           centered ? 'max-h-[88vh]' : bottom ? 'max-h-[85vh]' : 'm-3'
         } ${panelMotion}`}
       >
-        <div className="flex items-center justify-between border-b border-rule px-6 py-4">
-          <h2 id={titleId} className="font-serif text-h3 text-ink">
+        <div className="flex items-center gap-3 border-b border-rule px-6 py-4">
+          <h2 id={titleId} className="min-w-0 flex-1 truncate font-serif text-h3 text-ink">
             {title}
           </h2>
+          {headerExtra}
           <button
             type="button"
             onClick={onClose}
