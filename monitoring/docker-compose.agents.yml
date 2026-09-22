@@ -1,0 +1,74 @@
+# [1.40] סוכני המדידה — רצים על **שרת האפליקציה** (Hetzner/Coolify).
+#
+# שלושה סוכנים שקוראים ואינם כותבים: מדדי מערכת, מדדי קונטיינרים,
+# ומדדי PostgreSQL. אף אחד מהם אינו מחליט דבר ואינו מריץ פעולה —
+# ההחלטות נופלות ב-Prometheus שעל מכונת הניטור הנפרדת.
+#
+# מדוע זה בטוח למסד:
+#   • postgres_exporter מתחבר עם משתמש **לקריאה בלבד** (ראו למטה),
+#     בלי הרשאת כתיבה ובלי superuser.
+#   • cadvisor מקבל את סוקט ה-Docker ב-read-only. הוא אינו יכול
+#     לעצור, למחוק או להריץ קונטיינר.
+#   • אין כאן שום volume של נתונים, ואין שום פקודת prune.
+#
+# הפעלה:
+#   docker compose -f docker-compose.agents.yml up -d
+#
+# חשיפה: הפורטים נקשרים ל-127.0.0.1 בלבד. הגישה של מכונת הניטור
+# אליהם היא דרך מנהרה (WireGuard / Tailscale / SSH tunnel) ולא דרך
+# האינטרנט — מדדי שרת חשופים הם מפת דרכים לתוקף.
+
+name: kerenreem-monitoring-agents
+
+services:
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      # מערכות קבצים וירטואליות אינן דיסק אמיתי — בלי הסינון, התראת
+      # "הדיסק מתמלא" הייתה נדלקת על overlayfs של קונטיינרים.
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|var/lib/docker/.+)($$|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup.*|devpts|overlay|proc|squashfs|sysfs|tmpfs)$$
+    pid: host
+    network_mode: host
+    volumes:
+      - /:/host:ro,rslave
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    privileged: false
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      # ro על הסוקט: cadvisor צריך לקרוא מטא-דאטה של קונטיינרים, לא
+      # לשלוט בהם. סוקט Docker לכתיבה שקול למתן root על המארח.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - '127.0.0.1:8080:8080'
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    restart: unless-stopped
+    environment:
+      # משתמש לקריאה בלבד. ליצור פעם אחת:
+      #
+      #   create user monitoring_ro with password '…';
+      #   grant pg_monitor to monitoring_ro;
+      #
+      # ‏pg_monitor הוא תפקיד מובנה שנותן קריאת סטטיסטיקות בלבד — בלי
+      # קריאת נתוני טבלאות, בלי כתיבה, בלי DDL. לעולם לא להשתמש כאן
+      # ב-postgres או ב-service_role.
+      DATA_SOURCE_NAME: ${PG_EXPORTER_DSN}
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: 'false'
+    volumes:
+      - ./postgres-queries.yml:/etc/postgres_exporter/queries.yml:ro
+    command:
+      - --extend.query-path=/etc/postgres_exporter/queries.yml
+    ports:
+      - '127.0.0.1:9187:9187'

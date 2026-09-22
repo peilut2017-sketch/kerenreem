@@ -167,11 +167,24 @@ export interface RelatedBookCard {
   slug: string;
   title_he: string;
   title_en: string | null;
+  /**
+   * [1.40] כותרת משנה, תמצית ופרטי ספק — לא לכרטיס הקטן עצמו אלא
+   * לתצוגה המהירה שנפתחת ממנו (book-quick-view.tsx). הם נשלפים כאן
+   * ולא בבקשה נוספת בזמן הפתיחה: אלה ארבע עמודות טקסט על שורה
+   * שממילא נשלפת, מול סבב רשת שהמשתמש היה מחכה לו בכל פתיחה.
+   */
+  subtitle_he: string | null;
+  subtitle_en: string | null;
+  description_brief_he: string | null;
+  description_brief_en: string | null;
   cover_image_url: string | null;
   price: number | null;
   currency: string | null;
   is_purchasable: boolean;
   stock_quantity: number | null;
+  external_supplier_enabled: boolean | null;
+  external_supplier_url: string | null;
+  external_supplier_name: string | null;
   author: Pick<Author, 'id' | 'slug' | 'name_he' | 'name_en'> | null;
 }
 

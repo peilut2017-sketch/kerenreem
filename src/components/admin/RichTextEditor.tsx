@@ -12,7 +12,7 @@ import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
 import Placeholder from '@tiptap/extension-placeholder';
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { AdminIcon } from './AdminIcons';
 import { Spinner } from './SubmitButton';
 import { uploadToBucket } from './ImageField';
@@ -89,6 +89,12 @@ export function RichTextEditor({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * גשר בין editorProps (שנבנה פעם אחת, לפני שהמופע קיים) לבין פונקציית
+   * ההעלאה שמוגדרת אחריו וזקוקה ל-editor. ref ולא תלות ב-useEditor:
+   * בנייה מחדש של העורך בכל רינדור הייתה מאפסת את תוכן העריכה.
+   */
+  const insertImagesRef = useRef<((files: File[], pos: number | null) => Promise<void>) | null>(null);
 
   const editor = useEditor({
     // חובה ב-App Router: רינדור מיידי בשרת שובר את ה-hydration.
@@ -136,7 +142,83 @@ export function RichTextEditor({
         role: 'textbox',
         'aria-multiline': 'true',
       },
+      /**
+       * [1.40] גרירת תמונה אל גוף הטקסט מעלה אותה ומשבצת אותה *במקום
+       * שאליו נגררה*, ולא בסוף.
+       *
+       * מטופל דרך handleDrop של ProseMirror ולא דרך FileDropZone כמו
+       * בשאר השדות: העורך הוא עצמו יעד גרירה (גרירת בלוק טקסט בתוכו),
+       * ועטיפה חיצונית שבולעת את ה-drop הייתה שוברת את הגרירה הפנימית.
+       * moved=true הוא בדיוק המקרה הזה — תוכן שנגרר בתוך המסמך — ולכן
+       * מוחזר false כדי ש-ProseMirror יטפל בו כרגיל.
+       *
+       * ההעלאה אסינכרונית וההשמה קורית אחריה, ולכן עמדת הסמן נשמרת
+       * מראש (posAtCoords) — עד שהקובץ עולה, המשתמש כבר עשוי להקליק
+       * במקום אחר.
+       */
+      handleDrop(view, event, _slice, moved) {
+        if (moved) return false;
+        const files = Array.from((event as DragEvent).dataTransfer?.files ?? []).filter((file) =>
+          file.type.startsWith('image/'),
+        );
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const drop = view.posAtCoords({
+          left: (event as DragEvent).clientX,
+          top: (event as DragEvent).clientY,
+        });
+        void insertImagesRef.current?.(files, drop?.pos ?? null);
+        return true;
+      },
+      /** הדבקת צילום מסך מהלוח — אותה זרימה בדיוק, בלי מיקום גרירה. */
+      handlePaste(_view, event) {
+        const files = Array.from((event as ClipboardEvent).clipboardData?.files ?? []).filter((file) =>
+          file.type.startsWith('image/'),
+        );
+        if (files.length === 0) return false;
+        event.preventDefault();
+        void insertImagesRef.current?.(files, null);
+        return true;
+      },
     },
+  });
+
+  /**
+   * העלאת תמונות אל גוף הטקסט. מוגדרת *לפני* היציאה המוקדמת שלמטה
+   * (‎!editor) כדי שהאפקט שמצמיד אותה ל-ref ירוץ בכל רינדור באותו סדר —
+   * hook אחרי return מותנה הוא שבירה של כללי ה-hooks.
+   */
+  async function insertImages(files: File[], pos: number | null) {
+    if (files.length === 0) return;
+    setUploadingImage(true);
+    setImageError(null);
+    try {
+      // סדרתי ולא Promise.all: התמונות נכנסות למסמך בסדר שבו נגררו,
+      // וכל השמה מזיזה את המיקום הבא — מקביליות הייתה מערבבת אותן.
+      let at = pos;
+      for (const file of files) {
+        const url = await uploadToBucket('covers', file);
+        const chain = editor?.chain().focus();
+        if (!chain) return;
+        if (at == null) chain.setImage({ src: url }).run();
+        else {
+          chain.insertContentAt(at, { type: 'image', attrs: { src: url } }).run();
+          at += 1;
+        }
+      }
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : 'ההעלאה נכשלה');
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  // באפקט ולא בגוף הרינדור: כתיבה ל-ref בזמן רינדור אינה בטוחה
+  // (React רשאי לקרוא לרכיב יותר מפעם אחת לפני שהוא מתחייב לתוצאה).
+  // בלי מערך תלויות בכוונה — רץ אחרי כל רינדור, כך שהמצביע תמיד מפנה
+  // ל-closure העדכני, בלי לבנות מחדש את העורך עצמו.
+  useEffect(() => {
+    insertImagesRef.current = insertImages;
   });
 
   if (!editor) {
@@ -165,18 +247,7 @@ export function RichTextEditor({
     editor.commands.setYoutubeVideo({ src: url, width: 640, height: 360 });
   };
 
-  async function addImage(file: File) {
-    setUploadingImage(true);
-    setImageError(null);
-    try {
-      const url = await uploadToBucket('covers', file);
-      editor?.chain().focus().setImage({ src: url }).run();
-    } catch (err) {
-      setImageError(err instanceof Error ? err.message : 'ההעלאה נכשלה');
-    } finally {
-      setUploadingImage(false);
-    }
-  }
+  const addImage = (file: File) => insertImages([file], null);
 
   const insertTable = () => {
     editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
@@ -332,6 +403,10 @@ export function RichTextEditor({
 
       <input type="hidden" name={name} value={html} />
       {imageError ? <span className="admin-field-error">{imageError}</span> : null}
+      <span className="admin-field-hint">
+        אפשר לגרור תמונה אל תוך הטקסט (או להדביק צילום מסך) — היא תועלה ותשובץ במקום
+        שאליו נגררה.
+      </span>
       {hint ? <span className="admin-field-hint">{hint}</span> : null}
     </div>
   );

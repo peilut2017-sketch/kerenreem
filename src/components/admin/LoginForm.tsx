@@ -1,7 +1,6 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { recordAdminLogin } from '@/lib/admin/activity-audit-actions';
 
@@ -19,7 +18,6 @@ import { recordAdminLogin } from '@/lib/admin/activity-audit-actions';
  * קריאה מה-FormData מחזירה תמיד את מה שבשדה בפועל.
  */
 export function LoginForm({ next }: { next?: string }) {
-  const router = useRouter();
   const id = useId();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -59,16 +57,41 @@ export function LoginForm({ next }: { next?: string }) {
     }
 
     // [1.11] תיעוד הכניסה ביומן הביקורת — הזהות נקראת מה-session בשרת.
-    // fire-and-forget במפורש ולא await: קריאת שרת שנתקעת (רשת אטית,
-    // חיבור למסד עמוס) הייתה משאירה את הכפתור על "מתחבר…" לנצח, גם
-    // אחרי שההתחברות עצמה כבר הצליחה — לא רק כשל, גם תקיעה, לא נחסמים.
-    void recordAdminLogin();
+    //
+    // [1.40] ממתינים לו, אבל לא לנצח: עד שנייה וחצי ואז ממשיכים בלי
+    // קשר לתוצאה. שתי סיבות. הראשונה — ניווט קשיח (למטה) מבטל בקשות
+    // שעדיין בדרך, ו-fire-and-forget היה מפיל את התיעוד ברוב הכניסות.
+    // השנייה, והיא הסיבה שהכניסה "לא נכנסה עד רענון": Server Action
+    // מחזירה גם רינדור מחודש של העץ הנוכחי, וכשהיא חזרה *אחרי*
+    // router.replace היא החזירה את המסך אל מסך ההתחברות עצמו. הגבלת
+    // הזמן שומרת על התיעוד בלי שהוא יוכל לתקוע את הכניסה.
+    await Promise.race([
+      recordAdminLogin().catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]);
 
     // ההפניה מוגבלת לנתיבים פנימיים תחת /admin, כדי שפרמטר next
     // לא ישמש להפניה לאתר חיצוני.
     const target = next && /^\/admin(\/|$)/.test(next) ? next : '/admin';
-    router.replace(target);
-    router.refresh();
+
+    /*
+     * [1.40] ניווט קשיח ולא router.replace — זו הסיבה שהכניסה דרשה
+     * רענון ידני.
+     *
+     * signInWithPassword כותב את עוגיות ה-session בדפדפן, אבל הניווט
+     * הרך של Next.js מבקש RSC עבור /admin מתוך אותו עץ ראוטר שכבר
+     * נטען, ו-proxy.ts (שקורא את העוגייה ומחליט אם להפנות למסך
+     * ההתחברות) עשוי לראות את הבקשה עוד לפני שהעוגייה נכתבה — או
+     * לקבל תשובה ש-router.refresh/ה-Server Action שרצה במקביל דורסים
+     * מיד אחריה. התוצאה: המסך נשאר על ההתחברות עד שרענון ידני מייצר
+     * בקשת מסמך חדשה, שבה העוגייה כבר שם.
+     *
+     * טעינת מסמך מלאה מסירה את כל המרוץ הזה: הדפדפן שולח את העוגיות
+     * שנכתבו זה עתה, ה-proxy רואה session תקף, וכל עץ הניהול נבנה
+     * בשרת מאפס. זו גם ההתנהגות שמצופה בכניסה — מעבר מהאתר אל
+     * הממשק, לא ניווט פנימי בתוכו.
+     */
+    window.location.assign(target);
   }
 
   return (

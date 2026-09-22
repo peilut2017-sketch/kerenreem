@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '@/components/BookCover';
+import { ScrollRail } from '@/components/ScrollRail';
 import { SectionHeading } from '@/components/SectionHeading';
-import { localized } from '@/lib/localized';
+import { useQuickView, type QuickViewBook } from '@/components/book-quick-view';
+import { localized, localizedOrNull } from '@/lib/localized';
 import type { BookConnections } from '@/lib/data';
 import type { BookRelationType, RelatedBookCard } from '@/lib/supabase/types';
 
@@ -37,6 +39,7 @@ export function ConnectionsSection({
   locale: string;
 }) {
   const t = useTranslations('books');
+  const openQuickView = useQuickView();
 
   const REASON_LABELS: Record<BookRelationType, string> = {
     complements: t('reasonComplements'),
@@ -153,29 +156,75 @@ export function ConnectionsSection({
         </div>
       ) : null}
 
-      <ul className="flex gap-4 overflow-x-auto pb-2">
+      {/* [1.40] רצועה עם חיצים במקום פס גלילה חשוף — ראו ScrollRail.
+          הרצועה עצמה היא המגלל ונושאת role="group" עם שם נגיש, ולכן
+          הכרטיסים הם ילדים ישירים שלה ולא <ul> מקונן: מגלל בתוך מגלל
+          היה שובר את מדידת הקצוות ואת ה-snap. */}
+      <ScrollRail
+        label={t('connectionsRailLabel')}
+        prevLabel={t('railPrev')}
+        nextLabel={t('railNext')}
+      >
         {shown.map(({ book, reason }) => {
-          const title = localized(book, 'title', locale);
-          const author = book.author ? localized(book.author, 'name', locale) : null;
-          return (
-            <li key={book.id} className="w-36 shrink-0 sm:w-44">
-              <Link
-                href={`/books/${book.slug}`}
-                className="group block rounded-[var(--radius-lg)] border border-rule bg-cream-2/50 p-3.5 transition-[transform,border-color] duration-300 ease-[var(--ease-spring)] hover:-translate-y-1.5 hover:border-gold-deep focus-visible:outline-offset-4"
-              >
-                <BookCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} sizes="176px" />
-                <span className="mt-3 block truncate rounded-[var(--radius-pill)] bg-cream-3 px-2.5 py-0.5 text-center text-[0.6875rem] text-ink-soft">
-                  {reason}
-                </span>
-                <h3 className="mt-2 line-clamp-2 text-small leading-snug text-ink group-hover:text-gold-deep">
-                  {title}
-                </h3>
-                {author ? <p className="mt-0.5 text-caption text-muted">{author}</p> : null}
-              </Link>
-            </li>
-          );
+            const title = localized(book, 'title', locale);
+            const author = book.author ? localized(book.author, 'name', locale) : null;
+            return (
+              <div key={book.id} className="w-36 shrink-0 sm:w-44">
+                <div className="group relative block h-full rounded-[var(--radius-lg)] border border-rule bg-cream-2/50 p-3.5 transition-[transform,border-color] duration-300 ease-[var(--ease-spring)] hover:-translate-y-1.5 hover:border-gold-deep">
+                  <BookCover src={book.cover_image_url} title={title} alt={t('coverAlt', { title })} sizes="176px" />
+                  <span className="mt-3 block truncate rounded-[var(--radius-pill)] bg-cream-3 px-2.5 py-0.5 text-center text-[0.6875rem] text-ink-soft">
+                    {reason}
+                  </span>
+                  <h3 className="mt-2 line-clamp-2 text-small leading-snug text-ink group-hover:text-gold-deep">
+                    {/*
+                      הקישור נשאר <Link> אמיתי לעמוד הספר — כך הוא נפתח
+                      בכרטיסייה חדשה בלחיצה אמצעית, נסרק, ועובד בלי JS.
+                      הלחיצה הרגילה נתפסת ומוחלפת בתצוגה מהירה רק כשזו
+                      זמינה (הפריסה הציבורית מספקת אותה), ורק ללחיצה
+                      "נקייה": עם Ctrl/Cmd/Shift, או בכפתור שאינו הראשי,
+                      הדפדפן מקבל את ההתנהגות הרגילה שלו.
+                    */}
+                    <Link
+                      href={`/books/${book.slug}`}
+                      onClick={(event) => {
+                        if (!openQuickView) return;
+                        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                        event.preventDefault();
+                        openQuickView(toQuickView(book, locale, reason));
+                      }}
+                      className="after:absolute after:inset-0 focus-visible:outline-offset-4"
+                    >
+                      {title}
+                    </Link>
+                  </h3>
+                  {author ? <p className="mt-0.5 text-caption text-muted">{author}</p> : null}
+                </div>
+              </div>
+            );
         })}
-      </ul>
+      </ScrollRail>
     </section>
   );
+}
+
+/**
+ * ספר קשור → נתוני התצוגה המהירה. כל השדות כאן נשלפים כבר ב-select של
+ * הקשרים (ראו BOOK_DETAIL_SELECT_V3 ב-data.ts), ולכן פתיחת התצוגה אינה
+ * דורשת סבב רשת נוסף.
+ */
+function toQuickView(book: RelatedBookCard, locale: string, eyebrow: string): QuickViewBook {
+  return {
+    slug: book.slug,
+    title: localized(book, 'title', locale),
+    subtitle: localizedOrNull(book, 'subtitle', locale),
+    coverUrl: book.cover_image_url,
+    authorName: book.author ? localized(book.author, 'name', locale) : null,
+    authorSlug: book.author?.slug ?? null,
+    brief: localizedOrNull(book, 'description_brief', locale),
+    // הכפתור החיצוני מוצג רק כשהמצב באמת מופעל — קישור ששמור בשדה
+    // אבל המתג כבוי אינו אמור להופיע בשום מקום באתר.
+    externalUrl: book.external_supplier_enabled ? (book.external_supplier_url ?? null) : null,
+    externalLabel: book.external_supplier_name ?? null,
+    eyebrow,
+  };
 }

@@ -50,7 +50,8 @@ export type ScreenKey =
   | 'org-settings'
   | 'audit-log'
   | 'diagnostics'
-  | 'media-library';
+  | 'media-library'
+  | 'email';
 
 export interface ScreenDef {
   key: ScreenKey;
@@ -89,6 +90,7 @@ export const SCREENS: readonly ScreenDef[] = [
   { key: 'audit-log', label: 'יומן ביקורת', family: 'system' },
   { key: 'diagnostics', label: 'אבחון', family: 'system' },
   { key: 'media-library', label: 'ספריית מדיה', family: 'system' },
+  { key: 'email', label: 'דואר יוצא', family: 'system' },
 ] as const;
 
 /**
@@ -101,7 +103,16 @@ export const SCREENS: readonly ScreenDef[] = [
  * *לא* ברשימה הזו — בעל האתר הגדיר מפורשות שמנהל ראשי מקבל "גישה לכל
  * ההגדרות, לא כולל הוספת משתמשים", וזהות הארגון היא הגדרה, לא ניהול צוות.
  */
-export const ADMIN_ONLY_SCREENS = new Set<ScreenKey>(['team', 'audit-log', 'diagnostics', 'media-library']);
+export const ADMIN_ONLY_SCREENS = new Set<ScreenKey>([
+  'team',
+  'audit-log',
+  'diagnostics',
+  'media-library',
+  // [1.40] "דואר יוצא" מצטרף מאותו נימוק: הוא מציג את כתובת השולח ואת
+  // תיבת ההתראות של הצוות, ומאפשר לשלוח דואר מהדומיין של המכון לכל
+  // כתובת שתוקלד בו.
+  'email',
+]);
 
 const CONTENT_SCREENS = SCREENS.filter((s) => s.family === 'content').map((s) => s.key);
 const STORE_SCREENS = SCREENS.filter((s) => s.family === 'store').map((s) => s.key);

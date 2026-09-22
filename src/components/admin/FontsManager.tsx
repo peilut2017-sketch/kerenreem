@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createCustomFont, deleteCustomFont, toggleCustomFont } from '@/lib/admin/fonts-actions';
 import { uploadToBucket } from './ImageField';
+import { FileDropZone } from '@/components/FileDropZone';
 import { Spinner } from './SubmitButton';
 import { customFontFace, fontFaceRule } from '@/lib/custom-font-face';
 import type { CustomFont } from '@/lib/supabase/types';
@@ -157,7 +158,19 @@ export function FontsManager({ fonts }: { fonts: CustomFont[] }) {
             className="admin-field-input w-52"
           />
         </div>
-        <div>
+        <FileDropZone
+          accept=".woff2,.woff,.ttf,.otf"
+          hint="שחררו כאן קובץ גופן"
+          onFiles={(files) => {
+            /* שדה קובץ הוא בלתי-מבוקר (ref) — גרירה חייבת לכתוב אל
+               ה-input עצמו, כי install() קורא ממנו את הקובץ. DataTransfer
+               הוא הדרך היחידה להציב FileList על <input type="file">. */
+            const transfer = new DataTransfer();
+            transfer.items.add(files[0]);
+            if (fileRef.current) fileRef.current.files = transfer.files;
+            if (!name.trim()) setName(files[0].name.replace(/\.[^.]+$/, ''));
+          }}
+        >
           <label htmlFor="font-file" className="admin-field-label">
             קובץ הגופן
           </label>
@@ -168,7 +181,8 @@ export function FontsManager({ fonts }: { fonts: CustomFont[] }) {
             accept=".woff2,.woff,.ttf,.otf"
             className="admin-field-input w-64"
           />
-        </div>
+          <span className="admin-field-hint">או גררו קובץ לכאן</span>
+        </FileDropZone>
         <button
           type="button"
           disabled={pending || uploading}

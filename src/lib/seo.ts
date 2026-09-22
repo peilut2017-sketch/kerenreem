@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { routing } from '@/i18n/routing';
+import { canonicalSiteUrl } from '@/lib/site-url';
 
 /**
  * ‏canonical ו-hreflang לעמוד ציבורי — מקור יחיד.
@@ -14,7 +15,7 @@ import { routing } from '@/i18n/routing';
  * path — הנתיב בלי קידומת שפה ('/books', '/events/slug', '' לעמוד הבית).
  */
 export function pageAlternates(locale: string, path: string): NonNullable<Metadata['alternates']> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const siteUrl = canonicalSiteUrl();
   const urlFor = (loc: string) =>
     `${siteUrl}${loc === routing.defaultLocale ? '' : `/${loc}`}${path}`;
 

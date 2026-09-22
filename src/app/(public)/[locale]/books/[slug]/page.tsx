@@ -30,6 +30,7 @@ import { localized, localizedOrNull } from '@/lib/localized';
 import { htmlToPlainText } from '@/lib/html-text';
 import { toCdnUrl } from '@/lib/image-src';
 import { routing } from '@/i18n/routing';
+import { canonicalSiteUrl } from '@/lib/site-url';
 
 /**
  * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
@@ -87,7 +88,7 @@ export async function generateMetadata({
   const rawOgImage = book.og_image_url ?? book.cover_image_url;
   const ogImage = rawOgImage ? toCdnUrl(rawOgImage) : rawOgImage;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const siteUrl = canonicalSiteUrl();
   const localePrefix = locale === routing.defaultLocale ? '' : `/${locale}`;
   const canonicalUrl = book.canonical_url ?? `${siteUrl}${localePrefix}/books/${book.slug}`;
 
@@ -210,7 +211,7 @@ export default async function BookPage({
 
   // כתובת מוחלטת: נדרשת ל-canonical, ל-BreadcrumbList ולזמינות ה-Offer,
   // ולא רק לתצוגה — לכן מחושבת פעם אחת כאן ולא מושארת יחסית.
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const siteUrl = canonicalSiteUrl();
   const localePrefix = locale === routing.defaultLocale ? '' : `/${locale}`;
   const canonicalUrl = `${siteUrl}${localePrefix}/books/${book.slug}`;
   const categoryHref = book.category ? `/books?category=${book.category.slug}` : null;

@@ -1,8 +1,11 @@
 import type { MetadataRoute } from 'next';
 import { getActivitySlugs, getAuthorSlugs, getBookSlugs, getEventSlugs } from '@/lib/data';
 import { routing } from '@/i18n/routing';
+import { canonicalSiteUrl } from '@/lib/site-url';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+// [1.40] דרך canonicalSiteUrl ולא קריאה ישירה למשתנה הסביבה — זו
+// בדיוק הסיבה שה-sitemap פרסם את כתובת הפריסה של Vercel. ראו site-url.ts.
+const SITE_URL = canonicalSiteUrl();
 
 /**
  * בלי revalidate, ה-sitemap נבנה פעם אחת בזמן ה-build ונשאר קפוא —

@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveEntity, type SaveState } from '@/lib/admin/actions';
+import { saveInBackground } from '@/lib/admin/background-save';
 import { DeleteButton } from './DeleteButton';
 import { useUnsavedChangesWarning } from './useUnsavedChangesWarning';
 import { SubmitButton } from './SubmitButton';
@@ -10,7 +11,7 @@ import { restoreFormValues } from '@/lib/restore-form';
 import { showAdminToast } from '@/lib/admin/toast-bus';
 import { useModalClose } from './modal-close-context';
 import { useUnsavedChangesReporter } from './unsaved-context';
-import { UploadTrackerProvider } from './upload-context';
+import { UploadTrackerProvider, useIsUploading } from './upload-context';
 import { entityRoute } from '@/lib/admin/schema';
 
 /** מזהה איזה משני כפתורי השמירה הפעיל את השליחה — ראו name="intent" למטה. */
@@ -39,14 +40,22 @@ const STAYS_OPEN_ON_FIRST_SAVE = new Set(['books', 'events']);
  * ברמת השדה, ועל סרגל הפעולות.
  *
  * השגיאות מגיעות מהשרת ולא מהדפדפן — ולידציה בצד הלקוח לבדה אפשר לעקוף.
+ *
+ * [1.40] המעטפת החיצונית היא מעקב ההעלאות בלבד, והוא חייב לעטוף את
+ * הטופס *מבחוץ* כדי
+ * שגוף הטופס עצמו יוכל לקרוא אותו (useIsUploading) ולא רק שדות שבתוכו.
+ * שמירה אופטימית (סגירת הכרטיס מיד) חייבת לדעת אם יש העלאה בדרך —
+ * אחרת שמירה שנסגרה מוקדם הייתה מפספסת את הכריכה שהרגע נבחרה.
  */
-export function EntityForm({
-  entity,
-  id,
-  children,
-  canWrite,
-  backHref,
-}: {
+export function EntityForm(props: EntityFormProps) {
+  return (
+    <UploadTrackerProvider>
+      <EntityFormBody {...props} />
+    </UploadTrackerProvider>
+  );
+}
+
+interface EntityFormProps {
   entity: string;
   id: string | null;
   /**
@@ -58,8 +67,11 @@ export function EntityForm({
   children: (fieldErrors: Record<string, string>, state: { dirty: boolean }) => ReactNode;
   canWrite: boolean;
   backHref: string;
-}) {
+}
+
+function EntityFormBody({ entity, id, children, canWrite, backHref }: EntityFormProps) {
   const router = useRouter();
+  const uploading = useIsUploading();
   const closeModal = useModalClose();
   const reportUnsaved = useUnsavedChangesReporter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -196,19 +208,73 @@ export function EntityForm({
     }
   }
 
+  /**
+   * [1.40] שמירה של רשומה *קיימת* סוגרת את הכרטיס מיד ונשמרת ברקע.
+   *
+   * זה מה שהתבקש, וזה גם מה שנכון: העורך כבר סיים עם הרשומה הזו ברגע
+   * שלחץ שמירה, ואין סיבה שימתין מול טופס משותק עד שהמסד יסיים. חיווי
+   * ההתקדמות וההודעה בסיום עוברים לערוץ ההודעות, ששורד את הסגירה
+   * (ראו background-save.ts).
+   *
+   * שלושה מקרים ממשיכים דרך הזרימה המסונכרנת הישנה, ולכל אחד סיבה:
+   *  • רשומה חדשה — המזהה שנוצר הוא שקובע לאן ממשיכים (כרטיס הספר
+   *    נשאר פתוח כדי למלא תמונות/תוכן עניינים), ואי אפשר לנחש אותו.
+   *  • "שמירה ופתיחת חדש" — אין כאן סגירה, הטופס נשאר על המסך.
+   *  • העלאת קובץ שעדיין בדרך — סגירה עכשיו הייתה שומרת רשומה בלי
+   *    התמונה שנבחרה.
+   *
+   * ולידציית הדפדפן נבדקת לפני הסגירה (reportValidity): ברגע שהכרטיס
+   * נסגר אין עוד שדות להאיר באדום, ולכן עדיף שהמקרה הנפוץ של "שדה
+   * חובה ריק" ייעצר כאן ולא יגיע להודעת שגיאה מנותקת.
+   */
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (!id || uploading) return;
+
+    const form = event.currentTarget;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    if (submitter?.value === 'save-new') return;
+
+    if (!form.reportValidity()) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+
+    const formData = new FormData(form);
+    // כפתור השליחה עצמו אינו נכלל ב-FormData שנבנה ידנית; ה-intent
+    // כאן הוא תמיד 'save' (המקרה של 'save-new' יצא למעלה).
+    formData.set('intent', 'save');
+
+    setDirty(false);
+    reportUnsaved?.(false);
+
+    const label =
+      ['title_he', 'name_he', 'label_he', 'subject', 'full_name']
+        .map((field) => formData.get(field))
+        .find((value): value is string => typeof value === 'string' && value.trim() !== '') ?? '';
+
+    void saveInBackground({ entity, id, formData, label }).then(() => {
+      // רענון אחרי שהשמירה חזרה, לא לפניה: רשימה שמתרעננת בזמן
+      // שהשמירה עוד רצה מציגה את הערכים הישנים ונראית כאילו לא נשמר.
+      router.refresh();
+    });
+
+    if (closeModal) closeModal(id);
+    else router.replace(`/admin/${entityRoute(entity)}`);
+  }
+
   return (
     <form
       ref={formRef}
       action={action}
+      onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
       onInput={markDirty}
       onChange={markDirty}
       className="space-y-8"
       key={resetToken}
     >
-      {/* עוטף את הטופס במעקב העלאות: שדות התמונה מדווחים על העלאה בדרך,
-          וכפתור השמירה ממתין לה — כדי שלא תישמר רשומה בלי התמונה שנבחרה. */}
-      <UploadTrackerProvider>
       <fieldset disabled={!canWrite} className="space-y-8 disabled:opacity-70">
         {children(state.fieldErrors ?? {}, { dirty })}
       </fieldset>
@@ -244,7 +310,6 @@ export function EntityForm({
           לתפקיד שלך יש הרשאת צפייה בלבד.
         </p>
       )}
-      </UploadTrackerProvider>
     </form>
   );
 }

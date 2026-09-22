@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { Spine, type ShelfBook } from '@/components/home/BookShelf';
+import { useQuickView, type QuickViewBook } from '@/components/book-quick-view';
 
 export interface SeriesShelfVolume {
   id: string;
@@ -18,6 +19,8 @@ export interface SeriesShelfVolume {
   spineBase: string;
   spineEdge: string;
   isCurrent: boolean;
+  /** נתוני הכרטיס הצף שנפתח בלחיצה על הכרך (book-quick-view.tsx). */
+  quickView: QuickViewBook;
 }
 
 /**
@@ -43,9 +46,25 @@ export function SeriesShelfClient({
   labels,
 }: {
   volumes: SeriesShelfVolume[];
-  labels: { shelf: string; current: string; prev: string; next: string; position: string; currentTitle: string };
+  labels: {
+    shelf: string;
+    current: string;
+    prev: string;
+    next: string;
+    /** null כשלכרך הנוכחי אין מספר מיקום בסדרה. */
+    position: string | null;
+    currentTitle: string;
+    quickView: string;
+  };
 }) {
   const scroller = useRef<HTMLOListElement>(null);
+  const openQuickView = useQuickView();
+  /**
+   * [1.40] האם יש בכלל לאן לגלול. סדרה קצרה נכנסת כולה לרוחב העמודה,
+   * ואז החיצים והנקודות לא עשו כלום בלחיצה — הם היו שם אבל המדף לא
+   * זז, כי אין גלישה. מוסתרים כשאין, ובכל שינוי רוחב נמדד מחדש.
+   */
+  const [scrollable, setScrollable] = useState(false);
 
   const behavior = (): ScrollBehavior =>
     window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
@@ -67,10 +86,25 @@ export function SeriesShelfClient({
   );
 
   useEffect(() => {
-    centerItem(currentIndex, false);
-    const onResize = () => centerItem(currentIndex, false);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const list = scroller.current;
+    const sync = () => {
+      centerItem(currentIndex, false);
+      // סף 4px: רוחב תוכן ורוחב מגלל כמעט אף פעם לא שווים בדיוק בגלל
+      // מרווחים שבריריים, ובלי סף החיצים היו נדלקים על "גלישה" של פיקסל.
+      if (list) setScrollable(list.scrollWidth - list.clientWidth > 4);
+    };
+    sync();
+
+    // ResizeObserver ולא רק resize של החלון: המדף יושב בעמודה שרוחבה
+    // נגזר מהפריסה, והיא משתנה גם בלי ששולי החלון זזו (פתיחת תפריט,
+    // שינוי גודל גופן מסרגל הנגישות).
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null;
+    if (list) observer?.observe(list);
+    window.addEventListener('resize', sync);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', sync);
+    };
   }, [centerItem, currentIndex]);
 
   const page = (direction: 1 | -1) => {
@@ -98,26 +132,33 @@ export function SeriesShelfClient({
   return (
     <div>
       <div className="relative">
-        <button
-          type="button"
-          onClick={() => page(-1)}
-          aria-label={labels.prev}
-          className="glass absolute -start-1 top-[4.25rem] z-10 hidden h-9 w-9 place-items-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy [@media(hover:hover)]:grid"
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 ltr:-scale-x-100" fill="none">
-            <path d="m8 5 5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => page(1)}
-          aria-label={labels.next}
-          className="glass absolute -end-1 top-[4.25rem] z-10 hidden h-9 w-9 place-items-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy [@media(hover:hover)]:grid"
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 ltr:-scale-x-100" fill="none">
-            <path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        {/* [1.40] החיצים מורכבים רק כשיש באמת לאן לגלול. כשסדרה קצרה
+            נכנסה כולה לרוחב העמודה הם היו שם ולא עשו דבר — זה מה שנראה
+            כ"חיצים שלא עובדים". */}
+        {scrollable ? (
+          <>
+            <button
+              type="button"
+              onClick={() => page(-1)}
+              aria-label={labels.prev}
+              className="glass absolute -start-1 top-[4.25rem] z-10 hidden h-9 w-9 place-items-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy [@media(hover:hover)]:grid"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 ltr:-scale-x-100" fill="none">
+                <path d="m8 5 5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => page(1)}
+              aria-label={labels.next}
+              className="glass absolute -end-1 top-[4.25rem] z-10 hidden h-9 w-9 place-items-center rounded-[var(--radius-pill)] text-ink-soft transition-colors hover:text-burgundy [@media(hover:hover)]:grid"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 ltr:-scale-x-100" fill="none">
+                <path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </>
+        ) : null}
 
         <ol
           ref={scroller}
@@ -170,11 +211,26 @@ export function SeriesShelfClient({
                     </span>
                   </span>
                 ) : (
+                  /*
+                   * [1.40] לחיצה פותחת תצוגה מהירה במקום לנווט: מי
+                   * שמסתכל על מדף הסדרה בדרך כלל רק רוצה לדעת מה הכרך
+                   * הזה, ולא לאבד את העמוד שהוא קורא. ה-href נשאר אמיתי
+                   * (פתיחה בכרטיסייה חדשה, סריקה, עבודה בלי JS), ורק
+                   * לחיצה "נקייה" נתפסת.
+                   */
                   <Link
                     data-volume
                     href={`/books/${volume.slug}`}
-                    aria-label={accessibleName}
+                    aria-label={
+                      openQuickView ? `${labels.quickView} — ${accessibleName}` : accessibleName
+                    }
                     title={volume.title}
+                    onClick={(event) => {
+                      if (!openQuickView) return;
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                      event.preventDefault();
+                      openQuickView(volume.quickView);
+                    }}
                     className="group block rounded-[3px] focus-visible:outline-offset-4"
                   >
                     {box}
@@ -194,24 +250,43 @@ export function SeriesShelfClient({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="font-serif text-[1.0625rem] text-ink">
-          {labels.position}
-          <span className="ms-2 font-sans text-caption text-muted">
-            {labels.currentTitle} · {labels.current}
-          </span>
+          {/* [1.40] המיקום מוצג רק כשהוא קיים; שם הכרך מוצג תמיד, פעם
+              אחת. קודם, כרך בלי מספר מיקום קיבל את שמו בשני החלקים. */}
+          {labels.position ? <span>{labels.position} · </span> : null}
+          {labels.currentTitle}
+          <span className="ms-2 font-sans text-caption text-muted">{labels.current}</span>
         </p>
+        {/*
+          [1.40] הנקודות עושות עכשיו משהו בכל מצב.
+          קודם הן רק מרכזו את הכרך במגלל — וכשכל הסדרה ממילא נכנסה
+          לרוחב העמודה, לחיצה עליהן לא הזיזה כלום והן נראו מתות.
+          עכשיו: מרכוז (כשיש לאן) *ופתיחת* התצוגה המהירה של אותו כרך.
+          על הכרך הנוכחי הנקודה נשארת סימון מיקום בלבד ואינה כפתור —
+          אין לאן לקחת ממנו.
+        */}
         {volumes.length > 1 ? (
           <ul aria-label={labels.shelf} className="flex max-w-full flex-wrap gap-1">
             {volumes.map((volume, index) => (
               <li key={volume.id}>
-                <button
-                  type="button"
-                  onClick={() => centerItem(index, true)}
-                  aria-label={volume.jumpLabel}
-                  aria-current={volume.isCurrent ? 'true' : undefined}
-                  className={`relative block h-2.5 w-2.5 rounded-full transition-transform before:absolute before:-inset-2 before:content-[''] ${
-                    volume.isCurrent ? 'scale-125 bg-gold-deep' : 'bg-rule-strong hover:bg-navy-3'
-                  }`}
-                />
+                {volume.isCurrent ? (
+                  <span
+                    aria-current="true"
+                    aria-label={volume.jumpLabel}
+                    className="block h-2.5 w-2.5 scale-125 rounded-full bg-gold-deep"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      centerItem(index, true);
+                      openQuickView?.(volume.quickView);
+                    }}
+                    aria-label={
+                      openQuickView ? `${labels.quickView} — ${volume.jumpLabel}` : volume.jumpLabel
+                    }
+                    className="relative block h-2.5 w-2.5 rounded-full bg-rule-strong transition-transform before:absolute before:-inset-2 before:content-[''] hover:scale-125 hover:bg-navy-3"
+                  />
+                )}
               </li>
             ))}
           </ul>

@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { FavouriteIcon } from '@/components/FavouriteIcon';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
+import { VolumesBadge } from '../book-page/VolumesBadge';
 import { localized } from '@/lib/localized';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { resolveBookBadge } from '@/lib/books/badge';
@@ -55,9 +56,11 @@ export function BookCard({
     // ומסגרת עליונה בהירה, בגווני האתר (קרם/זהב) במקום גווני iOS.
     <article className="book-card-glass group relative flex h-full flex-col focus-within:ring-2 focus-within:ring-gold/50">
       {/* [1.14] מחצית-שקופה, לא bg-cream-2 אטום — כדי שה-blur/הברק של
-          .book-card-glass ייראה גם מאחורי מרבית הכרטיס, לא רק בשוליים */}
-      <div className="relative overflow-hidden rounded-t-[var(--radius-lg)] bg-cream-2/55 p-5">
-        <div className="transition-transform duration-500 ease-[var(--ease-spring)] group-hover:-translate-y-0.5 group-hover:scale-[1.02] motion-reduce:transform-none">
+          .book-card-glass ייראה גם מאחורי מרבית הכרטיס, לא רק בשוליים.
+          [1.40] book-card-media מרים את שטח הכריכה מעל שכבת הברק
+          (‎.book-card-glass::before) — ראו globals.css. */}
+      <div className="book-card-media overflow-hidden rounded-t-[var(--radius-lg)] bg-cream-2/55 p-5">
+        <div className="transition-transform duration-500 ease-[var(--ease-spring)] group-hover:-translate-y-0.5 motion-reduce:transform-none">
           <BookCover
             src={book.cover_image_url}
             title={title}
@@ -84,6 +87,18 @@ export function BookCard({
           isFavourite={isFavourite}
           onToggle={() => onToggleFavourite(book)}
         />
+
+        {/* [1.40] מהדורה רב-כרכית — גם בקטלוג, לא רק בעמוד הספר: זה
+            הבדל מהותי בין "ספר" ל"סדרה שלמה", וראוי שייראה כבר ברשימה.
+            מונח על שולי הכריכה כדי לא לגזול שורה נוספת מגוף הכרטיס. */}
+        {book.volume_count && book.volume_count > 1 ? (
+          <VolumesBadge
+            count={book.volume_count}
+            label={t('volumesBadge', { n: book.volume_count })}
+            title={t('volumesBadgeTitle', { n: book.volume_count })}
+            className="absolute bottom-2 start-2 z-10 bg-cream/90 backdrop-blur-sm"
+          />
+        ) : null}
       </div>
 
       {/* relative z-[2] — יושב מעל שכבת הברק העדינה של .book-card-glass::before,

@@ -38,10 +38,15 @@ export default async function AdminMediaLibraryPage() {
         title="ספריית מדיה"
         description="כל הקבצים שהועלו לאחסון האתר — כריכות, תמונות אירועים, דיוקנאות, דפדופי דוגמה (PDF), גופנים ותמונות כלליות."
       />
+      {/* [1.40] ההודעה מבחינה בין "נכשל ואין כלום" לבין "נכשל אבל יש
+          רשימה חלופית מהאחסון" — ראו listStorageFiles. */}
       {loadError ? (
         <p className="mb-6 border-s-2 border-burgundy bg-cream-2 px-4 py-3 text-small text-burgundy">
-          טעינת ספריית המדיה נכשלה: {loadError} הרשימה שלמטה עשויה להיות חלקית או ריקה בטעות — זו
-          אינה בהכרח עדות לכך שאין קבצים באחסון.
+          {rows.length > 0 ? 'שליפת פרטי הקבצים מהמסד נכשלה: ' : 'טעינת ספריית המדיה נכשלה: '}
+          {loadError}
+          {rows.length === 0
+            ? ' הרשימה שלמטה עשויה להיות חלקית או ריקה בטעות — זו אינה בהכרח עדות לכך שאין קבצים באחסון.'
+            : ''}
         </p>
       ) : null}
       <MediaLibraryTable files={rows} />

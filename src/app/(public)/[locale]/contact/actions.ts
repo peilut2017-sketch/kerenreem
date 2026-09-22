@@ -5,6 +5,9 @@ import { getTranslations } from 'next-intl/server';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { clientIp } from '@/lib/client-ip';
 import { createClient } from '@/lib/supabase/server';
+import { getSiteSettings } from '@/lib/data';
+import { sendEmail, staffInbox } from '@/lib/email/send';
+import { contactAckEmail, contactStaffEmail, type ContactDetails } from '@/lib/email/templates';
 
 /**
  * הגבלת קצב בזיכרון התהליך.
@@ -154,17 +157,24 @@ export async function submitContact(
   // שדות מותאמים (ניהול → פניות מהאתר → שדות מותאמים): נשלפים כאן מחדש
   // ולא מסופקים על ידי הלקוח, כדי שרשימת המפתחות שנכתבים ל-jsonb תיקבע
   // תמיד לפי מה שמוגדר במסד כרגע — לא לפי מה שהטופס בדפדפן "חשב" שקיים.
+  // [1.40] גם label_he נשלף: בלעדיו התראת הדואר לצוות הייתה מציגה
+  // מזהי UUID במקום שמות השדות שהוא עצמו הגדיר במסך הניהול.
   const { data: activeFields } = await supabase
     .from('contact_fields')
-    .select('id, field_type, is_required')
+    .select('id, label_he, field_type, is_required')
     .eq('is_published', true);
 
   const customFieldValues: Record<string, string | boolean> = {};
+  /** אותם ערכים, עם התוויות הקריאות — להתראת הדואר בלבד. */
+  const emailExtraFields: { label: string; value: string }[] = [];
+
   for (const customField of activeFields ?? []) {
     const key = `custom_${customField.id}`;
+    const label = customField.label_he ?? customField.id;
     if (customField.field_type === 'checkbox') {
       const checked = formData.get(key) === 'on';
       customFieldValues[customField.id] = checked;
+      if (checked) emailExtraFields.push({ label, value: 'כן' });
       if (customField.is_required && !checked) fieldErrors[key] = t('required');
       continue;
     }
@@ -172,7 +182,21 @@ export async function submitContact(
     // חסם אורך כמו לשדות הקבועים (MAX): ערך jsonb ללא מגבלה במסד
     const value = String(formData.get(key) ?? '').trim().slice(0, 500);
     if (customField.is_required && !value) fieldErrors[key] = t('required');
-    else if (value) customFieldValues[customField.id] = value;
+    else if (value) {
+      customFieldValues[customField.id] = value;
+      emailExtraFields.push({ label, value });
+    }
+  }
+
+  // שם תחום הפנייה, כפי שהוא מוצג בטופס — להתראה ולאישור הקבלה.
+  let topicLabel: string | null = null;
+  if (topicId) {
+    const { data: topic } = await supabase
+      .from('contact_topics')
+      .select('name_he')
+      .eq('id', topicId)
+      .maybeSingle();
+    topicLabel = topic?.name_he ?? null;
   }
 
   if (Object.keys(fieldErrors).length > 0) {
@@ -203,7 +227,57 @@ export async function submitContact(
     return { status: 'error', message: t('error') };
   }
 
+  await sendContactEmails({
+    name,
+    email,
+    phone,
+    subject,
+    topic: topicLabel,
+    message,
+    extraFields: emailExtraFields,
+    attachmentCount: attachments.length,
+  });
+
   return { status: 'success' };
+}
+
+/**
+ * [1.40] הודעות הדואר שנלוות לפנייה: אישור קבלה לפונה, והתראה לצוות.
+ *
+ * נשלחות *אחרי* שהפנייה כבר נשמרה במסד, ולעולם אינן משנות את התוצאה
+ * שמוחזרת למבקר. פנייה שנשמרה היא פנייה שהתקבלה; אם ספק הדואר נופל
+ * או שאינו מוגדר, זו תקלה שלנו לתקן ולא סיבה לומר למי שכתב "שליחה
+ * נכשלה, נסו שוב" — הוא היה שולח שוב ויוצר כפילות.
+ *
+ * שתי ההודעות נשלחות במקביל: הן אינן תלויות זו בזו, ואין סיבה
+ * שהמבקר ימתין לשרשרת.
+ */
+async function sendContactEmails(details: ContactDetails): Promise<void> {
+  try {
+    const settings = await getSiteSettings();
+    const inbox = staffInbox(settings.contact?.email ?? null);
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
+
+    const jobs: Promise<unknown>[] = [
+      contactAckEmail(details).then((email) => sendEmail(details.email, email)),
+    ];
+    if (inbox) {
+      jobs.push(
+        contactStaffEmail(details, siteUrl ? `${siteUrl}/admin/messages` : null).then((email) =>
+          sendEmail(inbox, email),
+        ),
+      );
+    } else {
+      console.warn('[contact] אין כתובת לקבלת התראות — ראו SITE_NOTIFICATIONS_EMAIL');
+    }
+
+    const results = await Promise.allSettled(jobs);
+    for (const result of results) {
+      if (result.status === 'rejected') console.error('[contact] email', result.reason);
+    }
+  } catch (error) {
+    console.error('[contact] email', error);
+  }
 }
 
 /** גוף עשיר → טקסט פשוט, לעמודת message (חיפוש, תצוגות ישנות, מייל טקסט). */
@@ -322,6 +396,17 @@ export async function submitBookFeedback(
     console.error('[contact] book feedback insert failed', error);
     return { status: 'error', message: t('error') };
   }
+
+  await sendContactEmails({
+    name,
+    email,
+    phone,
+    subject: bookTitle ? `הערות והארות: ${bookTitle}` : null,
+    topic: 'הערות והארות על ספר',
+    message: messageText,
+    extraFields: pageReference ? [{ label: 'עמוד', value: pageReference }] : [],
+    attachmentCount: attachments.length,
+  });
 
   return { status: 'success' };
 }

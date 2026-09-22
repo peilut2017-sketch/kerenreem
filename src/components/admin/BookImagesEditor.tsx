@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Img as Image } from '@/components/Img';
+import { FileDropZone } from '@/components/FileDropZone';
 import { uploadToBucket } from './ImageField';
 import { AdminIcon } from './AdminIcons';
 import { Spinner } from './SubmitButton';
@@ -49,6 +50,7 @@ function guardEnterSubmit(event: React.KeyboardEvent<HTMLElement>) {
 export function BookImagesEditor({ bookId, images }: { bookId: string; images: BookImage[] }) {
   const [rows, setRows] = useState<Row[]>(() => images.map((image) => makeRow(image)));
   const [uploadingKey, setUploadingKey] = useState<number | null>(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +73,33 @@ export function BookImagesEditor({ bookId, images }: { bookId: string; images: B
     }
   }
 
+  /**
+   * גרירת כמה קבצים אל הגלריה כולה — כל קובץ נעשה שורה חדשה. ההעלאות
+   * רצות במקביל, וכל אחת מעדכנת את השורה *שלה* לפי המפתח שהוקצה לה
+   * מראש: בלי המיפוי הזה, שתי העלאות שמסתיימות בסדר שונה מזה שהתחילו
+   * היו כותבות זו על תוצאתה של זו.
+   */
+  async function addFromFiles(files: File[]) {
+    if (files.length === 0) return;
+    const fresh = files.map(() => makeRow());
+    setStatus('idle');
+    setError(null);
+    setRows((current) => [...current, ...fresh]);
+    setBulkUploading(true);
+    try {
+      await Promise.all(
+        files.map(async (file, index) => {
+          const url = await uploadToBucket('covers', file);
+          update(fresh[index].key, { image_url: url });
+        }),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBulkUploading(false);
+    }
+  }
+
   function save() {
     startTransition(async () => {
       setStatus('idle');
@@ -90,19 +119,40 @@ export function BookImagesEditor({ bookId, images }: { bookId: string; images: B
 
   return (
     <div onKeyDown={guardEnterSubmit}>
+      <p className="admin-field-hint mb-4">
+        התמונות האלה מוצגות בעמוד הספר הציבורי, במקטע &quot;גלריה&quot; (ובניווט המקטעים
+        שבראש העמוד) — הן אינן מחליפות את הכריכה, שנשארת בראש העמוד. אפשר לגרור לכאן
+        קבצים כדי להוסיף אותם בבת אחת.
+      </p>
+
+      <FileDropZone
+        onFiles={(files) => void addFromFiles(files)}
+        accept="image/*"
+        multiple
+        disabled={bulkUploading}
+        className="p-1"
+        hint="שחררו כאן — כל תמונה תיווסף כשורה חדשה"
+      >
       <div className="space-y-4">
         {rows.map((row) => (
           <div key={row.key} className="admin-card grid gap-4 p-4 sm:grid-cols-[8rem_1fr]">
             <div>
-              <div className="relative aspect-3/4 w-full overflow-hidden rounded-[var(--admin-radius-btn)] bg-cream-2">
-                {row.image_url ? (
-                  <Image src={row.image_url} alt="" fill sizes="128px" className="object-cover" />
-                ) : (
-                  <span className="flex h-full items-center justify-center text-muted">
-                    <AdminIcon name="image" className="h-6 w-6" />
-                  </span>
-                )}
-              </div>
+              <FileDropZone
+                onFiles={(files) => void handleUpload(row.key, files[0])}
+                accept="image/*"
+                disabled={uploadingKey === row.key}
+                hint="שחררו כאן"
+              >
+                <div className="relative aspect-3/4 w-full overflow-hidden rounded-[var(--admin-radius-btn)] bg-cream-2">
+                  {row.image_url ? (
+                    <Image src={row.image_url} alt="" fill sizes="128px" className="object-cover" />
+                  ) : (
+                    <span className="flex h-full items-center justify-center text-muted">
+                      <AdminIcon name="image" className="h-6 w-6" />
+                    </span>
+                  )}
+                </div>
+              </FileDropZone>
               <label className="mt-2 block">
                 <span className="sr-only">העלאת תמונה</span>
                 <input
@@ -153,14 +203,24 @@ export function BookImagesEditor({ bookId, images }: { bookId: string; images: B
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setRows((current) => [...current, makeRow()])}
-        className="admin-btn admin-btn-quiet mt-4"
-      >
-        <AdminIcon name="plus" className="h-4 w-4" />
-        הוספת תמונה
-      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setRows((current) => [...current, makeRow()])}
+          className="admin-btn admin-btn-quiet"
+        >
+          <AdminIcon name="plus" className="h-4 w-4" />
+          הוספת תמונה
+        </button>
+        {bulkUploading ? (
+          <span role="status" className="inline-flex items-center gap-1.5 text-caption text-muted">
+            <Spinner className="h-3 w-3" /> מעלה…
+          </span>
+        ) : (
+          <span className="text-caption text-muted">או גררו קבצים לכל מקום באזור הזה</span>
+        )}
+      </div>
+      </FileDropZone>
 
       <div className="mt-5 flex items-center gap-3 border-t border-rule pt-5">
         <button type="button" onClick={save} disabled={pending} className="admin-btn admin-btn-solid">

@@ -135,7 +135,10 @@ const BOOK_DETAIL_SELECT_V3 = `
   relations:book_relations!book_relations_source_book_id_fkey (
     id, relation_type, sort_order, note_he, note_en,
     target:books!book_relations_target_book_id_fkey (
-      id, slug, title_he, title_en, cover_image_url, price, currency, is_purchasable, stock_quantity,
+      id, slug, title_he, title_en, subtitle_he, subtitle_en,
+      description_brief_he, description_brief_en,
+      cover_image_url, price, currency, is_purchasable, stock_quantity,
+      external_supplier_enabled, external_supplier_url, external_supplier_name,
       author:authors ( id, slug, name_he, name_en )
     )
   )

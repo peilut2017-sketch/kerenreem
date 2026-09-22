@@ -3,6 +3,7 @@ import { BookCoverStage } from './BookCoverStage';
 import { HeroBackground } from './HeroBackground';
 import { HeroSpecStrip } from './HeroSpecStrip';
 import { SmartTag } from './SmartTag';
+import { VolumesBadge } from './VolumesBadge';
 import { localized } from '@/lib/localized';
 import type { AuthorDisplay } from '@/lib/books/author-display';
 import type { BookWithRelations } from '@/lib/supabase/types';
@@ -131,6 +132,18 @@ export function BookHero({
               <Reveal as="h1" className="font-serif text-[clamp(2.75rem,5.2vw,4.75rem)] leading-[1.03] text-ink">
                 {title}
               </Reveal>
+
+              {/* [1.40] מהדורה רב-כרכית — צמוד לכותרת ומובחן מתגי הסטטוס
+                  שמעליה. ההנמקה המלאה לבחירת הצורה הזו ב-VolumesBadge.tsx. */}
+              {book.volume_count && book.volume_count > 1 ? (
+                <Reveal delay={90} className="mt-3 flex justify-center lg:justify-start">
+                  <VolumesBadge
+                    count={book.volume_count}
+                    label={t('volumesBadge', { n: book.volume_count })}
+                    title={t('volumesBadgeTitle', { n: book.volume_count })}
+                  />
+                </Reveal>
+              ) : null}
 
               {subtitle ? (
                 <Reveal delay={150} as="p" className="mx-auto mt-4 max-w-xl text-lead text-muted lg:mx-0">

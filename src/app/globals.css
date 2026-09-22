@@ -333,7 +333,6 @@ body::before {
       transform 420ms var(--ease-spring),
       box-shadow 420ms var(--ease-spring),
       border-color 300ms ease;
-    will-change: transform;
   }
   .card-interactive:hover {
     transform: translateY(-6px) scale(1.008);
@@ -375,6 +374,18 @@ body::before {
       border-color 300ms ease;
     will-change: transform;
   }
+  /* [1.40] הברק האלכסוני נעצר מתחת לכריכה, לא מעליה.
+     -----------------------------------------------------------------
+     עד כה השכבה הזו נפרשה על *כל* הכרטיס (inset: 0) ב-mix-blend-mode:
+     overlay ובאטימות 0.55 — כלומר שכבת לובן קבועה מעל תמונת הכריכה
+     עצמה. זו הייתה סיבת ה"טשטוש" שדווח: לא טשטוש אמיתי, אלא ליטוש
+     גרפי קבוע ששוטף את הכריכה, מוריד לה את הניגודיות ומעמעם את הטקסט
+     שעליה — וכריכת ספר תורני היא כמעט כולה טקסט.
+
+     הפתרון שומר על הברק שבשולי הכרטיס אבל מוציא ממנו את שטח הכריכה:
+     ‎.book-card-media (עוטף הכריכה) מורם ל-z-index: 2, בדיוק כמו גוש
+     הטקסט שכבר היה מורם משיקול זהה. השכבה נשארת בדיוק כפי שהייתה על
+     המסגרת, המרווחים והרקע. */
   .book-card-glass::before {
     content: '';
     position: absolute;
@@ -391,15 +402,24 @@ body::before {
     mix-blend-mode: overlay;
     pointer-events: none;
   }
+  .book-card-media {
+    position: relative;
+    z-index: 2;
+  }
+  /* [1.40] בלי scale בריחוף. הכרטיס מוגבה ל-layer משלו (backdrop-filter),
+     ו-scale על layer מוגבה נצרב פעם אחת ואז נמתח — הכריכה נראית רכה
+     בכל עוד העכבר עליה. הרמה אנכית בלבד נותנת את אותה תחושה בלי
+     לרסטר מחדש. מאותה סיבה הוסר גם will-change: transform, שהחזיק את
+     הכרטיס ב-layer נפרד גם בלי שום תנועה. */
   .book-card-glass:hover {
-    transform: translateY(-6px) scale(1.008);
+    transform: translateY(-6px);
     border-color: color-mix(in srgb, var(--color-gold) 50%, transparent);
     box-shadow:
       var(--surface-card-shadow-hover),
       inset 0 1px 0 color-mix(in srgb, #fff 88%, transparent),
       inset 0 -16px 30px -16px color-mix(in srgb, var(--color-gold) 32%, transparent);
   }
-  .book-card-glass:active { transform: translateY(-2px) scale(0.998); }
+  .book-card-glass:active { transform: translateY(-2px); }
   @media (prefers-reduced-motion: reduce) {
     .book-card-glass { transition: box-shadow 200ms ease, border-color 200ms ease; }
     .book-card-glass:hover, .book-card-glass:active { transform: none; }

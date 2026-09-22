@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { recordAdminUpload } from '@/lib/admin/activity-audit-actions';
 import { isProjectStorageUrl, toCdnUrl } from '@/lib/image-src';
+import { FileDropZone } from '@/components/FileDropZone';
 import { useUploadRegistration } from './upload-context';
 
 export type StorageBucket = 'covers' | 'events' | 'portraits' | 'samples' | 'site';
@@ -87,10 +88,7 @@ export function ImageField({
    */
   const foreignUrl = url.trim() !== '' && !isProjectStorageUrl(url.trim());
 
-  async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  async function upload(file: File) {
     setBusy(true);
     setError(null);
     try {
@@ -101,12 +99,23 @@ export function ImageField({
       setError(uploadError instanceof Error ? uploadError.message : 'ההעלאה נכשלה');
     } finally {
       setBusy(false);
-      event.target.value = '';
     }
   }
 
+  function onFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) void upload(file);
+  }
+
   return (
-    <div>
+    <FileDropZone
+      onFiles={(files) => void upload(files[0])}
+      accept={accept}
+      disabled={busy}
+      className="p-1"
+      hint={`שחררו כאן — ${label}`}
+    >
       <label htmlFor={`${id}-url`} className="admin-field-label">
         {label}
       </label>
@@ -148,7 +157,9 @@ export function ImageField({
               <span role="status" className="text-caption text-muted">
                 מעלה…
               </span>
-            ) : null}
+            ) : (
+              <span className="text-caption text-muted">או גררו קובץ לכאן</span>
+            )}
             {url ? (
               <button
                 type="button"
@@ -178,6 +189,6 @@ export function ImageField({
           את הקובץ בכפתור ההעלאה שלמעלה.
         </span>
       ) : null}
-    </div>
+    </FileDropZone>
   );
 }

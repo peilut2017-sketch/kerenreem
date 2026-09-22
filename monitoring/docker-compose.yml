@@ -1,0 +1,89 @@
+# [1.40] מחסנית הניטור של אתר קרן רא״ם.
+#
+# ⚠️ המחסנית הזו רצה על **מכונה נפרדת** מהשרת שהיא מנטרת.
+#
+# זה לא פרט טכני — זה הלקח המרכזי מהאירוע האחרון. כשדיסק השרת התמלא
+# וקונטיינר PostgreSQL נעלם, כל מה שרץ על אותה מכונה איבד את היכולת
+# לדווח: מערכת ניטור שיושבת על השרת החולה שותקת בדיוק כשצריך אותה.
+# שרת ענן קטן (2GB זיכרון מספיקים) במרכז נתונים אחר, או אצל ספק אחר
+# לגמרי, הוא ההבדל בין "קיבלנו התראה" ל"לקוח התקשר".
+#
+# מה כן רץ על שרת האפליקציה: node_exporter, cadvisor ו-postgres_exporter
+# בלבד — סוכני מדידה שחושפים מדדים ואינם מחליטים דבר. הקובץ שלהם:
+# monitoring/docker-compose.agents.yml.
+#
+# הפעלה:
+#   cp .env.example .env   # ואז למלא
+#   docker compose up -d
+#
+# מה מקבלים:
+#   Prometheus    — אוסף מדדים ומריץ את כללי ההתראה (alerts.yml)
+#   Alertmanager  — מקבץ, משתיק ומנתב התראות לערוצים
+#   Blackbox      — בדיקות HTTP/TLS/DNS מבחוץ, כמו גולש
+#   Uptime Kuma   — לוח מצב ויזואלי והתראות פשוטות, לעיניים אנושיות
+#
+# למה גם Prometheus וגם Uptime Kuma: הם עונים על שתי שאלות שונות.
+# Prometheus עונה על "מה הערך של X לאורך זמן, ומתי הוא חצה סף" —
+# זה מה שנדרש למדדי שרת, דיסק ו-PostgreSQL. Uptime Kuma עונה על
+# "מה למעלה עכשיו" בעמוד אחד שאפשר להראות למי שאינו מהנדס, והוא גם
+# ערוץ ההתראה הפשוט ביותר להקמה. השניים אינם מתחרים.
+
+name: kerenreem-monitoring
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # שמירה מוגבלת *גם בזמן וגם בנפח*: מערכת ניטור שממלאת את הדיסק
+      # של עצמה היא בדיוק התקלה שהיא אמורה למנוע.
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=8GB
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports:
+      - '127.0.0.1:9090:9090'
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - alertmanager-data:/alertmanager
+    env_file: .env
+    ports:
+      - '127.0.0.1:9093:9093'
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./blackbox:/etc/blackbox:ro
+    ports:
+      - '127.0.0.1:9115:9115'
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    volumes:
+      - uptime-kuma-data:/app/data
+    ports:
+      - '127.0.0.1:3001:3001'
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  uptime-kuma-data:
+# הערה על volumes: אלה ה-volumes של *הניטור* בלבד. שום שירות כאן אינו
+# נוגע ב-volumes של מסד הנתונים, ואין בקובץ הזה שום פקודת ניקוי
+# אוטומטית. ראו docs/monitoring/runbooks/disk-full.md — `docker system
+# prune --volumes` הוא פקודה אסורה על שרת האפליקציה.

@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { FileDropZone } from '@/components/FileDropZone';
 import { AdminIcon } from './AdminIcons';
 import { AdminCell, AdminRow, AdminTable } from './AdminList';
 import type { StorageBucket } from './ImageField';
@@ -177,11 +178,7 @@ function MediaLibraryRow({
    * הבקשה של השרת. הכתובת הציבורית נשארת זהה, כך שכל מקום שכבר מפנה
    * לקובץ הזה (כריכת ספר, תמונת אירוע וכו') מציג את הגרסה החדשה מיד.
    */
-  async function onReplaceFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const nextFile = event.target.files?.[0];
-    event.target.value = '';
-    if (!nextFile) return;
-
+  async function replaceWith(nextFile: File) {
     setReplacing(true);
     setError(null);
     try {
@@ -200,6 +197,12 @@ function MediaLibraryRow({
     }
   }
 
+  function onReplaceFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const nextFile = event.target.files?.[0];
+    event.target.value = '';
+    if (nextFile) void replaceWith(nextFile);
+  }
+
   function handleDelete() {
     startTransition(async () => {
       setError(null);
@@ -212,22 +215,32 @@ function MediaLibraryRow({
   return (
     <AdminRow>
       <AdminCell>
-        {kind === 'image' ? (
-          // eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה קטנה בטבלת ניהול
-          <img
-            src={file.publicUrl}
-            alt=""
-            loading="lazy"
-            className="h-12 w-12 rounded-[var(--radius-sm)] border border-rule object-cover"
-          />
-        ) : (
-          <span
-            aria-label={kind === 'pdf' ? 'קובץ PDF' : kind === 'font' ? 'קובץ גופן' : 'קובץ'}
-            className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-sm)] border border-rule bg-cream-2 text-caption font-semibold text-muted"
-          >
-            {KIND_BADGE[kind]}
-          </span>
-        )}
+        {/* [1.40] גרירת קובץ על התמונונת מחליפה את הקובץ הקיים באותו
+            path בדיוק — בלי לפתוח את בורר הקבצים. accept מוגבל לסוג
+            הקובץ הנוכחי, כי החלפה שומרת על הכתובת ועל הסיומת. */}
+        <FileDropZone
+          accept={REPLACE_ACCEPT[kind] || undefined}
+          disabled={replacing}
+          hint="החלפה"
+          onFiles={(files) => void replaceWith(files[0])}
+        >
+          {kind === 'image' ? (
+            // eslint-disable-next-line @next/next/no-img-element -- תצוגה מקדימה קטנה בטבלת ניהול
+            <img
+              src={file.publicUrl}
+              alt=""
+              loading="lazy"
+              className="h-12 w-12 rounded-[var(--radius-sm)] border border-rule object-cover"
+            />
+          ) : (
+            <span
+              aria-label={kind === 'pdf' ? 'קובץ PDF' : kind === 'font' ? 'קובץ גופן' : 'קובץ'}
+              className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-sm)] border border-rule bg-cream-2 text-caption font-semibold text-muted"
+            >
+              {KIND_BADGE[kind]}
+            </span>
+          )}
+        </FileDropZone>
       </AdminCell>
       <AdminCell className="max-w-xs">
         <span className="block truncate" title={file.path}>

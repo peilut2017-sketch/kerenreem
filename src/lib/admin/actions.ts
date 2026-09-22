@@ -153,6 +153,30 @@ export async function revalidateAllPublicPages(): Promise<ActionResult> {
 }
 
 /**
+ * [1.40] מריץ עבודה שאינה חלק מהתשובה — תיעוד, ניקוי — בלי שהקורא
+ * ימתין לה, כשהרצת-הריצה תומכת בכך.
+ *
+ * `after` של Next.js מחזיק את הבקשה בחיים עד שהעבודה נגמרת, גם אחרי
+ * שהתשובה כבר נשלחה — בדיוק מה שצריך לכתיבה ל-audit_log. הייבוא
+ * דינמי ועטוף: בסביבות שאין בהן `after` (גרסת Next ישנה, או runtime
+ * שאינו תומך) הפעולה פשוט מומתנת כמו קודם, ולא נבלעת. לעולם לא
+ * "לשגר ולשכוח" בלי אחד משני אלה — פונקציה חסרת-שרת עלולה להיקטע
+ * מיד אחרי התשובה ולהשאיר את היומן חסר.
+ */
+async function deferOrAwait(work: Promise<unknown>): Promise<void> {
+  // כשל בעבודה הזו לעולם לא מפיל את הפעולה שכבר הצליחה.
+  const guarded = work.catch((error) => {
+    console.error('[admin:deferred]', error);
+  });
+  try {
+    const { after } = await import('next/server');
+    after(guarded);
+  } catch {
+    await guarded;
+  }
+}
+
+/**
  * תיעוד הפעולה ב-audit_log — כולל פירוט (ערכים לפני/אחרי והקשר קריא),
  * ראו lib/admin/audit.ts. best-effort במכוון: אם הטבלה חסומה או חסרה,
  * זו אינה סיבה להכשיל שמירה שכבר הצליחה.
@@ -185,38 +209,55 @@ async function syncRelations(
   ownerId: string,
   formData: FormData,
 ): Promise<string | null> {
-  for (const relation of relations) {
-    const ids = formData
-      .getAll(relation.field)
-      .filter((value): value is string => typeof value === 'string' && value !== '');
+  /*
+   * [1.40] טבלאות הקישור מסונכרנות במקביל, לא בלולאה סדרתית.
+   *
+   * לספר יש ארבע טבלאות קישור (קטגוריות, תגיות, מדפים, מאפיינים), וכל
+   * אחת דרשה מחיקה ואז הכנסה — שמונה סבבי רשת אל המסד, זה אחרי זה.
+   * זה היה הנתח הגדול ביותר בזמן השמירה שהורגש כ"תקיעה של כמה שניות".
+   * הטבלאות אינן תלויות זו בזו (כל אחת מסוננת ב-ownerColumn משלה),
+   * ולכן אין שום סדר שצריך לשמור ביניהן.
+   *
+   * בתוך כל טבלה הסדר כן נשמר: מחיקה ואז הכנסה, אחרת ההכנסה החדשה
+   * הייתה נמחקת על ידי המחיקה שרצה אחריה.
+   */
+  const results = await Promise.all(
+    relations.map(async (relation): Promise<string | null> => {
+      const ids = formData
+        .getAll(relation.field)
+        .filter((value): value is string => typeof value === 'string' && value !== '');
 
-    const removal = await supabase
-      .from(relation.table)
-      .delete()
-      .eq(relation.ownerColumn, ownerId);
+      const removal = await supabase
+        .from(relation.table)
+        .delete()
+        .eq(relation.ownerColumn, ownerId);
 
-    if (removal.error) {
-      console.error('[admin:relations]', relation.table, removal.error.code, removal.error.message);
-      return `הרשומה נשמרה, אך עדכון ${relation.table} נכשל: ${removal.error.message}`;
-    }
+      if (removal.error) {
+        console.error('[admin:relations]', relation.table, removal.error.code, removal.error.message);
+        return `הרשומה נשמרה, אך עדכון ${relation.table} נכשל: ${removal.error.message}`;
+      }
 
-    if (ids.length === 0) continue;
+      if (ids.length === 0) return null;
 
-    const insertion = await supabase.from(relation.table).insert(
-      // כפילויות בטופס היו מפילות את ההכנסה על מפתח ראשי כפול
-      [...new Set(ids)].map((value) => ({
-        [relation.ownerColumn]: ownerId,
-        [relation.targetColumn]: value,
-      })),
-    );
+      const insertion = await supabase.from(relation.table).insert(
+        // כפילויות בטופס היו מפילות את ההכנסה על מפתח ראשי כפול
+        [...new Set(ids)].map((value) => ({
+          [relation.ownerColumn]: ownerId,
+          [relation.targetColumn]: value,
+        })),
+      );
 
-    if (insertion.error) {
-      console.error('[admin:relations]', relation.table, insertion.error.code, insertion.error.message);
-      return `הרשומה נשמרה, אך שמירת ${relation.table} נכשלה: ${insertion.error.message}`;
-    }
-  }
+      if (insertion.error) {
+        console.error('[admin:relations]', relation.table, insertion.error.code, insertion.error.message);
+        return `הרשומה נשמרה, אך שמירת ${relation.table} נכשלה: ${insertion.error.message}`;
+      }
 
-  return null;
+      return null;
+    }),
+  );
+
+  // השגיאה הראשונה שנמצאה מדווחת; השאר כבר נרשמו לקונסול למעלה.
+  return results.find((message) => message !== null) ?? null;
 }
 
 /**
@@ -249,6 +290,10 @@ export async function saveEntity(
 
     const payload: Record<string, unknown> = {};
     const fieldErrors: Record<string, string> = {};
+    // ראו ההערה על spec.type === 'boolean' בלולאה שמיד אחרי זה.
+    const declaredBooleans = new Set(
+      formData.getAll('__bool').filter((value): value is string => typeof value === 'string'),
+    );
 
     for (const spec of entity.fields) {
       // [1.25] שדה בוליאני ברשומה קיימת נשמר בעצמו: ToggleField עובר
@@ -261,7 +306,14 @@ export async function saveEntity(
       // שמירה של הטופס הראשי — גם עריכת כותרת בלבד — כתבה false במפורש
       // על פני הערך האמיתי. זו הייתה הסיבה שכל שמירה הפכה ספר/אירוע/
       // עמוד וכו' לטיוטה, גם כשלא נגעו בכלל בכפתור הפרסום.
-      if (spec.type === 'boolean' && id) continue;
+      //
+      // [1.40] חריג: שדה בוליאני *שהטופס הצהיר עליו במפורש*. ToggleField
+      // שאינו במצב autoSave שולח סמן __bool עם שמו (ראו Fields.tsx),
+      // וזה אומר "המתג הזה כן חלק מהשמירה הזו". נחוץ לקבוצת הספק
+      // החיצוני, שבה אי אפשר לשמור את המתג לבדו: הוא תלוי בשדות
+      // הקישור והשם שבאותו מסך ועדיין לא נשמרו. בלי הסמן ההתנהגות
+      // נשארת בדיוק כפי שהייתה.
+      if (spec.type === 'boolean' && id && !declaredBooleans.has(spec.name)) continue;
       // צ'ק־בוקס שלא סומן אינו נשלח כלל; חייבים לכתוב false במפורש.
       const raw = formData.has(spec.name) ? formData.get(spec.name) : null;
       const value = coerce(spec, raw, formData.getAll(spec.name));
@@ -406,12 +458,22 @@ export async function saveEntity(
     }
 
     {
+      /*
+       * [1.40] התיעוד ביומן נכתב, אבל השמירה לא ממתינה לו.
+       *
+       * הוא best-effort מלכתחילה (ראו audit.ts — כשל שלו אינו מכשיל
+       * פעולה שכבר הצליחה), ולכן אין סיבה שסבב הרשת שלו ייספר בזמן
+       * שהעורך מחכה. waitUntil מחזיק את הבקשה בחיים עד שהכתיבה
+       * מסתיימת גם אחרי שהתשובה כבר יצאה; בסביבה שאין בה waitUntil
+       * נשארת ההמתנה כפי שהייתה, כדי שהתיעוד לא ייקטע.
+       */
       const diff = diffForAudit(oldRecord, payload);
-      await writeAudit(supabase, session.userId, id ? 'update' : 'insert', entity.table, savedId, {
+      const write = writeAudit(supabase, session.userId, id ? 'update' : 'insert', entity.table, savedId, {
         oldValues: id ? diff.oldValues : null,
         newValues: diff.newValues,
         context: auditDisplayName(payload, oldRecord),
       });
+      await deferOrAwait(write);
     }
     revalidateEntity(entityKey as EntityKey);
 
@@ -487,7 +549,12 @@ export async function toggleEntityField(
     if (error) return { ok: false, error: describeDbError(error, entity).message };
     if (!data) return { ok: false, error: 'העדכון לא נשמר: הרשומה לא נמצאה או שאין לך הרשאה לערוך אותה.' };
 
+    // [1.40] גם הערך הקודם נרשם, כדי שיומן הפעולות של הרשומה יוכל
+    // להציג "מה היה ← מה הוחלף" גם למתגים ולא רק לשמירות טופס. אין
+    // כאן שליפה נוספת: המתג מציג תמיד את הערך השמור, ולכן המצב שלפני
+    // לחיצה הוא בהכרח ההפך ממה שנשלח.
     await writeAudit(supabase, session.userId, 'update', entity.table, id, {
+      oldValues: { [fieldName]: !value },
       newValues: { [fieldName]: value },
       context: `שינוי מהיר של ${fieldName}`,
     });

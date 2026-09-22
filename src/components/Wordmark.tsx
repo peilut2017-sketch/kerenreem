@@ -7,7 +7,36 @@ import { toCdnUrl } from '@/lib/image-src';
  * כשהועלה לוגו ב-CMS הוא מוצג. עד אז מוצג סימן שנגזר מהלוגו — קשת של
  * שער בית מדרש עם ספר פתוח וקרני אור, בזהב. הוא בנוי כ-SVG inline כדי
  * שיירש את הצבע מהרקע: זהב על כהה, ודיו על נייר.
+ *
+ * [1.40] הסמל גדול משורת הכותרת וגולש מתחתיה. מרווחי הכותרת נשארים
+ * כפי שהם (py-5 במצב היציב) והסמל מקבל שוליים תחתונים שליליים — כך
+ * הוא נראה גדול ובולט, אבל *אינו* מגביה את הפס ואינו מזיז את התוכן
+ * שמתחתיו. הגלישה אפשרית משום שאין overflow:hidden על משטח הכותרת;
+ * z-10 מוודא שהחלק הגולש נמצא מעל התוכן שמתחת ולא נחתך על ידו.
+ *
+ * במסכים צרים (מתחת ל-sm) ההגדלה מתונה יותר: שם הפס עצמו צר, וסמל
+ * שגולש הרבה היה מתנגש בתפריט ההמבורגר ובכפתורי המסחר שלצדו.
  */
+
+/**
+ * גובה הסמל וגלישתו, לפי מצב הכותרת. שתי המחרוזות מופיעות פעמיים
+ * (תמונה שהועלתה, ו-SVG ברירת המחדל) ולכן הן קבוע אחד ולא ערך כפול.
+ */
+const LOGO_HEIGHT = {
+  full: 'h-16 sm:h-[5.5rem] lg:h-[6.25rem]',
+  compact: 'h-11 sm:h-14',
+} as const;
+
+/**
+ * הגלישה עצמה, כשוליים תחתונים שליליים. נפרדת מהגובה כי היא רצויה רק
+ * בכותרת האתר: בכותרת התחתונה הלוגו יושב מעל פסקת טקסט, ושוליים
+ * שליליים שם היו מושכים את הפסקה אל תוכו.
+ */
+const LOGO_OVERHANG = {
+  full: '-mb-4 sm:-mb-7 lg:-mb-9',
+  compact: '-mb-2 sm:-mb-3.5',
+} as const;
+
 export function Wordmark({
   logoUrl,
   darkLogoUrl,
@@ -15,6 +44,7 @@ export function Wordmark({
   tagline,
   variant = 'light',
   compact = false,
+  overhang = true,
 }: {
   logoUrl: string | null;
   /** גרסה הפוכה/בהירה ללוגו, לשימוש כש-variant='dark'. null — נופל ל-logoUrl עם משטח עוגן. */
@@ -25,6 +55,11 @@ export function Wordmark({
   variant?: 'light' | 'dark';
   /** גרסה מכווצת — לוגו וטקסט קטנים יותר, לניווט במצב צף */
   compact?: boolean;
+  /**
+   * האם הסמל גולש מתחת לשורה שבה הוא יושב. נכון בכותרת האתר (זה בדיוק
+   * האפקט המבוקש); שקר בכותרת התחתונה, שם מתחתיו יושב טקסט.
+   */
+  overhang?: boolean;
 }) {
   const rawLogo = variant === 'dark' ? (darkLogoUrl || logoUrl) : logoUrl;
   const resolvedLogo = rawLogo ? toCdnUrl(rawLogo) : rawLogo;
@@ -38,17 +73,18 @@ export function Wordmark({
    */
   const needsBackerPlate = variant === 'dark' && !darkLogoUrl && Boolean(logoUrl);
 
+  const key = compact ? 'compact' : 'full';
+  const logoSize = `${LOGO_HEIGHT[key]} ${overhang ? LOGO_OVERHANG[key] : ''}`;
+
   return (
     <Link
       href="/"
-      className="group flex items-center gap-3 transition-[gap] duration-[420ms] ease-[var(--ease-spring)] focus-visible:outline-offset-4 motion-reduce:transition-none"
+      className="group relative z-10 flex items-center gap-3 transition-[gap] duration-[420ms] ease-[var(--ease-spring)] focus-visible:outline-offset-4 motion-reduce:transition-none"
     >
       {resolvedLogo ? (
         needsBackerPlate ? (
           <span
-            className={`inline-flex w-auto shrink-0 items-center rounded-[var(--radius-sm)] bg-cream px-2 py-1 shadow-[var(--shadow-soft)] transition-[height] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-              compact ? 'h-8 sm:h-9' : 'h-11 sm:h-12'
-            }`}
+            className={`inline-flex w-auto shrink-0 items-center rounded-[var(--radius-sm)] bg-cream px-2 py-1 shadow-[var(--shadow-soft)] transition-[height,margin] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${logoSize}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- הלוגו מוגדר ב-CMS ומוגש כפי שהוא */}
             <img src={resolvedLogo} alt={name} className="h-full w-auto object-contain" />
@@ -58,14 +94,13 @@ export function Wordmark({
           <img
             src={resolvedLogo}
             alt={name}
-            className={`w-auto transition-[height] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-              compact ? 'h-8 sm:h-9' : 'h-11 sm:h-12'
-            }`}
+            className={`w-auto shrink-0 object-contain transition-[height,margin] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${logoSize}`}
           />
         )
       ) : (
         <MarkSvg
           compact={compact}
+          overhang={overhang}
           className={variant === 'dark' ? 'text-gold' : 'text-gold-deep'}
         />
       )}
@@ -92,13 +127,22 @@ export function Wordmark({
   );
 }
 
-function MarkSvg({ className = '', compact = false }: { className?: string; compact?: boolean }) {
+function MarkSvg({
+  className = '',
+  compact = false,
+  overhang = true,
+}: {
+  className?: string;
+  compact?: boolean;
+  overhang?: boolean;
+}) {
+  const key = compact ? 'compact' : 'full';
   return (
     <svg
       viewBox="0 0 48 56"
-      className={`w-auto shrink-0 transition-[height] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
-        compact ? 'h-8 sm:h-9' : 'h-11 sm:h-12'
-      } ${className}`}
+      className={`w-auto shrink-0 transition-[height,margin] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+        LOGO_HEIGHT[key]
+      } ${overhang ? LOGO_OVERHANG[key] : ''} ${className}`}
       fill="none"
       stroke="currentColor"
       aria-hidden="true"

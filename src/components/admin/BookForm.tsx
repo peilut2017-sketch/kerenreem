@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { AdminIcon } from './AdminIcons';
 import { EntityForm } from './EntityForm';
 import { BookFormTabs } from './BookFormTabs';
 import { ToggleField, FieldSet, TextAreaField, TextField } from './Fields';
 import { ImageField } from './ImageField';
+import { BookActivityLog } from './BookActivityLog';
 import { BookImagesEditor } from './BookImagesEditor';
 import { BookTocEditor } from './BookTocEditor';
 import { BookPreviewGenerator } from './books/BookPreviewGenerator';
@@ -121,45 +121,10 @@ export function BookForm({
 
   return (
     <EntityForm entity="books" id={book?.id ?? null} canWrite={canWrite} backHref="/admin/books">
-      {(errors, { dirty }) => (
+      {(errors) => (
         <>
           {/* המטבע קבוע לשלב זה; השדה נשלח כדי שהערך לא יימחק בעדכון */}
           <input type="hidden" name="currency" value={book?.currency ?? 'ILS'} />
-
-          {/* [1.27/1.34] חיווי "שינויים שלא נשמרו" + שמירה מהירה — צמוד
-              לכותרת הכרטיס, ודביק (admin-unsaved-bar) כדי שיישאר גלוי גם
-              בגלילה עמוקה בטופס הארוך, לא רק בראשו. אייקונים בלבד: אייקון
-              מהבהב עם האזהרה כ-tooltip (לא באנר טקסט קבוע), ולצידו שמירה
-              וסגירה — כדי שהפעולות הנפוצות ביותר תמיד בהישג יד בגלילה. */}
-          {canWrite ? (
-            <div className="admin-unsaved-bar">
-              {dirty ? (
-                <span title="יש שינויים שטרם נשמרו" className="inline-flex">
-                  <AdminIcon name="warning" className="admin-unsaved-warning-icon h-4.5 w-4.5" />
-                  <span className="sr-only" role="status">
-                    יש שינויים שטרם נשמרו
-                  </span>
-                </span>
-              ) : (
-                <span className="sr-only" role="status">
-                  כל השינויים נשמרו
-                </span>
-              )}
-              <button
-                type="submit"
-                name="intent"
-                value="save"
-                title="שמירה מהירה"
-                aria-label="שמירה מהירה"
-                className="admin-btn admin-btn-icon admin-btn-solid"
-              >
-                <AdminIcon name="check" className="h-4 w-4" />
-              </button>
-              <Link href="/admin/books" title="סגירה" aria-label="סגירה" className="admin-btn admin-btn-icon admin-btn-quiet">
-                <AdminIcon name="x" className="h-4 w-4" />
-              </Link>
-            </div>
-          ) : null}
 
           {completion ? (
             <div className="admin-card px-4 py-3">
@@ -922,6 +887,23 @@ export function BookForm({
                       />
                     </FieldSet>
 
+                    {/*
+                      [1.40] שלושת השדות האלה תלויים זה בזה, ולכן הם
+                      נשמרים *יחד עם הטופס* (saveWithForm) ולא לבדם.
+
+                      קודם המתג נשמר מיד בלחיצה, והשמירה המיידית בודקת
+                      את הקישור ושם הספק מול *המסד* — לא מול הטופס.
+                      התוצאה: מי שהקליד קישור ושם ואז הפעיל את המתג
+                      נדחה ב"יש למלא קישור ושם ספק לפני ההפעלה", למרות
+                      שהוא בדיוק מילא אותם; השדות פשוט עוד לא היו
+                      שמורים. בנוסף, כל הפעלה כזו גררה רינדור מחדש של
+                      כרטיס הספר כולו (force-dynamic, שאילתות כבדות),
+                      וזה מה שנראה כמסך תקוע שדורש ריענון.
+
+                      עכשיו: המתג נשלח עם שאר הטופס, ו-saveEntity מריץ
+                      את אותה ולידציה על הערכים שבטופס — כך שהשמירה
+                      עוברת, או שהשגיאה יושבת על השדה הנכון.
+                    */}
                     <FieldSet
                       legend="רכישה דרך ספק חיצוני"
                       icon="external"
@@ -931,9 +913,8 @@ export function BookForm({
                         name="external_supplier_enabled"
                         label="מכירה דרך ספק חיצוני"
                         defaultChecked={book?.external_supplier_enabled ?? false}
-                        hint="כשמופעל: ספר זה נמכר דרך ספק חיצוני ולא (רק) דרך קרן רא״ם — הכפתור בעמוד הספר יפנה החוצה לקישור שבשדה שלמטה."
-                        entityKey="books"
-                        id={book?.id}
+                        hint="כשמופעל: ספר זה נמכר דרך ספק חיצוני ולא (רק) דרך קרן רא״ם — הכפתור בעמוד הספר יפנה החוצה לקישור שבשדה שלמטה. שלושת השדות כאן נשמרים יחד בלחיצה על ״שמירה״."
+                        saveWithForm
                       />
                       <div className="grid gap-5 sm:grid-cols-2">
                         <TextField
@@ -957,8 +938,7 @@ export function BookForm({
                         label="הצג גם כשנמכר אצלנו"
                         defaultChecked={book?.external_supplier_always_show ?? false}
                         hint="ברירת מחדל: הכפתור מוצג רק כשהספר אינו ניתן לרכישה אצלנו בפועל (לא מסומן לרכישה, או שהחנות כבויה). הפעילו כדי להציג אותו גם כשהוא כן נמכר אצלנו."
-                        entityKey="books"
-                        id={book?.id}
+                        saveWithForm
                       />
                     </FieldSet>
 
@@ -1037,6 +1017,31 @@ export function BookForm({
                   </FieldSet>
                 ),
               },
+              /*
+                [1.40] יומן הפעולות של הספר — לשונית אחרונה, וקיימת רק
+                לספר שכבר נשמר: לרשומה חדשה אין עדיין היסטוריה, ולשונית
+                שתמיד ריקה היא רעש. התוכן נטען לפי דרישה (ראו
+                BookActivityLog), ולכן היא אינה מאטה את פתיחת הכרטיס.
+              */
+              ...(book
+                ? [
+                    {
+                      id: 'activity',
+                      label: 'יומן פעולות',
+                      icon: 'list' as const,
+                      hasError: false,
+                      content: (
+                        <FieldSet
+                          legend="כל הפעולות שנעשו בספר"
+                          icon="list"
+                          description="יצירה ועריכה, לפי תאריך ושעה, מי ביצע ומה בדיוק השתנה — כולל הערך שהיה והערך שהוחלף."
+                        >
+                          <BookActivityLog bookId={book.id} />
+                        </FieldSet>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
           />
         </>
