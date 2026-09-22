@@ -1,7 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { escapeHtml, sendPlainEmail } from '@/lib/commerce/notifications';
+import { sendEmail } from '@/lib/email/send';
+import { contactReplyEmail } from '@/lib/email/templates';
+import { htmlToPlainText } from '@/lib/html-text';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 import { writeAuditLog } from './audit';
@@ -98,15 +100,22 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
     ? `מענה לפנייתך: ${inquiry.subject}`.slice(0, 160)
     : 'מענה לפנייתך למכון קרן רא״ם';
 
-  // שם הפונה הוא קלט חופשי מטופס ציבורי — escape לפני הרכבת ה-HTML
-  const emailHtml = `
-    <p>שלום ${escapeHtml(inquiry.name ?? '')},</p>
-    ${clean}
-    <hr style="border:none;border-top:1px solid #ddd;margin:1.5em 0" />
-    <p style="color:#666;font-size:0.9em">מענה זה נשלח מצוות מכון קרן רא״ם בהמשך לפנייתך באתר.</p>
-  `;
+  /*
+   * [1.40] המענה יוצא בתבנית המותגת של האתר (לוגו, זהות, כותרת
+   * תחתונה) במקום ב-HTML שהורכב כאן ביד. הגוף עצמו (clean) כבר עבר
+   * sanitizeHtml למעלה, ולכן הוא מוזרם לתבנית כמות שהוא; שם הפונה,
+   * שהוא קלט חופשי מטופס ציבורי, עובר escape בתוך התבנית.
+   */
+  const message = await contactReplyEmail({
+    name: inquiry.name ?? null,
+    subject,
+    bodyHtml: clean,
+    // 20,000 ולא ברירת המחדל (200): כאן זו גרסת הטקסט *המלאה* של
+    // ההודעה, לא תקציר לתצוגה ברשימה.
+    bodyText: htmlToPlainText(clean, 20_000),
+  });
 
-  const sent = await sendPlainEmail(inquiry.email, subject, emailHtml);
+  const sent = await sendEmail(inquiry.email, message);
   if (!sent.ok && !sent.skipped) {
     return { error: 'שליחת הדואר נכשלה. המענה לא נשמר — נסו שוב.' };
   }

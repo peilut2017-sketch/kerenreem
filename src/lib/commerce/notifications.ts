@@ -1,6 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Order } from '@/lib/supabase/types';
+import { getEmailBrand, renderBrandedEmail } from '@/lib/email/brand';
+import { sendEmail } from '@/lib/email/send';
 import { formatPrice } from './pricing';
 
 /**
@@ -175,33 +177,54 @@ export function escapeHtml(value: string): string {
 
 /* ------------------------------- provider --------------------------------- */
 
+/**
+ * [1.40] הגוף שנבנה ב-renderEmail הוא קטע HTML (פסקאות וטבלה), ולא
+ * מסמך שלם — הוא נעטף כאן במעטפת המותגת של האתר: לוגו, רצועת זהות,
+ * וכותרת תחתונה עם פרטי המכון (ראו lib/email/brand.ts). עד כה הוא
+ * נעטף ב-div עם dir="rtl" בלבד, ואישור הזמנה נראה כמו הודעת מערכת
+ * גנרית בזמן ששאר האתר ממותג עד הפרט האחרון.
+ *
+ * גרסת הטקסט נגזרת מה-HTML בהסרת תגיות: התבניות כאן קדמו למעטפת ואין
+ * להן גרסת טקסט משלהן, וגזירה אוטומטית עדיפה על שליחה בלי טקסט כלל
+ * (מסנני דואר זבל מורידים ציון להודעת HTML בלבד).
+ */
 async function sendViaProvider(
   to: string,
   email: RenderedEmail,
 ): Promise<{ ok: boolean; id?: string; error?: string; skipped?: boolean }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.COMMERCE_EMAIL_FROM ?? 'מכון קרן רא״ם <no-reply@keren-reem.org>';
-  if (!apiKey) return { ok: false, skipped: true, error: 'RESEND_API_KEY not configured' };
-
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject: email.subject,
-      html: `<div dir="rtl" style="font-family:Arial,'Segoe UI',sans-serif;line-height:1.7">${email.html}</div>`,
-    }),
-    cache: 'no-store',
+  const brand = await getEmailBrand();
+  const branded = renderBrandedEmail({
+    brand,
+    subject: email.subject,
+    preheader: email.subject,
+    body: email.html,
+    text: htmlToText(email.html),
   });
-  const data = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
-  if (!response.ok) return { ok: false, error: data.message ?? `provider ${response.status}` };
-  return { ok: true, id: data.id };
+  return sendEmail(to, branded);
+}
+
+/** HTML → טקסט קריא. גס בכוונה: אלה תבניות שאנחנו כתבנו, לא קלט חופשי. */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<(?:br|\/p|\/tr|\/div|\/h[1-6])[^>]*>/gi, '\n')
+    .replace(/<\/td>/gi, '\t')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /**
  * [1.1] מייל חופשי (לא תלוי-הזמנה) — הזמנת איש צוות, התראות תפעול.
- * אותו ספק ואותה עטיפת RTL; בלי notification_log (אין הזמנה לתלות בה).
+ * אותו ספק ואותה מעטפת מותגת; בלי notification_log (אין הזמנה לתלות בה).
+ *
+ * [1.40] נשאר כאן כמעטפת דקה לתאימות לאחור לקוראים הקיימים. קוד חדש
+ * עדיף שיבנה תבנית ב-lib/email/templates.ts וישלח דרך sendEmail —
+ * שם יש גם גרסת טקסט אמיתית ולא גזורה.
  */
 export async function sendPlainEmail(
   to: string,

@@ -80,6 +80,7 @@ const SECTIONS: Section[] = [
     label: 'מערכת',
     items: [
       { href: '/admin/media-library', label: 'ספריית מדיה', icon: 'image', screen: 'media-library' },
+      { href: '/admin/email', label: 'דואר יוצא', icon: 'messages', screen: 'email' },
       { href: '/admin/team', label: 'צוות והרשאות', icon: 'team', perm: 'users' },
       { href: '/admin/settings', label: 'הגדרות', icon: 'settings', screen: 'org-settings' },
       { href: '/admin/audit-log', label: 'יומן ביקורת', icon: 'list', minRole: 'admin' },

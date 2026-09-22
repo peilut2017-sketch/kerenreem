@@ -6,7 +6,8 @@ import { assertPermission } from './auth';
 import { writeAuditLog } from './audit';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { escapeHtml, sendPlainEmail } from '@/lib/commerce/notifications';
+import { sendEmail } from '@/lib/email/send';
+import { teamInviteEmail } from '@/lib/email/templates';
 import { ROLE_LABELS, ASSIGNABLE_ROLES } from './permissions';
 import type { UserRole } from '@/lib/supabase/types';
 
@@ -95,20 +96,17 @@ export async function inviteStaffMember(input: {
     });
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
-  const emailResult = await sendPlainEmail(
+  // [1.40] ההזמנה יוצאת בתבנית המותגת של האתר (lib/email/templates.ts)
+  // ולא כ-HTML שהורכב כאן ביד — אותו מראה כמו שאר הדואר של האתר.
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
+  const inviteEmail = await teamInviteEmail({
+    name: input.fullName || null,
     email,
-    'הוזמנת לצוות מכון קרן רא״ם',
-    `<h2 style="margin:0 0 12px">שלום ${escapeHtml(input.fullName || '')},</h2>
-     <p>נוצר עבורך חשבון צוות באתר מכון קרן רא״ם בתפקיד <strong>${ROLE_LABELS[input.role]}</strong>.</p>
-     <p>פרטי הכניסה הראשונית:</p>
-     <p style="background:#f6f1e7;border-radius:8px;padding:12px 16px;direction:ltr;text-align:left">
-       <strong>${email}</strong><br/>
-       <strong style="font-family:monospace">${password}</strong>
-     </p>
-     <p>בכניסה הראשונה יש להחליף את הסיסמה (התחברות → ${siteUrl}/admin/login).</p>
-     <p style="color:#8a8577;font-size:13px">אם לא ציפית להזמנה הזו — אפשר להתעלם ממנה.</p>`,
-  );
+    password,
+    roleLabel: ROLE_LABELS[input.role],
+    loginUrl: `${siteUrl}/admin/login`,
+  });
+  const emailResult = await sendEmail(email, inviteEmail);
 
   revalidatePath('/admin/team');
   return {
