@@ -3,7 +3,7 @@
 import { assertRole } from './auth';
 import { writeAuditLog } from './audit';
 import { createClient } from '@/lib/supabase/server';
-import { sendEmail, staffInbox } from '@/lib/email/send';
+import { DEFAULT_EMAIL_FROM, sendEmail, staffInbox } from '@/lib/email/send';
 import { getEmailBrand } from '@/lib/email/brand';
 import {
   contactAckEmail,
@@ -167,7 +167,9 @@ export async function getEmailConfigStatus(): Promise<{
   const brand = await getEmailBrand();
   return {
     providerConfigured: Boolean(process.env.RESEND_API_KEY),
-    fromAddress: process.env.COMMERCE_EMAIL_FROM ?? 'מכון קרן רא״ם <no-reply@keren-reem.org>',
+    // אותה ברירת מחדל שהשליחה עצמה משתמשת בה — מקור אחד, כדי שהמסך
+    // לא יציג כתובת שונה מזו שיוצאת בפועל.
+    fromAddress: process.env.COMMERCE_EMAIL_FROM ?? DEFAULT_EMAIL_FROM,
     staffInbox: staffInbox(brand.contactEmail),
     siteUrl: brand.siteUrl,
   };

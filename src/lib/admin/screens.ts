@@ -51,7 +51,8 @@ export type ScreenKey =
   | 'audit-log'
   | 'diagnostics'
   | 'media-library'
-  | 'email';
+  | 'email'
+  | 'monitoring';
 
 export interface ScreenDef {
   key: ScreenKey;
@@ -91,6 +92,7 @@ export const SCREENS: readonly ScreenDef[] = [
   { key: 'diagnostics', label: 'אבחון', family: 'system' },
   { key: 'media-library', label: 'ספריית מדיה', family: 'system' },
   { key: 'email', label: 'דואר יוצא', family: 'system' },
+  { key: 'monitoring', label: 'בריאות המערכת', family: 'system' },
 ] as const;
 
 /**
@@ -110,8 +112,10 @@ export const ADMIN_ONLY_SCREENS = new Set<ScreenKey>([
   'media-library',
   // [1.40] "דואר יוצא" מצטרף מאותו נימוק: הוא מציג את כתובת השולח ואת
   // תיבת ההתראות של הצוות, ומאפשר לשלוח דואר מהדומיין של המכון לכל
-  // כתובת שתוקלד בו.
+  // כתובת שתוקלד בו. "בריאות המערכת" חושף שמות מארחים, מצב תשתית
+  // ומדדים תפעוליים — מפת דרכים נוחה למי שמחפש נקודת תורפה.
   'email',
+  'monitoring',
 ]);
 
 const CONTENT_SCREENS = SCREENS.filter((s) => s.family === 'content').map((s) => s.key);

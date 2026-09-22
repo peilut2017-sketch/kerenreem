@@ -108,7 +108,8 @@ create index if not exists check_samples_name_at on monitoring.check_samples (ch
 --
 -- anon ו-authenticated לא מקבלים דבר — לא קריאה ולא כתיבה. מערכת
 -- הניטור כותבת דרך service_role, ולוח האירועים בניהול נקרא דרך
--- פונקציות security definer גדורות ב-is_admin() (יתווספו עם המסך).
+-- פונקציות security definer גדורות ב-is_admin() — ראו admin_list_incidents
+-- ו-admin_incident_timeline בסוף הקובץ.
 -- ---------------------------------------------------------------------------
 alter table monitoring.incidents enable row level security;
 alter table monitoring.incident_events enable row level security;
@@ -235,3 +236,129 @@ $$;
 revoke all on function monitoring.raise_incident(text, text, text, text, text, text, jsonb, text) from public;
 revoke all on function monitoring.resolve_incident(text, text) from public;
 revoke all on function monitoring.prune(integer, integer) from public;
+
+-- ---------------------------------------------------------------------------
+-- [1.40] קריאה ללוח האירועים בניהול.
+--
+-- הסכימה סגורה ל-anon ול-authenticated (ראו למעלה), ולכן מסך הניהול
+-- אינו יכול לקרוא ממנה ישירות. שתי הפונקציות האלה הן החלון היחיד:
+-- security definer, גדורות ב-is_admin(), וקריאה בלבד.
+--
+-- אותו דפוס בדיוק כמו admin_list_storage_files (50_media_library.sql) —
+-- פונקציה ייעודית ולא הרחבת RLS על הטבלה עצמה, כדי שהיקף החשיפה יהיה
+-- קריא ממקום אחד.
+-- ---------------------------------------------------------------------------
+create or replace function public.admin_list_incidents(
+  p_limit integer default 50,
+  p_include_resolved boolean default true
+)
+returns table (
+  id uuid,
+  dedupe_key text,
+  scope text,
+  component text,
+  severity text,
+  status text,
+  title text,
+  impact text,
+  context jsonb,
+  started_at timestamptz,
+  acknowledged_at timestamptz,
+  resolved_at timestamptz,
+  resolution text,
+  event_count bigint
+)
+language plpgsql
+security definer
+set search_path = monitoring, public, pg_temp
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'permission denied';
+  end if;
+
+  return query
+    select i.id, i.dedupe_key, i.scope, i.component, i.severity, i.status,
+           i.title, i.impact, i.context, i.started_at, i.acknowledged_at,
+           i.resolved_at, i.resolution,
+           (select count(*) from monitoring.incident_events e where e.incident_id = i.id)
+      from monitoring.incidents i
+     where p_include_resolved or i.status <> 'resolved'
+     -- פתוחים תמיד ראשונים, ואחריהם לפי זמן: אירוע פעיל הוא מה
+     -- שמסתכלים עליו, גם אם הוא התחיל לפני שבוע.
+     order by (i.status <> 'resolved') desc, i.started_at desc
+     limit greatest(1, least(p_limit, 200));
+end;
+$$;
+
+create or replace function public.admin_incident_timeline(p_incident_id uuid)
+returns table (id bigint, at timestamptz, kind text, message text, data jsonb)
+language plpgsql
+security definer
+set search_path = monitoring, public, pg_temp
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'permission denied';
+  end if;
+
+  return query
+    select e.id, e.at, e.kind, e.message, e.data
+      from monitoring.incident_events e
+     where e.incident_id = p_incident_id
+     order by e.at asc
+     limit 500;
+end;
+$$;
+
+-- סימון אירוע כ"בטיפול" או סגירתו ידנית, מתוך הניהול.
+-- זו הכתיבה היחידה שהמסך מרשה, והיא אינה נוגעת בשום דבר מחוץ לסכימה.
+create or replace function public.admin_set_incident_status(
+  p_incident_id uuid,
+  p_status text,
+  p_note text default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = monitoring, public, pg_temp
+as $$
+declare
+  v_found boolean;
+begin
+  if not public.is_admin() then
+    raise exception 'permission denied';
+  end if;
+  if p_status not in ('acknowledged', 'resolved') then
+    raise exception 'invalid status';
+  end if;
+
+  update monitoring.incidents
+     set status = p_status,
+         acknowledged_at = case when p_status = 'acknowledged' then now() else acknowledged_at end,
+         resolved_at = case when p_status = 'resolved' then now() else resolved_at end,
+         resolution = case when p_status = 'resolved' then coalesce(p_note, 'נסגר ידנית בניהול') else resolution end,
+         updated_at = now()
+   where id = p_incident_id
+   returning true into v_found;
+
+  if v_found then
+    insert into monitoring.incident_events (incident_id, kind, message)
+    values (
+      p_incident_id,
+      'action',
+      case when p_status = 'acknowledged' then 'סומן כבטיפול' else 'נסגר ידנית' end
+        || coalesce(' — ' || p_note, '')
+    );
+  end if;
+
+  return coalesce(v_found, false);
+end;
+$$;
+
+revoke all on function public.admin_list_incidents(integer, boolean) from public;
+revoke all on function public.admin_incident_timeline(uuid) from public;
+revoke all on function public.admin_set_incident_status(uuid, text, text) from public;
+grant execute on function public.admin_list_incidents(integer, boolean) to authenticated;
+grant execute on function public.admin_incident_timeline(uuid) to authenticated;
+grant execute on function public.admin_set_incident_status(uuid, text, text) to authenticated;

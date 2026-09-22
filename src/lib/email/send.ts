@@ -27,9 +27,21 @@ export interface SendResult {
   error?: string;
 }
 
+/**
+ * דומיין השליחה של המכון. הדואר היוצא חתום עליו (SPF/DKIM), ולכן זהו
+ * הערך היחיד שיעבור אימות אצל הנמענים.
+ *
+ * [1.40] תוקן מ-keren-reem.org (עם מקף) — דומיין שאינו קיים. כל דואר
+ * שהיה יוצא ממנו היה נכשל באימות ונוחת בדואר זבל, או נדחה על הסף.
+ */
+export const EMAIL_DOMAIN = 'kerenreem.org';
+
+/** ברירת המחדל לכתובת השולח, כשלא הוגדרה אחרת בסביבה. */
+export const DEFAULT_EMAIL_FROM = `מכון קרן רא״ם <no-reply@${EMAIL_DOMAIN}>`;
+
 /** כתובת השולח. ניתנת לשינוי בהגדרות הסביבה, עם ברירת מחדל שמורה. */
 function fromAddress(): string {
-  return process.env.COMMERCE_EMAIL_FROM ?? 'מכון קרן רא״ם <no-reply@keren-reem.org>';
+  return process.env.COMMERCE_EMAIL_FROM ?? DEFAULT_EMAIL_FROM;
 }
 
 /**
