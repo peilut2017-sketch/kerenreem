@@ -6,6 +6,7 @@ import { FONT_VARIABLES, siteFontOverrides } from '@/lib/fonts';
 import { CustomFontsStyle } from '@/components/CustomFontsStyle';
 import { PlaceholderArtProvider } from '@/components/placeholder-art-context';
 import { HeaderContextNavProvider } from '@/components/header-context-nav';
+import { BookQuickViewProvider } from '@/components/book-quick-view';
 import { routing, localeDirection, type Locale } from '@/i18n/routing';
 import { getSiteSettings } from '@/lib/data';
 import { getCommerceFlags } from '@/lib/commerce/settings';
@@ -108,6 +109,9 @@ export default async function PublicLayout({
         <NextIntlClientProvider>
           <PlaceholderArtProvider value={placeholderArt}>
           <HeaderContextNavProvider>
+          {/* [1.40] תצוגה מהירה של ספר — ברמת הפריסה כדי שתהיה זמינה
+              לכל מסך ציבורי (עמוד ספר, קטלוג, חיפוש), לא רק לעמוד אחד. */}
+          <BookQuickViewProvider>
           <CartProvider enabled={flags.cartEnabled} locale={locale}>
             <a href="#main" className="skip-link">
               {t('skipToContent')}
@@ -138,6 +142,7 @@ export default async function PublicLayout({
             <AnalyticsBeacon />
             <MiniCart />
           </CartProvider>
+          </BookQuickViewProvider>
           </HeaderContextNavProvider>
           </PlaceholderArtProvider>
         </NextIntlClientProvider>

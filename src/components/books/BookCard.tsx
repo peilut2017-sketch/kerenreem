@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { FavouriteIcon } from '@/components/FavouriteIcon';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
+import { VolumesBadge } from '../book-page/VolumesBadge';
 import { localized } from '@/lib/localized';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { resolveBookBadge } from '@/lib/books/badge';
@@ -86,6 +87,18 @@ export function BookCard({
           isFavourite={isFavourite}
           onToggle={() => onToggleFavourite(book)}
         />
+
+        {/* [1.40] מהדורה רב-כרכית — גם בקטלוג, לא רק בעמוד הספר: זה
+            הבדל מהותי בין "ספר" ל"סדרה שלמה", וראוי שייראה כבר ברשימה.
+            מונח על שולי הכריכה כדי לא לגזול שורה נוספת מגוף הכרטיס. */}
+        {book.volume_count && book.volume_count > 1 ? (
+          <VolumesBadge
+            count={book.volume_count}
+            label={t('volumesBadge', { n: book.volume_count })}
+            title={t('volumesBadgeTitle', { n: book.volume_count })}
+            className="absolute bottom-2 start-2 z-10 bg-cream/90 backdrop-blur-sm"
+          />
+        ) : null}
       </div>
 
       {/* relative z-[2] — יושב מעל שכבת הברק העדינה של .book-card-glass::before,

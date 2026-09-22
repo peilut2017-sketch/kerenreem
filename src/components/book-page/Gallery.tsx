@@ -1,4 +1,5 @@
 import { Img as Image } from '@/components/Img';
+import { ScrollRail } from '@/components/ScrollRail';
 import { SectionHeading } from '@/components/SectionHeading';
 import type { BookImage } from '@/lib/supabase/types';
 
@@ -21,7 +22,12 @@ export function Gallery({
   return (
     <section aria-labelledby="book-gallery">
       <SectionHeading level={2} title={t('navGallery')} id="book-gallery" />
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      {/* [1.40] רצועה עם חיצים במקום פס גלילה חשוף — ראו ScrollRail. */}
+      <ScrollRail
+        label={t('galleryRailLabel')}
+        prevLabel={t('railPrev')}
+        nextLabel={t('railNext')}
+      >
         {images.map((image, index) => (
           <a
             key={image.id}
@@ -44,7 +50,7 @@ export function Gallery({
             ) : null}
           </a>
         ))}
-      </div>
+      </ScrollRail>
     </section>
   );
 }

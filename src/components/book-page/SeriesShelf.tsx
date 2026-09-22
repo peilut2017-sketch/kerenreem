@@ -1,6 +1,6 @@
 import { gematriya } from '@hebcal/core';
 import { SectionHeading } from '@/components/SectionHeading';
-import { localized } from '@/lib/localized';
+import { localized, localizedOrNull } from '@/lib/localized';
 import { hslToRgb, rgbToHex, rgbToHsl, toSpine, type RGB } from '@/lib/color';
 import type { BookWithRelations, Series } from '@/lib/supabase/types';
 import { SeriesShelfClient, type SeriesShelfVolume } from './SeriesShelfClient';
@@ -72,24 +72,51 @@ export function SeriesShelf({
   const shelf: SeriesShelfVolume[] = all.map((volume, index) => {
     const { base, edge } = spineColours(volume, index);
     const position = volume.series_position;
+    const title = localized(volume, 'title', locale);
     return {
       id: volume.id,
       slug: volume.slug,
-      title: localized(volume, 'title', locale),
+      title,
       positionLabel: position ? numeral(position) : null,
       volumeLabel: position ? t('seriesVolume', { n: numeral(position) }) : null,
-      jumpLabel: position ? t('seriesJumpTo', { n: numeral(position) }) : localized(volume, 'title', locale),
+      jumpLabel: position ? t('seriesJumpTo', { n: numeral(position) }) : title,
       spineUrl: volume.spine_image_url,
       spineBase: base,
       spineEdge: edge,
       isCurrent: volume.id === currentBook.id,
+      // [1.40] נתוני התצוגה המהירה — לחיצה על כרך אחר פותחת כרטיס צף
+      // במקום לנווט. נגזרים כאן, בשרת, כדי שלא יידרש סבב רשת בפתיחה.
+      quickView: {
+        slug: volume.slug,
+        title,
+        subtitle: localizedOrNull(volume, 'subtitle', locale),
+        coverUrl: volume.cover_image_url,
+        authorName: volume.author ? localized(volume.author, 'name', locale) : null,
+        authorSlug: volume.author?.slug ?? null,
+        brief: localizedOrNull(volume, 'description_brief', locale),
+        externalUrl: volume.external_supplier_enabled ? volume.external_supplier_url : null,
+        externalLabel: volume.external_supplier_name,
+        eyebrow: position
+          ? `${seriesName} · ${t('seriesVolume', { n: numeral(position) })}`
+          : seriesName,
+      },
     };
   });
 
   const current = shelf.find((volume) => volume.isCurrent) ?? shelf[0];
+
+  /*
+   * [1.40] שורת המיקום מציגה את שם הכרך פעם אחת בלבד.
+   *
+   * קודם היא הורכבה משני חלקים — "כרך ו׳ מתוך י״ד" ולצדו שם הכרך —
+   * אבל כשלכרך אין מספר מיקום (series_position ריק), החלק הראשון
+   * *הוא עצמו* היה שם הכרך, והשורה יצאה "שם הספר · שם הספר". זו הייתה
+   * הכפילות שדווחה. עכשיו שני החלקים נגזרים בנפרד: המיקום מוצג רק אם
+   * הוא קיים, והשם מוצג תמיד — פעם אחת.
+   */
   const positionText = current.positionLabel
     ? t('seriesPosition', { n: current.positionLabel, total: numeral(all.length) })
-    : current.title;
+    : null;
 
   return (
     <section aria-labelledby="book-series">
@@ -103,6 +130,7 @@ export function SeriesShelf({
           next: t('seriesNext'),
           position: positionText,
           currentTitle: current.title,
+          quickView: t('quickView'),
         }}
       />
     </section>
