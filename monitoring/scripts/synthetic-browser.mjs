@@ -178,7 +178,7 @@ async function checkPage(context, pageSpec, viewportName) {
 }
 
 async function main() {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
   const results = [];
 
   for (const [viewportName, deviceOptions] of [

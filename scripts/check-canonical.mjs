@@ -18,6 +18,11 @@
  * הרצה מול ייצור:
  *   node scripts/check-canonical.mjs --base https://www.kerenreem.org
  *
+ * הרצה מול שרת מקומי או תצוגה מקדימה, כשהכתובת שאליה פונים אינה
+ * הכתובת שאמורה להתפרסם:
+ *   node scripts/check-canonical.mjs --base http://127.0.0.1:3000 \
+ *        --expect https://www.kerenreem.org
+ *
  * שילוב: מריצים אותה אחרי כל פריסה (ואז היא תופסת הגדרת סביבה
  * שגויה לפני שגוגל רואה אותה), ופעם ביום מהמוניטור.
  */
@@ -32,7 +37,15 @@ const BASE = argOf('base', process.env.MONITOR_BASE_URL ?? 'https://www.kerenree
   /\/+$/,
   '',
 );
-const EXPECTED_ORIGIN = new URL(BASE).origin;
+/**
+ * ה-origin שכל כתובת ציבורית חייבת לשאת. ברירת המחדל היא זה שאליו
+ * פונים — הנכון כשבודקים ייצור. ‎--expect מפריד בין השניים, כדי
+ * שאפשר יהיה לבדוק בנייה מקומית או תצוגה מקדימה ועדיין לאמת שהיא
+ * תפרסם את הדומיין הנכון כשתעלה.
+ */
+const EXPECTED_ORIGIN = new URL(
+  argOf('expect', process.env.MONITOR_EXPECT_ORIGIN ?? BASE),
+).origin;
 
 const PAGES_TO_CHECK = ['/', '/books', '/authors', '/events', '/contact', '/en'];
 
@@ -149,7 +162,11 @@ async function checkHealthReport() {
 }
 
 async function main() {
-  process.stderr.write(`בדיקת כתובת קנונית מול ${BASE}\n`);
+  process.stderr.write(
+    `בדיקת כתובת קנונית מול ${BASE}` +
+      (EXPECTED_ORIGIN === new URL(BASE).origin ? '' : ` (צפוי: ${EXPECTED_ORIGIN})`) +
+      '\n',
+  );
 
   const tasks = [
     checkSitemap(),
