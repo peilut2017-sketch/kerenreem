@@ -29,6 +29,7 @@ export async function SiteFooter({ settings, locale }: { settings: SiteSettings;
               name={t('site.name')}
               tagline={t('site.tagline')}
               variant="dark"
+              overhang={false}
             />
             <p className="mt-5 max-w-[34ch] text-small leading-relaxed text-cream-2/70">
               {t('footer.blurb')}

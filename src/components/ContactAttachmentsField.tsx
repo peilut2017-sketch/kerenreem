@@ -8,6 +8,7 @@ import {
   uploadContactAttachment,
   validateAttachment,
 } from '@/lib/contact-upload';
+import { FileDropZone } from '@/components/FileDropZone';
 import type { ContactAttachment } from '@/lib/supabase/types';
 
 /**
@@ -24,8 +25,7 @@ export function ContactAttachmentsField({ name }: { name: string }) {
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
-  async function onFiles(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(event.target.files ?? []);
+  async function ingest(selected: File[]) {
     if (selected.length === 0) return;
 
     const nextErrors: string[] = [];
@@ -62,14 +62,30 @@ export function ContactAttachmentsField({ name }: { name: string }) {
       setFiles((current) => [...current, ...uploaded.filter((item): item is ContactAttachment => item !== null)]);
     } finally {
       setBusy(false);
-      event.target.value = '';
     }
+  }
+
+  function onFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    void ingest(selected);
   }
 
   const remove = (path: string) => setFiles((current) => current.filter((file) => file.path !== path));
 
+  const full = files.length >= MAX_ATTACHMENTS;
+
   return (
-    <div>
+    <FileDropZone
+      onFiles={(dropped) => void ingest(dropped)}
+      accept={CONTACT_ATTACHMENTS_ACCEPT}
+      multiple
+      disabled={busy || full}
+      rootClassName="relative rounded-[var(--radius-md)]"
+      activeClassName="outline outline-2 outline-dashed outline-offset-4 outline-gold-deep"
+      overlayClassName="absolute inset-0 z-10 grid place-items-center rounded-[var(--radius-md)] bg-cream-2/90 text-small font-semibold text-ink"
+      hint={t('attachmentsDropHint')}
+    >
       <label htmlFor={`${id}-files`} className="field-label">
         {t('attachments')}
       </label>
@@ -83,7 +99,7 @@ export function ContactAttachmentsField({ name }: { name: string }) {
         accept={CONTACT_ATTACHMENTS_ACCEPT}
         multiple
         onChange={onFiles}
-        disabled={busy || files.length >= MAX_ATTACHMENTS}
+        disabled={busy || full}
         aria-describedby={`${id}-hint`}
         className="text-caption file:me-3 file:border file:border-rule-strong file:bg-cream-2 file:px-3 file:py-1.5 file:text-caption"
       />
@@ -91,7 +107,9 @@ export function ContactAttachmentsField({ name }: { name: string }) {
         <span role="status" className="ms-3 text-caption text-muted">
           {t('attachmentsUploading')}
         </span>
-      ) : null}
+      ) : full ? null : (
+        <span className="ms-3 text-caption text-muted">{t('attachmentsDropHint')}</span>
+      )}
 
       {errors.length > 0 ? (
         <ul className="mt-2 space-y-1">
@@ -125,6 +143,6 @@ export function ContactAttachmentsField({ name }: { name: string }) {
       ) : null}
 
       <input type="hidden" name={name} value={JSON.stringify(files)} />
-    </div>
+    </FileDropZone>
   );
 }

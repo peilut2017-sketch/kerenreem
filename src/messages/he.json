@@ -263,6 +263,7 @@
     "message": "תוכן הפנייה",
     "attachments": "קבצים מצורפים",
     "attachmentsHint": "תמונה, PDF או Word — עד 30MB לקובץ, עד 5 קבצים.",
+    "attachmentsDropHint": "או גררו קבצים לכאן",
     "attachmentsUploading": "מעלה…",
     "attachmentsRemove": "הסרה",
     "attachmentsTooLarge": "הקובץ {name} גדול מ-30MB",

@@ -1,54 +1,159 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { subscribeAdminToast } from '@/lib/admin/toast-bus';
+import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  subscribeAdminToast,
+  subscribeAdminToastDismiss,
+  type AdminToast,
+} from '@/lib/admin/toast-bus';
+import { AdminIcon } from './AdminIcons';
+import { Spinner } from './SubmitButton';
 
-interface ToastItem {
-  id: number;
-  message: string;
+/** משך הנפשת היציאה — ההודעה נשארת ב-DOM עד שהיא מסתיימת. */
+const EXIT_MS = 180;
+
+interface LiveToast extends AdminToast {
+  leaving?: boolean;
 }
 
-/** [1.10] כמה שניות ההודעה נשארת גלויה לפני שהיא נעלמת מעצמה. */
-const DISPLAY_MS = 4000;
-
 /**
- * מארח הודעות "נשמר בהצלחה" — מורכב פעם אחת ב-DashboardLayout, כדי
- * שההודעה תישאר גלויה גם כש-EntityForm שהפעיל אותה מנווט משם מיד אחרי
- * (סגירת כרטיס / חזרה לרשימה). ראו toast-bus.ts.
+ * [1.40] מארח ההודעות — פינה שמאלית-תחתונה, חלונית קומפקטית עם פס
+ * טיימר שמראה כמה זמן נשאר לה.
+ *
+ * מורכב פעם אחת ב-DashboardLayout, כדי שההודעה תישאר גלויה גם
+ * כשהטופס שהפעיל אותה מנווט משם מיד אחרי (סגירת כרטיס / חזרה
+ * לרשימה) — ראו toast-bus.ts.
+ *
+ * הודעה שכבר על המסך יכולה *להתעדכן* ולא רק להצטבר: שמירה ברקע
+ * פותחת "שומר…" ומחליפה אותה ל"נשמר" באותו חלון. הזיהוי לפי id,
+ * וכל עדכון מאפס את הטיימר (key על פס הטיימר) כדי שהספירה תתחיל
+ * מחדש מהמצב החדש ולא תמשיך מזו של ה"שומר…" שאין לה משך בכלל.
+ *
+ * ריחוף/מיקוד עוצרים את הטיימר: הודעה שנעלמת בדיוק כשקוראים אותה,
+ * או בזמן שמנסים ללחוץ על הקישור שבה, היא תקלת שימושיות.
  */
 export function ToastHost() {
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [toasts, setToasts] = useState<LiveToast[]>([]);
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const clearTimer = useCallback((id: string) => {
+    const timer = timers.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      timers.current.delete(id);
+    }
+  }, []);
+
+  const remove = useCallback(
+    (id: string) => {
+      clearTimer(id);
+      setToasts((current) => current.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+      setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), EXIT_MS);
+    },
+    [clearTimer],
+  );
+
+  const schedule = useCallback(
+    (id: string, durationMs: number | null) => {
+      clearTimer(id);
+      if (durationMs == null) return;
+      timers.current.set(
+        id,
+        setTimeout(() => remove(id), durationMs),
+      );
+    },
+    [clearTimer, remove],
+  );
 
   useEffect(() => {
-    return subscribeAdminToast((message) => {
-      const id = Math.random();
-      setToasts((current) => [...current, { id, message }]);
-      setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), DISPLAY_MS);
+    const offToast = subscribeAdminToast((toast) => {
+      setToasts((current) => {
+        const existing = current.findIndex((t) => t.id === toast.id);
+        if (existing === -1) return [...current, toast];
+        const next = [...current];
+        next[existing] = { ...toast };
+        return next;
+      });
+      schedule(toast.id, toast.durationMs);
     });
-  }, []);
+    const offDismiss = subscribeAdminToastDismiss(remove);
+    return () => {
+      offToast();
+      offDismiss();
+    };
+  }, [schedule, remove]);
+
+  // ניקוי טיימרים בפירוק — אחרת setTimeout ממשיך לרוץ על רכיב שאינו קיים
+  const timersRef = timers;
+  useEffect(() => {
+    const map = timersRef.current;
+    return () => {
+      for (const timer of map.values()) clearTimeout(timer);
+      map.clear();
+    };
+  }, [timersRef]);
 
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed end-4 top-4 z-[60] flex w-full max-w-[22rem] flex-col gap-2">
+    <div className="admin-toast-host">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          role="status"
-          className="admin-card pointer-events-auto flex items-center gap-3 border-s-2 border-s-[var(--admin-success)] px-4 py-3"
+          role={toast.tone === 'error' ? 'alert' : 'status'}
+          aria-live={toast.tone === 'error' ? 'assertive' : 'polite'}
+          onMouseEnter={() => clearTimer(toast.id)}
+          onFocusCapture={() => clearTimer(toast.id)}
+          onMouseLeave={() => schedule(toast.id, toast.durationMs)}
+          className={`admin-toast admin-toast-${toast.tone} ${toast.leaving ? 'admin-toast-leaving' : ''}`}
         >
-          <span className="admin-badge-dot text-[var(--admin-success)]" aria-hidden="true" />
-          <span className="flex-1 text-small text-ink">{toast.message}</span>
+          <span className="admin-toast-icon" aria-hidden="true">
+            {toast.tone === 'pending' ? (
+              <Spinner className="h-3.5 w-3.5" />
+            ) : (
+              <AdminIcon name={toast.tone === 'success' ? 'check' : 'warning'} className="h-3.5 w-3.5" />
+            )}
+          </span>
+
+          <span className="min-w-0 flex-1">
+            <span className="block text-small font-semibold leading-snug text-ink">{toast.message}</span>
+            {toast.detail ? (
+              <span className="mt-0.5 block truncate text-caption text-muted" title={toast.detail}>
+                {toast.detail}
+              </span>
+            ) : null}
+            {toast.action ? (
+              <Link
+                href={toast.action.href}
+                className="mt-1.5 inline-block text-caption font-semibold text-[var(--admin-accent)] underline underline-offset-4"
+              >
+                {toast.action.label}
+              </Link>
+            ) : null}
+          </span>
+
           <button
             type="button"
-            onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}
+            onClick={() => remove(toast.id)}
             aria-label="סגירת ההודעה"
             className="shrink-0 rounded-[var(--admin-radius-btn)] p-1 text-muted transition-colors hover:text-burgundy"
           >
-            <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5" fill="none">
-              <path d="m6 6 8 8M14 6l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <AdminIcon name="x" className="h-3.5 w-3.5" />
           </button>
+
+          {toast.tone === 'pending' ? (
+            <span className="admin-toast-progress" aria-hidden="true" />
+          ) : toast.durationMs != null ? (
+            /* key מבוסס-משך: עדכון ההודעה מתחיל ספירה חדשה במקום
+               להמשיך אנימציה שכבר רצה מהמצב הקודם. */
+            <span
+              key={`${toast.tone}-${toast.durationMs}`}
+              aria-hidden="true"
+              className="admin-toast-timer"
+              style={{ animationDuration: `${toast.durationMs}ms` }}
+            />
+          ) : null}
         </div>
       ))}
     </div>

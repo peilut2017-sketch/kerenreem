@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { FileDropZone } from '@/components/FileDropZone';
 import { uploadToBucket } from './ImageField';
 import { toCdnUrl } from '@/lib/image-src';
 import type { GalleryImage } from '@/lib/supabase/types';
@@ -28,8 +29,7 @@ export function GalleryField({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onFiles(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
+  async function uploadAll(files: File[]) {
     if (files.length === 0) return;
 
     setBusy(true);
@@ -43,8 +43,13 @@ export function GalleryField({
       setError(uploadError instanceof Error ? uploadError.message : 'ההעלאה נכשלה');
     } finally {
       setBusy(false);
-      event.target.value = '';
     }
+  }
+
+  function onFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    void uploadAll(files);
   }
 
   const update = (index: number, patch: Partial<GalleryImage>) =>
@@ -63,7 +68,14 @@ export function GalleryField({
     });
 
   return (
-    <div>
+    <FileDropZone
+      onFiles={(files) => void uploadAll(files)}
+      accept="image/*"
+      multiple
+      disabled={busy}
+      className="p-1"
+      hint={`שחררו תמונות כאן — ${label}`}
+    >
       <span className="admin-field-label">{label}</span>
       {hint ? <span className="admin-field-hint mb-2 block">{hint}</span> : null}
 
@@ -81,7 +93,9 @@ export function GalleryField({
         <span role="status" className="ms-3 text-caption text-muted">
           מעלה…
         </span>
-      ) : null}
+      ) : (
+        <span className="ms-3 text-caption text-muted">או גררו תמונות לכאן</span>
+      )}
       {error ? (
         <span role="alert" className="admin-field-error">
           {error}
@@ -139,6 +153,6 @@ export function GalleryField({
       ) : null}
 
       <input type="hidden" name={name} value={JSON.stringify(images)} />
-    </div>
+    </FileDropZone>
   );
 }
