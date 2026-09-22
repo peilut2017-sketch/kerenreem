@@ -1,0 +1,138 @@
+# [1.40] ניתוב ההתראות.
+#
+# העיקרון המרכזי כאן הוא **קיבוץ**. באירוע האחרון, נפילה אחת
+# (PostgreSQL נעלם) הייתה מייצרת בקלות עשר התראות: המסד למטה,
+# PostgREST למטה, הקטלוג ריק, דף ספר 500, בדיקת הבריאות נכשלת,
+# עמוד הבית איטי… עשר הודעות על תקלה אחת הן רעש שמסתיר את השאלה
+# היחידה שחשובה — מה נפל.
+#
+# ‏group_by לפי scope מאחד את כל התסמינים של אותה שכבה להודעה אחת
+# שמתעדכנת. ‏inhibit_rules למטה משתיקות את הנגזרות כשהשורש כבר ידוע.
+
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+  smtp_from: '${ALERT_EMAIL_FROM}'
+  smtp_auth_username: '${SMTP_USER}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl
+
+route:
+  receiver: default
+  # קיבוץ לפי שכבה — לא לפי alertname. שתי התראות שונות באותה שכבה
+  # הן כמעט תמיד אותה תקלה.
+  group_by: [scope]
+  # ‏30 שניות המתנה לפני ההודעה הראשונה: מספיק כדי שתסמינים נוספים
+  # של אותה נפילה יצטרפו לאותה הודעה, וקצר מכדי שזה יורגש.
+  group_wait: 30s
+  group_interval: 5m
+  # תזכורת כל 4 שעות כל עוד לא טופל. מספיק תכוף כדי לא להישכח,
+  # ונדיר מספיק כדי לא להפוך לרעש שמסננים.
+  repeat_interval: 4h
+
+  routes:
+    # תחזוקה מתוכננת: משתיקים הכול חוץ מקריטי. פריסה שמייצרת חמש
+    # התראות "העמוד לא נטען" מאמנת את הצוות להתעלם מהן.
+    #
+    # להשתקה: Alertmanager UI → Silences → matcher maintenance="true",
+    # או: amtool silence add maintenance=true --duration=30m
+    - matchers: [maintenance="true"]
+      receiver: 'null'
+
+    - matchers: [severity="critical"]
+      receiver: critical
+      group_wait: 10s
+      repeat_interval: 1h
+
+    - matchers: [severity="warning"]
+      receiver: warning
+
+receivers:
+  - name: 'null'
+
+  - name: default
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        send_resolved: true
+
+  # קריטי יוצא בשני ערוצים במקביל. מייל לבדו אינו מעיר אף אחד
+  # בשתיים בלילה, וזו בדיוק השעה שבה דיסק מתמלא.
+  - name: critical
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        send_resolved: true
+        headers:
+          Subject: '[קריטי] {{ .CommonLabels.scope }} — {{ .CommonAnnotations.summary }}'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        parse_mode: HTML
+        send_resolved: true
+        message: |
+          <b>{{ if eq .Status "firing" }}🔴 תקלה{{ else }}🟢 חזר לתקינות{{ end }}</b>
+          {{ range .Alerts }}<b>{{ .Annotations.summary }}</b>
+          השפעה: {{ .Annotations.impact }}
+          מדריך: {{ .Annotations.runbook }}
+          {{ end }}
+    # ‏webhook אל האתר עצמו — פותח/סוגר אירוע בטבלת monitoring.incidents
+    # כדי שיהיה ציר זמן, לא רק הודעה שנעלמת. ראו supabase/56_monitoring.sql.
+    webhook_configs:
+      - url: '${INCIDENT_WEBHOOK_URL}'
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: '${INCIDENT_WEBHOOK_SECRET}'
+
+  - name: warning
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        send_resolved: true
+        headers:
+          Subject: '[אזהרה] {{ .CommonLabels.scope }} — {{ .CommonAnnotations.summary }}'
+    webhook_configs:
+      - url: '${INCIDENT_WEBHOOK_URL}'
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: '${INCIDENT_WEBHOOK_SECRET}'
+
+# --------------------------------------------------------------------------
+# השתקות נגזרות: כשהשורש ידוע, אין טעם להתריע על הענפים.
+#
+# הסדר כאן משקף את שרשרת התלות האמיתית של האתר:
+#   דיסק מלא → PostgreSQL נופל → PostgREST מחזיר שגיאות →
+#   הקטלוג ריק → דפי ספר מחזירים 500.
+#
+# בלי השתקות, נפילה אחת מייצרת חמש התראות ואף אחת מהן לא אומרת
+# "הדיסק התמלא".
+# --------------------------------------------------------------------------
+inhibit_rules:
+  # דיסק קריטי מסביר כמעט כל דבר אחר על אותה מכונה.
+  - source_matchers: [alertname="DiskSpaceCritical"]
+    target_matchers: [scope=~"postgres|docker|supabase|app"]
+    equal: [site]
+
+  # ‏PostgreSQL למטה מסביר את כל מה שנשען עליו.
+  - source_matchers: [alertname="PostgresDown"]
+    target_matchers: [scope=~"supabase|app"]
+    equal: [site]
+
+  # קונטיינר חובה חסר מסביר את כשלי השירות שהוא מריץ.
+  - source_matchers: [alertname="RequiredContainerMissing"]
+    target_matchers: [scope=~"supabase|app|postgres"]
+    equal: [site]
+
+  # ‏DNS למטה מסביר כל בדיקת עמוד שנכשלה — האתר עצמו עשוי להיות תקין.
+  - source_matchers: [alertname="DnsResolutionFailing"]
+    target_matchers: [scope="app"]
+    equal: [site]
+
+  # קריטי משתיק אזהרה על אותו רכיב: אין טעם ב"הדיסק מעל 80%" לצד
+  # "הדיסק מעל 90%".
+  - source_matchers: [severity="critical"]
+    target_matchers: [severity="warning"]
+    equal: [scope, component]

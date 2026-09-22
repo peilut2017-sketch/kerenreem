@@ -8,6 +8,7 @@ import { PlaceholderArtProvider } from '@/components/placeholder-art-context';
 import { HeaderContextNavProvider } from '@/components/header-context-nav';
 import { BookQuickViewProvider } from '@/components/book-quick-view';
 import { routing, localeDirection, type Locale } from '@/i18n/routing';
+import { canonicalSiteUrl } from '@/lib/site-url';
 import { getSiteSettings } from '@/lib/data';
 import { getCommerceFlags } from '@/lib/commerce/settings';
 import { CartProvider } from '@/components/store/CartProvider';
@@ -36,7 +37,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'site' });
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const siteUrl = canonicalSiteUrl();
 
   return {
     metadataBase: new URL(siteUrl),

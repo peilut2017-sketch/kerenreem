@@ -1,0 +1,177 @@
+# [1.40] הגדרת Prometheus — מה נדגם, באיזו תדירות, ומאיפה.
+#
+# תדירויות נבחרו לפי כמה מהר המדד באמת משתנה, ולא לפי "כמה שיותר
+# תכוף יותר טוב": דגימה צפופה של מדד איטי היא רק נפח דיסק ורעש.
+#   • מדדי שרת ודוקר — 30 שניות. דיסק שמתמלא מתמלא בשעות, לא בשניות.
+#   • PostgreSQL — 30 שניות.
+#   • בדיקות מבחוץ (blackbox) — 60 שניות לעמודי מפתח.
+#   • בדיקת הבריאות העמוקה — 120 שניות. היא מריצה שאילתה אמיתית
+#     ומורידה קובץ; כל 30 שניות זה עומס שאנחנו עצמנו יוצרים.
+
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+  external_labels:
+    site: kerenreem
+    # מאיזו נקודת תצפית נמדד. משמעותי: כשהתראה מגיעה משני המקורות
+    # זו תקלה אמיתית, וכשהיא מגיעה מאחד — ייתכן שזו הרשת של הצופה.
+    observer: external
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # --- מדדי השרת (Hetzner) -------------------------------------------------
+  # ‏APP_HOST הוא הכתובת הפרטית של שרת האפליקציה במנהרה
+  # (WireGuard/Tailscale) — לא כתובת ציבורית. ראו docker-compose.agents.yml.
+  - job_name: node
+    static_configs:
+      - targets: ['APP_HOST:9100']
+        labels: { host: app }
+
+  - job_name: docker
+    static_configs:
+      - targets: ['APP_HOST:8080']
+        labels: { host: app }
+
+  - job_name: postgres
+    static_configs:
+      - targets: ['APP_HOST:9187']
+        labels: { host: app }
+
+  # --- בדיקות מבחוץ: כמו גולש ---------------------------------------------
+  # מודול http_2xx בודק קוד תשובה, TLS וזמן. את "האם התוכן נכון"
+  # בודקות הבדיקות עם התאמת גוף (ראו blackbox.yml).
+  - job_name: blackbox-pages
+    scrape_interval: 60s
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://www.kerenreem.org/
+          - https://www.kerenreem.org/books
+          - https://www.kerenreem.org/authors
+          - https://www.kerenreem.org/activities
+          - https://www.kerenreem.org/events
+          - https://www.kerenreem.org/contact
+          - https://www.kerenreem.org/en
+          - https://www.kerenreem.org/sitemap.xml
+          - https://www.kerenreem.org/robots.txt
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # עמוד ספר ידוע, בשתי השפות. זה העמוד שהחזיר 500 באירוע האחרון
+  # בזמן שעמוד הבית החזיר 200 — ולכן הוא בדיקה בפני עצמה.
+  # ⚠️ להחליף את ה-slug בספר קבוע שלא יימחק.
+  - job_name: blackbox-book-page
+    scrape_interval: 60s
+    metrics_path: /probe
+    params:
+      module: [http_2xx_has_content]
+    static_configs:
+      - targets:
+          - https://www.kerenreem.org/books/CANARY_BOOK_SLUG
+          - https://www.kerenreem.org/en/books/CANARY_BOOK_SLUG
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # נכסים: שני הלוגואים, הרקע וכריכות עוגן. קובץ שנעלם מ-Storage
+  # אינו מפיל שום עמוד — הוא רק גורם לריבוע ריק, וזה סוג התקלה
+  # שמתגלה מאוחר.
+  # ⚠️ להחליף בכתובות האמיתיות מספריית המדיה.
+  - job_name: blackbox-assets
+    scrape_interval: 300s
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://www.kerenreem.org/site-icon
+          - https://www.kerenreem.org/app-icon?size=180
+          # - https://<project>.supabase.co/storage/v1/object/public/site/LOGO.png
+          # - https://<project>.supabase.co/storage/v1/object/public/covers/CANARY.jpg
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # --- בדיקת DNS ו-TLS -----------------------------------------------------
+  - job_name: blackbox-dns
+    scrape_interval: 300s
+    metrics_path: /probe
+    params:
+      module: [dns_a]
+    static_configs:
+      - targets: ['www.kerenreem.org']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # --- הבדיקה העמוקה של האפליקציה ------------------------------------------
+  # מחזירה 503 כשיש כשל אמיתי, ולכן http_2xx מספיק כדי לזהות אותו.
+  # הפירוט (איזו שכבה נפלה) נמצא בגוף התשובה ומגיע להתראה דרך
+  # הסקריפט monitoring/scripts/probe-health.mjs.
+  - job_name: blackbox-health-deep
+    scrape_interval: 120s
+    metrics_path: /probe
+    params:
+      module: [http_2xx_authorized]
+    static_configs:
+      - targets: ['https://www.kerenreem.org/api/health/deep']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # --- Supabase: כל שירות בנפרד -------------------------------------------
+  # ‏Kong מחזיר 401 ללא מפתח — וזה מצב *תקין* שאומר שהשער חי. בדיקה
+  # שמצפה ל-200 כאן הייתה אדומה תמיד. ראו module http_401_ok.
+  - job_name: blackbox-supabase
+    scrape_interval: 60s
+    metrics_path: /probe
+    params:
+      module: [http_401_ok]
+    static_configs:
+      - targets:
+          - https://SUPABASE_HOST/rest/v1/
+          - https://SUPABASE_HOST/auth/v1/health
+          - https://SUPABASE_HOST/storage/v1/version
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # --- Prometheus על עצמו --------------------------------------------------
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

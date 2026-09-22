@@ -1,0 +1,115 @@
+# [1.40] מודולי הבדיקה החיצונית.
+#
+# ‏preferred_ip_protocol: ip4 בכל מודול במפורש: ברירת המחדל מעדיפה
+# IPv6, ובסביבות שבהן ה-AAAA קיים אבל הניתוב שבור זה נראה כמו אתר
+# למטה. עדיף לבדוק במפורש את מה שרוב הגולשים משתמשים בו.
+
+modules:
+  # בדיקה בסיסית: קוד 2xx, TLS תקף, זמן תגובה.
+  http_2xx:
+    prober: http
+    timeout: 12s
+    http:
+      method: GET
+      valid_http_versions: [HTTP/1.1, HTTP/2.0]
+      valid_status_codes: [] # ריק = כל 2xx
+      follow_redirects: true
+      fail_if_ssl: false
+      fail_if_not_ssl: true
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      headers:
+        # ‏User-Agent מזהה: כשמישהו יבדוק לוגים בעוד חצי שנה, כדאי
+        # שיהיה ברור שאלה אנחנו ולא סורק.
+        User-Agent: kerenreem-monitor/1.0
+        # מטמון הוא האויב של בדיקת בריאות. עמוד 500 ששמור ב-CDN
+        # נראה לבדיקה בדיוק כמו עמוד 500 חי — ולהפך, עמוד תקין
+        # ששמור מסתיר תקלה חיה. בדיקה חייבת לשאול את המקור.
+        Cache-Control: no-cache
+        Pragma: no-cache
+
+  # כמו http_2xx, אבל דורשת שהעמוד יכיל תוכן אמיתי ולא רק יחזיר 200.
+  # זו הבדיקה שהייתה תופסת "הקטלוג מוצג ריק": העמוד נטען, הכותרת
+  # שם, ואין בו אף ספר.
+  #
+  # ⚠️ להחליף את מחרוזת ההתאמה בטקסט קבוע שמופיע רק כשיש תוכן —
+  # למשל שם ספר עוגן, או כותרת מקטע שנעלמת ברשימה ריקה.
+  http_2xx_has_content:
+    prober: http
+    timeout: 15s
+    http:
+      method: GET
+      valid_http_versions: [HTTP/1.1, HTTP/2.0]
+      follow_redirects: true
+      fail_if_not_ssl: true
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      # נכשל אם הגוף *לא* מכיל את הביטוי — כלומר: עמוד ריק = כשל.
+      fail_if_body_not_matches_regexp:
+        - 'CANARY_EXPECTED_TEXT'
+      # ונכשל אם כן מופיע טקסט של תקלה. Next מגיש עמוד שגיאה עם 200
+      # במקרים מסוימים, ואז קוד התשובה לבדו משקר.
+      fail_if_body_matches_regexp:
+        - 'Application error'
+        - 'Internal Server Error'
+      headers:
+        User-Agent: kerenreem-monitor/1.0
+        Cache-Control: no-cache
+
+  # בדיקה שדורשת אסימון — לנתיב הבריאות העמוק.
+  # ה-Bearer מוזרק מקובץ ההגדרה בעת הפריסה (ראו README).
+  http_2xx_authorized:
+    prober: http
+    timeout: 20s
+    http:
+      method: GET
+      valid_http_versions: [HTTP/1.1, HTTP/2.0]
+      follow_redirects: false
+      fail_if_not_ssl: true
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      headers:
+        User-Agent: kerenreem-monitor/1.0
+        Cache-Control: no-cache
+        Authorization: 'Bearer HEALTH_CHECK_SECRET_PLACEHOLDER'
+
+  # שערי Supabase מחזירים 401 ללא מפתח — וזו תשובה *תקינה* שאומרת
+  # שהשירות חי ועונה. מודול שמצפה ל-2xx כאן היה אדום תמיד, ואחרי
+  # יומיים אף אחד לא היה מסתכל עליו.
+  http_401_ok:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_http_versions: [HTTP/1.1, HTTP/2.0]
+      valid_status_codes: [200, 401, 404]
+      follow_redirects: false
+      fail_if_not_ssl: true
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      headers:
+        User-Agent: kerenreem-monitor/1.0
+
+  dns_a:
+    prober: dns
+    timeout: 8s
+    dns:
+      query_name: www.kerenreem.org
+      query_type: A
+      preferred_ip_protocol: ip4
+      validate_answer_rrs:
+        fail_if_not_matches_regexp:
+          - '.*'
+
+  # ‏ICMP לשרת עצמו — מבדיל בין "השרת למטה" ל"האפליקציה למטה".
+  icmp:
+    prober: icmp
+    timeout: 6s
+    icmp:
+      preferred_ip_protocol: ip4
+
+  tcp_connect:
+    prober: tcp
+    timeout: 6s
+    tcp:
+      preferred_ip_protocol: ip4

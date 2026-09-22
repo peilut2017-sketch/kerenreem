@@ -1,0 +1,90 @@
+# [1.40] שאילתות מדידה נוספות ל-postgres_exporter.
+#
+# כולן SELECT בלבד, כולן על טבלאות מערכת או ספירה פשוטה, ואף אחת
+# אינה נוגעת בנתוני לקוחות. המשתמש שמריץ אותן הוא monitoring_ro עם
+# pg_monitor בלבד (ראו docker-compose.agents.yml).
+#
+# למה בכלל שאילתות מותאמות: המדדים המובנים של ה-exporter עונים על
+# "האם המסד חי", ולא על "האם המסד מכיל את מה שצריך". באירוע האחרון
+# המסד היה חי לגמרי בזמן שהקטלוג הוצג ריק — ההבדל בין השניים הוא
+# בדיוק השאילתה הראשונה כאן.
+
+# ספירת הספרים המפורסמים. המדד הכי חשוב בקובץ הזה: הוא הופך את
+# "הקטלוג ריק" מתקלה שמתגלה בטלפון מלקוח לתקלה שמתגלה תוך דקה.
+kerenreem_catalogue:
+  query: |
+    select
+      count(*) filter (where is_published) as published_books,
+      count(*) as total_books
+    from public.books
+  master: true
+  cache_seconds: 60
+  metrics:
+    - published_books:
+        usage: GAUGE
+        description: 'ספרים מפורסמים במסד'
+    - total_books:
+        usage: GAUGE
+        description: 'סך הספרים במסד, כולל טיוטות'
+
+# השאילתה הארוכה ביותר שרצה כרגע, ומספר השאילתות החסומות על נעילה.
+# שתיהן מזהות את המצב שבו המסד "למעלה" אבל לא מתקדם.
+kerenreem_pg:
+  query: |
+    select
+      coalesce(max(extract(epoch from (now() - query_start))), 0) filter (
+        where state = 'active' and backend_type = 'client backend'
+      ) as longest_query_seconds,
+      count(*) filter (where wait_event_type = 'Lock') as blocked_queries,
+      count(*) filter (where state = 'idle in transaction') as idle_in_transaction
+    from pg_stat_activity
+    where datname = current_database()
+  master: true
+  cache_seconds: 30
+  metrics:
+    - longest_query_seconds:
+        usage: GAUGE
+        description: 'משך השאילתה הפעילה הארוכה ביותר, בשניות'
+    - blocked_queries:
+        usage: GAUGE
+        description: 'שאילתות הממתינות לנעילה'
+    - idle_in_transaction:
+        usage: GAUGE
+        description: 'חיבורים שנשארו בתוך טרנזקציה פתוחה — מחזיקים נעילות ומונעים vacuum'
+
+# גודל המסד. עלייה חדה כאן היא לרוב ההסבר לדיסק שמתמלא.
+kerenreem_db_size:
+  query: |
+    select pg_database_size(current_database()) as bytes
+  master: true
+  cache_seconds: 300
+  metrics:
+    - bytes:
+        usage: GAUGE
+        description: 'גודל מסד הנתונים בבתים'
+
+# מועד הגיבוי המוצלח האחרון.
+#
+# ⚠️ דורש טבלה קטנה שסקריפט הגיבוי כותב אליה בסיום מוצלח:
+#
+#   create table if not exists monitoring.backup_log (
+#     id bigserial primary key,
+#     finished_at timestamptz not null default now(),
+#     kind text not null default 'pg_dump',
+#     size_bytes bigint,
+#     ok boolean not null default true
+#   );
+#
+# בלי הרישום הזה אי אפשר להבדיל בין "הגיבוי רץ" ל"הגיבוי נכשל בשקט",
+# וזו ההבחנה היחידה שחשובה בגיבויים.
+kerenreem_backup:
+  query: |
+    select coalesce(extract(epoch from max(finished_at)), 0) as last_backup_timestamp
+    from monitoring.backup_log
+    where ok
+  master: true
+  cache_seconds: 300
+  metrics:
+    - last_backup_timestamp:
+        usage: GAUGE
+        description: 'חותמת הזמן של הגיבוי המוצלח האחרון'

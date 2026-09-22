@@ -15,6 +15,10 @@ import {
   type RenderedEmail,
 } from './brand';
 
+// הרשימה עצמה חיה במודול נטול-שרת, כדי שגם רכיב לקוח יוכל לקרוא
+// אותה — ראו template-list.ts.
+export { SITE_EMAIL_TEMPLATES, type SiteEmailTemplate } from './template-list';
+
 /**
  * [1.40] ההודעות עצמן. כל תבנית מחזירה נושא, HTML מותג וגרסת טקסט.
  *
@@ -26,18 +30,6 @@ import {
  *    נכתב על ידינו.
  *  • הודעת אבטחה (איפוס סיסמה) אומרת תמיד מה לעשות אם *לא* ביקשת.
  */
-
-/** התבניות הקיימות — לשימוש מסך בדיקת הדואר בניהול. */
-export const SITE_EMAIL_TEMPLATES = [
-  { id: 'password_reset', label: 'איפוס סיסמה' },
-  { id: 'password_changed', label: 'הסיסמה הוחלפה' },
-  { id: 'contact_ack', label: 'אישור קבלת פנייה (לפונה)' },
-  { id: 'contact_staff', label: 'התראה על פנייה חדשה (לצוות)' },
-  { id: 'contact_reply', label: 'מענה לפנייה' },
-  { id: 'team_invite', label: 'הזמנת איש צוות' },
-] as const;
-
-export type SiteEmailTemplate = (typeof SITE_EMAIL_TEMPLATES)[number]['id'];
 
 /** כמה זמן קישור איפוס תקף — לתצוגה בלבד; התוקף עצמו נקבע ב-Supabase Auth. */
 const RESET_VALIDITY = 'שעה';

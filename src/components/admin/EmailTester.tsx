@@ -6,7 +6,7 @@ import {
   sendTestSiteEmail,
   type EmailActionResult,
 } from '@/lib/admin/email-actions';
-import { SITE_EMAIL_TEMPLATES, type SiteEmailTemplate } from '@/lib/email/templates';
+import { SITE_EMAIL_TEMPLATES, type SiteEmailTemplate } from '@/lib/email/template-list';
 import { AdminIcon } from './AdminIcons';
 import { Spinner } from './SubmitButton';
 

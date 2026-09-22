@@ -1,0 +1,332 @@
+# [1.40] כללי ההתראה.
+#
+# שלושה עקרונות שמנחים כל כלל כאן:
+#
+# 1. **‏for: אינו קישוט.** כל כלל ממתין שהתנאי יחזיק זמן מוגדר לפני
+#    שהוא מתריע. התראה שנדלקת על דגימה בודדת מאמנת את הצוות להתעלם.
+#    זמן ההמתנה נגזר מהשאלה "כמה זמן זה יכול להיות אמיתי וזמני".
+#
+# 2. **אזהרה וקריטי נפרדים אמיתית.** אזהרה = יש זמן לתקן בשעות
+#    הקרובות. קריטי = משתמשים מושפעים עכשיו. אין ביניהם "בינוני".
+#
+# 3. **כל התראה אומרת מה לעשות.** ‏annotation בשם runbook מפנה למסמך
+#    ספציפי. התראה בלי runbook היא בעיה שמישהו יפתור מאפס בשתיים
+#    בלילה.
+
+groups:
+  # =========================================================================
+  - name: server
+    rules:
+      # --- דיסק: שלוש מדרגות, כי זה מה שהפיל את האתר ---------------------
+      #
+      # 70% = יש זמן. 80% = לתכנן. 90% = לפעול עכשיו. המדרגות נמדדות
+      # על שטח פנוי, לא על קצב גידול, כי קצב יכול לקפוץ בבת אחת
+      # (לוג שהשתולל, גיבוי, build).
+      - alert: DiskSpaceNotice
+        expr: |
+          100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint="/"}
+                   / node_filesystem_size_bytes{fstype!~"tmpfs|overlay",mountpoint="/"}) > 70
+        for: 30m
+        labels: { severity: warning, scope: server, component: disk }
+        annotations:
+          summary: 'הדיסק ב-{{ $labels.instance }} מעל 70% ({{ printf "%.1f" $value }}%)'
+          impact: 'אין השפעה על משתמשים עדיין.'
+          runbook: docs/monitoring/runbooks/disk-full.md
+
+      - alert: DiskSpaceWarning
+        expr: |
+          100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint="/"}
+                   / node_filesystem_size_bytes{fstype!~"tmpfs|overlay",mountpoint="/"}) > 80
+        for: 15m
+        labels: { severity: warning, scope: server, component: disk }
+        annotations:
+          summary: 'הדיסק ב-{{ $labels.instance }} מעל 80% ({{ printf "%.1f" $value }}%)'
+          impact: 'גיבויים ופריסות עלולים להיכשל.'
+          runbook: docs/monitoring/runbooks/disk-full.md
+
+      - alert: DiskSpaceCritical
+        expr: |
+          100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint="/"}
+                   / node_filesystem_size_bytes{fstype!~"tmpfs|overlay",mountpoint="/"}) > 90
+        for: 5m
+        labels: { severity: critical, scope: server, component: disk }
+        annotations:
+          summary: 'הדיסק ב-{{ $labels.instance }} מעל 90% ({{ printf "%.1f" $value }}%)'
+          impact: 'PostgreSQL עלול להפסיק לכתוב. זה בדיוק התרחיש שהפיל את האתר.'
+          runbook: docs/monitoring/runbooks/disk-full.md
+
+      # תחזית: הדיסק יתמלא בתוך 12 שעות לפי הקצב של 6 השעות האחרונות.
+      # זו ההתראה היחידה שנותנת זמן אמיתי להגיב — סף אחוזים מתריע
+      # כשכבר מאוחר, תחזית מתריעה כשעוד אפשר למנוע.
+      - alert: DiskWillFillSoon
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint="/"}[6h], 12 * 3600) < 0
+        for: 30m
+        labels: { severity: warning, scope: server, component: disk }
+        annotations:
+          summary: 'לפי הקצב הנוכחי הדיסק ב-{{ $labels.instance }} יתמלא תוך 12 שעות'
+          impact: 'אין עדיין, אבל יש חלון זמן מוגבל לפעולה.'
+          runbook: docs/monitoring/runbooks/disk-full.md
+
+      # --- inodes: דיסק יכול "להתמלא" גם עם מקום פנוי ---------------------
+      - alert: InodesLow
+        expr: |
+          100 * (1 - node_filesystem_files_free{fstype!~"tmpfs|overlay"}
+                   / node_filesystem_files{fstype!~"tmpfs|overlay"}) > 85
+        for: 15m
+        labels: { severity: warning, scope: server, component: inodes }
+        annotations:
+          summary: 'ניצול inodes ב-{{ $labels.instance }} מעל 85%'
+          impact: 'יצירת קבצים תיכשל למרות שיש מקום פנוי בדיסק.'
+          runbook: docs/monitoring/runbooks/disk-full.md
+
+      - alert: MemoryPressure
+        expr: |
+          100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 92
+        for: 15m
+        labels: { severity: warning, scope: server, component: memory }
+        annotations:
+          summary: 'זיכרון פנוי נמוך מ-8% ב-{{ $labels.instance }}'
+          impact: 'ה-OOM killer עלול להרוג תהליכים — כולל PostgreSQL.'
+          runbook: docs/monitoring/runbooks/server-resources.md
+
+      - alert: SwapThrashing
+        expr: rate(node_vmstat_pswpin[5m]) + rate(node_vmstat_pswpout[5m]) > 1000
+        for: 15m
+        labels: { severity: warning, scope: server, component: swap }
+        annotations:
+          summary: 'החלפת דפים אינטנסיבית ב-{{ $labels.instance }}'
+          impact: 'זמני תגובה מתארכים בכל השירותים.'
+          runbook: docs/monitoring/runbooks/server-resources.md
+
+      # עומס מנורמל למספר הליבות — load של 8 על מכונה בת 8 ליבות תקין.
+      - alert: LoadHigh
+        expr: node_load15 / count without (cpu, mode) (node_cpu_seconds_total{mode="idle"}) > 2
+        for: 20m
+        labels: { severity: warning, scope: server, component: cpu }
+        annotations:
+          summary: 'עומס מנורמל מעל 2 ב-{{ $labels.instance }} כבר 20 דקות'
+          impact: 'האתר עלול להגיב לאט.'
+          runbook: docs/monitoring/runbooks/server-resources.md
+
+      - alert: ExporterDown
+        expr: up{job=~"node|docker|postgres"} == 0
+        for: 5m
+        labels: { severity: critical, scope: server, component: exporter }
+        annotations:
+          summary: 'סוכן המדידה {{ $labels.job }} ב-{{ $labels.instance }} אינו עונה'
+          impact: 'אנחנו עיוורים לשכבה הזו. ייתכן שהשרת עצמו נפל.'
+          runbook: docs/monitoring/runbooks/server-resources.md
+
+  # =========================================================================
+  - name: docker
+    rules:
+      # השירות החסר — התרחיש המדויק שקרה. קונטיינר PostgreSQL *נעלם*,
+      # ולכן אין מדד "unhealthy" לתפוס: פשוט אין מדד בכלל. absent()
+      # הוא הביטוי היחיד שתופס היעדר.
+      #
+      # ⚠️ להתאים את רשימת השמות לשמות בפועל (docker ps --format '{{.Names}}').
+      - alert: RequiredContainerMissing
+        expr: |
+          absent(container_last_seen{name=~"supabase-db.*"})
+          or absent(container_last_seen{name=~"supabase-rest.*"})
+          or absent(container_last_seen{name=~"supabase-auth.*"})
+          or absent(container_last_seen{name=~"supabase-storage.*"})
+          or absent(container_last_seen{name=~"supabase-kong.*"})
+        for: 2m
+        labels: { severity: critical, scope: docker, component: container }
+        annotations:
+          summary: 'קונטיינר חובה חסר לגמרי מרשימת הקונטיינרים'
+          impact: 'שירות ליבה אינו קיים. זה מה שקרה ל-PostgreSQL באירוע האחרון.'
+          runbook: docs/monitoring/runbooks/container-missing.md
+
+      # קונטיינר קיים אך הפסיק להתעדכן — כלומר נעצר.
+      - alert: ContainerStopped
+        expr: time() - container_last_seen{name!=""} > 120
+        for: 2m
+        labels: { severity: critical, scope: docker, component: container }
+        annotations:
+          summary: 'הקונטיינר {{ $labels.name }} אינו מדווח כבר שתי דקות'
+          impact: 'השירות שהוא מריץ אינו זמין.'
+          runbook: docs/monitoring/runbooks/container-missing.md
+
+      # לולאת restart: הקונטיינר קם ונופל שוב ושוב. הזמן מאז ההפעלה
+      # מתאפס תדיר — זה מה שהביטוי מזהה.
+      - alert: ContainerRestartLoop
+        expr: changes(container_start_time_seconds{name!=""}[15m]) > 3
+        for: 5m
+        labels: { severity: critical, scope: docker, component: container }
+        annotations:
+          summary: 'הקונטיינר {{ $labels.name }} הופעל מחדש יותר משלוש פעמים ברבע שעה'
+          impact: 'השירות מתנדנד — זמין לסירוגין, וזה גרוע מלהיות למטה.'
+          runbook: docs/monitoring/runbooks/container-missing.md
+
+      - alert: ContainerMemoryNearLimit
+        expr: |
+          container_memory_working_set_bytes{name!=""}
+            / container_spec_memory_limit_bytes{name!=""} > 0.9
+            and container_spec_memory_limit_bytes{name!=""} > 0
+        for: 15m
+        labels: { severity: warning, scope: docker, component: container }
+        annotations:
+          summary: 'הקונטיינר {{ $labels.name }} מעל 90% ממגבלת הזיכרון שלו'
+          impact: 'הוא ייהרג ב-OOM בקרוב.'
+          runbook: docs/monitoring/runbooks/server-resources.md
+
+  # =========================================================================
+  - name: postgres
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels: { severity: critical, scope: postgres, component: postgres }
+        annotations:
+          summary: 'PostgreSQL אינו מקבל חיבורים'
+          impact: 'הקטלוג, דפי הספר והניהול אינם עובדים.'
+          runbook: docs/monitoring/runbooks/postgres-down.md
+
+      # הקטלוג ריק — הבדיקה שהייתה חסרה. המסד יכול להיות "למעלה"
+      # ובכל זאת להחזיר אפס ספרים (RLS, טבלה ריקה, שחזור חלקי).
+      # המדד מגיע מ-postgres-queries.yml.
+      - alert: PublishedBooksTooFew
+        expr: kerenreem_published_books < 40
+        for: 5m
+        labels: { severity: critical, scope: postgres, component: catalogue }
+        annotations:
+          summary: 'רק {{ $value }} ספרים מפורסמים במסד (צפוי: 60+)'
+          impact: 'הקטלוג יוצג ריק או חלקי לגולשים.'
+          runbook: docs/monitoring/runbooks/postgres-down.md
+
+      - alert: PostgresConnectionsHigh
+        expr: |
+          sum(pg_stat_activity_count) by (instance)
+            / on (instance) pg_settings_max_connections > 0.8
+        for: 10m
+        labels: { severity: warning, scope: postgres, component: connections }
+        annotations:
+          summary: 'מעל 80% ממכסת החיבורים ל-PostgreSQL תפוסה'
+          impact: 'חיבורים חדשים יידחו — האתר יחזיר שגיאות.'
+          runbook: docs/monitoring/runbooks/postgres-down.md
+
+      - alert: PostgresLongRunningQuery
+        expr: kerenreem_pg_longest_query_seconds > 300
+        for: 5m
+        labels: { severity: warning, scope: postgres, component: query }
+        annotations:
+          summary: 'שאילתה רצה מעל חמש דקות'
+          impact: 'עלולה להחזיק נעילות ולחסום כתיבות.'
+          runbook: docs/monitoring/runbooks/postgres-down.md
+
+      - alert: PostgresBlockedQueries
+        expr: kerenreem_pg_blocked_queries > 5
+        for: 5m
+        labels: { severity: warning, scope: postgres, component: locks }
+        annotations:
+          summary: '{{ $value }} שאילתות ממתינות לנעילה'
+          impact: 'פעולות בניהול ובחנות נתקעות.'
+          runbook: docs/monitoring/runbooks/postgres-down.md
+
+      # גיבוי שלא רץ הוא תקלה שקטה שמתגלה רק כשצריך לשחזר.
+      - alert: BackupStale
+        expr: time() - kerenreem_last_backup_timestamp > 36 * 3600
+        for: 1h
+        labels: { severity: critical, scope: postgres, component: backup }
+        annotations:
+          summary: 'לא הושלם גיבוי מסד בהצלחה כבר יותר מ-36 שעות'
+          impact: 'אין נקודת שחזור עדכנית. Snapshot של השרת אינו תחליף.'
+          runbook: docs/monitoring/runbooks/backups.md
+
+  # =========================================================================
+  - name: site
+    rules:
+      # שני כשלים רצופים (for: 2m בדגימה של דקה) ולא אחד: בדיקה בודדת
+      # שנכשלה היא לרוב הרשת של הצופה, לא האתר.
+      - alert: PageDown
+        expr: probe_success{job=~"blackbox-pages|blackbox-book-page"} == 0
+        for: 2m
+        labels: { severity: critical, scope: app, component: page }
+        annotations:
+          summary: 'העמוד {{ $labels.instance }} אינו נטען'
+          impact: 'גולשים רואים שגיאה.'
+          runbook: docs/monitoring/runbooks/site-down.md
+
+      # 5xx מפורש — להבדיל מ"לא נטען". קוד 500 שמור במטמון נראה
+      # לגולש כמו אתר שבור, וזה קרה בפועל.
+      - alert: PageServerError
+        expr: probe_http_status_code{job=~"blackbox-pages|blackbox-book-page"} >= 500
+        for: 2m
+        labels: { severity: critical, scope: app, component: page }
+        annotations:
+          summary: 'העמוד {{ $labels.instance }} מחזיר {{ $value }}'
+          impact: 'שגיאת שרת מול הגולש. ייתכן שהיא נשמרה במטמון ותישאר גם אחרי התיקון.'
+          runbook: docs/monitoring/runbooks/site-down.md
+
+      - alert: HealthDeepFailing
+        expr: probe_http_status_code{job="blackbox-health-deep"} == 503
+        for: 3m
+        labels: { severity: critical, scope: app, component: health }
+        annotations:
+          summary: 'בדיקת הבריאות העמוקה מדווחת כשל'
+          impact: 'אחת משכבות התשתית נפלה. הפירוט בגוף התשובה.'
+          runbook: docs/monitoring/runbooks/site-down.md
+
+      - alert: PageSlow
+        expr: |
+          avg_over_time(probe_duration_seconds{job="blackbox-pages"}[10m]) > 3
+        for: 15m
+        labels: { severity: warning, scope: app, component: latency }
+        annotations:
+          summary: '{{ $labels.instance }} נטען בממוצע מעל 3 שניות'
+          impact: 'חוויית גלישה איטית; לא השבתה.'
+          runbook: docs/monitoring/runbooks/site-down.md
+
+      - alert: AssetMissing
+        expr: probe_success{job="blackbox-assets"} == 0
+        for: 10m
+        labels: { severity: warning, scope: app, component: asset }
+        annotations:
+          summary: 'הנכס {{ $labels.instance }} אינו זמין'
+          impact: 'לוגו או כריכה יוצגו כריבוע ריק.'
+          runbook: docs/monitoring/runbooks/storage.md
+
+      # --- תעודת TLS ו-DNS -----------------------------------------------
+      - alert: TlsCertExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 1h
+        labels: { severity: warning, scope: network, component: tls }
+        annotations:
+          summary: 'תעודת TLS של {{ $labels.instance }} פגה בעוד {{ printf "%.0f" $value }} ימים'
+          impact: 'כשהיא תפוג הדפדפן יחסום את האתר לגמרי.'
+          runbook: docs/monitoring/runbooks/network.md
+
+      - alert: TlsCertExpiringCritical
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 5
+        for: 30m
+        labels: { severity: critical, scope: network, component: tls }
+        annotations:
+          summary: 'תעודת TLS של {{ $labels.instance }} פגה בעוד {{ printf "%.0f" $value }} ימים'
+          impact: 'חידוש אוטומטי כנראה נכשל. האתר ייחסם.'
+          runbook: docs/monitoring/runbooks/network.md
+
+      - alert: DnsResolutionFailing
+        expr: probe_success{job="blackbox-dns"} == 0
+        for: 5m
+        labels: { severity: critical, scope: network, component: dns }
+        annotations:
+          summary: 'תרגום ה-DNS של {{ $labels.instance }} נכשל'
+          impact: 'האתר אינו נגיש כלל, גם אם השרת תקין.'
+          runbook: docs/monitoring/runbooks/network.md
+
+  # =========================================================================
+  - name: supabase
+    rules:
+      # כל שירות בנפרד. "Supabase למטה" אינה אבחנה שאפשר לפעול לפיה —
+      # ‏PostgREST למטה ו-Auth למעלה זה תיקון אחר לגמרי.
+      - alert: SupabaseServiceDown
+        expr: probe_success{job="blackbox-supabase"} == 0
+        for: 3m
+        labels: { severity: critical, scope: supabase, component: service }
+        annotations:
+          summary: 'שירות Supabase ב-{{ $labels.instance }} אינו עונה'
+          impact: 'תלוי בשירות: קטלוג (REST), התחברות (Auth), תמונות (Storage).'
+          runbook: docs/monitoring/runbooks/supabase.md

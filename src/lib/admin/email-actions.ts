@@ -12,8 +12,8 @@ import {
   passwordChangedEmail,
   passwordResetEmail,
   teamInviteEmail,
-  type SiteEmailTemplate,
 } from '@/lib/email/templates';
+import type { SiteEmailTemplate } from '@/lib/email/template-list';
 import type { RenderedEmail } from '@/lib/email/brand';
 
 /**
