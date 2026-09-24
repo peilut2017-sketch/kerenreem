@@ -23,6 +23,7 @@
     "check:completion": "node --experimental-strip-types scripts/check-completion.mjs",
     "check:colors": "node --experimental-strip-types scripts/check-cover-colors.mjs",
     "check:canonical": "node scripts/check-canonical.mjs",
+    "check:email": "node --experimental-strip-types scripts/check-email-roles.mjs",
     "monitor:browser": "node monitoring/scripts/synthetic-browser.mjs"
   },
   "dependencies": {

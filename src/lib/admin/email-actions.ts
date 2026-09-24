@@ -3,7 +3,7 @@
 import { assertRole } from './auth';
 import { writeAuditLog } from './audit';
 import { createClient } from '@/lib/supabase/server';
-import { DEFAULT_EMAIL_FROM, sendEmail, staffInbox } from '@/lib/email/send';
+import { contactAddress, fromAddress, sendEmail, staffInbox } from '@/lib/email/send';
 import { getEmailBrand } from '@/lib/email/brand';
 import {
   contactAckEmail,
@@ -13,7 +13,7 @@ import {
   passwordResetEmail,
   teamInviteEmail,
 } from '@/lib/email/templates';
-import type { SiteEmailTemplate } from '@/lib/email/template-list';
+import { templateDelivery, type SiteEmailTemplate } from '@/lib/email/template-list';
 import type { RenderedEmail } from '@/lib/email/brand';
 
 /**
@@ -125,12 +125,29 @@ export async function sendTestSiteEmail(
 
   try {
     const email = await renderSample(template);
+    /*
+     * ‏[1.41] הבדיקה יוצאת באותה תצורה כמו בייצור — אותו תפקיד ואותו
+     * Reply-To, לפי הרשומה ב-template-list. בדיקה שיוצאת מכתובת אחרת
+     * מזו שהנמען האמיתי יראה אינה בודקת את מה שצריך.
+     *
+     * 'sender' משתמש בכתובת הדוגמה: בבדיקה אין פונה אמיתי, והכתובת
+     * הזו היא מה שהיה מופיע שם בפנייה אמיתית.
+     */
+    const delivery = templateDelivery(template);
+    const replyTo =
+      delivery.replyTo === 'none'
+        ? null
+        : delivery.replyTo === 'sender'
+          ? SAMPLE_CONTACT.email
+          : contactAddress();
+
     // הנושא מסומן במפורש: הודעת בדיקה שנוחתת בתיבה של מישהו ונראית
     // אמיתית (למשל "הסיסמה שלך הוחלפה") היא בדיוק מה שלא צריך לקרות.
-    const result = await sendEmail(address, {
-      ...email,
-      subject: `[בדיקה] ${email.subject}`,
-    });
+    const result = await sendEmail(
+      address,
+      { ...email, subject: `[בדיקה] ${email.subject}` },
+      { role: delivery.role, replyTo },
+    );
 
     if (result.skipped) {
       return {
@@ -156,20 +173,34 @@ export async function sendTestSiteEmail(
 /** מצב ההגדרה — למסך, כדי שלא יצטרכו לנחש למה כלום לא נשלח. */
 export async function getEmailConfigStatus(): Promise<{
   providerConfigured: boolean;
-  fromAddress: string;
+  /** כתובת השולח של דואר אוטומטי — no-reply@. */
+  automatedFrom: string;
+  /** כתובת השולח של מענה אנושי — contact@. */
+  humanFrom: string;
+  /** הכתובת שאליה מפנה ה-Reply-To. */
+  replyTo: string;
   staffInbox: string | null;
   siteUrl: string;
 }> {
   const session = await assertRole('admin');
   if ('error' in session) {
-    return { providerConfigured: false, fromAddress: '', staffInbox: null, siteUrl: '' };
+    return {
+      providerConfigured: false,
+      automatedFrom: '',
+      humanFrom: '',
+      replyTo: '',
+      staffInbox: null,
+      siteUrl: '',
+    };
   }
   const brand = await getEmailBrand();
   return {
     providerConfigured: Boolean(process.env.RESEND_API_KEY),
-    // אותה ברירת מחדל שהשליחה עצמה משתמשת בה — מקור אחד, כדי שהמסך
-    // לא יציג כתובת שונה מזו שיוצאת בפועל.
-    fromAddress: process.env.COMMERCE_EMAIL_FROM ?? DEFAULT_EMAIL_FROM,
+    // ‏[1.41] אותן פונקציות שהשליחה עצמה משתמשת בהן — מקור אחד, כדי
+    // שהמסך לא יציג כתובת שונה מזו שיוצאת בפועל.
+    automatedFrom: fromAddress('automated'),
+    humanFrom: fromAddress('human'),
+    replyTo: contactAddress(),
     staffInbox: staffInbox(brand.contactEmail),
     siteUrl: brand.siteUrl,
   };

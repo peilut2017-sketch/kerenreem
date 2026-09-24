@@ -6,7 +6,7 @@ import { sanitizeHtml } from '@/lib/sanitize';
 import { clientIp } from '@/lib/client-ip';
 import { createClient } from '@/lib/supabase/server';
 import { getSiteSettings } from '@/lib/data';
-import { sendEmail, staffInbox } from '@/lib/email/send';
+import { contactAddress, sendEmail, staffInbox } from '@/lib/email/send';
 import { contactAckEmail, contactStaffEmail, type ContactDetails } from '@/lib/email/templates';
 
 /**
@@ -259,12 +259,18 @@ async function sendContactEmails(details: ContactDetails): Promise<void> {
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
 
     const jobs: Promise<unknown>[] = [
-      contactAckEmail(details).then((email) => sendEmail(details.email, email)),
+      // אישור אוטומטי, אבל פונה שיענה עליו מצפה שמישהו יקרא —
+      // ולכן Reply-To אל contact@ למרות שהשולח הוא no-reply@.
+      contactAckEmail(details).then((email) =>
+        sendEmail(details.email, email, { replyTo: contactAddress() }),
+      ),
     ];
     if (inbox) {
       jobs.push(
         contactStaffEmail(details, siteUrl ? `${siteUrl}/admin/messages` : null).then((email) =>
-          sendEmail(inbox, email),
+          // ‏Reply-To של הפונה: כך "השב" בתיבת הצוות עונה לו
+          // ישירות, בלי לעבור דרך מסך הניהול.
+          sendEmail(inbox, email, { replyTo: details.email }),
         ),
       );
     } else {

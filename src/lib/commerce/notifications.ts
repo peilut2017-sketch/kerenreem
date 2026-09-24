@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Order } from '@/lib/supabase/types';
 import { getEmailBrand, renderBrandedEmail } from '@/lib/email/brand';
-import { sendEmail } from '@/lib/email/send';
+import { contactAddress, sendEmail } from '@/lib/email/send';
 import { formatPrice } from './pricing';
 
 /**
@@ -200,7 +200,14 @@ async function sendViaProvider(
     body: email.html,
     text: htmlToText(email.html),
   });
-  return sendEmail(to, branded);
+  /*
+   * ‏[1.41] כל דואר המסחר יוצא מ-no-reply@ אבל עם Reply-To אל contact@,
+   * ובמפורש כאן ולא כברירת מחדל גלובלית של התפקיד. זו בדיוק ההבטחה
+   * שב-FOOTER למעלה ("לשאלות אפשר להשיב למייל הזה"), שעד כה לא הייתה
+   * ניתנת לקיום. הנקודה הזו מכסה את כל תשעת מיילי ההזמנות וגם את
+   * "חזר למלאי", שעובר דרך sendPlainEmail.
+   */
+  return sendEmail(to, branded, { replyTo: contactAddress() });
 }
 
 /** HTML → טקסט קריא. גס בכוונה: אלה תבניות שאנחנו כתבנו, לא קלט חופשי. */

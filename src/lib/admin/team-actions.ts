@@ -6,7 +6,7 @@ import { assertPermission } from './auth';
 import { writeAuditLog } from './audit';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { sendEmail } from '@/lib/email/send';
+import { contactAddress, sendEmail } from '@/lib/email/send';
 import { teamInviteEmail } from '@/lib/email/templates';
 import { ROLE_LABELS, ASSIGNABLE_ROLES } from './permissions';
 import type { UserRole } from '@/lib/supabase/types';
@@ -106,7 +106,7 @@ export async function inviteStaffMember(input: {
     roleLabel: ROLE_LABELS[input.role],
     loginUrl: `${siteUrl}/admin/login`,
   });
-  const emailResult = await sendEmail(email, inviteEmail);
+  const emailResult = await sendEmail(email, inviteEmail, { replyTo: contactAddress() });
 
   revalidatePath('/admin/team');
   return {

@@ -1,6 +1,16 @@
 import 'server-only';
 
 import type { RenderedEmail } from './brand';
+import { defaultReplyTo, fromAddress, type EmailRole } from './addresses';
+
+export {
+  EMAIL_DOMAIN,
+  contactAddress,
+  fromAddress,
+  replyToForInquiry,
+  staffInbox,
+} from './addresses';
+export type { EmailRole } from './addresses';
 
 /**
  * [1.40] שליחת דואר — שכבה אחת מעל ספק הדואר, לכל האתר.
@@ -17,6 +27,10 @@ import type { RenderedEmail } from './brand';
  * "לא מוגדר" אינו "נכשל": בלי RESEND_API_KEY התוצאה היא skipped, וכל
  * קורא מחליט בעצמו אם זה מצדיק להיכשל. זרימה כספית לעולם אינה נופלת
  * בגלל דואר; איפוס סיסמה, לעומת זאת, כן חייב לדעת שההודעה לא יצאה.
+ *
+ * ‏[1.41] כתובת השולח וכתובת המענה נקבעות לפי **תפקיד** ההודעה ולא
+ * לפי הקורא — ראו lib/email/addresses.ts. התפקידים והכתובות מוגדרים
+ * שם; כאן רק מרכיבים את הבקשה.
  */
 
 export interface SendResult {
@@ -27,51 +41,53 @@ export interface SendResult {
   error?: string;
 }
 
-/**
- * דומיין השליחה של המכון. הדואר היוצא חתום עליו (SPF/DKIM), ולכן זהו
- * הערך היחיד שיעבור אימות אצל הנמענים.
- *
- * [1.40] תוקן מ-keren-reem.org (עם מקף) — דומיין שאינו קיים. כל דואר
- * שהיה יוצא ממנו היה נכשל באימות ונוחת בדואר זבל, או נדחה על הסף.
- */
-export const EMAIL_DOMAIN = 'kerenreem.org';
-
-/** ברירת המחדל לכתובת השולח, כשלא הוגדרה אחרת בסביבה. */
-export const DEFAULT_EMAIL_FROM = `מכון קרן רא״ם <no-reply@${EMAIL_DOMAIN}>`;
-
-/** כתובת השולח. ניתנת לשינוי בהגדרות הסביבה, עם ברירת מחדל שמורה. */
-function fromAddress(): string {
-  return process.env.COMMERCE_EMAIL_FROM ?? DEFAULT_EMAIL_FROM;
+export interface SendOptions {
+  /** ברירת המחדל: 'automated' — הרוב המוחלט של דואר האתר. */
+  role?: EmailRole;
+  /**
+   * שלושה מצבים, ושלושתם נחוצים:
+   *   undefined — ברירת המחדל של התפקיד (ל-automated: אין).
+   *   כתובת    — Reply-To מפורש. כך מקבלת התראת הפנייה לצוות את
+   *              כתובת הפונה, וכך מקבלות הודעות אוטומטיות שמזמינות
+   *              תגובה את contact@.
+   *   null     — בלי Reply-To, ובמפורש. זה המצב של איפוס סיסמה.
+   */
+  replyTo?: string | string[] | null;
 }
 
-/**
- * כתובת היעד להודעות פנימיות (פנייה חדשה, התראות תפעול). נופלת חזרה
- * לכתובת יצירת הקשר שבהגדרות האתר כשלא הוגדרה כתובת ייעודית.
- */
-export function staffInbox(contactEmail: string | null): string | null {
-  const configured = process.env.SITE_NOTIFICATIONS_EMAIL?.trim();
-  return configured || contactEmail || null;
-}
-
-export async function sendEmail(to: string | string[], email: RenderedEmail): Promise<SendResult> {
+export async function sendEmail(
+  to: string | string[],
+  email: RenderedEmail,
+  options: SendOptions = {},
+): Promise<SendResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { ok: false, skipped: true, error: 'RESEND_API_KEY not configured' };
 
   const recipients = (Array.isArray(to) ? to : [to]).filter((address) => address.trim() !== '');
   if (recipients.length === 0) return { ok: false, error: 'no recipient' };
 
+  const role = options.role ?? 'automated';
+  // ‏=== undefined ולא ?? : null הוא בחירה מפורשת ב"בלי Reply-To",
+  // ואסור שייפול חזרה לברירת המחדל של התפקיד.
+  const requested = options.replyTo === undefined ? defaultReplyTo(role) : options.replyTo;
+  const replyTo = (requested == null ? [] : Array.isArray(requested) ? requested : [requested])
+    .map((address) => address.trim())
+    .filter((address) => address !== '');
+
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        from: fromAddress(),
+        from: fromAddress(role),
         to: recipients,
         subject: email.subject,
         html: email.html,
         // גרסת טקסט תמיד. מסנני דואר זבל מורידים ציון להודעת HTML
         // בלבד, וחלק מהלקוחות (וחלק מהשעונים החכמים) מציגים אותה.
         text: email.text,
+        // נשלח רק כשיש מה לשלוח: reply_to ריק הוא שדה מיותר בבקשה.
+        ...(replyTo.length > 0 ? { reply_to: replyTo } : {}),
       }),
       cache: 'no-store',
     });

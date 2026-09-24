@@ -45,11 +45,28 @@ export default async function AdminEmailPage() {
               )}
             </dd>
           </div>
+          {/* ‏[1.41] שתי כתובות שולח ולא אחת: דואר אוטומטי יוצא
+              מ-no-reply@ ומענה אנושי לפנייה מ-contact@. ההפרדה מוצגת
+              כאן כדי שלא יצטרכו לקרוא קוד כדי לדעת מה יוצא מאיפה. */}
           <div>
-            <dt className="admin-field-label">נשלח מהכתובת</dt>
+            <dt className="admin-field-label">דואר אוטומטי נשלח מ־</dt>
             <dd dir="ltr" className="mt-1 text-start text-small text-ink">
-              {status.fromAddress}
+              {status.automatedFrom}
             </dd>
+            <span className="admin-field-hint">
+              איפוס סיסמה, אישורי הזמנה, אישור פנייה, הזמנת איש צוות. איפוס סיסמה נשלח
+              בלי כתובת מענה בכלל; שאר ההודעות האוטומטיות מפנות מענה אל {status.replyTo}.
+            </span>
+          </div>
+          <div>
+            <dt className="admin-field-label">מענה אנושי לפנייה נשלח מ־</dt>
+            <dd dir="ltr" className="mt-1 text-start text-small text-ink">
+              {status.humanFrom}
+            </dd>
+            <span className="admin-field-hint">
+              תיבה שאפשר להשיב אליה. התראה על פנייה חדשה שנשלחת לצוות מפנה מענה אל כתובת
+              הפונה עצמו, כך ש״השב״ עונה לו ישירות.
+            </span>
           </div>
           <div>
             <dt className="admin-field-label">התראות על פניות חדשות</dt>
