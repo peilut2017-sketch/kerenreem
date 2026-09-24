@@ -1,19 +1,33 @@
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { Container } from '@/components/Container';
+import { ErrorPageShell } from '@/components/ErrorPageShell';
 
+/**
+ * ‏404 בתוך עץ השפה — כתובת שנראית כמו עמוד באתר אבל אין לה תוכן.
+ *
+ * מוגש בתוך הפריסה המלאה (כותרת, ניווט, פוטר, סרגל נגישות), ולכן זה
+ * עמוד באתר ולא מסך שגיאה. שתי פעולות ולא אחת: החיפוש קודם לחזרה
+ * לעמוד הבית — מי שהגיע לכתובת שגויה חיפש משהו מסוים, והבית אינו
+ * מקרב אותו אליו.
+ */
 export default async function NotFound() {
   const t = await getTranslations('error');
 
   return (
-    <Container width="text" className="py-24">
-      <h1 className="text-h1 text-ink">{t('notFoundTitle')}</h1>
-      <p className="mt-4 text-lead text-muted">{t('notFoundBody')}</p>
-      <p className="mt-8">
-        <Link href="/" className="btn btn-quiet">
-          {t('backHome')}
-        </Link>
-      </p>
-    </Container>
+    <ErrorPageShell
+      kind="not-found"
+      title={t('notFoundTitle')}
+      body={t('notFoundBody')}
+      actions={
+        <>
+          <Link href="/books" className="btn btn-solid">
+            {t('notFoundSearch')}
+          </Link>
+          <Link href="/" className="btn btn-quiet">
+            {t('backHome')}
+          </Link>
+        </>
+      }
+    />
   );
 }

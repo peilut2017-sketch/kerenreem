@@ -9,7 +9,8 @@ import { HeaderContextNavProvider } from '@/components/header-context-nav';
 import { BookQuickViewProvider } from '@/components/book-quick-view';
 import { routing, localeDirection, type Locale } from '@/i18n/routing';
 import { canonicalSiteUrl } from '@/lib/site-url';
-import { getSiteSettings } from '@/lib/data';
+import { getSiteSettingsResult } from '@/lib/data';
+import { MaintenancePage } from '@/components/MaintenancePage';
 import { getCommerceFlags } from '@/lib/commerce/settings';
 import { CartProvider } from '@/components/store/CartProvider';
 import { MiniCart } from '@/components/store/MiniCart';
@@ -77,13 +78,39 @@ export default async function PublicLayout({
 
   setRequestLocale(locale);
 
-  const [settings, flags, t, tBooks] = await Promise.all([
-    getSiteSettings(),
+  const [settingsResult, flags, t, tBooks] = await Promise.all([
+    getSiteSettingsResult(),
     getCommerceFlags(),
     getTranslations('site'),
     getTranslations('books'),
   ]);
+  const settings = settingsResult.settings;
   const dir = localeDirection[locale as Locale];
+
+  /*
+   * ‏[1.41] מסד לא נגיש — מכריזים, לא מציגים אתר חלול.
+   *
+   * ‏'unreachable' פירושו שחיבור *כן* מוגדר והשליפה נכשלה. במצב הזה כל
+   * שאר השליפות ייכשלו גם הן, והתוצאה הייתה אתר שנראה תקין ומציג את
+   * ברירות המחדל שבקוד — שם, פרטי קשר וקטלוג ריק — כלומר מידע שאינו
+   * נכון. זה מה שדווח, וזה גרוע מעמוד שמצהיר על תקלה.
+   *
+   * ‏'not-configured' אינו נכנס לכאן: סביבת פיתוח או תצוגה בלי מסד היא
+   * מצב תקין, ואין להציג בה עמוד תחזוקה.
+   *
+   * העמוד מוחזר מכאן, מהפריסה, ולא מכל עמוד בנפרד: הפריסה היא הנקודה
+   * היחידה שכל מסך ציבורי עובר בה, ובה גם נשלפות ההגדרות ממילא.
+   */
+  if (settingsResult.status === 'unreachable') {
+    console.error('[site:maintenance] מסד הנתונים אינו נגיש —', settingsResult.detail);
+    return (
+      <html lang={locale} dir={dir} className={FONT_VARIABLES}>
+        <body>
+          <MaintenancePage locale={locale} />
+        </body>
+      </html>
+    );
+  }
 
   // [1.12] תמונות הבסיס לספרים חסרי-תמונה (ניהול ← הגדרות) — ראו
   // placeholder-art-context.tsx

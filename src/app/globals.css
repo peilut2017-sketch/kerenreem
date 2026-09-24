@@ -812,6 +812,68 @@ html[data-a11y-contrast='on'] {
   --page-grain-opacity: 0;
 }
 
+/*
+   [1.41] גודל טקסט וריווח שורות — התאמות מדורגות.
+
+   גודל הטקסט נקבע על <html> באחוזים, ולא בהגדלת רכיבים בודדים: כל
+   המידות באתר הן ב-rem, ולכן מדרגה אחת כאן מגדילה טקסט, ריפוד ומרווחים
+   יחד ובאותה פרופורציה. הגדלת font-size בלבד על פסקאות הייתה מייצרת
+   טקסט גדול בתוך קופסאות שלא גדלו איתו.
+*/
+html[data-a11y-text='1'] { font-size: 112.5%; }
+html[data-a11y-text='2'] { font-size: 125%; }
+html[data-a11y-text='3'] { font-size: 140%; }
+
+/*
+   ריווח השורות מוחל על גופי טקסט בלבד (פסקאות, פריטי רשימה, הגדרות)
+   ולא על כל האתר: line-height גלובלי היה מפרק שורות כותרת, תגים
+   וכפתורים שגובהם מכויל. !important נדרש כדי לגבור על מחלקות ה-leading
+   של Tailwind — זו העדפת משתמש, וזה בדיוק המקרה שבו היא מוצדקת.
+*/
+html[data-a11y-lines='1'] p,
+html[data-a11y-lines='1'] li,
+html[data-a11y-lines='1'] dd,
+html[data-a11y-lines='1'] blockquote { line-height: 1.9 !important; }
+html[data-a11y-lines='2'] p,
+html[data-a11y-lines='2'] li,
+html[data-a11y-lines='2'] dd,
+html[data-a11y-lines='2'] blockquote { line-height: 2.2 !important; }
+
+/*
+   גווני אפור.
+
+   ‏filter: grayscale על body או על html הוא הפתרון המתבקש, ואסור כאן:
+   אלמנט עם filter הופך ל-containing block לכל צאצא position:fixed,
+   והכותרת הדביקה, הכפתורים הצפים וסרגל הנגישות עצמו היו נגללים עם
+   העמוד במקום להישאר במקומם. לכן שתי שכבות נפרדות: המדיה מסוננת,
+   והפלטה עצמה מוחלפת בגוונים ניטרליים דרך המשתנים.
+*/
+html[data-a11y-gray='on'] img,
+html[data-a11y-gray='on'] video,
+html[data-a11y-gray='on'] canvas {
+  filter: grayscale(1);
+}
+html[data-a11y-gray='on'] {
+  --color-gold: #a3a3a3;
+  --color-gold-bright: #c4c4c4;
+  --color-gold-deep: #575757;
+  --color-burgundy: #3d3d3d;
+  --color-burgundy-deep: #2a2a2a;
+  --color-navy: #171717;
+  --color-navy-2: #242424;
+  --color-navy-3: #3f3f3f;
+}
+
+/*
+   סמן עכבר גדול. ‏SVG מוטבע ולא קובץ: זו תמונה של 24 בתים בפועל,
+   ובקשת רשת לסמן היא בקשה שמגיעה אחרי שהמשתמש כבר הזיז את העכבר.
+   ה-fallback ל-auto נדרש: דפדפן שדוחה את הגודל מתעלם מהערך כולו.
+*/
+html[data-a11y-cursor='on'],
+html[data-a11y-cursor='on'] * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24'%3E%3Cpath d='M5 2l14 10.5-6 1.2 3.4 6.6-2.7 1.4L10.3 15 5 19.5z' fill='%23fff' stroke='%23000' stroke-width='1.4'/%3E%3C/svg%3E") 4 2, auto !important;
+}
+
 html[data-a11y-links='on'] a {
   text-decoration: underline !important;
   text-decoration-thickness: 2px !important;
@@ -829,18 +891,18 @@ html[data-a11y-font='on'] blockquote {
   letter-spacing: 0.01em;
 }
 
-html[data-a11y-motion='off'] *,
-html[data-a11y-motion='off'] *::before,
-html[data-a11y-motion='off'] *::after {
+html[data-a11y-motion='on'] *,
+html[data-a11y-motion='on'] *::before,
+html[data-a11y-motion='on'] *::after {
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
 }
-html[data-a11y-motion='off'] .reveal { opacity: 1 !important; transform: none !important; }
-html[data-a11y-motion='off'] .card-interactive:hover,
-html[data-a11y-motion='off'] .group:hover .book-lift,
-html[data-a11y-motion='off'] .group:hover .icon-chip { transform: none !important; }
+html[data-a11y-motion='on'] .reveal { opacity: 1 !important; transform: none !important; }
+html[data-a11y-motion='on'] .card-interactive:hover,
+html[data-a11y-motion='on'] .group:hover .book-lift,
+html[data-a11y-motion='on'] .group:hover .icon-chip { transform: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

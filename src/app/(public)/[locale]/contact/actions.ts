@@ -5,9 +5,9 @@ import { getTranslations } from 'next-intl/server';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { clientIp } from '@/lib/client-ip';
 import { createClient } from '@/lib/supabase/server';
-import { getSiteSettings } from '@/lib/data';
-import { contactAddress, sendEmail, staffInbox } from '@/lib/email/send';
+import { contactAddress, sendEmail } from '@/lib/email/send';
 import { contactAckEmail, contactStaffEmail, type ContactDetails } from '@/lib/email/templates';
+import { resolveInquiryInbox, type InquiryKind } from '@/lib/email/inbox';
 
 /**
  * הגבלת קצב בזיכרון התהליך.
@@ -234,7 +234,7 @@ export async function submitContact(
     message,
     extraFields: emailExtraFields,
     attachmentCount: attachments.length,
-  });
+  }, 'general');
 
   return { status: 'success' };
 }
@@ -250,10 +250,15 @@ export async function submitContact(
  * שתי ההודעות נשלחות במקביל: הן אינן תלויות זו בזו, ואין סיבה
  * שהמבקר ימתין לשרשרת.
  */
-async function sendContactEmails(details: ContactDetails): Promise<void> {
+async function sendContactEmails(details: ContactDetails, kind: InquiryKind): Promise<void> {
   try {
-    const settings = await getSiteSettings();
-    const inbox = staffInbox(settings.contact?.email ?? null);
+    /*
+     * ‏[1.41] היעד נקבע לפי סוג הפנייה, ונערך במסך הניהול — פנייה
+     * כללית ופנייה על ספר יכולות להגיע לשני אנשים שונים. שרשרת
+     * הנפילה מבטיחה שפריסה קיימת ממשיכה לעבוד בדיוק כמו קודם; ראו
+     * lib/email/inbox.ts.
+     */
+    const inbox = await resolveInquiryInbox(kind);
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
 
     const jobs: Promise<unknown>[] = [
@@ -408,7 +413,7 @@ export async function submitBookFeedback(
     message: messageText,
     extraFields: pageReference ? [{ label: 'עמוד', value: pageReference }] : [],
     attachmentCount: attachments.length,
-  });
+  }, 'book');
 
   return { status: 'success' };
 }

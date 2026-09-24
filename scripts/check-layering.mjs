@@ -28,10 +28,10 @@ const headerPos = await page.evaluate(
 check('הכותרת דביקה', headerPos === 'sticky', `position: ${headerPos}`);
 
 const barPos = await page.evaluate(() => {
-  const el = document.querySelector('[aria-label="פתיחת סרגל נגישות"]');
+  const el = document.querySelector('[aria-label="פתיחת הגדרות נגישות"]');
   return el ? getComputedStyle(el).position : 'לא נמצא';
 });
-check('סרגל הנגישות צף', barPos === 'fixed', `position: ${barPos}`);
+check('כפתור הנגישות צף', barPos === 'fixed', `position: ${barPos}`);
 
 // גלילה: הכותרת חייבת להישאר בראש החלון
 await page.evaluate(() => window.scrollTo({ top: 1200, behavior: 'instant' }));
@@ -42,12 +42,12 @@ const headerTop = await page.evaluate(
 check('הכותרת נשארת בראש אחרי גלילה', headerTop >= 0 && headerTop < 40, `top: ${headerTop}px`);
 
 const barVisible = await page.evaluate(() => {
-  const el = document.querySelector('[aria-label="פתיחת סרגל נגישות"]');
+  const el = document.querySelector('[aria-label="פתיחת הגדרות נגישות"]');
   if (!el) return false;
   const r = el.getBoundingClientRect();
   return r.bottom > 0 && r.bottom <= window.innerHeight + 1;
 });
-check('סרגל הנגישות נראה אחרי גלילה', barVisible);
+check('כפתור הנגישות נראה אחרי גלילה', barVisible);
 
 // הזכוכית באמת מטשטשת
 const blur = await page.evaluate(() => {
