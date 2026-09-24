@@ -4,7 +4,7 @@ import { cookies, headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { allowRequest, ipBucket } from '@/lib/commerce/rate-limit';
-import { sendEmail } from '@/lib/email/send';
+import { contactAddress, sendEmail } from '@/lib/email/send';
 import { passwordChangedEmail, passwordResetEmail } from '@/lib/email/templates';
 import { getAdminSession } from './auth';
 
@@ -78,7 +78,9 @@ export async function requestAdminPasswordReset(email: string): Promise<AdminAcc
       name: (data.user?.user_metadata?.full_name as string | undefined) ?? null,
       isStaff: true,
     });
-    const sent = await sendEmail(trimmed, email);
+    // ‏replyTo: null במפורש — הזמנה לענות במייל על הודעת איפוס
+    // סיסמה היא הזמנה לשלוח סיסמה בטקסט פתוח.
+    const sent = await sendEmail(trimmed, email, { replyTo: null });
     if (!sent.ok && !sent.skipped) {
       console.error('[admin:account] reset email', sent.error);
     }
@@ -129,7 +131,8 @@ async function notifyPasswordChanged(email: string, name: string | null): Promis
   }).format(new Date());
 
   const message = await passwordChangedEmail({ name, whenLabel, isStaff: true });
-  const sent = await sendEmail(email, message);
+  // הודעת אבטחה: מי שלא ביצע את השינוי חייב דרך מיידית להגיב.
+  const sent = await sendEmail(email, message, { replyTo: contactAddress() });
   if (!sent.ok && !sent.skipped) console.error('[admin:account] password-changed email', sent.error);
 }
 

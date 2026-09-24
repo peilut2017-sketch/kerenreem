@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { sendEmail } from '@/lib/email/send';
+import { replyToForInquiry, sendEmail } from '@/lib/email/send';
 import { contactReplyEmail } from '@/lib/email/templates';
 import { htmlToPlainText } from '@/lib/html-text';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -115,7 +115,16 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
     bodyText: htmlToPlainText(clean, 20_000),
   });
 
-  const sent = await sendEmail(inquiry.email, message);
+  /*
+   * ‏[1.41] מענה אנושי, ולכן role 'human': הוא יוצא מ-contact@ ולא
+   * מ-no-reply@, והנמען יכול להשיב עליו — בדיוק מה שהתבנית מבטיחה
+   * לו. כתובת המענה עוברת דרך replyToForInquiry כדי שביום שנקלוט
+   * תשובות אוטומטית לפנייה, השינוי יהיה במקום אחד.
+   */
+  const sent = await sendEmail(inquiry.email, message, {
+    role: 'human',
+    replyTo: replyToForInquiry(id),
+  });
   if (!sent.ok && !sent.skipped) {
     return { error: 'שליחת הדואר נכשלה. המענה לא נשמר — נסו שוב.' };
   }
