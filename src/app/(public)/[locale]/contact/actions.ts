@@ -5,9 +5,9 @@ import { getTranslations } from 'next-intl/server';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { clientIp } from '@/lib/client-ip';
 import { createClient } from '@/lib/supabase/server';
-import { getSiteSettings } from '@/lib/data';
-import { contactAddress, sendEmail, staffInbox } from '@/lib/email/send';
+import { contactAddress, sendEmail } from '@/lib/email/send';
 import { contactAckEmail, contactStaffEmail, type ContactDetails } from '@/lib/email/templates';
+import { resolveInquiryInbox, type InquiryKind } from '@/lib/email/inbox';
 
 /**
  * הגבלת קצב בזיכרון התהליך.
@@ -134,7 +134,6 @@ export async function submitContact(
   const subject = String(formData.get('subject') ?? '').trim();
   const message = String(formData.get('message') ?? '').trim();
   const topicId = String(formData.get('topic_id') ?? '').trim();
-  const consent = formData.get('consent') === 'on';
   const attachments = parseAttachments(formData.get('attachments'));
 
   const supabase = await createClient();
@@ -147,7 +146,6 @@ export async function submitContact(
   if (!message) fieldErrors.message = t('required');
   if (!email) fieldErrors.email = t('required');
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) fieldErrors.email = t('invalidEmail');
-  if (!consent) fieldErrors.consent = t('consentRequired');
 
   for (const [key, limit] of Object.entries(MAX)) {
     const value = { name, email, phone, subject, message }[key as keyof typeof MAX];
@@ -236,7 +234,7 @@ export async function submitContact(
     message,
     extraFields: emailExtraFields,
     attachmentCount: attachments.length,
-  });
+  }, 'general');
 
   return { status: 'success' };
 }
@@ -252,10 +250,15 @@ export async function submitContact(
  * שתי ההודעות נשלחות במקביל: הן אינן תלויות זו בזו, ואין סיבה
  * שהמבקר ימתין לשרשרת.
  */
-async function sendContactEmails(details: ContactDetails): Promise<void> {
+async function sendContactEmails(details: ContactDetails, kind: InquiryKind): Promise<void> {
   try {
-    const settings = await getSiteSettings();
-    const inbox = staffInbox(settings.contact?.email ?? null);
+    /*
+     * ‏[1.41] היעד נקבע לפי סוג הפנייה, ונערך במסך הניהול — פנייה
+     * כללית ופנייה על ספר יכולות להגיע לשני אנשים שונים. שרשרת
+     * הנפילה מבטיחה שפריסה קיימת ממשיכה לעבוד בדיוק כמו קודם; ראו
+     * lib/email/inbox.ts.
+     */
+    const inbox = await resolveInquiryInbox(kind);
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
 
     const jobs: Promise<unknown>[] = [
@@ -331,7 +334,6 @@ export async function submitBookFeedback(
   const bookId = String(formData.get('book_id') ?? '').trim();
   const pageReference = String(formData.get('page_reference') ?? '').trim();
   const rawHtml = String(formData.get('message_html') ?? '');
-  const consent = formData.get('consent') === 'on';
   const attachments = parseAttachments(formData.get('attachments'));
 
   const supabase = await createClient();
@@ -354,7 +356,6 @@ export async function submitBookFeedback(
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) fieldErrors.email = t('invalidEmail');
   if (!bookId) fieldErrors.book_id = t('bookRequired');
   if (!messageText) fieldErrors.message_html = t('required');
-  if (!consent) fieldErrors.consent = t('consentRequired');
   if (name.length > MAX.name || email.length > MAX.email || phone.length > MAX.phone) {
     return { status: 'error', message: t('error') };
   }
@@ -412,7 +413,7 @@ export async function submitBookFeedback(
     message: messageText,
     extraFields: pageReference ? [{ label: 'עמוד', value: pageReference }] : [],
     attachmentCount: attachments.length,
-  });
+  }, 'book');
 
   return { status: 'success' };
 }

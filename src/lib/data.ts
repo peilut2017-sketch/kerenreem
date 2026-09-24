@@ -879,6 +879,27 @@ export const getPageBySlug = cache(async (slug: string): Promise<ContentPage | n
   return (data as ContentPage | null) ?? null;
 });
 
+/**
+ * ‏[1.41] כל עמודי התוכן המפורסמים — לחיפוש הגלובלי.
+ *
+ * ‏getPageBySlug שולף עמוד אחד לפי כתובת, וזה מה שעמוד צריך. החיפוש
+ * צריך את ההפוך: את כולם, כדי לחפש בגוף הטקסט שלהם. השליפה מצומצמת
+ * לשדות שהחיפוש משתמש בהם ולא ‎select('*') — גוף עמוד תוכן יכול להיות
+ * ארוך, ואין סיבה לשלוף שדות שלא ייבדקו.
+ */
+export async function getContentPages(): Promise<ContentPage[]> {
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('pages')
+    .select('id, slug, title_he, title_en, body_he, body_en, is_published, created_at, updated_at')
+    .eq('is_published', true);
+
+  warn('getContentPages', error);
+  return (data as ContentPage[] | null) ?? [];
+}
+
 const EMPTY_SETTINGS: SiteSettings = {
   id: 1,
   logo_url: null,
@@ -910,14 +931,66 @@ export const getCustomFonts = cache(async (): Promise<CustomFont[]> => {
   return (data as CustomFont[] | null) ?? [];
 });
 
-export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
+/**
+ * ‏[1.41] מצב ההגדרות, ולא רק ההגדרות.
+ *
+ * כל שליפה בקובץ הזה מחזירה ערך ריק כשהיא נכשלת, וזו ההתנהגות הנכונה
+ * לתוכן: קטלוג לא צריך להיעלם בגלל תקלת רשת רגעית. אבל כשהמסד **אינו
+ * נגיש בכלל**, אותה התנהגות מפיקה משהו גרוע יותר מעמוד שגיאה: אתר
+ * שנראה תקין, עם שם, לוגו ופרטי קשר של ברירת המחדל בקוד, וטוען בפועל
+ * מידע שאינו נכון. זה מה שדווח — "תבנית אתר בסיסית עם מידע לא מדויק".
+ *
+ * ‏reason מבדיל בין שלושה מצבים שאין להתייחס אליהם אותו דבר:
+ *
+ *   'ok'             — נשלף בהצלחה.
+ *   'not-configured' — אין כלל חיבור מוגדר. סביבת פיתוח או תצוגה; זו
+ *                      אינה תקלה, ואין להציג עמוד תחזוקה.
+ *   'unreachable'    — מוגדר, ונכשל. **זו** תקלה שיש להכריז עליה.
+ *
+ * הבדיקה היא השליפה של ההגדרות עצמה ולא בדיקה נפרדת: היא נדרשת בכל
+ * עמוד ממילא (הפריסה קוראת אותה), ו-cache של React מבטיח קריאה אחת
+ * לכל בקשה. בדיקת בריאות נפרדת הייתה סבב רשת נוסף בכל טעינת עמוד.
+ */
+export type SiteSettingsStatus = 'ok' | 'not-configured' | 'unreachable';
+
+export interface SiteSettingsResult {
+  settings: SiteSettings;
+  status: SiteSettingsStatus;
+  /** קוד/הודעת השגיאה, לתיעוד בלבד. אינו מוצג למבקר. */
+  detail: string | null;
+}
+
+export const getSiteSettingsResult = cache(async (): Promise<SiteSettingsResult> => {
   const supabase = createStaticClient();
-  if (!supabase) return isDemoContent ? demo.settings() : EMPTY_SETTINGS;
+  if (!supabase) {
+    return {
+      settings: isDemoContent ? demo.settings() : EMPTY_SETTINGS,
+      status: 'not-configured',
+      detail: null,
+    };
+  }
 
   const { data, error } = await supabase.from('site_settings').select('*').eq('id', 1).maybeSingle();
 
   warn('getSiteSettings', error);
-  return (data as SiteSettings | null) ?? EMPTY_SETTINGS;
+  if (error) {
+    return {
+      settings: EMPTY_SETTINGS,
+      status: 'unreachable',
+      detail: `${error.code ?? '—'}: ${error.message}`,
+    };
+  }
+
+  /*
+   * שורה חסרה אינה "מסד לא נגיש": השאילתה עברה, פשוט אין עדיין רשומת
+   * הגדרות (התקנה חדשה). האתר עולה עם ברירות המחדל, וזה תקין.
+   */
+  return { settings: (data as SiteSettings | null) ?? EMPTY_SETTINGS, status: 'ok', detail: null };
+});
+
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
+  const { settings } = await getSiteSettingsResult();
+  return settings;
 });
 
 /* -------------------------------------------------------------------------- */

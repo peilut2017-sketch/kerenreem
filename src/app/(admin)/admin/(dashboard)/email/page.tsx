@@ -1,7 +1,8 @@
 import { requireScreenPermission } from '@/lib/admin/auth';
-import { getEmailConfigStatus } from '@/lib/admin/email-actions';
+import { getEmailConfigStatus, getInquiryInboxes } from '@/lib/admin/email-actions';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { EmailTester } from '@/components/admin/EmailTester';
+import { InquiryInboxForm } from '@/components/admin/InquiryInboxForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function AdminEmailPage() {
   const session = await requireScreenPermission('email', 'view');
-  const status = await getEmailConfigStatus();
+  const [status, inboxes] = await Promise.all([getEmailConfigStatus(), getInquiryInboxes()]);
 
   return (
     <>
@@ -89,6 +90,10 @@ export default async function AdminEmailPage() {
           </div>
         </dl>
       </div>
+
+      {/* ‏[1.41] ניתוב הפניות קודם לבודק התבניות: זו ההגדרה שמשנים
+          בפועל, והבדיקה היא כלי אבחון. */}
+      <InquiryInboxForm initial={inboxes} fallback={status.staffInbox} />
 
       <EmailTester defaultTo={session.email ?? ''} />
     </>

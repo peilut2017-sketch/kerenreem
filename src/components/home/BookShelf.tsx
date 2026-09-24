@@ -105,7 +105,7 @@ export function BookShelf({ books, label }: { books: ShelfBook[]; label: string 
       // כבר ממלאים בו את הרוחב עד הקצה (גלישה אופקית היא כשל נגישות);
       // מ-xs מוחלות מידות הבסיס ×1.3, מ-sm המידות הגדולות הקודמות (שכבר
       // ממלאות את הרוחב עד ~lg), ומ-lg המידות הגדולות ×1.3.
-      className="mx-auto max-w-full px-4 [--bw:1.5rem] [--gp:2px] [--ow:6.5rem] xs:[--bw:1.95rem] xs:[--gp:3px] xs:[--ow:8.45rem] sm:[--bw:2.75rem] sm:[--gp:6px] sm:[--ow:11rem] lg:[--bw:3.575rem] lg:[--gp:8px] lg:[--ow:14.3rem]"
+      className="mx-auto max-w-full px-4 [--bw:1.5rem] [--gp:0px] [--ow:6.5rem] xs:[--bw:1.95rem] xs:[--ow:8.45rem] sm:[--bw:2.75rem] sm:[--ow:11rem] lg:[--bw:3.575rem] lg:[--ow:14.3rem]"
     >
       {/* רוחב המדף שמור מראש לרוחב שכל הספרים תופסים כשאחד מהם פתוח.
           בלי ההזמנה הזו לוח המדף היה מתרחב ומתכווץ בכל מעבר עכבר, וכל
@@ -172,8 +172,28 @@ function BookOnShelf({
       // --bw/--ow מוגדרים על המדף (ראו למעלה) ומכוילים כך שעשרה ספרים,
       // אחד מהם פתוח, נכנסים לרוחב מסך טלפון בלי לגלוש — גלישה אופקית
       // היא כשל נגישות, לא רק חוסר נוחות.
+      /*
+       * ‏[1.41] רוחב הספר הסגור נגזר מהשדרה עצמה, לא ממשבצת בגודל קבוע.
+       *
+       * עד כה כל ספר קיבל ‎w-[var(--bw)] זהה, והשדרה נמתחה למלא אותו
+       * ‏(object-cover). מי שמעלה צילום שדרה צר — וכל השדרות מועלות על
+       * רקע שקוף — קיבל את הרקע השקוף כרווח גלוי בין הספרים, והמדף
+       * נראה מפוזר ולא צמוד.
+       *
+       * ‏w-auto עם ‎max-w-[var(--bw)]: הרוחב בא מיחס הצדדים של הקובץ
+       * בגובה המדף, אבל לא יותר מהמשבצת המקורית. הסייג הזה הוא מה
+       * ששומר על ההבטחה שעשרה ספרים נכנסים לרוחב טלפון בלי גלישה
+       * אופקית — הרוחב השמור למדף (החישוב למעלה) נשאר חסם עליון תקף.
+       *
+       * שדרה שנבנית מצבעי הכריכה (בלי צילום) נשארת ברוחב הקבוע: היא
+       * סינתטית, ורוחב אחיד הוא הנכון לה.
+       */
       className={`${height} shrink-0 transition-[width] duration-500 ease-[var(--ease-spring)] motion-reduce:transition-none ${
-        open ? 'w-[var(--ow)]' : 'w-[var(--bw)]'
+        open
+          ? 'w-[var(--ow)]'
+          : book.spineUrl
+            ? 'w-auto max-w-[var(--bw)]'
+            : 'w-[var(--bw)]'
       }`}
     >
       <Link
@@ -184,14 +204,23 @@ function BookOnShelf({
           open ? 'shadow-[var(--shadow-lift)] -translate-y-3' : ''
         }`}
       >
-        {/* השדרה — גלויה כשהספר סגור */}
+        {/*
+          השדרה — גלויה כשהספר סגור.
+
+          ‏[1.41] כששדרה צולמה, השכבה הזו **בזרימה** ולא absolute: היא
+          מה שמקנה ל-<li> את רוחבו (ראו ההערה למעלה), ואלמנט מחוץ
+          לזרימה אינו תורם רוחב לאב. כשהספר פתוח הרוחב נקבע מ---ow
+          והשדרה רק דוהה, ולכן אז אין הבדל.
+
+          שדרה סינתטית נשארת absolute: הרוחב שלה קבוע מלכתחילה.
+        */}
         <span
           aria-hidden={open}
-          className={`absolute inset-0 transition-opacity duration-300 ${
-            open ? 'opacity-0' : 'opacity-100'
-          }`}
+          className={`transition-opacity duration-300 ${
+            book.spineUrl ? 'block h-full w-auto max-w-full' : 'absolute inset-0'
+          } ${open ? 'opacity-0' : 'opacity-100'}`}
         >
-          <Spine book={book} />
+          <Spine book={book} fit={book.spineUrl ? 'intrinsic' : 'cover'} />
         </span>
 
         {/* החזית — נגלית כשהספר נפתח */}
@@ -249,8 +278,45 @@ function BookOnShelf({
  * [1.39] מיוצא: מדף הסדרה בעמוד הספר (SeriesShelfClient) משתמש באותה
  * שדרה בדיוק — כך הסדרה "עומדת" כמו על מדף עמוד הבית, לא כמו רכיב זר.
  */
-export function Spine({ book }: { book: ShelfBook }) {
+export function Spine({
+  book,
+  fit = 'cover',
+}: {
+  book: ShelfBook;
+  /**
+   * ‏[1.41] איך צילום שדרה מתמלא בקופסה שלו.
+   *
+   *   'cover'     — התנהגות המקור: fill + object-cover, למי שקובע את
+   *                 רוחב הקופסה בעצמו (מדף הסדרה בעמוד הספר).
+   *   'intrinsic' — הקופסה מקבלת את רוחבה מיחס הצדדים של הצילום
+   *                 בגובה הנתון. זה מה שמאפשר לשדרות במדף עמוד הבית
+   *                 לעמוד צמודות זו לזו במקום בתוך משבצות אחידות.
+   */
+  fit?: 'cover' | 'intrinsic';
+}) {
   const { spineUrl: baseSpineUrl } = usePlaceholderArt();
+
+  if (book.spineUrl && fit === 'intrinsic') {
+    /*
+     * ‏h-full w-auto: הרוחב נגזר מיחס הצדדים של הקובץ, ולכן אין ריפוד
+     * שקוף בצדדים ואין מתיחה. ‏max-w-full + object-cover מטפלים במקרה
+     * ההפוך — צילום רחב מהמשבצת נחתך במקום למתוח את הקופסה מעבר לחסם.
+     *
+     * width/height כאן הם יחס *ההערכה* בלבד, למניעת קפיצת פריסה לפני
+     * הטעינה (המשבצת בפועל היא ~1:5.7). אחרי הטעינה הדפדפן מחשב את
+     * הרוחב מיחס הצדדים האמיתי של הקובץ.
+     */
+    return (
+      <Image
+        src={book.spineUrl}
+        alt=""
+        width={280}
+        height={1600}
+        quality={90}
+        className="h-full w-auto max-w-full object-cover"
+      />
+    );
+  }
 
   if (book.spineUrl) {
     // [1.14] sizes מכוון לרוחב בלבד היה גורם ל-next/image להוריד תמונה

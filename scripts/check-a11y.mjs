@@ -87,7 +87,10 @@ for (const viewport of VIEWPORTS) {
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
 
   const widgets = [
-    ['סרגל נגישות', '[aria-label="פתיחת סרגל נגישות"]'],
+    // [1.41] הפאנל נכתב מחדש ואינו חבילה חיצונית. הבורר לפי aria-label
+    // של כפתור הפתיחה — אם הוא ישתנה שוב, הבדיקה מדווחת "לא נמצא" ולא
+    // עוברת בשקט, וזה המצב הרצוי.
+    ['הגדרות נגישות', '[aria-label="פתיחת הגדרות נגישות"]'],
     ...(viewport.width < 1024 ? [['תפריט נייד', 'button[aria-controls="mobile-nav-panel"]']] : []),
   ];
 

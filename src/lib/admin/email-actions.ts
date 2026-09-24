@@ -4,6 +4,8 @@ import { assertRole } from './auth';
 import { writeAuditLog } from './audit';
 import { createClient } from '@/lib/supabase/server';
 import { contactAddress, fromAddress, sendEmail, staffInbox } from '@/lib/email/send';
+import { readInquiryInboxes, INBOX_KEYS, type InquiryKind } from '@/lib/email/inbox';
+import { revalidatePath } from 'next/cache';
 import { getEmailBrand } from '@/lib/email/brand';
 import {
   contactAckEmail,
@@ -204,4 +206,64 @@ export async function getEmailConfigStatus(): Promise<{
     staffInbox: staffInbox(brand.contactEmail),
     siteUrl: brand.siteUrl,
   };
+}
+
+
+/**
+ * ‏[1.41] כתובות היעד לפניות מהאתר, לפי סוג.
+ *
+ * נשמרות ב-site_settings.extra ולא בעמודה ייעודית — אותו נימוק כמו
+ * שאר ההגדרות הנקודתיות שם (ראו mergeExtra ב-settings-actions.ts):
+ * הגדרה נקודתית אינה מצדיקה מיגרציה.
+ *
+ * מיזוג ולא כתיבה גורפת, מאותה סיבה בדיוק: העמודה משותפת למסכי ניהול
+ * אחרים, וכתיבה מלאה הייתה מוחקת בשקט את מה ששמרו הם.
+ *
+ * כתובת ריקה אינה שגיאה — היא אומרת "בלי כתובת ייעודית", והפנייה
+ * נופלת חזרה לתיבה הכללית (ראו lib/email/inbox.ts).
+ */
+export async function saveInquiryInboxes(
+  inboxes: Record<InquiryKind, string>,
+): Promise<EmailActionResult> {
+  const session = await assertRole('admin');
+  if ('error' in session) return { ok: false, error: session.error };
+
+  const patch: Record<string, string | null> = {};
+  for (const kind of ['general', 'book'] as const) {
+    const value = inboxes[kind]?.trim() ?? '';
+    if (value !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
+      return { ok: false, error: `כתובת לא תקינה: ${value}` };
+    }
+    patch[INBOX_KEYS[kind]] = value === '' ? null : value.toLowerCase();
+  }
+
+  const supabase = await createClient();
+  if (!supabase) return { ok: false, error: 'אין חיבור למסד' };
+
+  const { data: current } = await supabase
+    .from('site_settings')
+    .select('extra')
+    .eq('id', 1)
+    .maybeSingle();
+  const extra = { ...((current?.extra as Record<string, unknown> | null) ?? {}), ...patch };
+
+  const { error } = await supabase
+    .from('site_settings')
+    .update({ extra, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  if (error) return { ok: false, error: `השמירה נכשלה: ${error.message}` };
+
+  await writeAuditLog(supabase, session.userId, 'update', 'site_settings', null, {
+    context: 'עדכון כתובות היעד לפניות מהאתר',
+  });
+
+  revalidatePath('/admin/email');
+  return { ok: true };
+}
+
+/** הכתובות כפי שהוגדרו, למסך הניהול. */
+export async function getInquiryInboxes(): Promise<Record<InquiryKind, string>> {
+  const session = await assertRole('admin');
+  if ('error' in session) return { general: '', book: '' };
+  return readInquiryInboxes();
 }
