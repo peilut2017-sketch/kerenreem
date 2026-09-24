@@ -5,9 +5,17 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useRouter, Link } from '@/i18n/navigation';
 import { Drawer } from './Drawer';
 import { Img } from './Img';
-import { globalSearch, type GlobalSearchResult } from '@/lib/search-actions';
+import { globalSearch, type GlobalSearchPage, type GlobalSearchResult } from '@/lib/search-actions';
 
-const EMPTY: GlobalSearchResult = { books: [], totalBooks: 0, authors: [], categories: [] };
+const EMPTY: GlobalSearchResult = {
+  books: [],
+  totalBooks: 0,
+  authors: [],
+  categories: [],
+  events: [],
+  activities: [],
+  pages: [],
+};
 const DEBOUNCE_MS = 250;
 
 interface FlatItem {
@@ -21,6 +29,11 @@ interface FlatItem {
  * (ספרים עם כריכה/מחבר/מחיר/זמינות, מחברים, קטגוריות) מ-Server Action,
  * בחירה מנווטת ישירות ליעד, ו"כל התוצאות" מוביל לקטלוג המסונן.
  * בנוי על Drawer variant="center" הקיים — לכידת מיקוד ו-Escape כבר שם.
+ *
+ * ‏[1.41] נוספו שלוש קבוצות — אירועים, פעילות ועמודים — כדי שהחיפוש
+ * יכסה את האתר ולא רק את הקטלוג. סדר הקבוצות הוא סדר הסיכוי: ספרים
+ * ראשונים (זה עיקר האתר), ואז עמודים ומקטעים, ואז אירועים ופעילות.
+ * ‏flatItems נגזר מאותו סדר, ולכן ניווט החצים עובר עליהן בסדר המוצג.
  */
 export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useTranslations('books');
@@ -57,6 +70,11 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
   const flatItems = useMemo<FlatItem[]>(() => {
     const items: FlatItem[] = [];
     for (const book of result.books) items.push({ href: `/books/${book.slug}`, key: `book-${book.slug}` });
+    for (const page of result.pages) items.push({ href: page.href, key: `page-${page.href}` });
+    for (const event of result.events) items.push({ href: event.href, key: `event-${event.href}` });
+    for (const activity of result.activities) {
+      items.push({ href: activity.href, key: `activity-${activity.href}` });
+    }
     for (const author of result.authors) items.push({ href: `/authors/${author.slug}`, key: `author-${author.slug}` });
     for (const category of result.categories) {
       items.push({ href: `/books?category=${category.slug}`, key: `category-${category.slug}` });
@@ -84,7 +102,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   const hasQuery = value.trim().length > 0;
-  const hasResults = result.books.length > 0 || result.authors.length > 0 || result.categories.length > 0;
+  const hasResults = flatItems.length > 0;
 
   return (
     <Drawer
@@ -162,6 +180,40 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
               </ResultGroup>
             ) : null}
 
+            {/* עמודים ומקטעי האתר, ואז אירועים ופעילות. שורת ההקשר
+                (excerpt) מוצגת רק כשיש לה תוכן — כותרת בלי משנה-כותרת
+                עדיפה על שורה ריקה שמותחת את הרשימה. */}
+            <PageGroup
+              label={t('searchGroupPages')}
+              items={result.pages}
+              titleId={titleId}
+              prefix="page"
+              flatItems={flatItems}
+              active={active}
+              setActive={setActive}
+              onClose={onClose}
+            />
+            <PageGroup
+              label={t('searchGroupEvents')}
+              items={result.events}
+              titleId={titleId}
+              prefix="event"
+              flatItems={flatItems}
+              active={active}
+              setActive={setActive}
+              onClose={onClose}
+            />
+            <PageGroup
+              label={t('searchGroupActivities')}
+              items={result.activities}
+              titleId={titleId}
+              prefix="activity"
+              flatItems={flatItems}
+              active={active}
+              setActive={setActive}
+              onClose={onClose}
+            />
+
             {result.authors.length > 0 ? (
               <ResultGroup label={t('searchGroupAuthors')}>
                 {result.authors.map((author) => {
@@ -219,6 +271,58 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
         )}
       </div>
     </Drawer>
+  );
+}
+
+/**
+ * ‏[1.41] קבוצת תוצאות שאינן ישות בקטלוג — עמוד, מקטע, אירוע או
+ * פעילות. שלושתן חולקות את אותו מבנה (כותרת + שורת הקשר), ולכן רכיב
+ * אחד ולא שלוש חזרות.
+ */
+function PageGroup({
+  label,
+  items,
+  titleId,
+  prefix,
+  flatItems,
+  active,
+  setActive,
+  onClose,
+}: {
+  label: string;
+  items: GlobalSearchPage[];
+  titleId: string;
+  prefix: string;
+  flatItems: FlatItem[];
+  active: number;
+  setActive: (index: number) => void;
+  onClose: () => void;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <ResultGroup label={label}>
+      {items.map((item) => {
+        const index = flatItems.findIndex((entry) => entry.key === `${prefix}-${item.href}`);
+        return (
+          <li key={item.href} id={`${titleId}-option-${index}`} role="option" aria-selected={index === active}>
+            <Link
+              href={item.href}
+              onClick={onClose}
+              onMouseEnter={() => setActive(index)}
+              className={`block rounded-[var(--radius-md)] px-3 py-2 transition-colors ${
+                index === active ? 'bg-cream-2' : 'hover:bg-cream-2/60'
+              }`}
+            >
+              <span className="block truncate text-small text-ink">{item.title}</span>
+              {item.excerpt ? (
+                <span className="block truncate text-caption text-muted">{item.excerpt}</span>
+              ) : null}
+            </Link>
+          </li>
+        );
+      })}
+    </ResultGroup>
   );
 }
 

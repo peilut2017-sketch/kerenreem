@@ -43,12 +43,18 @@
   --admin-canvas: #f7f6f4;
   --admin-surface: #ffffff;
 
-  /* --- עמודת הניווט: כהה, קבועה, נבדלת בבירור מהקנבס --- */
-  --admin-sidebar-bg: #16171f;
-  --admin-sidebar-bg-raised: #1d1f2b;
-  --admin-sidebar-text: #9a9cae;
-  --admin-sidebar-text-strong: #eceef5;
-  --admin-sidebar-border: color-mix(in srgb, #fff 8%, transparent);
+  /* --- עמודת הניווט ---
+     [1.41] בהירה, אחרי שהגרסה הכהה התגלתה כלא נוחה לעבודה ממושכת.
+     עמודה כהה בממשק שכל שאר משטחיו לבנים כופה על העין להסתגל מחדש בכל
+     מעבר בין הניווט לתוכן, ובמסך שבו עובדים שעות זה מתיש.
+
+     היא עדיין נבדלת מהקנבס — גוון חם אחד כלפי מטה, וגבול בקצה — אבל
+     בהפרש עדין ולא בניגוד. */
+  --admin-sidebar-bg: #f1efec;
+  --admin-sidebar-bg-raised: #e7e4df;
+  --admin-sidebar-text: #5b5348;
+  --admin-sidebar-text-strong: #221f1a;
+  --admin-sidebar-border: color-mix(in srgb, #221f1a 10%, transparent);
   --admin-sidebar-width: 15.5rem;
 }
 
@@ -266,6 +272,7 @@
     flex-direction: column;
     width: var(--admin-sidebar-width);
     flex-shrink: 0;
+    border-inline-end: 1px solid var(--admin-sidebar-border);
   }
   .admin-sidebar-brand {
     display: flex;
@@ -286,26 +293,87 @@
     flex-shrink: 0;
     box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--admin-accent) 70%, transparent);
   }
+
+  /*
+     [1.41] הגלילה בלי סרגל גלילה גלוי.
+     סרגל גלילה במגירת ניווט צרה הוא רצועה אפורה שמתחרה על תשומת הלב עם
+     הקישורים עצמם. במקומו: מסכת דעיכה בשני הקצוות, שמראה שיש עוד תוכן
+     מעל/מתחת בלי לצייר פס. הגלילה עצמה נשארת — גם בגלגלת, גם במקלדת,
+     וגם במסך מגע.
+
+     ‏scrollbar-gutter: stable מונע "קפיצה" של רוחב התוכן כשהגלילה
+     מופיעה ונעלמת בין קבוצות פתוחות לסגורות.
+  */
   .admin-sidebar-scroll {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0.25rem 0.75rem 1.25rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 0.75rem,
+      #000 calc(100% - 1.25rem),
+      transparent 100%
+    );
   }
-  .admin-sidebar-group + .admin-sidebar-group { margin-top: 1.35rem; }
+  .admin-sidebar-scroll::-webkit-scrollbar { width: 0; height: 0; }
+
+  .admin-sidebar-group + .admin-sidebar-group { margin-top: 0.4rem; }
+
+  /*
+     כותרת קבוצה כ-summary: הקבוצות מתקפלות, ולכן ~30 מסכים אינם
+     נשפכים כרשימה אחת ארוכה. פתוחה תמיד הקבוצה שבה נמצא המסך הנוכחי;
+     השאר נזכרות לפי בחירת המשתמש (ראו AdminNav.tsx).
+  */
   .admin-sidebar-group-label {
-    padding: 0 0.6rem;
-    margin-block-end: 0.4rem;
-    font-size: 0.68rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    margin-block-end: 0.15rem;
+    border-radius: 0.55rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--admin-sidebar-text) 70%, transparent);
+    letter-spacing: 0.04em;
+    color: color-mix(in srgb, var(--admin-sidebar-text) 85%, transparent);
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
   }
+  .admin-sidebar-group-label:hover {
+    background: var(--admin-sidebar-bg-raised);
+    color: var(--admin-sidebar-text-strong);
+  }
+  /* חץ הקיפול — מסתובב לפי מצב הפתיחה, ובקצה הפנימי כדי שהטקסט יתחיל
+     באותו מקום כמו הקישורים שמתחתיו. */
+  .admin-sidebar-group-chevron {
+    flex-shrink: 0;
+    width: 0.85rem;
+    height: 0.85rem;
+    margin-inline-start: auto;
+    opacity: 0.6;
+    transition: transform 180ms ease;
+  }
+  .admin-sidebar-group[data-open='true'] .admin-sidebar-group-chevron {
+    transform: rotate(-180deg);
+  }
+  /* מספר הפריטים בקבוצה מקופלת — כדי שקיפול לא יסתיר מידע לגמרי. */
+  .admin-sidebar-group-count {
+    font-size: 0.65rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.55;
+  }
+
   .admin-sidebar-link {
     display: flex;
     align-items: center;
     gap: 0.7rem;
-    padding: 0.55rem 0.6rem;
+    padding: 0.5rem 0.6rem;
     border-radius: 0.6rem;
     font-size: 0.85rem;
     font-weight: 500;
@@ -313,14 +381,14 @@
     transition: background-color 150ms ease, color 150ms ease;
     position: relative;
   }
-  .admin-sidebar-link svg { flex-shrink: 0; opacity: 0.85; }
+  .admin-sidebar-link svg { flex-shrink: 0; opacity: 0.7; }
   .admin-sidebar-link:hover {
     background: var(--admin-sidebar-bg-raised);
     color: var(--admin-sidebar-text-strong);
   }
   .admin-sidebar-link-active {
-    background: color-mix(in srgb, var(--admin-accent) 22%, var(--admin-sidebar-bg-raised));
-    color: #fff;
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent-strong);
     font-weight: 600;
   }
   .admin-sidebar-link-active svg { opacity: 1; }
@@ -329,8 +397,8 @@
     content: '';
     position: absolute;
     inset-inline-start: -0.75rem;
-    top: 0.35rem;
-    bottom: 0.35rem;
+    top: 0.3rem;
+    bottom: 0.3rem;
     width: 3px;
     border-radius: 999px;
     background: var(--admin-accent);

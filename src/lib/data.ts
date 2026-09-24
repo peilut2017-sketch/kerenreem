@@ -879,6 +879,27 @@ export const getPageBySlug = cache(async (slug: string): Promise<ContentPage | n
   return (data as ContentPage | null) ?? null;
 });
 
+/**
+ * ‏[1.41] כל עמודי התוכן המפורסמים — לחיפוש הגלובלי.
+ *
+ * ‏getPageBySlug שולף עמוד אחד לפי כתובת, וזה מה שעמוד צריך. החיפוש
+ * צריך את ההפוך: את כולם, כדי לחפש בגוף הטקסט שלהם. השליפה מצומצמת
+ * לשדות שהחיפוש משתמש בהם ולא ‎select('*') — גוף עמוד תוכן יכול להיות
+ * ארוך, ואין סיבה לשלוף שדות שלא ייבדקו.
+ */
+export async function getContentPages(): Promise<ContentPage[]> {
+  const supabase = createStaticClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('pages')
+    .select('id, slug, title_he, title_en, body_he, body_en, is_published, created_at, updated_at')
+    .eq('is_published', true);
+
+  warn('getContentPages', error);
+  return (data as ContentPage[] | null) ?? [];
+}
+
 const EMPTY_SETTINGS: SiteSettings = {
   id: 1,
   logo_url: null,

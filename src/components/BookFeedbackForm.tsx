@@ -178,27 +178,6 @@ export function BookFeedbackForm({
 
       <ContactAttachmentsField name="attachments" />
 
-      <div>
-        <label htmlFor={`${id}-consent`} className="flex items-start gap-3 text-small text-ink-soft on-dark:text-cream-2">
-          <input
-            type="checkbox"
-            id={`${id}-consent`}
-            name="consent"
-            required
-            aria-invalid={state.fieldErrors?.consent ? true : undefined}
-            aria-describedby={state.fieldErrors?.consent ? `${id}-consent-error` : undefined}
-            className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-burgundy)]"
-          />
-          <span>
-            {t('consentPrefix')}{' '}
-            <Link href="/terms" className="link">
-              {t('termsLinkLabel')}
-            </Link>{' '}
-            {t('consentSuffix')}
-          </span>
-        </label>
-        {errorFor('consent')}
-      </div>
 
       <Captcha resetSignal={state} />
 
@@ -211,6 +190,23 @@ export function BookFeedbackForm({
       <button type="submit" disabled={pending} className="btn btn-solid">
         {pending ? t('sending') : t('send')}
       </button>
+
+      {/* ראו ההסבר ב-ContactForm.tsx: השליחה עצמה היא האישור, במקום
+          תיבת סימון חובה. */}
+      <p className="text-caption text-muted on-dark:text-cream-2/80">
+        {t.rich('consentNotice', {
+          terms: (chunks) => (
+            <Link href="/terms" className="link">
+              {chunks}
+            </Link>
+          ),
+          privacy: (chunks) => (
+            <Link href="/privacy" className="link">
+              {chunks}
+            </Link>
+          ),
+        })}
+      </p>
 
       {/* locale משתתף בטופס רק לצורך עקביות עתידית של הודעות המענה */}
       <input type="hidden" name="locale" value={locale} />

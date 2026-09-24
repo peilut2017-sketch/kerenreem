@@ -134,7 +134,6 @@ export async function submitContact(
   const subject = String(formData.get('subject') ?? '').trim();
   const message = String(formData.get('message') ?? '').trim();
   const topicId = String(formData.get('topic_id') ?? '').trim();
-  const consent = formData.get('consent') === 'on';
   const attachments = parseAttachments(formData.get('attachments'));
 
   const supabase = await createClient();
@@ -147,7 +146,6 @@ export async function submitContact(
   if (!message) fieldErrors.message = t('required');
   if (!email) fieldErrors.email = t('required');
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) fieldErrors.email = t('invalidEmail');
-  if (!consent) fieldErrors.consent = t('consentRequired');
 
   for (const [key, limit] of Object.entries(MAX)) {
     const value = { name, email, phone, subject, message }[key as keyof typeof MAX];
@@ -331,7 +329,6 @@ export async function submitBookFeedback(
   const bookId = String(formData.get('book_id') ?? '').trim();
   const pageReference = String(formData.get('page_reference') ?? '').trim();
   const rawHtml = String(formData.get('message_html') ?? '');
-  const consent = formData.get('consent') === 'on';
   const attachments = parseAttachments(formData.get('attachments'));
 
   const supabase = await createClient();
@@ -354,7 +351,6 @@ export async function submitBookFeedback(
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) fieldErrors.email = t('invalidEmail');
   if (!bookId) fieldErrors.book_id = t('bookRequired');
   if (!messageText) fieldErrors.message_html = t('required');
-  if (!consent) fieldErrors.consent = t('consentRequired');
   if (name.length > MAX.name || email.length > MAX.email || phone.length > MAX.phone) {
     return { status: 'error', message: t('error') };
   }
