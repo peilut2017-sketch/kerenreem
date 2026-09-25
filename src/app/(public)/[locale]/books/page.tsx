@@ -6,18 +6,25 @@ import { getCommerceFlags } from '@/lib/commerce/settings';
 import { pageAlternates } from '@/lib/seo';
 import { htmlToPlainText } from '@/lib/html-text';
 
-/**
- * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
+/*
+ * ‏[1.42] סטטי + on-demand בלבד. אין כאן revalidate מבוסס-זמן.
  *
- * נמדד ישירות: קריאה ל-revalidatePath, גם מ-Server Action וגם מ-Route
- * Handler, סימנה את המטמון לרענון אך לא שינתה בפועל את מה שמוגש לבקשה
- * הבאה מדפדפן חדש — נבדק עם Next.js 16.2.12 ובנייה עם Turbopack, שוב
- * ושוב, כולל אחרי המתנה ובקשות חוזרות. יתכן שזו התנהגות שונה בפריסה
- * אמיתית (Vercel), אבל אי אפשר להסתמך על זה בלי דרך לאמת. חלון של דקה
- * מבטיח שתוכן חדש יופיע גם אם הרענון היזום אינו פועל בפועל, ועדיין
- * שומר על מרבית התועלת של מטמון קצה עבור תעבורה אמיתית.
+ * העמוד מציג מחירים, ולכן הוא תלוי בחלונות המבצע
+ * (‏sale_starts_at/sale_ends_at, ראו commerce/pricing.ts) — מעברים שקורים
+ * לפי שעון בלי ששום שורה במסד משתנה. עד כה זה נפתר בכך שהעמוד נכתב
+ * מחדש בכל דקה, לנצח, כדי לתפוס מעבר שקורה פעם בשבוע.
+ *
+ * מעכשיו הגבולות האלה מטופלים ב-/api/cron/revalidate, שרץ כל 15 דקות,
+ * **שואל** אם נחצה גבול, ומרענן נתיבים קונקרטיים בלבד — ולא נוגע בשום
+ * מטמון כשלא נחצה. ראו lib/revalidation/boundaries.ts.
+ *
+ * זמינות המלאי אינה סיבה ל-ISR: היא נטענת בזמן אמת אחרי ה-hydration
+ * (‏lib/books/availability-actions.ts), ולכן שריון, שחרור ותנועת מלאי
+ * אינם מצריכים לרענן את העמוד כלל.
+ *
+ * שינויי תוכן (עריכת ספר, מחבר, באנר) מרעננים on-demand מאז ומתמיד —
+ * ראו entity.revalidate ב-lib/admin/schema.ts.
  */
-export const revalidate = 60;
 
 export function generateStaticParams() {
   return [{ locale: 'he' }, { locale: 'en' }];

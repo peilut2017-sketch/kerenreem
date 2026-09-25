@@ -13,6 +13,7 @@ import { getSiteSettingsResult } from '@/lib/data';
 import { MaintenancePage } from '@/components/MaintenancePage';
 import { getCommerceFlags } from '@/lib/commerce/settings';
 import { CartProvider } from '@/components/store/CartProvider';
+import { AvailabilityProvider } from '@/components/store/AvailabilityProvider';
 import { MiniCart } from '@/components/store/MiniCart';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -140,6 +141,12 @@ export default async function PublicLayout({
           {/* [1.40] תצוגה מהירה של ספר — ברמת הפריסה כדי שתהיה זמינה
               לכל מסך ציבורי (עמוד ספר, קטלוג, חיפוש), לא רק לעמוד אחד. */}
           <BookQuickViewProvider>
+          {/* ‏[1.42] זמינות חיה — בקשה אחת לכל העמוד, ברמת הפריסה כדי
+              שכל מסך שמציג ספר יחלוק אותה: עמוד הבית, הקטלוג, עמוד
+              מחבר, תוצאות חיפוש, ספרים קשורים והתצוגה המהירה. מכאן
+              ‏/, /books ו-/books/[slug] אינם צריכים ISR בגלל מלאי.
+              ראו lib/books/availability-actions.ts. */}
+          <AvailabilityProvider enabled={flags.cartEnabled}>
           <CartProvider enabled={flags.cartEnabled} locale={locale}>
             <a href="#main" className="skip-link">
               {t('skipToContent')}
@@ -170,6 +177,7 @@ export default async function PublicLayout({
             <AnalyticsBeacon />
             <MiniCart />
           </CartProvider>
+          </AvailabilityProvider>
           </BookQuickViewProvider>
           </HeaderContextNavProvider>
           </PlaceholderArtProvider>

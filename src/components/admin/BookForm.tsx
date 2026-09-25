@@ -722,6 +722,9 @@ export function BookForm({
                       saleStartsAt: book?.sale_starts_at?.slice(0, 10) ?? null,
                       saleEndsAt: book?.sale_ends_at?.slice(0, 10) ?? null,
                       saleName: book?.sale_name_he ?? null,
+                      // ‏?? true — אותה ברירת מחדל בדיוק כמו של התיבה
+                      // עצמה למטה (defaultChecked={book?.is_stock_managed ?? true}).
+                      isStockManaged: book?.is_stock_managed ?? true,
                       isPurchasable: book?.is_purchasable ?? false,
                       preorderEnabled: book?.preorder_enabled ?? false,
                       preorderReleaseDate: book?.preorder_release_date ?? null,

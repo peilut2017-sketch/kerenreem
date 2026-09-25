@@ -31,18 +31,23 @@ import { htmlToPlainText } from '@/lib/html-text';
 import { getSpineLook } from '@/lib/cover-colors';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 
-/**
- * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
+/*
+ * ‏[1.42] סטטי + on-demand בלבד. אין כאן revalidate מבוסס-זמן.
  *
- * נמדד ישירות: קריאה ל-revalidatePath, גם מ-Server Action וגם מ-Route
- * Handler, סימנה את המטמון לרענון אך לא שינתה בפועל את מה שמוגש לבקשה
- * הבאה מדפדפן חדש — נבדק עם Next.js 16.2.12 ובנייה עם Turbopack, שוב
- * ושוב, כולל אחרי המתנה ובקשות חוזרות. יתכן שזו התנהגות שונה בפריסה
- * אמיתית (Vercel), אבל אי אפשר להסתמך על זה בלי דרך לאמת. חלון של דקה
- * מבטיח שתוכן חדש יופיע גם אם הרענון היזום אינו פועל בפועל, ועדיין
- * שומר על מרבית התועלת של מטמון קצה עבור תעבורה אמיתית.
+ * עמוד הבית תלוי בשני סוגי חלונות זמן, ושניהם מטופלים עכשיו
+ * ב-/api/cron/revalidate (כל 15 דקות, רק כשנחצה גבול):
+ *
+ *   • חלונות באנר — banners.starts_at/ends_at, מסוננים בזמן הרינדור
+ *     (‏getBanners ב-lib/data.ts, והכלל עצמו ב-lib/banner-window.ts).
+ *   • חלונות מבצע — המדף והנצפים ביותר מציגים מחיר, ולכן
+ *     ‏sale_starts_at/sale_ends_at משפיעים גם כאן.
+ *
+ * זמינות המלאי אינה סיבה ל-ISR: היא נטענת בזמן אמת אחרי ה-hydration
+ * (‏lib/books/availability-actions.ts).
+ *
+ * שינויי תוכן (באנר, מדף, ספר, אירוע) מרעננים on-demand מאז ומתמיד —
+ * ראו entity.revalidate ב-lib/admin/schema.ts.
  */
-export const revalidate = 60;
 
 export async function generateMetadata({
   params,

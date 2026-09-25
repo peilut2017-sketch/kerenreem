@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useCart } from './CartProvider';
+import { useLiveAvailability } from './AvailabilityProvider';
 import { subscribeBackInStock } from '@/lib/commerce/back-in-stock-actions';
 import type { BookAvailability } from '@/lib/supabase/types';
 
@@ -10,6 +11,15 @@ import type { BookAvailability } from '@/lib/supabase/types';
  * כפתור ההוספה לסל האחד (פרק 2.1 במסמך האב) — מחליף את ארבעת הכפתורים
  * הדוממים. הזמינות מגיעה מהשרת (getBookAvailability) דרך העמוד; הרכיב
  * אינו מחשב זמינות ואינו מציג מחיר — רק פועל.
+ *
+ * ‏[1.42] ה-prop availability הוא מעתה **נקודת הפתיחה**, לא האמת: הוא
+ * מה שנצרב בעמוד הסטטי, ואחרי ה-hydration הוא מוחלף בערך מהמסד
+ * (useLiveAvailability). זה הרכיב היחיד שצריך לדעת זאת — כל שאר
+ * הקוראים (BookHeroActions, FloatingActions, BookCard) ממשיכים להעביר
+ * את הערך מהשרת בדיוק כמו קודם.
+ *
+ * זה מה שמאפשר לעמוד הספר ולקטלוג להיות סטטיים: ספר שהמלאי שלו חזר
+ * מקבל כפתור בלי שהעמוד ייבנה מחדש, וספר שאזל מציג הרשמה לעדכון.
  *
  * כשהעגלה כבויה (הדגל השכבתי) הכפתור אינו מוצג כלל — התנהגות המתג
  * הקיימת נשמרת: מה שכבוי אינו קיים בעמוד, לא "מנוטרל".
@@ -29,15 +39,16 @@ export function AddToCartButton({
 }) {
   const t = useTranslations('books');
   const cart = useCart();
+  const live = useLiveAvailability(bookId, availability);
 
-  if (!cart?.enabled || availability === 'catalog_only') return null;
+  if (!cart?.enabled || live.availability === 'catalog_only') return null;
 
   // [1.2] אזל מהמלאי — במקום כפתור מנוטרל: הרשמה לעדכון חזרה (פרק 16.4)
-  if (availability === 'out_of_stock') {
+  if (live.availability === 'out_of_stock') {
     return <BackInStockSignup bookId={bookId} variant={variant} className={className} />;
   }
 
-  const label = availability === 'preorder' ? t('addToCartPreorder') : t('addToCart');
+  const label = live.availability === 'preorder' ? t('addToCartPreorder') : t('addToCart');
 
   return (
     <button

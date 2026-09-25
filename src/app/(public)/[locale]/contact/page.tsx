@@ -11,18 +11,14 @@ import { resolveBookAuthor } from '@/lib/books/author-display';
 import { getBookOptions, getContactFields, getContactTopics, getSiteSettings } from '@/lib/data';
 import { pageAlternates } from '@/lib/seo';
 
-/**
- * חלון קצר במקום שעה, לא בגלל תעבורה אלא בגלל revalidatePath עצמו.
+/*
+ * ‏[1.42] סטטי, בלי revalidate מבוסס-זמן.
  *
- * נמדד ישירות: קריאה ל-revalidatePath, גם מ-Server Action וגם מ-Route
- * Handler, סימנה את המטמון לרענון אך לא שינתה בפועל את מה שמוגש לבקשה
- * הבאה מדפדפן חדש — נבדק עם Next.js 16.2.12 ובנייה עם Turbopack, שוב
- * ושוב, כולל אחרי המתנה ובקשות חוזרות. יתכן שזו התנהגות שונה בפריסה
- * אמיתית (Vercel), אבל אי אפשר להסתמך על זה בלי דרך לאמת. חלון של דקה
- * מבטיח שתוכן חדש יופיע גם אם הרענון היזום אינו פועל בפועל, ועדיין
- * שומר על מרבית התועלת של מטמון קצה עבור תעבורה אמיתית.
+ * אין בעמוד תלות בזמן: תחומי הפנייה והשדות המותאמים מגיעים מהמסד ואינם
+ * נגזרים מתאריך, ואין בו מחיר או מלאי. כל שינוי בהם עובר בשמירה בניהול,
+ * ‏ושמירה כזו מרעננת את /contact on-demand — ראו entity.revalidate של
+ * ‏contact-topics ו-contact-fields ב-lib/admin/schema.ts.
  */
-export const revalidate = 60;
 
 export async function generateMetadata({
   params,
