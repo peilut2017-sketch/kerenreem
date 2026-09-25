@@ -9,6 +9,7 @@ import { localized } from '@/lib/localized';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { resolveBookBadge } from '@/lib/books/badge';
 import { getBookAvailability } from '@/lib/books/availability';
+import { useLiveAvailability } from '@/components/store/AvailabilityProvider';
 import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
 import { AddToCartButton } from '@/components/store/AddToCartButton';
 import type { BookWithRelations } from '@/lib/supabase/types';
@@ -48,7 +49,16 @@ export function BookCard({
   const extraCategoryCount = categoryNames.length - visibleCategoryNames.length;
   const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
   const price = storeEnabled ? getEffectivePrice(book, locale) : null;
-  const availability = getBookAvailability(book, storeEnabled);
+  /*
+   * ‏[1.42] הזמינות שנצרבה בעמוד היא נקודת הפתיחה, והערך מהמסד מחליף
+   * אותה אחרי ה-hydration. ‏useLiveAvailability רושם את הספר ב-provider,
+   * וכל הכרטיסים בעמוד יוצאים יחד בבקשה **אחת** (ראו AvailabilityProvider).
+   *
+   * המחיר נשאר משרת במכוון: הוא נדרש ל-SEO ול-structured data, ואינו
+   * משתנה בקצב של מלאי.
+   */
+  const staticAvailability = getBookAvailability(book, storeEnabled);
+  const { availability } = useLiveAvailability(book.id, staticAvailability);
 
   return (
     // [1.14] "זכוכית נוזלית" בהשראת Apple Liquid Glass — ראו .book-card-glass

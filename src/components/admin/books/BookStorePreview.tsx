@@ -16,6 +16,12 @@ export interface BookPreviewInitial {
   preorderEnabled: boolean;
   preorderReleaseDate: string | null;
   stockQuantity: number;
+  /**
+   * ‏[1.42] נוסף כדי שהתצוגה המקדימה תסכים עם האתר: ספר בלי ניהול מלאי
+   * זמין תמיד, גם כשהמונה 0 (ראו getBookAvailability). בלעדיו התצוגה
+   * הייתה מראה "אזל" בדיוק במקרה שבו האתר מראה "במלאי".
+   */
+  isStockManaged: boolean;
   prepDaysOverride: number | null;
 }
 
@@ -66,6 +72,8 @@ export function BookStorePreview({
           return type === 'checkbox' ? { ...current, isPurchasable: checked } : current;
         case 'preorder_enabled':
           return type === 'checkbox' ? { ...current, preorderEnabled: checked } : current;
+        case 'is_stock_managed':
+          return type === 'checkbox' ? { ...current, isStockManaged: checked } : current;
         case 'preorder_release_date':
           return { ...current, preorderReleaseDate: value || null };
         default:
@@ -92,6 +100,7 @@ export function BookStorePreview({
       price: state.price,
       stock_quantity: state.stockQuantity,
       preorder_enabled: state.preorderEnabled,
+      is_stock_managed: state.isStockManaged,
     },
     storeEnabled,
   );

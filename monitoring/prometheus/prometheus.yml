@@ -48,8 +48,14 @@ scrape_configs:
   # --- בדיקות מבחוץ: כמו גולש ---------------------------------------------
   # מודול http_2xx בודק קוד תשובה, TLS וזמן. את "האם התוכן נכון"
   # בודקות הבדיקות עם התאמת גוף (ראו blackbox.yml).
+  # ‏[1.42] 600s ולא 60s. העמודים הציבוריים הם ISR, ו-probe שנוחת בדיוק
+  # בפקיעת חלון ה-revalidate מפעיל רינדור וכתיבה מחדש של העמוד. ‏60s מול
+  # ‏revalidate=60 הפך את הניטור עצמו למחולל ISR writes: תשע כתובות, כל
+  # דקה, מסביב לשעון, בלי מבקר אחד ובלי שינוי תוכן אחד. זמן הזיהוי עולה
+  # מדקה לעשר דקות — לאתר תוכן זה המחיר הנכון. הזיהוי המהיר נשאר
+  # ב-blackbox-health-deep למטה, שהוא נתיב דינמי בלי מטמון בכלל.
   - job_name: blackbox-pages
-    scrape_interval: 60s
+    scrape_interval: 600s
     metrics_path: /probe
     params:
       module: [http_2xx]
@@ -76,7 +82,7 @@ scrape_configs:
   # בזמן שעמוד הבית החזיר 200 — ולכן הוא בדיקה בפני עצמה.
   # ⚠️ להחליף את ה-slug בספר קבוע שלא יימחק.
   - job_name: blackbox-book-page
-    scrape_interval: 60s
+    scrape_interval: 600s
     metrics_path: /probe
     params:
       module: [http_2xx_has_content]
@@ -135,8 +141,11 @@ scrape_configs:
   # מחזירה 503 כשיש כשל אמיתי, ולכן http_2xx מספיק כדי לזהות אותו.
   # הפירוט (איזו שכבה נפלה) נמצא בגוף התשובה ומגיע להתראה דרך
   # הסקריפט monitoring/scripts/probe-health.mjs.
+  # ‏[1.42] 60s — הבדיקה התכופה עברה לכאן. ‎/api/health/deep הוא
+  # ‏force-dynamic ואינו נשמר במטמון, ולכן probe עליו אינו מייצר שום
+  # כתיבת ISR. זה המקום הנכון לזיהוי מהיר, לא עמודי התוכן.
   - job_name: blackbox-health-deep
-    scrape_interval: 120s
+    scrape_interval: 60s
     metrics_path: /probe
     params:
       module: [http_2xx_authorized]

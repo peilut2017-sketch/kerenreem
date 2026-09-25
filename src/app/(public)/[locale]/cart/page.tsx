@@ -10,7 +10,12 @@ import { CartPageClient } from '@/components/store/CartPageClient';
  * הלקוח (העגלה מקומית); העמוד רק נותן מסגרת ותרגומים.
  */
 
-export const revalidate = 60;
+/*
+ * ‏[1.42] סטטי. אין בעמוד הזה שום נתון מהשרת: העגלה חיה בדפדפן, וכל
+ * המחירים, הזמינות והסכומים נשלפים מהמסד דרך Server Action בזמן אמת
+ * ‏(getCartView → validateCart). ‏revalidate = 60 היה כותב מחדש מעטפת
+ * טקסט שאינה משתנה כלל.
+ */
 
 export async function generateMetadata({
   params,
