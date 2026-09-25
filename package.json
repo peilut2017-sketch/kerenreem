@@ -25,6 +25,7 @@
     "check:canonical": "node scripts/check-canonical.mjs",
     "check:email": "node --experimental-strip-types scripts/check-email-roles.mjs",
     "check:availability": "node --experimental-strip-types scripts/check-availability.mjs",
+    "check:boundaries": "node --experimental-strip-types scripts/check-boundaries.mjs",
     "monitor:browser": "node monitoring/scripts/synthetic-browser.mjs"
   },
   "dependencies": {

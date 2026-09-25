@@ -25,9 +25,18 @@ const NEXT_STUBS = {
     export const headers = () => fail('headers');
     export const draftMode = () => fail('draftMode');
   `,
+  /*
+   * ‏revalidatePath מתועד ב-globalThis כדי שבדיקה תוכל לאמת **כמה**
+   * פעמים הוא נקרא ובאילו נתיבים — זו הטענה המרכזית של סורק הגבולות
+   * ("אפס רענון כשאין שינוי"), ובלי מדידה היא רק הצהרה.
+   * ‏__revalidateShouldThrow מאפשר לבדוק את מסלול הכשל.
+   */
   'next/cache': `
-    export const revalidatePath = () => {};
-    export const revalidateTag = () => {};
+    export const revalidatePath = (path, type) => {
+      if (globalThis.__revalidateShouldThrow) throw new Error('[check] revalidatePath נכשל');
+      (globalThis.__revalidateCalls ??= []).push(type ? path + '|' + type : path);
+    };
+    export const revalidateTag = (tag) => { (globalThis.__revalidateCalls ??= []).push('tag:' + tag); };
     export const unstable_cache = (fn) => fn;
   `,
 };

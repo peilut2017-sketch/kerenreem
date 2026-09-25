@@ -174,11 +174,19 @@ export async function validateCart(
       book.is_purchasable &&
       flags.storeEnabled
     ) {
-      availability = book.preorder_enabled
-        ? 'preorder'
-        : (book.stock_quantity ?? 0) > 0
-          ? 'in_stock'
-          : 'out_of_stock';
+      /*
+       * ‏[1.42] קריאה חוזרת ל-getBookAvailability עם המחיר הידני, במקום
+       * חישוב מקביל.
+       *
+       * כאן שכפלו את כלל הזמינות ביד, והשכפול פספס את is_stock_managed:
+       * ספר שסומן "בלי ניהול מלאי" ושהמונה שלו 0 סומן "אזל" בהזמנה
+       * טלפונית, אף שהוא נמכר בפועל (השורה כן נכנסה להזמנה, רק עם תווית
+       * שגויה). זה אותו באג שתוקן בתצוגה הציבורית, במופע שני.
+       *
+       * התיקון הנכון אינו להוסיף כאן עוד תנאי אלא להפסיק לשכפל: פונקציה
+       * אחת קובעת זמינות, ושינוי עתידי בכלל יחול על כל המקומות בבת אחת.
+       */
+      availability = getBookAvailability({ ...book, price: price.amount }, flags.storeEnabled);
     }
 
     if (availability === 'catalog_only' || price == null) {

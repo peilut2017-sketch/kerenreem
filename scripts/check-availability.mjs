@@ -154,6 +154,106 @@ await getLiveAvailability(['b1', 'b2', 'b3']);
 const bookQueries = calls.filter((c) => c.includes('/books')).length;
 check('שאילתה אחת לכל המזהים — בלי N+1', bookQueries, 1);
 
+/* ==========================================================================
+   ‏validateCart — מסלול המחיר הידני של ההזמנה הטלפונית
+   ==========================================================================
+
+   ‏[1.42] מופע שני של אותו באג. הענף ב-cart.ts שמאפשר לצוות להקליד מחיר
+   לספר בלי מחיר קטלוגי **חישב מחדש** את הזמינות במקום לקרוא ל-
+   ‏getBookAvailability, ובחישוב הזה is_stock_managed נשמט שוב. כלומר גם
+   אחרי תיקון התצוגה, ספר בלי ניהול מלאי היה מסומן "אזל" בהזמנה טלפונית.
+
+   ‏allowUnpublished + priceOverrides הם הדגלים של הערוץ הטלפוני בלבד
+   (ראו manual-orders.ts) — זו הדרך היחידה להגיע לענף הזה.
+   ========================================================================== */
+
+const { validateCart } = await import('../src/lib/commerce/cart.ts');
+
+/** שורת ספר כפי שהיא מגיעה מ-CART_BOOK_COLUMNS. */
+function cartBook(overrides) {
+  return {
+    id: 'b1',
+    slug: 'sefer',
+    title_he: 'ספר',
+    title_en: null,
+    author_name_he: 'מחבר',
+    author_name_en: null,
+    category_id: null,
+    cover_image_url: null,
+    price: null,
+    sale_price: null,
+    sale_starts_at: null,
+    sale_ends_at: null,
+    sale_name_he: null,
+    sale_name_en: null,
+    currency: 'ILS',
+    stock_quantity: 0,
+    is_purchasable: true,
+    is_published: true,
+    preorder_enabled: false,
+    weight_grams: 300,
+    free_shipping_eligible: true,
+    is_stock_managed: true,
+    prep_days_override: null,
+    ...overrides,
+  };
+}
+
+async function manualOrderLine(overrides) {
+  rows = [cartBook(overrides)];
+  const cart = await validateCart([{ bookId: 'b1', quantity: 2 }], 'he', undefined, {
+    allowUnpublished: true,
+    priceOverrides: { b1: 50 },
+  });
+  const line = cart.lines[0];
+  return line
+    ? {
+        availability: line.availability,
+        removedReason: line.removedReason,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+      }
+    : null;
+}
+
+console.log('\nהזמנה טלפונית — מחיר ידני לספר בלי מחיר קטלוגי');
+
+check(
+  'בלי ניהול מלאי + מונה 0 → in_stock, נמכר בכמות שהוקלדה',
+  await manualOrderLine({ is_stock_managed: false, stock_quantity: 0 }),
+  { availability: 'in_stock', removedReason: null, quantity: 2, unitPrice: 50 },
+);
+
+check(
+  'מנוהל + מונה 0 → נחסם (out_of_stock)',
+  await manualOrderLine({ is_stock_managed: true, stock_quantity: 0 }),
+  { availability: 'out_of_stock', removedReason: 'out_of_stock', quantity: 0, unitPrice: 0 },
+);
+
+check(
+  'מנוהל + מלאי מספיק → in_stock',
+  await manualOrderLine({ is_stock_managed: true, stock_quantity: 5 }),
+  { availability: 'in_stock', removedReason: null, quantity: 2, unitPrice: 50 },
+);
+
+check(
+  'מנוהל + מלאי חלקי → הכמות מותאמת למלאי',
+  await manualOrderLine({ is_stock_managed: true, stock_quantity: 1 }),
+  { availability: 'in_stock', removedReason: null, quantity: 1, unitPrice: 50 },
+);
+
+check(
+  'הזמנה מוקדמת נשארת preorder, בלי הגבלת מלאי',
+  await manualOrderLine({ preorder_enabled: true, stock_quantity: 0 }),
+  { availability: 'preorder', removedReason: null, quantity: 2, unitPrice: 50 },
+);
+
+check(
+  'ספר שאינו ניתן לרכישה נשאר חסום גם עם מחיר ידני',
+  await manualOrderLine({ is_purchasable: false, stock_quantity: 5 }),
+  { availability: 'catalog_only', removedReason: 'not_purchasable', quantity: 0, unitPrice: 0 },
+);
+
 globalThis.fetch = original;
 
 console.log(
