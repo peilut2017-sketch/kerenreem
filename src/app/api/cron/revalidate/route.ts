@@ -18,6 +18,15 @@ import { runBoundaryRevalidation } from '@/lib/revalidation/run';
  * בהזמנות, במלאי ובדואר. כשל בזה אינו אמור להשפיע על ההן, ולהפך.
  *
  * ‏force-dynamic: מסלול שמרענן מטמון ואינו נשמר בו בעצמו.
+ *
+ * ## מי מפעיל את זה
+ *
+ * ‏**מתזמן חיצוני**, כל 15 דקות, ולא Vercel Cron: תוכנית Hobby מגבילה
+ * קרון ללוח זמנים יומי בלבד, ופעם ביום גורר מבצע או באנר שנפתחים שעות
+ * אחרי הזמן שנקבע להם. לכן אין ל-/api/cron/revalidate רשומה ב-vercel.json.
+ *
+ * האימות לא משתנה בגלל זה: קריאת GET עם `Authorization: Bearer $CRON_SECRET`,
+ * בדיוק כמו ש-Vercel Cron היה שולח. כל קריאה בלי הסוד הנכון מקבלת 401.
  */
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
