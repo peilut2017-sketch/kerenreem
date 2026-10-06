@@ -3,9 +3,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { BookCard } from './BookCard';
-import { useLocalList } from '@/lib/client-hooks';
 import { localized } from '@/lib/localized';
 import type { BookWithRelations } from '@/lib/supabase/types';
+import { useFavourites } from '@/lib/analytics/use-favourites';
 
 /**
  * רשת כרטיסי ספרים לשימוש מחוץ לקטלוג — בעמוד הבית ובעמודי מחבר.
@@ -26,7 +26,7 @@ export function BookCardGrid({
   priorityCount?: number;
 }) {
   const t = useTranslations('books');
-  const { list, toggle } = useLocalList('kr:favourites');
+  const { list, toggle } = useFavourites();
   const favourites = useMemo(() => new Set(list), [list]);
   const [toast, setToast] = useState<string | null>(null);
 

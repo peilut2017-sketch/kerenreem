@@ -31,11 +31,13 @@ export default async function BooksEngagementReportPage({
   const totals = rows.reduce(
     (sum, row) => ({
       views: sum.views + row.views,
+      saves: sum.saves + row.saves,
       addsToCart: sum.addsToCart + row.addsToCart,
+      supplierClicks: sum.supplierClicks + row.externalSupplierClicks,
       backInStockSubscribers: sum.backInStockSubscribers + row.backInStockSubscribers,
       unitsSold: sum.unitsSold + row.unitsSold,
     }),
-    { views: 0, addsToCart: 0, backInStockSubscribers: 0, unitsSold: 0 },
+    { views: 0, saves: 0, addsToCart: 0, supplierClicks: 0, backInStockSubscribers: 0, unitsSold: 0 },
   );
 
   const wantedNotStocked = rows.filter((row) => row.backInStockSubscribers > 0 && row.stockQuantity <= 0);
@@ -56,10 +58,16 @@ export default async function BooksEngagementReportPage({
         </p>
       ) : (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
             <StatTile icon="view" label="צפיות בספרים" value={totals.views.toLocaleString('he-IL')} />
+            <StatTile icon="books" label="שמירות" value={totals.saves.toLocaleString('he-IL')} />
             <StatTile icon="store" label="הוספות לסל" value={totals.addsToCart.toLocaleString('he-IL')} />
-            <StatTile icon="books" label="יחידות שנמכרו" value={totals.unitsSold.toLocaleString('he-IL')} />
+            <StatTile
+              icon="external"
+              label="מעבר לרכישה דרך ספק חיצוני"
+              value={totals.supplierClicks.toLocaleString('he-IL')}
+            />
+            <StatTile icon="orders" label="יחידות שנמכרו" value={totals.unitsSold.toLocaleString('he-IL')} />
             <StatTile
               icon="coupon"
               label="הודיעו לי כשיחזור למלאי"
@@ -85,17 +93,26 @@ export default async function BooksEngagementReportPage({
           ) : null}
 
           <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-caption text-muted">ממוין לפי צפיות, {rows.length.toLocaleString('he-IL')} ספרים בטווח.</p>
+            <p className="text-caption text-muted">
+              ממוין לפי צפיות, {rows.length.toLocaleString('he-IL')} ספרים בטווח. בסוגריים: סשנים/מכשירים ייחודיים.
+              שמירות והוספות לסל נספרות כל לחיצה; צפיות — כל כניסה לעמוד הספר (לא כולל בוטים).
+            </p>
             <CsvDownloadButton
               headers={[
                 'ספר',
                 'מחיר',
                 'מלאי נוכחי',
                 'צפיות',
+                'סשנים שצפו',
+                'זמן ממוצע בעמוד (שניות)',
                 'שמירות',
+                'מכשירים ששמרו',
                 'הוספות לסל',
+                'מכשירים שהוסיפו לסל',
                 'הודיעו לי כשיחזור',
                 'לחיצות לספק חיצוני',
+                'מכשירים שעברו לספק',
+                'ספקים (לחיצות)',
                 'יחידות שנמכרו',
                 'הכנסה',
               ]}
@@ -104,10 +121,16 @@ export default async function BooksEngagementReportPage({
                 r.price ?? '',
                 r.stockQuantity,
                 r.views,
+                r.viewers,
+                r.avgSeconds === null ? '' : Math.round(r.avgSeconds),
                 r.saves,
+                r.saveDevices,
                 r.addsToCart,
+                r.cartDevices,
                 r.backInStockSubscribers,
                 r.externalSupplierClicks,
+                r.supplierDevices,
+                r.supplierTargets,
                 r.unitsSold,
                 r.revenue.toFixed(2),
               ])}

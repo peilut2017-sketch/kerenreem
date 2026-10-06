@@ -26,7 +26,8 @@
     "check:email": "node --experimental-strip-types scripts/check-email-roles.mjs",
     "check:availability": "node --experimental-strip-types scripts/check-availability.mjs",
     "check:boundaries": "node --experimental-strip-types scripts/check-boundaries.mjs",
-    "monitor:browser": "node monitoring/scripts/synthetic-browser.mjs"
+    "monitor:browser": "node monitoring/scripts/synthetic-browser.mjs",
+    "check:analytics": "node --experimental-strip-types scripts/check-analytics.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -202,41 +202,54 @@ export async function purgeStaleRateLimits(): Promise<number> {
  * ו-commerce_events גדלו לנצח (בניגוד ל-webhooks/sessions/rate_limits
  * שכן מטוהרים), בזמן שקריאות הדוחות עליהן חתוכות בתקרת שורות — כלומר
  * הטבלה תופחת והדיווח נהיה פחות מדויק. ‏395 יום שומר השוואה שנה-מול-שנה.
- * מוגדר לפי דגל: ריצה אחת מוחקת עד 50 אלף שורות כדי לא לחסום את ה-cron.
+ * מוגדר לפי דגל: ריצה אחת מוחקת עד 50 אלף שורות בכל טבלה כדי לא לחסום את ה-cron.
  */
 const ANALYTICS_RETENTION_DAYS = 395;
 
 async function purgeOldRows(
   service: NonNullable<ReturnType<typeof createServiceClient>>,
-  table: 'page_views' | 'commerce_events',
+  table: 'page_views' | 'commerce_events' | 'outbound_clicks',
 ): Promise<number> {
   const cutoff = new Date(Date.now() - ANALYTICS_RETENTION_DAYS * 24 * 60 * 60_000).toISOString();
-  // מחיקה בבאצ' דרך תת-שאילתת id: DELETE ישיר עם limit אינו נתמך ב-PostgREST.
-  const { data: old, error: selectError } = await service
-    .from(table)
-    .select('id')
-    .lt('created_at', cutoff)
-    .limit(50_000);
-  if (selectError || !old?.length) {
-    if (selectError) console.error(`[commerce:maintenance] purge ${table} select`, selectError.message);
-    return 0;
+  // מחיקה בבאצ'ים דרך רשימת id: DELETE ישיר עם limit אינו נתמך ב-PostgREST,
+  // וה-select נחתך בשקט ב-1000 שורות (max-rows) — לכן לולאה של באצ'ים של
+  // 1000 במקום "50 אלף בבת אחת" שבפועל מחק 1000 בלבד בכל ריצה יומית.
+  let total = 0;
+  for (let batch = 0; batch < 50; batch += 1) {
+    const { data: old, error: selectError } = await service
+      .from(table)
+      .select('id')
+      .lt('created_at', cutoff)
+      .limit(1000);
+    if (selectError) {
+      console.error(`[commerce:maintenance] purge ${table} select`, selectError.message);
+      break;
+    }
+    if (!old?.length) break;
+    const { error } = await service
+      .from(table)
+      .delete()
+      .in('id', old.map((row) => row.id));
+    if (error) {
+      console.error(`[commerce:maintenance] purge ${table}`, error.message);
+      break;
+    }
+    total += old.length;
+    if (old.length < 1000) break;
   }
-  const { error } = await service
-    .from(table)
-    .delete()
-    .in('id', old.map((row) => row.id));
-  if (error) {
-    console.error(`[commerce:maintenance] purge ${table}`, error.message);
-    return 0;
-  }
-  return old.length;
+  return total;
 }
 
-export async function purgeOldAnalytics(): Promise<{ pageViews: number; commerceEvents: number }> {
+export async function purgeOldAnalytics(): Promise<{
+  pageViews: number;
+  commerceEvents: number;
+  outboundClicks: number;
+}> {
   const service = createServiceClient();
-  if (!service) return { pageViews: 0, commerceEvents: 0 };
+  if (!service) return { pageViews: 0, commerceEvents: 0, outboundClicks: 0 };
   return {
     pageViews: await purgeOldRows(service, 'page_views'),
     commerceEvents: await purgeOldRows(service, 'commerce_events'),
+    outboundClicks: await purgeOldRows(service, 'outbound_clicks'),
   };
 }
