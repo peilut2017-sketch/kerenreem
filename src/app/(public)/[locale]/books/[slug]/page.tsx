@@ -6,6 +6,7 @@ import { AuthorSection } from '@/components/book-page/AuthorSection';
 import { BookBreadcrumbs } from '@/components/book-page/BookBreadcrumbs';
 import { BookHero } from '@/components/book-page/BookHero';
 import { BookHeroActions } from '@/components/book-page/BookHeroActions';
+import { BookViewTracker } from '@/components/book-page/BookViewTracker';
 import { ConnectionsSection } from '@/components/book-page/ConnectionsSection';
 import { FloatingActions } from '@/components/book-page/FloatingActions';
 import { ReportBookButton } from '@/components/book-page/ReportBookButton';
@@ -382,6 +383,7 @@ export default async function BookPage({
 
       <ViewTracker slug={book.slug} />
 
+      <BookViewTracker bookId={book.id} title={title} />
       <BookBreadcrumbs categoryName={categoryName} categoryHref={categoryHref} title={title} />
 
       <BookHero

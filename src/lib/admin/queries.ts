@@ -391,13 +391,12 @@ export async function getEvent(id: string): Promise<EventRecord | null> {
  */
 export async function listEventViewCounts(): Promise<Map<string, number>> {
   const supabase = await client();
-  // מכסה שריר: page_views אינה מתנקה אוטומטית (ראו 18_page_views.sql),
-  // ומאות אלפי שורות לא אמורות להאט את רשימת האירועים בניהול.
-  const { data } = await supabase.from('page_views').select('path').like('path', '/events/%').limit(20000);
+  // צבירה במסד (analytics_path_counts): select עם limit נחתך בשקט ב-1000
+  // שורות של PostgREST, ומונה האירועים נעצר שם (ראו analytics-queries.ts)
+  const { data } = await supabase.rpc('analytics_path_counts', { p_prefix: '/events/' });
   const counts = new Map<string, number>();
-  for (const row of (data as { path: string }[] | null) ?? []) {
-    const slug = row.path.slice('/events/'.length);
-    counts.set(slug, (counts.get(slug) ?? 0) + 1);
+  for (const row of (data as { path: string; views: number }[] | null) ?? []) {
+    counts.set(row.path.slice('/events/'.length), Number(row.views));
   }
   return counts;
 }
@@ -408,6 +407,7 @@ export async function getEventViewCount(slug: string): Promise<number> {
   const { count } = await supabase
     .from('page_views')
     .select('id', { count: 'exact', head: true })
+    .eq('is_bot', false)
     .eq('path', `/events/${slug}`);
   return count ?? 0;
 }

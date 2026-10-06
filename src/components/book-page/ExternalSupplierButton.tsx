@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { useCart } from '@/components/store/CartProvider';
 import { recordCommerceEvent } from '@/lib/commerce/events-actions';
+import { gaEvent } from '@/lib/analytics/client';
 
 /**
  * [1.9] כפתור רכישה דרך ספק חיצוני — מוצג רק כשהוגדר בכרטיס הספר
@@ -39,7 +40,10 @@ export function ExternalSupplierButton({
           sessionKey: cart?.sessionKey ?? 'no-session',
           bookId,
         }).catch(() => {});
+        gaEvent('supplier_click', { item_id: bookId, supplier: supplierName });
       }}
+      // data-book-id: מקשר את היציאה (לאיזה ספק) לספר, ראו AnalyticsBeacon
+      data-book-id={bookId}
       className={`btn ${variant === 'solid' ? 'btn-solid' : 'btn-quiet'} inline-flex items-center gap-2 ${className}`}
     >
       <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">

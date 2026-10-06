@@ -13,34 +13,38 @@ import type { BookEngagementRow } from '@/lib/admin/reporting/book-engagement-da
  * מהשרת, וכל בניית הפונקציות קורית בתוך גבול הלקוח עצמו.
  */
 export function BookEngagementList({ rows }: { rows: BookEngagementRow[] }) {
+  const n = (value: number) => value.toLocaleString('he-IL');
+  /** "פעולות (מכשירים)" — סך הלחיצות, ובסוגריים כמה מכשירים שונים */
+  const withDevices = (total: number, devices: number) => (total === 0 ? '0' : `${n(total)} (${n(devices)})`);
+  const seconds = (value: number | null) =>
+    value === null ? '—' : value < 60 ? `${Math.round(value)} שנ׳` : `${(value / 60).toFixed(1)} דק׳`;
+
   const columns: AdminRecordColumn<BookEngagementRow>[] = [
     { key: 'title', header: 'ספר', render: (row) => row.title, cardHidden: true },
-    { key: 'views', header: 'צפיות', render: (row) => row.views.toLocaleString('he-IL'), className: 'tabular-nums' },
+    { key: 'views', header: 'צפיות', render: (row) => `${n(row.views)} (${n(row.viewers)})`, className: 'tabular-nums' },
+    { key: 'avgSeconds', header: 'זמן בעמוד', render: (row) => seconds(row.avgSeconds), className: 'tabular-nums' },
+    { key: 'saves', header: 'שמירות', render: (row) => withDevices(row.saves, row.saveDevices), className: 'tabular-nums' },
     {
       key: 'addsToCart',
       header: 'הוספות לסל',
-      render: (row) => row.addsToCart.toLocaleString('he-IL'),
-      className: 'tabular-nums',
-    },
-    { key: 'saves', header: 'שמירות', render: (row) => row.saves.toLocaleString('he-IL'), className: 'tabular-nums' },
-    {
-      key: 'backInStockSubscribers',
-      header: 'הודיעו לי כשיחזור',
-      render: (row) => row.backInStockSubscribers.toLocaleString('he-IL'),
+      render: (row) => withDevices(row.addsToCart, row.cartDevices),
       className: 'tabular-nums',
     },
     {
       key: 'externalSupplierClicks',
-      header: 'לחיצות לספק חיצוני',
-      render: (row) => row.externalSupplierClicks.toLocaleString('he-IL'),
-      className: 'tabular-nums',
+      header: 'מעבר לספק חיצוני',
+      render: (row) =>
+        row.externalSupplierClicks === 0
+          ? '0'
+          : `${withDevices(row.externalSupplierClicks, row.supplierDevices)}${row.supplierTargets ? ` · ${row.supplierTargets}` : ''}`,
     },
     {
-      key: 'unitsSold',
-      header: 'יחידות שנמכרו',
-      render: (row) => row.unitsSold.toLocaleString('he-IL'),
+      key: 'backInStockSubscribers',
+      header: 'הודיעו לי כשיחזור',
+      render: (row) => n(row.backInStockSubscribers),
       className: 'tabular-nums',
     },
+    { key: 'unitsSold', header: 'יחידות שנמכרו', render: (row) => n(row.unitsSold), className: 'tabular-nums' },
     {
       key: 'revenue',
       header: 'הכנסה',
@@ -57,7 +61,7 @@ export function BookEngagementList({ rows }: { rows: BookEngagementRow[] }) {
       href={(row) => `/admin/books/${row.bookId}`}
       renderCardTitle={(row) => row.title}
       renderCardBadge={(row) => <span className="admin-badge admin-badge-accent">{row.views} צפיות</span>}
-      minWidthClassName="min-w-[48rem]"
+      minWidthClassName="min-w-[64rem]"
       emptyMessage="אין נתוני עניין או מכירות בטווח שנבחר."
     />
   );

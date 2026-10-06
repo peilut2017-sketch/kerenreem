@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { useLocalList, useLocalValue } from '@/lib/client-hooks';
+import { useLocalValue } from '@/lib/client-hooks';
 import { COOKIE_CONSENT_KEY } from '../CookieConsentBanner';
 import { useCart } from '../store/CartProvider';
 import { AddToCartButton } from '../store/AddToCartButton';
 import type { BookAvailability } from '@/lib/supabase/types';
+import { useFavourites } from '@/lib/analytics/use-favourites';
 
 /**
  * סרגל רכישה דביק — מופיע רק כשיש בכלל מה לקנות.
@@ -47,7 +48,7 @@ export function FloatingActions({
   const cart = useCart();
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { has, toggle } = useLocalList('kr:favourites');
+  const { has, toggle } = useFavourites();
   const isFavourite = has(bookId);
 
   // באנר העוגיות יושב בצד end (כמו הסרגל הזה), וכל עוד לא הוכרעה ההסכמה

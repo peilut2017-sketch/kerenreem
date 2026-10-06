@@ -3,6 +3,7 @@
 import Script from 'next/script';
 import { useLocalValue } from '@/lib/client-hooks';
 import { COOKIE_CONSENT_KEY } from './CookieConsentBanner';
+import { NO_TRACK_KEY } from '@/lib/analytics/client';
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
@@ -27,8 +28,10 @@ const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
  */
 export function GoogleAnalytics() {
   const { value: consent } = useLocalValue(COOKIE_CONSENT_KEY);
+  // מכשיר שהוחרג מהספירה (צוות, ראו מסך האנליטיקס) לא נשלח גם ל-GA
+  const { value: noTrack } = useLocalValue(NO_TRACK_KEY);
 
-  if (!GA_MEASUREMENT_ID || consent !== 'granted') return null;
+  if (!GA_MEASUREMENT_ID || consent !== 'granted' || noTrack === '1') return null;
 
   return (
     <>

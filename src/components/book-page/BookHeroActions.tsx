@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { FavouriteIcon } from '@/components/FavouriteIcon';
 import { useTranslations } from 'next-intl';
-import { useLocalList } from '@/lib/client-hooks';
 import { AddToCartButton } from '../store/AddToCartButton';
 import { ExternalSupplierButton } from './ExternalSupplierButton';
 import type { BookAvailability } from '@/lib/supabase/types';
+import { useFavourites } from '@/lib/analytics/use-favourites';
 
 /**
  * שורת הפעולות ב-Hero: מחיר וקנייה (כשהחנות פעילה), שמירה למועדפים
@@ -35,7 +35,7 @@ export function BookHeroActions({
   externalSupplier?: { url: string; name: string } | null;
 }) {
   const t = useTranslations('books');
-  const { has, toggle } = useLocalList('kr:favourites');
+  const { has, toggle } = useFavourites();
   const [copied, setCopied] = useState(false);
   const isFavourite = has(bookId);
 
@@ -88,7 +88,7 @@ export function BookHeroActions({
           (מועדפים) היא הפעולה האישית היחידה בעמוד הספר. */}
       <button
         type="button"
-        onClick={() => toggle(bookId)}
+        onClick={() => toggle(bookId, title)}
         aria-pressed={isFavourite}
         className={`btn btn-quiet inline-flex items-center gap-2 ${
           isFavourite ? 'text-burgundy' : ''

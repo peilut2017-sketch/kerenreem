@@ -14,6 +14,7 @@ import { useTranslations } from 'next-intl';
 import { useLocalMap, useLocalValue } from '@/lib/client-hooks';
 import { getCartView, type CartViewModel } from '@/lib/commerce/cart-actions';
 import { recordCommerceEvent } from '@/lib/commerce/events-actions';
+import { gaEvent, getDeviceKey } from '@/lib/analytics/client';
 
 /**
  * מצב העגלה (פרק 6 במסמך האב). העגלה עצמה מקומית — kr:cart ב-localStorage
@@ -23,7 +24,6 @@ import { recordCommerceEvent } from '@/lib/commerce/events-actions';
  */
 
 const CART_KEY = 'kr:cart';
-const SESSION_KEY = 'kr:session';
 const COUPON_KEY = 'kr:coupon';
 /** [1.6] "המחיר האחרון שהוצג" — נשמר מקומית כדי לזהות שינוי מחיר גם בין ביקורים (ח.4), לא רק בתוך אותו session */
 const PRICE_KEY = 'kr:cart-prices';
@@ -54,19 +54,6 @@ export function useCart(): CartContextValue | null {
   return useContext(CartContext);
 }
 
-/** מפתח session אנונימי לאירועי אנליטיקה — נשמר מקומית, בלי PII. */
-function ensureSessionKey(): string {
-  try {
-    const existing = window.localStorage.getItem(SESSION_KEY);
-    if (existing) return existing;
-    const fresh = crypto.randomUUID();
-    window.localStorage.setItem(SESSION_KEY, fresh);
-    return fresh;
-  } catch {
-    return 'no-storage';
-  }
-}
-
 export function CartProvider({
   children,
   enabled,
@@ -89,7 +76,7 @@ export function CartProvider({
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // אתחול עצל: רץ פעם אחת בצד הלקוח; אינו מרונדר, כך שאין פער הידרציה
   const [sessionKey] = useState(() =>
-    typeof window === 'undefined' ? 'pending' : ensureSessionKey(),
+    typeof window === 'undefined' ? 'pending' : getDeviceKey(),
   );
 
   const items = useMemo(
@@ -161,6 +148,7 @@ export function CartProvider({
       // על העגלה כולה בלי קליק נוסף.
       setMiniCartOpen(true);
       void recordCommerceEvent('product_added_to_cart', { sessionKey, bookId, locale }).catch(() => {});
+      gaEvent('add_to_cart', { items: [{ item_id: bookId, item_name: title, quantity: 1 }] });
     },
     [map, set, showToast, t, sessionKey, locale],
   );

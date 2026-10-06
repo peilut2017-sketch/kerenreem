@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
-import { useLocalList } from '@/lib/client-hooks';
 import { fetchFavouriteBooks } from '@/lib/commerce/favourites-actions';
 import { BookCard } from '@/components/books/BookCard';
 import { FavouriteIcon } from '@/components/FavouriteIcon';
 import type { BookWithRelations } from '@/lib/supabase/types';
+import { useFavourites } from '@/lib/analytics/use-favourites';
 
 /**
  * "הספרים שאהבתי" — הרשימה מהמכשיר (kr:favourites), הכרטיסים מהשרת.
@@ -22,7 +22,7 @@ export function FavouritesClient({
   storeEnabled: boolean;
 }) {
   const t = useTranslations('store');
-  const { list: favouriteIds, toggle } = useLocalList('kr:favourites');
+  const { list: favouriteIds, toggle } = useFavourites();
   const [books, setBooks] = useState<BookWithRelations[] | null>(null);
 
   // הכרטיסים נטענים כשקבוצת המזהים משתנה (כולל ההידרציה מהאחסון);

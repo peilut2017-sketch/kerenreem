@@ -8,7 +8,6 @@ import { Toolbar, type ViewMode } from './Toolbar';
 import { BookCard } from './BookCard';
 import { BookListRow } from './BookListRow';
 import { BooksHero } from './BooksHero';
-import { useLocalList } from '@/lib/client-hooks';
 import { localized } from '@/lib/localized';
 import { formatPrice } from '@/lib/commerce/pricing';
 import {
@@ -28,6 +27,7 @@ import type {
   Series,
   Tag,
 } from '@/lib/supabase/types';
+import { useFavourites } from '@/lib/analytics/use-favourites';
 
 type SeriesOption = Pick<Series, 'id' | 'slug' | 'name_he' | 'name_en'>;
 
@@ -119,7 +119,7 @@ export function Catalogue({
   const loadingMoreRef = useRef(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const { list: favouriteIds, toggle } = useLocalList('kr:favourites');
+  const { list: favouriteIds, toggle } = useFavourites();
   const favourites = useMemo(() => new Set(favouriteIds), [favouriteIds]);
   const deferredFilters = useDeferredValue(filters);
 

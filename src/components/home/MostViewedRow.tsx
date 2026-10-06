@@ -1,9 +1,9 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useLocalList } from '@/lib/client-hooks';
 import { BookCard } from '../books/BookCard';
 import type { BookWithRelations } from '@/lib/supabase/types';
+import { useFavourites } from '@/lib/analytics/use-favourites';
 
 /**
  * הספרים הנצפים ביותר, מתחת למדף — לא כשדרות על מדף כמו BookShelf,
@@ -23,7 +23,7 @@ export function MostViewedRow({
   storeEnabled: boolean;
 }) {
   const t = useTranslations('home');
-  const { list: favouriteIds, toggle } = useLocalList('kr:favourites');
+  const { list: favouriteIds, toggle } = useFavourites();
   const favourites = new Set(favouriteIds);
 
   if (books.length === 0) return null;
