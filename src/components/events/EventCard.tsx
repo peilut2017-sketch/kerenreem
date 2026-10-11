@@ -39,7 +39,7 @@ export async function EventCard({
     <Reveal as="li" delay={delay}>
       <Link
         href={`/events/${event.slug}`}
-        className="card card-interactive group h-full focus-visible:outline-offset-4"
+        className="card card-interactive spotlight group h-full focus-visible:outline-offset-4"
       >
         <div className="relative aspect-16/10 overflow-hidden bg-navy-2">
           {event.cover_image_url ? (

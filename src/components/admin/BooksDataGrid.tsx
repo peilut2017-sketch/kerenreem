@@ -555,7 +555,7 @@ export function BooksDataGrid({
             עמודות
           </button>
           {columnsOpen ? (
-            <div className="admin-nav-dropdown admin-nav-dropdown-end max-h-80 overflow-y-auto">
+            <div data-lenis-prevent className="admin-nav-dropdown admin-nav-dropdown-end max-h-80 overflow-y-auto">
               {TOGGLEABLE.map((column) => (
                 <label
                   key={column.id}

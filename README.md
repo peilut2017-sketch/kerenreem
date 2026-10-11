@@ -272,6 +272,7 @@ npm run check:dates    # אימות ההמרות, כולל שנה מעוברת
 npm run build && npm start &
 npm run check:a11y          # axe-core (WCAG 2.1 AA) על כל העמודים, בשני רוחבי מסך
 npm run check:a11y-toolbar  # בדיקה תפקודית לסרגל הנגישות
+npm run check:scroll        # סטטי: כל אזורי הגלילה מסומנים (Lenis), בלי שרת
 ```
 
 הבדיקה כוללת גם את הרכיבים האינטראקטיביים במצב פתוח — סרגל הנגישות
@@ -368,6 +369,32 @@ npm run check:a11y-toolbar  # בדיקה תפקודית לסרגל הנגישו�
 `<Reveal>` מסתיר תוכן רק אחרי ש-JS הוסיף `js` ל-`<html>`, כך שדפדפן בלי
 סקריפטים מקבל עמוד מלא. `prefers-reduced-motion` מבטל את ההסתרה לגמרי,
 וסרגל הנגישות מאפשר עצירה יזומה.
+
+#### גלילה חלקה (Lenis)
+
+האתר הציבורי ולוח הניהול גוללים דרך [Lenis](https://github.com/darkroomengineering/lenis)
+(`src/components/SmoothScroll.tsx`). היא פעילה רק בגלגלת עכבר: מסך מגע, הקופה
+(`/checkout`), `prefers-reduced-motion` והמתג "הפחתת תנועה" בסרגל הנגישות
+משאירים גלילה נייטיבית, וההעדפה נבדקת בזמן אמת.
+
+שלושה כללים שהקוד אוכף, ו-`npm run check:scroll` נכשל כשהם נשברים:
+
+1. **אזור גלילה אנכי** (`overflow-y-auto`, `overflow-auto`, או מחלקת CSS עם overflow)
+   חייב לשאת `data-lenis-prevent`. גלילה אופקית בלבד פטורה. שדות טקסט, עורך עשיר
+   ו-`role="dialog|listbox|menu"` מטופלים אוטומטית ב-`preventNestedScroll`.
+2. **הזזת העמוד** נעשית רק דרך `src/lib/smooth-scroll.ts`: `scrollToElement`,
+   `scrollToY`, `scrollToTop`. אסור `scrollIntoView` ו-`window.scrollTo` ישירות.
+3. **נעילת העמוד** מאחורי חלון פתוח נעשית רק דרך `lockScroll()`, ולא ב-
+   `document.body.style.overflow`. `Drawer` ו-`AdminShell` כבר עושים זאת.
+
+חריג מכוון מסומן בהערה `smooth-scroll-ok` עם הסבר.
+
+#### כניסת כותרת וזוהר בכרטיסים
+
+`<BlurText>` (כותרת H1 בכל `PageHeader`) היא אנימציית CSS טהורה, בלי JS, והטקסט
+קיים ב-HTML מהשרת. המחלקה `.spotlight` מוסיפה לכרטיס זוהר זהב שעוקב אחרי הסמן
+(מאזין אחד בכל האתר, `PointerGlow`). שניהם בהשראת React Bits ומכובדים
+`prefers-reduced-motion`, המתג בסרגל הנגישות וניגודיות גבוהה.
 
 הקרוסלה עומדת ב-WCAG 2.2.2: כפתור השהיה, עצירה במעבר עכבר ובמיקוד
 מקלדת, חצים במקלדת, וכיבוי מלא תחת `prefers-reduced-motion`. השקופיות

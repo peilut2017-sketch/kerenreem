@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { PreviewPage } from './BookFlipPage';
+import { lockScroll } from '@/lib/smooth-scroll';
 
 /**
  * קריאה מוגדלת של דף הדוגמה.
@@ -76,10 +77,10 @@ export function BookFlipDialog({
     }
 
     document.addEventListener('keydown', onKeyDown);
-    document.body.style.overflow = 'hidden';
+    const unlock = lockScroll();
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = '';
+      unlock();
     };
   }, [onClose, rtl, goNext, goPrev]);
 
@@ -127,7 +128,7 @@ export function BookFlipDialog({
           </button>
         </div>
 
-        <div className="flex flex-1 items-center justify-center overflow-auto bg-cream-2/50 p-4 sm:p-6">
+        <div data-lenis-prevent className="flex flex-1 items-center justify-center overflow-auto bg-cream-2/50 p-4 sm:p-6">
           {/* eslint-disable-next-line @next/next/no-img-element -- נכס WebP מוכן; ראו BookFlipPage */}
           <img
             src={page.imageUrl}

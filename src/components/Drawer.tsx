@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { lockScroll } from '@/lib/smooth-scroll';
 
 /** [1.6] משך מעבר הפתיחה/סגירה — משותף לכל הוריאנטים (ח.1, ח.2). */
 const TRANSITION_MS = 200;
@@ -162,7 +163,11 @@ export function Drawer({
     }
 
     document.addEventListener('keydown', onKeyDown);
+    // העמוד שמאחורי מגירה לא אמור לזוז: בלי נעילה, גלגלת מעל הרקע המעומעם
+    // גוללת את העמוד שמתחת (ו-Lenis, שאינו יודע על המגירה, היה מגלגל אותו).
+    const unlock = lockScroll();
     return () => {
+      unlock();
       const index = dialogStack.indexOf(token);
       if (index !== -1) dialogStack.splice(index, 1);
       document.removeEventListener('keydown', onKeyDown);
@@ -230,7 +235,7 @@ export function Drawer({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6">{children}</div>
+        <div data-lenis-prevent className="flex-1 overflow-y-auto px-6 py-6">{children}</div>
 
         {footer ? <div className="flex items-center gap-3 border-t border-rule px-6 py-4">{footer}</div> : null}
       </div>

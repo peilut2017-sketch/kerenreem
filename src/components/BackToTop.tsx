@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { scrollToTop } from '@/lib/smooth-scroll';
 
 /**
  * חזרה לראש העמוד אחרי גלילה משמעותית — בכל עמוד ציבורי (מוצג מ-layout).
@@ -32,10 +33,7 @@ export function BackToTop() {
   return (
     <button
       type="button"
-      onClick={() => {
-        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        window.scrollTo({ top: 0, behavior: reduced ? 'instant' : 'smooth' });
-      }}
+      onClick={scrollToTop}
       aria-label={t('backToTop')}
       // [1.38] טור אחד מיושר בצד start: נגישות (bottom 1rem), ומעליו החץ
       // ב-4.5rem — אותו גודל (2.75rem) ורווח קבוע של 0.75rem. בעמוד ספר

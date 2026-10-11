@@ -1,6 +1,8 @@
 'use client';
 
 import { usePathname } from '@/i18n/navigation';
+import { SmoothScroll } from '@/components/SmoothScroll';
+import { PointerGlow } from '@/components/PointerGlow';
 
 /**
  * [1.4] בורר המסגרת בין האתר הרגיל לקופה הרזה (ביקורת המימוש ב.17).
@@ -27,6 +29,9 @@ export function ChromeGate({
 
   return (
     <>
+      {/* גלילה חלקה בכל האתר חוץ מהקופה — ראו SmoothScroll */}
+      <SmoothScroll enabled={!isCheckout} />
+      <PointerGlow />
       {isCheckout ? checkoutHeader : header}
       <main id="main" tabIndex={-1} className="flex-1 outline-none">
         {children}

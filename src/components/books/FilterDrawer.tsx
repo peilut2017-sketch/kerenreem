@@ -136,7 +136,7 @@ export function FilterDrawer({
                 aria-label={t('filterAuthorSearch')}
                 className="field-input mb-3"
               />
-              <div className="max-h-52 space-y-1 overflow-y-auto">
+              <div data-lenis-prevent className="max-h-52 space-y-1 overflow-y-auto">
                 {visibleAuthors.map((author) => (
                   <Check
                     key={author.id}

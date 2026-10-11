@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'lenis/dist/lenis.css';
 
 /* ==========================================================================
    מכון קרן רא"ם — מערכת עיצוב
@@ -131,6 +132,12 @@
 html {
   font-size: calc(100% * var(--a11y-scale));
   -webkit-text-size-adjust: 100%;
+}
+
+/* גלילה חלקה נייטיבית רק כש-Lenis לא פעיל (קופה, הפחתת תנועה, לפני שהספרייה
+   נטענה). כשהוא פעיל הוא מחליק בעצמו, והפעלה כפולה גורמת לרעידות בעוגנים.
+   Lenis מוסיף את המחלקה lenis ל-<html> כל עוד הוא חי. */
+html:not(.lenis) {
   scroll-behavior: smooth;
 }
 
@@ -657,6 +664,51 @@ body::before {
       opacity: 1;
       transform: none;
     }
+  }
+
+  /* זוהר זהב שעוקב אחרי הסמן בכרטיסים (.spotlight). המיקום מוזרם ל---sx/--sy
+     על ידי PointerGlow. הזוהר יושב *מאחורי* התוכן (z-index: -1 בתוך הקשר
+     ערימה משלו), כך שהוא לא נוגע בניגודיות הטקסט. רק במכשיר עם עכבר, ורק
+     כשלא ביקשו הפחתת תנועה. */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .spotlight {
+      position: relative;
+      isolation: isolate;
+    }
+    .spotlight::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 320ms var(--ease-soft);
+      background: radial-gradient(
+        18rem circle at var(--sx, 50%) var(--sy, 50%),
+        color-mix(in srgb, var(--spotlight-color, var(--color-gold)) 24%, transparent),
+        transparent 70%
+      );
+    }
+    .spotlight:hover::before { opacity: 1; }
+  }
+  html[data-a11y-contrast='on'] .spotlight::before,
+  html[data-a11y-motion='on'] .spotlight::before { display: none; }
+
+  /* כניסת כותרת מילה אחר מילה (BlurText). אנימציית CSS טהורה, בלי JS:
+     היא רצה בטעינה, ובגלל fill-mode both המצב הסופי הוא הגלוי. אם ה-CSS
+     או האנימציה לא נתמכים, הכותרת פשוט מוצגת. הפחתת תנועה מכווצת את
+     משך האנימציה ל-0.001ms (ראו הכללים בסוף הקובץ), כלומר הכותרת מופיעה
+     מיד. */
+  .blur-word {
+    display: inline-block;
+    animation: blur-word-in 900ms var(--ease-spring) backwards;
+    animation-delay: calc(var(--i, 0) * 90ms);
+  }
+  @keyframes blur-word-in {
+    0% { opacity: 0; filter: blur(10px); transform: translateY(-14px); }
+    55% { opacity: 0.6; filter: blur(4px); transform: translateY(2px); }
+    100% { opacity: 1; filter: blur(0); transform: none; }
   }
 
   /* כריכת ספר — הרמה עדינה בלבד. בלי scale, בלי צל כבד. */

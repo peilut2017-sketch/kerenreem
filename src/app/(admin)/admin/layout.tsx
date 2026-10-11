@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { FONT_VARIABLES } from '@/lib/fonts';
 import { CustomFontsStyle } from '@/components/CustomFontsStyle';
+import { SmoothScroll } from '@/components/SmoothScroll';
+import { PointerGlow } from '@/components/PointerGlow';
 import '../../globals.css';
 import './admin.css';
 
@@ -23,7 +25,13 @@ export default function AdminRootLayout({ children }: { children: React.ReactNod
         {/* גופנים מותקנים — גם בניהול, כדי שהעורך יציג אותם בתצוגה נכונה */}
         <CustomFontsStyle />
       </head>
-      <body className="bg-cream">{children}</body>
+      <body className="bg-cream">
+        {/* אותה גלילה חלקה כמו באתר הציבורי. טבלאות רחבות גולשות אופקית
+            בלבד, ואזורי הגלילה האנכיים מסומנים data-lenis-prevent. */}
+        <SmoothScroll />
+        <PointerGlow />
+        {children}
+      </body>
     </html>
   );
 }

@@ -137,6 +137,7 @@ export function ShelfBooksPicker({ books, defaultIds }: { books: PickerBook[]; d
           <ul
             onDragOver={(event) => event.preventDefault()}
             onDrop={dropOnAvailable}
+            data-lenis-prevent
             className="max-h-96 space-y-1 overflow-y-auto rounded-[var(--admin-radius-card)] border border-rule p-2"
           >
             {availableBooks.length === 0 ? (

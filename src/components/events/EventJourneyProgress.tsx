@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePublishHeaderContextNav } from '@/components/header-context-nav';
+import { scrollToY } from '@/lib/smooth-scroll';
 
 /**
  * [1.30] מד ההתקדמות במסע האירוע: קבלת פנים → דברי פתיחה → השיעור →
@@ -47,8 +48,7 @@ export function EventJourneyProgress({ stages }: { stages: string[] }) {
     const header = document.querySelector('header');
     const offset = (header?.getBoundingClientRect().height ?? 0) + 16;
     const top = target.getBoundingClientRect().top + window.scrollY - offset;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top, behavior: reduced ? 'instant' : 'smooth' });
+    scrollToY(top);
   }, []);
 
   usePublishHeaderContextNav(items, String(active), scrollToStage);
