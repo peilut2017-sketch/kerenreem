@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'motion/react';
 import { useReducedMotion } from '@/lib/client-hooks';
 import { isRtl } from '@/i18n/routing';
+import { lockScroll } from '@/lib/smooth-scroll';
 
 /** עמוד PDF שעבר רינדור לתמונה. */
 interface RenderedPage {
@@ -331,10 +332,10 @@ function SampleDialog({
     }
 
     document.addEventListener('keydown', onKeyDown);
-    document.body.style.overflow = 'hidden';
+    const unlock = lockScroll();
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = '';
+      unlock();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onClose is stable enough for this dialog's lifetime
   }, []);
@@ -450,7 +451,7 @@ function SampleDialog({
           </button>
         </div>
 
-        <div className="flex flex-1 items-center justify-center overflow-auto bg-cream-2/50 p-6">
+        <div data-lenis-prevent className="flex flex-1 items-center justify-center overflow-auto bg-cream-2/50 p-6">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={pageIndex}

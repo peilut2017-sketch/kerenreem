@@ -8,6 +8,7 @@ import { Link } from '@/i18n/navigation';
 import { ContextualFilmstrip } from '@/components/events/viewer/ContextualFilmstrip';
 import { useViewerActivity } from '@/components/events/viewer/useViewerActivity';
 import { useReducedMotion } from '@/lib/client-hooks';
+import { lockScroll } from '@/lib/smooth-scroll';
 import { recordEventMediaView } from '@/lib/events/view-actions';
 import { toCdnUrl } from '@/lib/image-src';
 import { localized, localizedOrNull } from '@/lib/localized';
@@ -492,10 +493,10 @@ function MediaViewer({
       }
     };
     document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
+    const unlock = lockScroll();
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      unlock();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- activity.wakeBriefly יציב (useCallback)
   }, [onClose, step]);
@@ -709,6 +710,7 @@ function EventReels({
     const container = containerRef.current;
     if (!container) return;
     if (startIndex > 0) {
+      // smooth-scroll-ok: גלילה בתוך מכל ה-Reels (data-lenis-prevent), לא של העמוד
       container.children[startIndex]?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
     }
     const observer = new IntersectionObserver(
@@ -728,10 +730,10 @@ function EventReels({
       { root: container, threshold: 0.6 },
     );
     for (const child of container.children) observer.observe(child);
-    document.body.style.overflow = 'hidden';
+    const unlock = lockScroll();
     return () => {
       observer.disconnect();
-      document.body.style.overflow = '';
+      unlock();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- media/onView יציבים לאורך חיי ה-Reels
   }, [startIndex]);
@@ -794,6 +796,7 @@ function EventReels({
 
       <div
         ref={containerRef}
+        data-lenis-prevent
         className="h-dvh snap-y snap-mandatory overflow-y-auto overscroll-contain"
       >
         {media.map((item, index) => (

@@ -512,6 +512,28 @@
     border-color: color-mix(in srgb, var(--admin-accent) 45%, transparent);
   }
 
+  /* זוהר שעוקב אחרי הסמן (PointerGlow מזין --sx/--sy). מאחורי התוכן,
+     רק עם עכבר וכשלא ביקשו הפחתת תנועה — אותו כלל כמו .spotlight באתר. */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .admin-stat { position: relative; isolation: isolate; }
+    .admin-stat::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 320ms ease;
+      background: radial-gradient(
+        14rem circle at var(--sx, 50%) var(--sy, 50%),
+        color-mix(in srgb, var(--admin-accent) 14%, transparent),
+        transparent 70%
+      );
+    }
+    .admin-stat:hover::before { opacity: 1; }
+  }
+
   /* --- התראת שינויים שלא נשמרו ---
      [1.40] הרצועה הדביקה שהחזיקה את החיווי (ואת כפתורי השמירה/סגירה
      שהוכפלו בה) הוסרה. החיווי יושב עכשיו בשורת הכותרת של הכרטיס, ליד

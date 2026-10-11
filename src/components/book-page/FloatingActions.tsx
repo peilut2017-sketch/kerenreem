@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocalValue } from '@/lib/client-hooks';
+import { scrollToElement } from '@/lib/smooth-scroll';
 import { COOKIE_CONSENT_KEY } from '../CookieConsentBanner';
 import { useCart } from '../store/CartProvider';
 import { AddToCartButton } from '../store/AddToCartButton';
@@ -127,7 +128,7 @@ export function FloatingActions({
         // (הוא זה שמטפל נכון בזמינות כשהעגלה כבויה, לא משוכפל כאן)
         <button
           type="button"
-          onClick={() => document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth' })}
+          onClick={() => scrollToElement('book-purchase')}
           className="rounded-[var(--radius-md)] bg-gold px-4 py-2.5 text-small text-navy transition-colors hover:bg-gold-bright"
         >
           {t('addToCart')}

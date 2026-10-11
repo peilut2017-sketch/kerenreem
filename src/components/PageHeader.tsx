@@ -1,3 +1,4 @@
+import { BlurText } from './BlurText';
 import { Ornament } from './Ornament';
 
 /**
@@ -23,9 +24,11 @@ export function PageHeader({
   return (
     <header className={`${centered ? 'text-center' : ''} pb-2`}>
       {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-      <h1 className="mt-3 font-serif text-[clamp(1.75rem,3.8vw,2.5rem)] leading-tight text-ink">
-        {title}
-      </h1>
+      <BlurText
+        as="h1"
+        text={title}
+        className="mt-3 block font-serif text-[clamp(1.75rem,3.8vw,2.5rem)] leading-tight text-ink"
+      />
       <Ornament className={centered ? '' : '!justify-start'} />
       {intro ? (
         <p

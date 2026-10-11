@@ -257,7 +257,7 @@ export function DailyTrendChart<T extends { date: string }>({
           בלי מקש עכבר: מקלדת וקורא מסך מגיעים לנתונים המלאים כאן. */}
       <details className="mt-3">
         <summary className="cursor-pointer text-caption text-muted hover:text-ink">הצגה כטבלה</summary>
-        <div className="mt-2 max-h-48 overflow-y-auto rounded-[var(--admin-radius-btn)] border border-rule">
+        <div data-lenis-prevent className="mt-2 max-h-48 overflow-y-auto rounded-[var(--admin-radius-btn)] border border-rule">
           <table className="admin-table w-full">
             <caption className="sr-only">{tableCaption}</caption>
             <thead>

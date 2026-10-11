@@ -202,6 +202,7 @@ export function SearchBar({
           id={listId}
           role="listbox"
           aria-label={label}
+          data-lenis-prevent
           className="glass absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 max-h-80 overflow-y-auto rounded-[var(--radius-lg)] p-1.5 shadow-[var(--shadow-float)]"
         >
           {suggestions.map((suggestion, index) => (

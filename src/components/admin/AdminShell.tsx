@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { AdminIcon } from './AdminIcons';
+import { lockScroll } from '@/lib/smooth-scroll';
 
 /**
  * [1.31] מעטפת הפריסה: sidebar קבועה בדסקטופ, מגירה נגררת ממסך צר
@@ -48,6 +49,13 @@ export function AdminShell({
       document.documentElement.style.removeProperty('--admin-header-h');
     };
   }, []);
+  // מגירת הניווט הפתוחה במובייל נועלת את העמוד שמאחוריה, כמו כל חלון אחר
+  // (ראו lockScroll). בלי זה גלילה בתוך התפריט גוללת גם את הדף שמתחתיו.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    return lockScroll();
+  }, [mobileOpen]);
+
   // ניווט לעמוד חדש סוגר את המגירה — בלי זה קליק על קישור במובייל
   // משאיר אותה פתוחה מעל התוכן החדש. התאמת state לפי props שהשתנו
   // (pathname) בזמן הרינדור עצמו, לא ב-effect — אותו דפוס בדיוק כמו

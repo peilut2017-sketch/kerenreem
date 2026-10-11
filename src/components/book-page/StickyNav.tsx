@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { usePublishHeaderContextNav } from '@/components/header-context-nav';
+import { scrollToElement } from '@/lib/smooth-scroll';
 
 interface NavSection {
   id: string;
@@ -49,11 +50,11 @@ export function StickyNav({
   }, [sections]);
 
   const scrollToSection = useCallback((id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToElement(id);
   }, []);
 
   const onBuy = useCallback(() => {
-    document.getElementById('book-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollToElement('book-purchase', { block: 'center' });
   }, []);
 
   usePublishHeaderContextNav(sections, active, scrollToSection, { title, price, onBuy });

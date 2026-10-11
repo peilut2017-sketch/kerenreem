@@ -243,7 +243,7 @@ export function AdminNav({
   }
 
   return (
-    <nav aria-label="ניווט ניהול" className="admin-sidebar-scroll">
+    <nav aria-label="ניווט ניהול" className="admin-sidebar-scroll" data-lenis-prevent>
       {visibleSections.map((section, index) => {
         const activeHere = section.items.some((item) => matchesLink(pathname, item.href));
         // הקבוצה שבה נמצא המסך הנוכחי פתוחה תמיד, גם אם המשתמש קיפל

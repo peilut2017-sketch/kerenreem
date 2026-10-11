@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
+import { scrollToElement } from '@/lib/smooth-scroll';
 
 /**
  * מעטפת בלוק ב-Checkout: כותרת ממוספרת, מצב סגור עם תקציר ו"עריכה",
@@ -35,8 +36,7 @@ export function BlockShell({
     if (!open) return;
     const node = contentRef.current;
     if (!node) return;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    node.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'start' });
+    scrollToElement(node);
     node.querySelector<HTMLElement>('input, select, textarea, button')?.focus({ preventScroll: true });
   }, [open]);
 

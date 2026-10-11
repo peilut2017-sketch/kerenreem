@@ -174,7 +174,7 @@ export function BookPreviewGenerator({
             סמנו אילו עמודים מותרים לפרסום. נבחרו {selected.size} מתוך {MAX_PREVIEW_PAGES} המרביים.
           </p>
 
-          <ul className="mt-4 grid max-h-96 grid-cols-3 gap-3 overflow-y-auto rounded-[var(--admin-radius-card)] border border-rule p-3 sm:grid-cols-5 lg:grid-cols-8">
+          <ul data-lenis-prevent className="mt-4 grid max-h-96 grid-cols-3 gap-3 overflow-y-auto rounded-[var(--admin-radius-card)] border border-rule p-3 sm:grid-cols-5 lg:grid-cols-8">
             {thumbnails.map((thumbnail) => {
               const isSelected = selected.has(thumbnail.pageNumber);
               return (
