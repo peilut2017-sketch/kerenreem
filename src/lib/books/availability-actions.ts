@@ -1,6 +1,6 @@
 'use server';
 
-import { createStaticClient } from '@/lib/supabase/server';
+import { createLiveClient } from '@/lib/supabase/server';
 import { getCommerceFlags } from '@/lib/commerce/settings';
 import { getBookAvailability } from './availability';
 import type { Book, BookAvailability } from '@/lib/supabase/types';
@@ -69,7 +69,7 @@ export async function getLiveAvailability(bookIds: string[]): Promise<LiveAvaila
   );
   if (ids.length === 0) return [];
 
-  const supabase = createStaticClient();
+  const supabase = createLiveClient();
   if (!supabase) return [];
 
   /*

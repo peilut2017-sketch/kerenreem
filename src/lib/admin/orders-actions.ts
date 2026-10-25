@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { assertPermission, assertScreenPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
+import { expirePublicContentAfterSave } from '@/lib/revalidation/content-cache';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   cancellationPath,
@@ -828,6 +829,9 @@ export async function staffAdjustStock(input: {
       new_values: { delta: input.delta, move_type: input.moveType, reason: input.reason },
     });
   }
+  // נתוני הספר (stock_quantity) נקראים דרך מטמון-התוכן — בלי ביטול התג
+  // העמוד שנבנה מחדש היה מציג את המלאי השמור
+  expirePublicContentAfterSave();
   revalidatePath('/admin/inventory');
   // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
   revalidatePath('/admin/books');
@@ -876,6 +880,9 @@ export async function staffTransferStock(input: {
       new_values: { from: input.fromLocationId, to: input.toLocationId, qty: input.qty },
     });
   }
+  // נתוני הספר (stock_quantity) נקראים דרך מטמון-התוכן — בלי ביטול התג
+  // העמוד שנבנה מחדש היה מציג את המלאי השמור
+  expirePublicContentAfterSave();
   revalidatePath('/admin/inventory');
   // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
   revalidatePath('/admin/books');
@@ -906,6 +913,9 @@ export async function createStockLocation(input: {
     sort_order: 100,
   });
   if (error) return { ok: false, error: error.message };
+  // העמוד שנבנה מחדש אופה מחיר ומלאי של ספרים משורות מטמון-התוכן. בלי ביטול
+  // התג הוא היה אופה את הגרסה השמורה ולא את המסד — ישן יותר מלפני המטמון.
+  expirePublicContentAfterSave();
   revalidatePath('/admin/inventory');
   // stock_quantity קובע "במלאי/אזל" וכפתור הקנייה בקטלוג ובעמוד הספר
   revalidatePath('/admin/books');

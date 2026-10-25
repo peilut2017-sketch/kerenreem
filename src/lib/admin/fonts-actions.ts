@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { isProjectStorageUrl } from '@/lib/image-src';
 import { createClient } from '@/lib/supabase/server';
+import { expirePublicContentAfterSave } from '@/lib/revalidation/content-cache';
 import { writeAuditLog } from './audit';
 import { assertRole } from './auth';
 import type { ActionResult } from './actions';
@@ -53,6 +54,7 @@ export async function createCustomFont(name: string, fontUrl: string): Promise<A
     newValues: { name: trimmed, font_url: fontUrl },
     context: `התקנת גופן: ${trimmed}`,
   });
+  expirePublicContentAfterSave();
   revalidatePath('/', 'layout');
   revalidatePath('/admin/settings');
   return {};
@@ -72,6 +74,7 @@ export async function toggleCustomFont(id: string, active: boolean): Promise<Act
     newValues: { is_active: active },
     context: active ? 'הפעלת גופן' : 'כיבוי גופן',
   });
+  expirePublicContentAfterSave();
   revalidatePath('/', 'layout');
   revalidatePath('/admin/settings');
   return {};
@@ -92,6 +95,7 @@ export async function deleteCustomFont(id: string): Promise<ActionResult> {
     oldValues: (doomed as Record<string, unknown> | null) ?? null,
     context: doomed ? `הסרת גופן: ${doomed.name}` : 'הסרת גופן',
   });
+  expirePublicContentAfterSave();
   revalidatePath('/', 'layout');
   revalidatePath('/admin/settings');
   return {};

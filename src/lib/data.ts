@@ -1,6 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
-import { createStaticClient } from './supabase/server';
+import { createContentClient, createLiveClient, createStaticClient } from './supabase/server';
 import { demo, isDemoContent } from './demo-content';
 import { filterVisibleAttributes } from './attributes';
 import { bannerActiveAt } from './banner-window';
@@ -264,12 +264,29 @@ function warn(scope: string, error: unknown) {
   if (error) console.error(`[data:${scope}]`, error);
 }
 
+/**
+ * ברירת המחדל של כל שולף כאן היא מטמון-תוכן מתויג (createContentClient),
+ * שמתרענן בביטול התג אחרי שמירה בניהול. שולף שנקרא גם מהקשר שאסור לו
+ * לראות מחיר או מלאי ישנים — חיפוש, מועדפים, אזור אישי, diagnostics —
+ * מקבל `{ live: true }` ונשלף ישירות מהמסד, בלי מטמון בכלל.
+ *
+ * ההחלטה היא של הקורא ולא של השולף: אותו getBooks משרת גם עמוד קטלוג סטטי
+ * וגם פעולת חיפוש חיה.
+ */
+export interface DataOptions {
+  live?: boolean;
+}
+
+function dataClient(options?: DataOptions) {
+  return options?.live ? createLiveClient() : createContentClient();
+}
+
 /* -------------------------------------------------------------------------- */
 /* ספרים                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function getBooks(): Promise<BookWithRelations[]> {
-  const supabase = createStaticClient();
+export async function getBooks(options?: DataOptions): Promise<BookWithRelations[]> {
+  const supabase = dataClient(options);
   if (!supabase) return isDemoContent ? demo.books() : [];
 
   return runBookQuery<BookWithRelations>(
@@ -288,7 +305,7 @@ export async function getBooks(): Promise<BookWithRelations[]> {
  * שולפי ה-slug שאחריו.
  */
 export const getBookBySlug = cache(async (slug: string): Promise<BookWithRelations | null> => {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.bookBySlug(slug) : null;
 
   const rows = await runBookQuery<BookWithRelations>(
@@ -336,7 +353,7 @@ const EMPTY_CONNECTIONS: BookConnections = {
  * רכישה/מעקב מבקרים שאין היום — ראו ההסבר המלא ב-10_book_page_stage_c.sql.
  */
 export async function getBookConnections(book: BookWithRelations, limit = 8): Promise<BookConnections> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.connections(book) : EMPTY_CONNECTIONS;
 
   const tagIds = (book.tags ?? []).map((tag) => tag.id);
@@ -408,7 +425,7 @@ export async function getBookConnections(book: BookWithRelations, limit = 8): Pr
 }
 
 async function getBooksSharingTags(
-  supabase: NonNullable<ReturnType<typeof createStaticClient>>,
+  supabase: NonNullable<ReturnType<typeof createContentClient>>,
   tagIds: string[],
   excludeId: string,
   limit: number,
@@ -438,7 +455,7 @@ async function getBooksSharingTags(
 
 /** הכותרים האחרונים שנוספו — לעמוד הבית. */
 export async function getRecentBooks(limit = 6): Promise<BookWithRelations[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.books().slice(0, limit) : [];
 
   return runBookQuery<BookWithRelations>(
@@ -459,7 +476,7 @@ export async function getRecentBooks(limit = 6): Promise<BookWithRelations[]> {
  * הספר עצמו, ומתעדכן בכל טעינת עמוד ספר אמיתית.
  */
 export async function getMostViewedBooks(limit = 5): Promise<BookWithRelations[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) {
     return isDemoContent ? [...demo.books()].sort((a, b) => b.view_count - a.view_count).slice(0, limit) : [];
   }
@@ -481,9 +498,12 @@ export async function getMostViewedBooks(limit = 5): Promise<BookWithRelations[]
  * site_settings.extra.shelf_book_ids, נבחר בהגדרות קטלוג וחנות).
  * מחזיר לפי סדר המזהים שהתקבל, לא לפי סדר ההחזרה השרירותי של .in().
  */
-export async function getBooksByIds(ids: string[]): Promise<BookWithRelations[]> {
+export async function getBooksByIds(
+  ids: string[],
+  options?: DataOptions,
+): Promise<BookWithRelations[]> {
   if (ids.length === 0) return [];
-  const supabase = createStaticClient();
+  const supabase = dataClient(options);
   if (!supabase) return [];
 
   const books = await runBookQuery<BookWithRelations>(
@@ -518,7 +538,7 @@ export async function incrementBookView(slug: string): Promise<void> {
  */
 export async function getBookCountsByAuthor(): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) {
     if (isDemoContent) {
       for (const book of demo.books()) {
@@ -551,7 +571,7 @@ export interface BookOptionRow {
  * השדות האלה.
  */
 export async function getBookOptions(): Promise<BookOptionRow[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) {
     return isDemoContent ? (demo.books() as unknown as BookOptionRow[]) : [];
   }
@@ -566,7 +586,7 @@ export async function getBookOptions(): Promise<BookOptionRow[]> {
 }
 
 export async function getBookSlugs(): Promise<string[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.books().map((b) => b.slug) : [];
   const { data } = await supabase.from('books').select('slug').eq('is_published', true);
   return (data ?? []).map((row: Pick<Book, 'slug'>) => row.slug);
@@ -577,7 +597,7 @@ export async function getBookSlugs(): Promise<string[]> {
 /* -------------------------------------------------------------------------- */
 
 export async function getAuthors(): Promise<Author[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.authors() : [];
 
   const { data, error } = await supabase
@@ -592,7 +612,7 @@ export async function getAuthors(): Promise<Author[]> {
 }
 
 export const getAuthorBySlug = cache(async (slug: string): Promise<Author | null> => {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.authorBySlug(slug) : null;
 
   const { data, error } = await supabase
@@ -607,7 +627,7 @@ export const getAuthorBySlug = cache(async (slug: string): Promise<Author | null
 });
 
 export async function getBooksByAuthor(authorId: string): Promise<BookWithRelations[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.booksByAuthor(authorId) : [];
 
   return runBookQuery<BookWithRelations>(
@@ -623,7 +643,7 @@ export async function getBooksByAuthor(authorId: string): Promise<BookWithRelati
 }
 
 export async function getAuthorSlugs(): Promise<string[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.authors().map((a) => a.slug) : [];
   const { data } = await supabase.from('authors').select('slug').eq('is_published', true);
   return (data ?? []).map((row: Pick<Author, 'slug'>) => row.slug);
@@ -634,7 +654,7 @@ export async function getAuthorSlugs(): Promise<string[]> {
 /* -------------------------------------------------------------------------- */
 
 export async function getCategories(): Promise<Category[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.categories() : [];
 
   const { data, error } = await supabase
@@ -651,7 +671,7 @@ export async function getCategories(): Promise<Category[]> {
 /* -------------------------------------------------------------------------- */
 
 export async function getTags(): Promise<Tag[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return [];
 
   const { data, error } = await supabase.from('tags').select('*').order('name_he');
@@ -664,7 +684,7 @@ export async function getTags(): Promise<Tag[]> {
 /* -------------------------------------------------------------------------- */
 
 export async function getContactTopics(): Promise<ContactTopic[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return [];
 
   const { data, error } = await supabase
@@ -677,7 +697,7 @@ export async function getContactTopics(): Promise<ContactTopic[]> {
 }
 
 export async function getContactFields(): Promise<ContactField[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return [];
 
   const { data, error } = await supabase
@@ -690,7 +710,7 @@ export async function getContactFields(): Promise<ContactField[]> {
 }
 
 export async function getAttributes(): Promise<AttributeWithValues[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return [];
 
   const { data, error } = await supabase
@@ -712,7 +732,7 @@ export async function getAttributes(): Promise<AttributeWithValues[]> {
 /* -------------------------------------------------------------------------- */
 
 export async function getActivities(): Promise<Activity[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.activities() : [];
 
   const { data, error } = await supabase
@@ -726,7 +746,7 @@ export async function getActivities(): Promise<Activity[]> {
 }
 
 export const getActivityBySlug = cache(async (slug: string): Promise<Activity | null> => {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.activityBySlug(slug) : null;
 
   const { data, error } = await supabase
@@ -741,7 +761,7 @@ export const getActivityBySlug = cache(async (slug: string): Promise<Activity | 
 });
 
 export async function getActivitySlugs(): Promise<string[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.activities().map((a) => a.slug) : [];
   const { data } = await supabase.from('activities').select('slug').eq('is_published', true);
   return (data ?? []).map((row: Pick<Activity, 'slug'>) => row.slug);
@@ -752,7 +772,7 @@ export async function getActivitySlugs(): Promise<string[]> {
 /* -------------------------------------------------------------------------- */
 
 export async function getEvents(): Promise<EventRecord[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.events() : [];
 
   const { data, error } = await supabase
@@ -781,7 +801,7 @@ export type EventDetail = EventRecord & {
 };
 
 export const getEventBySlug = cache(async (slug: string): Promise<EventDetail | null> => {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.eventBySlug(slug) : null;
 
   const raw = await withSchemaFallback(
@@ -807,7 +827,7 @@ export const getEventBySlug = cache(async (slug: string): Promise<EventDetail | 
 });
 
 export async function getEventSlugs(): Promise<string[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.events().map((e) => e.slug) : [];
   const { data } = await supabase.from('events').select('slug').eq('is_published', true);
   return (data ?? []).map((row: Pick<EventRecord, 'slug'>) => row.slug);
@@ -831,7 +851,7 @@ export async function getOtherEventWithMedia(
   currentEventId: string,
   currentSlug: string,
 ): Promise<SuggestedEvent | null> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return null;
 
   const { data: candidates, error } = await supabase
@@ -866,7 +886,7 @@ export async function getOtherEventWithMedia(
 /* -------------------------------------------------------------------------- */
 
 export const getPageBySlug = cache(async (slug: string): Promise<ContentPage | null> => {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.page(slug) : null;
 
   const { data, error } = await supabase
@@ -889,7 +909,7 @@ export const getPageBySlug = cache(async (slug: string): Promise<ContentPage | n
  * ארוך, ואין סיבה לשלוף שדות שלא ייבדקו.
  */
 export async function getContentPages(): Promise<ContentPage[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return [];
 
   const { data, error } = await supabase
@@ -921,7 +941,7 @@ const EMPTY_SETTINGS: SiteSettings = {
  * layouts ולבורר הגופנים בעורך. cache() כי נקרא בכל עמוד.
  */
 export const getCustomFonts = cache(async (): Promise<CustomFont[]> => {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('custom_fonts')
@@ -962,6 +982,9 @@ export interface SiteSettingsResult {
 }
 
 export const getSiteSettingsResult = cache(async (): Promise<SiteSettingsResult> => {
+  // לא createContentClient בכוונה: site_settings.store_enabled הוא מתג-העל של
+  // החנות, ו-getCommerceFlags (עגלה, קופה, תשלום, זמינות) נגזר ממנו. מתג
+  // שנשמר במטמון-נתונים היה נשאר ישן בקופה עד הביטול הבא.
   const supabase = createStaticClient();
   if (!supabase) {
     return {
@@ -1009,7 +1032,7 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
  * תאריך. זו הסיבה שנשאר ב-/ חלון זמן, לצד חלונות המבצע (getEffectivePrice).
  */
 export async function getBanners(): Promise<Banner[]> {
-  const supabase = createStaticClient();
+  const supabase = createContentClient();
   if (!supabase) return isDemoContent ? demo.banners() : [];
 
   const { data, error } = await supabase

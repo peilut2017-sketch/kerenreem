@@ -18,6 +18,7 @@
     "check:sanitize": "node --experimental-strip-types scripts/check-sanitize.mjs",
     "check:schema": "node --experimental-strip-types scripts/check-schema-sync.mjs",
     "check:revalidate": "node --experimental-strip-types scripts/check-revalidate.mjs",
+    "check:content-cache": "node --experimental-strip-types scripts/check-content-cache.mjs",
     "check:books": "node --experimental-strip-types scripts/check-book-search.mjs",
     "check:catalogue": "node scripts/check-catalogue.mjs",
     "check:commerce": "node --experimental-strip-types scripts/check-commerce.mjs",

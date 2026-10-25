@@ -58,7 +58,10 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
     getMySavedBooks(),
     getMyDocuments(),
   ]);
-  const savedBooks = await getBooksByIds(saved.map((row) => row.book_id));
+  const savedBooks = await getBooksByIds(
+    saved.map((row) => row.book_id),
+    { live: true },
+  );
 
   const dateFormatter = new Intl.DateTimeFormat(locale === 'en' ? 'en-IL' : 'he-IL', {
     dateStyle: 'short',

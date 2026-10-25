@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { assertScreenPermission } from './auth';
 import { createClient } from '@/lib/supabase/server';
+import { expirePublicContentAfterSave } from '@/lib/revalidation/content-cache';
 import { isMorningConfigured } from '@/lib/commerce/morning';
 
 /**
@@ -96,6 +97,9 @@ export async function saveStoreConfig(
     context: 'הגדרות חנות',
   });
 
+  // העמוד שנבנה מחדש אופה מחיר ומלאי של ספרים משורות מטמון-התוכן. בלי ביטול
+  // התג הוא היה אופה את הגרסה השמורה ולא את המסד — ישן יותר מלפני המטמון.
+  expirePublicContentAfterSave();
   revalidatePath('/admin/books/settings');
   revalidatePath('/[locale]/books/[slug]', 'page');
   revalidatePath('/[locale]/books', 'page');
@@ -139,6 +143,9 @@ export async function toggleStoreConfigFlag(
     context: 'הגדרות חנות',
   });
 
+  // העמוד שנבנה מחדש אופה מחיר ומלאי של ספרים משורות מטמון-התוכן. בלי ביטול
+  // התג הוא היה אופה את הגרסה השמורה ולא את המסד — ישן יותר מלפני המטמון.
+  expirePublicContentAfterSave();
   revalidatePath('/admin/books/settings');
   revalidatePath('/[locale]/books/[slug]', 'page');
   revalidatePath('/[locale]/books', 'page');

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { expirePublicContentAfterSave } from '@/lib/revalidation/content-cache';
 import { SITE_FONT_ROLES, SITE_FONT_VALUE_PATTERN } from '@/lib/fonts';
 import { assertRole, assertScreenPermission } from './auth';
 import { writeAuditLog } from './audit';
@@ -104,6 +105,9 @@ export async function saveSettings(
   });
 
   // הגדרות נצרכות בכל עמוד (כותרת, כותרת תחתונה) ולכן מרעננים את כל האתר.
+  // העמוד שנבנה מחדש אופה מחיר ומלאי של ספרים משורות מטמון-התוכן. בלי ביטול
+  // התג הוא היה אופה את הגרסה השמורה ולא את המסד — ישן יותר מלפני המטמון.
+  expirePublicContentAfterSave();
   revalidatePath('/', 'layout');
   revalidatePath('/admin/settings');
 
@@ -138,6 +142,9 @@ export async function toggleStoreEnabled(value: boolean): Promise<{ ok: boolean;
     record_id: null,
   });
 
+  // העמוד שנבנה מחדש אופה מחיר ומלאי של ספרים משורות מטמון-התוכן. בלי ביטול
+  // התג הוא היה אופה את הגרסה השמורה ולא את המסד — ישן יותר מלפני המטמון.
+  expirePublicContentAfterSave();
   revalidatePath('/[locale]/books/[slug]', 'page');
   revalidatePath('/admin/books/settings');
 
@@ -189,6 +196,9 @@ export async function saveBannersEnabled(enabled: boolean): Promise<ActionResult
     record_id: null,
   });
 
+  // העמוד שנבנה מחדש אופה מחיר ומלאי של ספרים משורות מטמון-התוכן. בלי ביטול
+  // התג הוא היה אופה את הגרסה השמורה ולא את המסד — ישן יותר מלפני המטמון.
+  expirePublicContentAfterSave();
   revalidatePath('/', 'layout');
   revalidatePath('/admin/banners');
   return {};
@@ -217,6 +227,9 @@ export async function saveShelfBooks(bookIds: string[]): Promise<ActionResult> {
     record_id: null,
   });
 
+  // העמוד שנבנה מחדש אופה מחיר ומלאי של ספרים משורות מטמון-התוכן. בלי ביטול
+  // התג הוא היה אופה את הגרסה השמורה ולא את המסד — ישן יותר מלפני המטמון.
+  expirePublicContentAfterSave();
   revalidatePath('/', 'layout');
   revalidatePath('/admin/books/homepage-shelf');
   return {};

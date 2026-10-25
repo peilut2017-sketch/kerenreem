@@ -126,7 +126,7 @@ async function loadSearchDataset(): Promise<SearchDataset> {
   if (searchCache && now - searchCache.at < SEARCH_CACHE_MS) return searchCache.dataset;
 
   const [books, authors, categories, events, activities, pages, settings] = await Promise.all([
-    getBooks(),
+    getBooks({ live: true }),
     getAuthors(),
     getCategories(),
     getEvents(),

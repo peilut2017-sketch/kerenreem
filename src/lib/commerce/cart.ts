@@ -1,5 +1,5 @@
 import 'server-only';
-import { createStaticClient } from '@/lib/supabase/server';
+import { createLiveClient } from '@/lib/supabase/server';
 import { getBookAvailability } from '@/lib/books/availability';
 import type { Book, BookAvailability } from '@/lib/supabase/types';
 import { getEffectivePrice, round2 } from './pricing';
@@ -117,7 +117,7 @@ export async function validateCart(
     .slice(0, MAX_CART_LINES);
   if (cleaned.length === 0) return empty;
 
-  const supabase = createStaticClient();
+  const supabase = createLiveClient();
   if (!supabase) return empty;
 
   const flags = await getCommerceFlags();

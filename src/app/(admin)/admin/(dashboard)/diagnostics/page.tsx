@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/admin/auth';
-import { createClient, createStaticClient } from '@/lib/supabase/server';
+import { createClient, createLiveClient } from '@/lib/supabase/server';
 import { getBooks } from '@/lib/data';
 import { AdminHeader } from '@/components/admin/AdminList';
 import { RevalidateButton } from '@/components/admin/RevalidateButton';
@@ -201,9 +201,10 @@ export default async function DiagnosticsPage({
   // אם ל-anon חסרה הרשאת select על הטבלה, המנהל עדיין יראה "5 מפורסמים"
   // בעוד שהאתר הציבורי מקבל שורה ריקה בשקט.
   //
-  // לכן הבדיקה כאן משתמשת ב-createStaticClient — בדיוק הלקוח שהעמוד
-  // הציבורי משתמש בו, בלי session — ומריצה את אותה שאילתה מילה במילה.
-  const anon = createStaticClient();
+  // לכן הבדיקה כאן משתמשת ב-createLiveClient — אותו לקוח אנונימי בלי
+  // session שהעמוד הציבורי משתמש בו, אבל תמיד ישירות מהמסד: אבחון שנענה
+  // ממטמון-נתונים היה מדווח "תקין" על מסד שכבר אינו נגיש.
+  const anon = createLiveClient();
   const publicChecks: Check[] = [];
   let missingBooks: { slug: string; title: string }[] = [];
 
@@ -248,7 +249,7 @@ export default async function DiagnosticsPage({
     let publicBooks: Awaited<ReturnType<typeof getBooks>> = [];
     let publicBooksError: string | null = null;
     try {
-      publicBooks = await getBooks();
+      publicBooks = await getBooks({ live: true });
     } catch (error) {
       publicBooksError = error instanceof Error ? error.message : String(error);
     }

@@ -3,6 +3,7 @@ import 'server-only';
 import { revalidatePath } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
+import { expirePublicContentNow } from './content-cache';
 import {
   buildBoundaryPaths,
   CURSOR_KEY,
@@ -20,7 +21,7 @@ import {
  *   2. ‏T1 = now().
  *   3. סריקת הגבולות ב-[T0, T1).
  *   4. אם אין אף גבול — **אפס revalidatePath**, והסמן כן מתקדם.
- *   5. אחרת: רענון כל הנתיבים.
+ *   5. אחרת: ביטול תג מטמון-התוכן, ואז רענון כל הנתיבים.
  *   6. **רק אחרי שכולם עברו** — קידום הסמן ל-T1.
  *
  * שלב 6 אחרי שלב 5 במכוון: כשל באמצע משאיר את הסמן במקומו, והריצה הבאה
@@ -185,6 +186,17 @@ export async function runBoundaryRevalidation(): Promise<BoundaryRunResult> {
   }
 
   try {
+    /*
+     * קודם מטמון-הנתונים, ורק אחריו הנתיבים. הסורק קורא את גבולות הזמן
+     * ישירות מהמסד (service client), ואילו העמוד המרונדר מחדש קורא את שורות
+     * הספרים, הבאנרים והאירועים דרך מטמון-התוכן. שורה שהשתנתה ישירות ב-SQL
+     * Editor — למשל sale_starts_at שהוזז — הייתה מזוהה כאן כגבול ובכל זאת
+     * מרונדרת מהגרסה השמורה, והמבצע לא היה מתחיל. הביטול בא רק אחרי "יש
+     * גבול" (למעלה), ולכן ריצה ריקה עדיין אינה נוגעת בכלום. אם הוא נכשל,
+     * הסמן אינו מתקדם והריצה הבאה חוזרת על החלון.
+     */
+    expirePublicContentNow();
+
     if (scan.overflow) {
       /*
        * חריג מנומק, ולא נוחות: מעל הסף (ראו OVERFLOW_THRESHOLD) ביטול
@@ -202,7 +214,7 @@ export async function runBoundaryRevalidation(): Promise<BoundaryRunResult> {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error('[revalidation] revalidatePath', message);
+    console.error('[revalidation] revalidate', message);
     // הסמן אינו מתקדם. הריצה הבאה תחזור על אותו חלון.
     return {
       ok: false,

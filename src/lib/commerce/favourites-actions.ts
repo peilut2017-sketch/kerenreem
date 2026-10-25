@@ -14,5 +14,5 @@ export async function fetchFavouriteBooks(ids: string[]): Promise<BookWithRelati
     100,
   );
   if (cleaned.length === 0) return [];
-  return getBooksByIds(cleaned);
+  return getBooksByIds(cleaned, { live: true });
 }

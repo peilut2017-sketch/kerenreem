@@ -35,8 +35,25 @@ const NEXT_STUBS = {
     export const revalidatePath = (path, type) => {
       if (globalThis.__revalidateShouldThrow) throw new Error('[check] revalidatePath נכשל');
       (globalThis.__revalidateCalls ??= []).push(type ? path + '|' + type : path);
+      (globalThis.__callOrder ??= []).push('path');
     };
-    export const revalidateTag = (tag) => { (globalThis.__revalidateCalls ??= []).push('tag:' + tag); };
+    // תגים נרשמים ברשימה נפרדת מהנתיבים: בדיקות קיימות סופרות את הנתיבים
+    // במדויק. updateTag חוקי רק בתוך Server Action ו-revalidateTag דורש
+    // profile (Next 16) — הסטאב זורק כשחסר, כמו הגרסה האמיתית.
+    export const revalidateTag = (tag, profile) => {
+      if (profile === undefined) throw new Error('[check] revalidateTag(tag) ללא profile');
+      if (globalThis.__tagShouldThrow) throw new Error('[check] revalidateTag נכשל');
+      (globalThis.__tagCalls ??= []).push({ fn: 'revalidateTag', tag, profile });
+      (globalThis.__callOrder ??= []).push('tag');
+      // ‏expire: 0 פוקע מיד; 'max' הוא stale-while-revalidate ואינו פוקע
+      if (profile && profile.expire === 0) globalThis.__onTagExpire?.(tag);
+    };
+    export const updateTag = (tag) => {
+      if (globalThis.__tagShouldThrow) throw new Error('[check] updateTag נכשל');
+      (globalThis.__tagCalls ??= []).push({ fn: 'updateTag', tag });
+      (globalThis.__callOrder ??= []).push('tag');
+      globalThis.__onTagExpire?.(tag);
+    };
     export const unstable_cache = (fn) => fn;
   `,
 };
@@ -69,6 +86,12 @@ export async function resolve(specifier, context, next) {
         // הבא בתור
       }
     }
+  }
+
+  // ‏'next/server' הוא תת-נתיב בלי סיומת: Next מפרק אותו בבנייה, ו-node ESM
+  // דורש 'next/server.js'. נחוץ לבדיקת route handler ממשי (health).
+  if (specifier === 'next/server') {
+    return next('next/server.js', context);
   }
 
   // ‏TypeScript מייבא בלי סיומת ("./addresses"); node דורש נתיב מלא.

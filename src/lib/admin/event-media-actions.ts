@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { expirePublicContentAfterSave } from '@/lib/revalidation/content-cache';
 import { writeAuditLog } from './audit';
 import { assertScreenPermission } from './auth';
 import type { ActionResult } from './actions';
@@ -14,6 +15,8 @@ import type { EventMediaItem } from '@/lib/supabase/types';
  */
 
 function revalidateEvent(eventId: string) {
+  // event_media ו-event_chapters נקראים דרך מטמון-התוכן (getEventBySlug)
+  expirePublicContentAfterSave();
   revalidatePath('/[locale]/events/[slug]', 'page');
   revalidatePath(`/admin/events/${eventId}`);
 }

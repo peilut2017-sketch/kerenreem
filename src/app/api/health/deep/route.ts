@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { createStaticClient } from '@/lib/supabase/server';
+import { createLiveClient } from '@/lib/supabase/server';
 import { canonicalUrlStatus } from '@/lib/site-url';
 
 /**
@@ -92,7 +92,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const minBooks = Number(process.env.HEALTH_MIN_PUBLISHED_BOOKS ?? 1);
   const canaryPath = process.env.HEALTH_STORAGE_CANARY ?? '';
 
-  const supabase = createStaticClient();
+  const supabase = createLiveClient();
 
   const checks = await Promise.all([
     // ---- מסד נתונים: קריאה אמיתית, לא ping -------------------------------

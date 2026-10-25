@@ -305,7 +305,15 @@ function json(body) {
 const { runBoundaryRevalidation } = await import('../src/lib/revalidation/run.ts');
 
 /** מאפס את כל המצב ומריץ. מחזיר את התוצאה ואת הרענונים שיצאו בפועל. */
-async function run({ books = [], banners = [], events = [], cursorAt, shouldThrow = false, selectFails = false } = {}) {
+async function run({
+  books = [],
+  banners = [],
+  events = [],
+  cursorAt,
+  shouldThrow = false,
+  tagShouldThrow = false,
+  selectFails = false,
+} = {}) {
   booksRows = books;
   bannersRows = banners;
   eventsRows = events;
@@ -313,10 +321,20 @@ async function run({ books = [], banners = [], events = [], cursorAt, shouldThro
   cursorWrites = [];
   failSelect = selectFails;
   globalThis.__revalidateCalls = [];
+  globalThis.__tagCalls = [];
+  globalThis.__callOrder = [];
   globalThis.__revalidateShouldThrow = shouldThrow;
+  globalThis.__tagShouldThrow = tagShouldThrow;
   const result = await runBoundaryRevalidation();
   globalThis.__revalidateShouldThrow = false;
-  return { result, revalidated: globalThis.__revalidateCalls, cursorWrites };
+  globalThis.__tagShouldThrow = false;
+  return {
+    result,
+    revalidated: globalThis.__revalidateCalls,
+    tagCalls: globalThis.__tagCalls,
+    order: globalThis.__callOrder,
+    cursorWrites,
+  };
 }
 
 const recent = new Date(Date.now() - 5 * 60_000).toISOString();
@@ -383,6 +401,42 @@ check(
   Date.parse(futureCursor.result.from) < Date.parse(futureCursor.result.to),
   true,
 );
+
+console.log('\nמטמון-התוכן — הסורק קורא מהמסד, העמוד מרונדר ממטמון');
+
+const SALE_BOOK = {
+  slug: 'sefer',
+  sale_starts_at: new Date(Date.now() - 60_000).toISOString(),
+  sale_ends_at: null,
+  author: { slug: 'raam' },
+};
+const EXPIRE_NOW = [{ fn: 'revalidateTag', tag: 'sb:public', profile: { expire: 0 } }];
+
+check('ריצה ריקה — התג לא נוגעים בו', emptyRun.tagCalls, []);
+check('ריצה עם גבול — התג פוקע פעם אחת, מיידית (expire: 0)', saleRun.tagCalls, EXPIRE_NOW);
+check(
+  'והפקיעה קודמת לכל הנתיבים (אחרת העמוד נבנה מהגרסה השמורה)',
+  saleRun.order[0] === 'tag' && saleRun.order.slice(1).every((step) => step === 'path'),
+  true,
+);
+
+const overflowRun = await run({
+  cursorAt: recent,
+  books: Array.from({ length: 200 }, (_, i) => ({ ...SALE_BOOK, slug: `book-${i}`, author: { slug: `author-${i}` } })),
+});
+check('גלישה (ביטול גורף) — גם אז התג פוקע פעם אחת', overflowRun.tagCalls, EXPIRE_NOW);
+check('ואחריו נתיב אחד בלבד: עץ השפה', overflowRun.revalidated, ['/[locale]|layout']);
+
+check('כשל בנתיבים — התג כבר פקע, אבל הסמן אינו מתקדם',
+  [failRun.tagCalls.length, failRun.result.status, failRun.result.cursorAdvanced], [1, 'failed', false]);
+
+const tagFailRun = await run({ cursorAt: recent, books: [SALE_BOOK], tagShouldThrow: true });
+check('כשל בפקיעת התג — התוצאה failed', tagFailRun.result.status, 'failed');
+check('הסמן אינו מתקדם ואינו נכתב', [tagFailRun.result.cursorAdvanced, tagFailRun.cursorWrites], [false, []]);
+check('ולא רועננו נתיבים מהגרסה השמורה', tagFailRun.revalidated, []);
+check('הכשל מדווח בהודעת השגיאה', /updateTag|revalidateTag/.test(String(tagFailRun.result.error)), true);
+
+check('כשל בשליפה — התג לא נוגעים בו', selectFail.tagCalls, []);
 
 globalThis.fetch = realFetch;
 

@@ -4,6 +4,7 @@ import { reconcileBookStockFromForm } from '@/lib/commerce/inventory';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { expirePublicContentAfterSave } from '@/lib/revalidation/content-cache';
 import { auditDisplayName, diffForAudit, writeAuditLog, type AuditDetails } from './audit';
 import { assertRole, assertScreenPermission } from './auth';
 import {
@@ -113,6 +114,10 @@ function randomBookSlug(sku: unknown): string {
 /** רענון העמודים הציבוריים שנוגעים לישות. כשל כאן לא אמור להפיל שמירה. */
 function revalidateEntity(entityKey: EntityKey) {
   const entity = ENTITIES[entityKey];
+  // מטמון-הנתונים של התוכן (createContentClient) נפרד ממטמון המסלולים: בלי
+  // ביטול התג, עמוד שנבנה מחדש היה שולף שוב את הגרסה השמורה. קודם לנתיבים,
+  // כדי ששגיאה באחד מהם לא תדלג עליו (הוא עצמו אינו זורק).
+  expirePublicContentAfterSave();
   try {
     for (const path of entity.revalidate) {
       revalidatePath(`/[locale]${path}`, 'page');
@@ -1015,6 +1020,7 @@ export async function saveBookImages(
     await writeAudit(supabase, session.userId, 'update', 'book_images', bookId, {
       context: `עדכון גלריית ספר — ${rows.length} תמונות`,
     });
+    expirePublicContentAfterSave();
     revalidatePath(`/[locale]/books/[slug]`, 'page');
     revalidatePath(`/admin/books/${bookId}`);
     return {};
@@ -1063,6 +1069,7 @@ export async function saveBookToc(
     await writeAudit(supabase, session.userId, 'update', 'book_toc', bookId, {
       context: `עדכון תוכן עניינים — ${rows.length} שורות`,
     });
+    expirePublicContentAfterSave();
     revalidatePath(`/[locale]/books/[slug]`, 'page');
     revalidatePath(`/admin/books/${bookId}`);
     return {};
@@ -1136,6 +1143,7 @@ export async function saveBookPreviewPages(
     await writeAudit(supabase, session.userId, 'update', 'book_preview_pages', bookId, {
       context: `עדכון דפי דפדוף — ${rows.length} עמודים`,
     });
+    expirePublicContentAfterSave();
     revalidatePath(`/[locale]/books/[slug]`, 'page');
     revalidatePath(`/admin/books/${bookId}`);
     return {};
@@ -1209,6 +1217,7 @@ export async function saveEventBlocks(
     await writeAudit(supabase, session.userId, 'update', 'event_blocks', eventId, {
       context: `עדכון רצף סיפור האירוע — ${rows.length} בלוקים`,
     });
+    expirePublicContentAfterSave();
     revalidatePath(`/[locale]/events/[slug]`, 'page');
     revalidatePath(`/admin/events/${eventId}`);
     return {};
