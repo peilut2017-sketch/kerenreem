@@ -3,6 +3,8 @@ import { getEmailConfigStatus, getInquiryInboxes } from '@/lib/admin/email-actio
 import { AdminHeader } from '@/components/admin/AdminList';
 import { EmailTester } from '@/components/admin/EmailTester';
 import { InquiryInboxForm } from '@/components/admin/InquiryInboxForm';
+import { InboundDiagnostics } from '@/components/admin/InboundDiagnostics';
+import { getInboundDiagnostics } from '@/lib/admin/inbound-diagnostics';
 import { EmailLogTable } from '@/components/admin/EmailLogTable';
 import { listEmailLog } from '@/lib/admin/email-log-queries';
 
@@ -18,10 +20,11 @@ export const dynamic = 'force-dynamic';
  */
 export default async function AdminEmailPage() {
   const session = await requireScreenPermission('email', 'view');
-  const [status, inboxes, log] = await Promise.all([
+  const [status, inboxes, log, inbound] = await Promise.all([
     getEmailConfigStatus(),
     getInquiryInboxes(),
     listEmailLog(),
+    getInboundDiagnostics(),
   ]);
 
   return (
@@ -102,6 +105,8 @@ export default async function AdminEmailPage() {
       <InquiryInboxForm initial={inboxes} fallback={status.staffInbox} />
 
       <EmailTester defaultTo={session.email ?? ''} />
+
+      <InboundDiagnostics initial={inbound} />
 
       <EmailLogTable rows={log} />
     </>

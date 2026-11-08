@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { allowRequest } from '@/lib/commerce/rate-limit';
-import { processInboundReply } from '@/lib/email/inbound';
+import { processInboundReply, type InboundTrace } from '@/lib/email/inbound';
+import { logInboundAttempt } from '@/lib/email/inbound-log';
 import { inboundSecret, safeEqual } from '@/lib/email/inquiry-thread';
 
 /**
@@ -27,6 +28,15 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const provided = request.headers.get('x-inbound-secret') ?? '';
   if (!safeEqual(provided, secret)) {
+    // סוד שגוי הוא התקלה הנפוצה ביותר בהקמה — היא נרשמת ליומן האבחון,
+    // אבל בהגבלת קצב: נקודה ציבורית אסור שתאפשר למלא את הטבלה.
+    if (await allowRequest('inbound-unauthorized', 20, 3600)) {
+      await logInboundAttempt({
+        recipient: request.headers.get('x-envelope-to'),
+        outcome: 'unauthorized',
+        reason: 'x-inbound-secret אינו תואם ל-INBOUND_EMAIL_SECRET',
+      });
+    }
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
@@ -40,14 +50,29 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
 
+  const trace: InboundTrace = {};
   try {
-    const outcome = await processInboundReply(raw, recipient);
+    const outcome = await processInboundReply(raw, recipient, trace);
     if (outcome.status === 'rejected' || outcome.status === 'failed') {
       console.warn('[inbound]', outcome.status, outcome.reason);
     }
+    await logInboundAttempt({
+      recipient,
+      ...trace,
+      outcome: outcome.status,
+      reason: 'reason' in outcome ? outcome.reason : null,
+      sizeBytes: raw.byteLength,
+    });
     return NextResponse.json({ status: outcome.status }, { status: outcome.httpStatus });
   } catch (error) {
     console.error('[inbound] unexpected', error);
+    await logInboundAttempt({
+      recipient,
+      ...trace,
+      outcome: 'failed',
+      reason: error instanceof Error ? `exception: ${error.message}` : 'exception',
+      sizeBytes: raw.byteLength,
+    });
     return NextResponse.json({ error: 'failed' }, { status: 500 });
   }
 }

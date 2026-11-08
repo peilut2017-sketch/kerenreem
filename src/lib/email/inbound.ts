@@ -10,6 +10,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import type { UserRole } from '@/lib/supabase/types';
 import { readInquiryInboxes, resolveInquiryInbox } from './inbox';
 import {
+  INBOUND_PING_ID,
   inquiryReplyAddress,
   parseInquiryReplyAddress,
   stripQuotedReply,
@@ -39,6 +40,7 @@ export type InboundOutcome =
   | { status: 'recorded'; httpStatus: 200 }
   | { status: 'duplicate'; httpStatus: 200 }
   | { status: 'ignored'; httpStatus: 200 }
+  | { status: 'ping'; httpStatus: 200 }
   | { status: 'rejected'; httpStatus: 422; reason: string }
   | { status: 'failed'; httpStatus: 502 | 503; reason: string };
 
@@ -91,15 +93,30 @@ function isAutoReply(headers: { key: string; value: string }[]): boolean {
   );
 }
 
-export async function processInboundReply(raw: ArrayBuffer, recipient: string): Promise<InboundOutcome> {
+/** פרטי הניסיון, ליומן הקליטה — ממולא תוך כדי עיבוד. */
+export interface InboundTrace {
+  sender?: string | null;
+  inquiryId?: string | null;
+}
+
+export async function processInboundReply(
+  raw: ArrayBuffer,
+  recipient: string,
+  trace: InboundTrace = {},
+): Promise<InboundOutcome> {
   const service = createServiceClient();
   if (!service) return { status: 'failed', httpStatus: 503, reason: 'no service client' };
 
   const inquiryId = parseInquiryReplyAddress(recipient);
   if (!inquiryId) return { status: 'rejected', httpStatus: 422, reason: 'bad reply address' };
+  trace.inquiryId = inquiryId;
 
   const parsed = await PostalMime.parse(raw);
   const fromAddress = parsed.from?.address?.trim().toLowerCase();
+  trace.sender = fromAddress ?? null;
+
+  // בדיקת מקצה לקצה: המייל הגיע עד לכאן, וזה כל מה שרצינו לדעת
+  if (inquiryId === INBOUND_PING_ID) return { status: 'ping', httpStatus: 200 };
   if (!fromAddress) return { status: 'rejected', httpStatus: 422, reason: 'no sender' };
 
   // מענה אוטומטי נבלע בשקט: דחייה הייתה מעבירה אותו לתיבת הגיבוי של הצוות
