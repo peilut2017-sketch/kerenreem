@@ -62,7 +62,7 @@ export function BookHeroActions({
   return (
     <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
       {price ? (
-        <span className="font-serif text-h3 leading-none text-ink">{price}</span>
+        <span className="font-price text-h3 leading-none text-ink">{price}</span>
       ) : null}
 
       {price ? (

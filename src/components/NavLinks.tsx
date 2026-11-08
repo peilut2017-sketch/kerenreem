@@ -84,7 +84,7 @@ export function NavLinks({
   }, [measure]);
 
   return (
-    <nav aria-label={label} className="mx-auto hidden lg:block">
+    <nav aria-label={label} className="mx-auto hidden font-nav lg:block">
       <ul
         ref={listRef}
         className={`relative flex items-center transition-[gap] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${compact ? 'gap-0.5' : 'gap-1'}`}

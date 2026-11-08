@@ -59,7 +59,7 @@ export function BookListRow({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-serif text-[1.0625rem] leading-snug text-ink">
+          <h3 className="font-booktitle text-[1.0625rem] leading-snug text-ink">
             <Link href={`/books/${book.slug}`} className="after:absolute after:inset-0 hover:text-burgundy">
               {title}
             </Link>
@@ -78,7 +78,7 @@ export function BookListRow({
         {author ? <p className="mt-1 text-small text-muted">{author.name}</p> : null}
 
         {blurb ? (
-          <p className="mt-1.5 line-clamp-1 text-small leading-snug text-ink-soft sm:line-clamp-2">{blurb}</p>
+          <p className="mt-1.5 line-clamp-1 font-bookdesc text-small leading-snug text-ink-soft sm:line-clamp-2">{blurb}</p>
         ) : null}
 
         <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-caption text-muted">
@@ -88,7 +88,7 @@ export function BookListRow({
           {book.pages ? <span>{book.pages} עמודים</span> : null}
 
           {price ? (
-            <span className="ms-auto inline-flex items-baseline gap-1.5 font-serif text-[1rem] text-ink tabular-nums">
+            <span className="ms-auto inline-flex items-baseline gap-1.5 font-price text-[1rem] text-ink tabular-nums">
               {price.onSale && price.originalAmount != null ? (
                 <s className="text-caption text-muted">{formatPrice(price.originalAmount, locale)}</s>
               ) : null}

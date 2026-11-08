@@ -151,16 +151,57 @@ export const EDITOR_FONT_CHOICES: { label: string; value: string }[] = [
    בלי תלות בסדר טעינת ה-CSS. ריק/חסר = ברירות המחדל של מערכת העיצוב.
    -------------------------------------------------------------------------- */
 
-export type SiteFontRole = 'sans' | 'serif' | 'display';
+export type SiteFontRole =
+  | 'sans'
+  | 'serif'
+  | 'display'
+  | 'wordmark'
+  | 'nav'
+  | 'booktitle'
+  | 'bookdesc'
+  | 'button'
+  | 'price';
 
-export const SITE_FONT_ROLES: { role: SiteFontRole; label: string; hint: string }[] = [
-  { role: 'sans', label: 'גוף הטקסט', hint: 'ברירת מחדל: Assistant — רוב הטקסט באתר.' },
-  { role: 'serif', label: 'כותרות', hint: 'ברירת מחדל: Frank Ruhl Libre — כותרות עמודים ומקטעים.' },
+export interface SiteFontRoleInfo {
+  role: SiteFontRole;
+  label: string;
+  hint: string;
+  /** 'base' = שלושת הגופנים הכלליים; 'element' = אלמנט ספציפי, שברירת המחדל שלו היא אחד מהם */
+  group: 'base' | 'element';
+}
+
+/**
+ * ‏[1.46] שלושה תפקידים כלליים, ושישה תפקידי-אלמנט שנגזרים מהם כברירת מחדל
+ * (ראו @theme ב-globals.css: ‎--font-wordmark: var(--font-serif)‎ וכן הלאה).
+ * תפקיד-אלמנט ריק פירושו "כמו הגופן הכללי שלו" — כלומר בלי שום שינוי
+ * בעיצוב עד שמישהו בוחר. בחירה בגופן הכללי משפיעה גם על האלמנטים שלא נבחר
+ * להם גופן משלהם.
+ */
+export const SITE_FONT_ROLES: SiteFontRoleInfo[] = [
+  { role: 'sans', group: 'base', label: 'גוף הטקסט', hint: 'ברירת מחדל: Assistant — רוב הטקסט באתר.' },
+  { role: 'serif', group: 'base', label: 'כותרות', hint: 'ברירת מחדל: Frank Ruhl Libre — כותרות עמודים ומקטעים.' },
   {
     role: 'display',
+    group: 'base',
     label: 'כותרות ראשיות',
-    hint: 'ברירת מחדל: Suez One — כותרות המקטעים הגדולות בעמוד הבית.',
+    hint: 'כותרות המקטעים הגדולות בעמוד הבית. ריק = כמו הכותרות. Suez One זמין לבחירה.',
   },
+  { role: 'wordmark', group: 'element', label: 'שם האתר', hint: 'השם שליד הלוגו בכותרת העליונה. ריק = כמו הכותרות.' },
+  { role: 'nav', group: 'element', label: 'תפריט הניווט', hint: 'הקישורים בכותרת העליונה. ריק = כמו גוף הטקסט.' },
+  {
+    role: 'booktitle',
+    group: 'element',
+    label: 'שמות ספרים',
+    hint: 'בכרטיסים, ברשימה, בחיפוש ובכותרת עמוד הספר. ריק = כמו הכותרות.',
+  },
+  {
+    role: 'bookdesc',
+    group: 'element',
+    label: 'תיאורי ספרים',
+    hint: 'התיאור המלא בעמוד הספר והתמצית בשורת הספר. ריק = כמו גוף הטקסט.',
+  },
+  { role: 'button', group: 'element', label: 'כפתורים', hint: 'כפתורי הפעולה באתר. ריק = כמו גוף הטקסט.' },
+  { role: 'price', group: 'element', label: 'מחירים', hint: 'מחיר הספר בכרטיס, ברשימה ובעמוד הספר. ריק = כמו הכותרות.' },
 ];
 
 /**
@@ -174,7 +215,14 @@ export const SITE_FONT_VALUE_PATTERN = /^var\(--font-[a-z0-9-]{1,60}\)$/;
 const SITE_FONT_FALLBACKS: Record<SiteFontRole, string> = {
   sans: "'Assistant', system-ui, -apple-system, sans-serif",
   serif: "'Frank Ruhl Libre', 'David Libre', Georgia, serif",
-  display: "'Suez One', Georgia, serif",
+  display: 'var(--font-serif)',
+  // תפקידי-אלמנט: נופלים לגופן הכללי שלהם, לא למחסנית נפרדת
+  wordmark: 'var(--font-serif)',
+  nav: 'var(--font-sans)',
+  booktitle: 'var(--font-serif)',
+  bookdesc: 'var(--font-sans)',
+  button: 'var(--font-sans)',
+  price: 'var(--font-serif)',
 };
 
 /**

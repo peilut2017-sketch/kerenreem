@@ -13,10 +13,16 @@ export function SummaryCard({ html, brief }: { html: string; brief?: string | nu
   const t = useTranslations('books');
   const [mode, setMode] = useState<'full' | 'brief'>('full');
 
-  if (!brief) return <RichText html={html} />;
+  if (!brief) {
+    return (
+      <div className="font-bookdesc">
+        <RichText html={html} />
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="font-bookdesc">
       <div role="group" aria-label={t('summaryModeGroup')} className="mb-5 inline-flex rounded-[var(--radius-pill)] bg-cream-2 p-1">
         <button
           type="button"

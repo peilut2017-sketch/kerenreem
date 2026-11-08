@@ -129,7 +129,7 @@ export function BookHero({
                 </Reveal>
               ) : null}
 
-              <Reveal as="h1" className="font-serif text-[clamp(2.75rem,5.2vw,4.75rem)] leading-[1.03] text-ink">
+              <Reveal as="h1" className="font-booktitle text-[clamp(2.75rem,5.2vw,4.75rem)] leading-[1.03] text-ink">
                 {title}
               </Reveal>
 

@@ -177,7 +177,7 @@ export function Wordmark({
 
       <span className="leading-tight">
         <span
-          className={`block font-serif transition-[font-size] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
+          className={`block font-wordmark transition-[font-size] duration-[420ms] ease-[var(--ease-spring)] motion-reduce:transition-none ${
             compact ? 'text-[1rem] sm:text-[1.0625rem]' : 'text-[1.1875rem] sm:text-[1.3125rem]'
           } ${variant === 'dark' ? 'text-white' : 'text-ink group-hover:text-burgundy'} transition-colors`}
         >

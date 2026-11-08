@@ -114,7 +114,7 @@ export function BookCard({
       {/* relative z-[2] — יושב מעל שכבת הברק העדינה של .book-card-glass::before,
           כדי שהיא תיראה מעל שולי הכרטיס אך לא תעמעם את הטקסט הקריא */}
       <div className="relative z-[2] flex flex-1 flex-col p-5 pt-4">
-        <h3 className="font-serif text-[1.0625rem] leading-snug text-ink">
+        <h3 className="font-booktitle text-[1.0625rem] leading-snug text-ink">
           {/* הקישור פרוש על כל הכרטיס, כך שכל השטח לחיץ ובכל זאת יש רק
               יעד אחד בסדר הטאב — כרטיס עם שלושה קישורים לאותו מקום מכפיל
               את מספר העצירות לקורא מסך. */}
@@ -142,7 +142,7 @@ export function BookCard({
             ) : null}
 
             {price ? (
-              <span className="ms-auto inline-flex items-baseline gap-1.5 font-serif text-[1.05rem] text-ink tabular-nums">
+              <span className="ms-auto inline-flex items-baseline gap-1.5 font-price text-[1.05rem] text-ink tabular-nums">
                 {price.onSale && price.originalAmount != null ? (
                   <s className="text-caption text-muted">{formatPrice(price.originalAmount, locale)}</s>
                 ) : null}
