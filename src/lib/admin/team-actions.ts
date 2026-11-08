@@ -106,7 +106,7 @@ export async function inviteStaffMember(input: {
     roleLabel: ROLE_LABELS[input.role],
     loginUrl: `${siteUrl}/admin/login`,
   });
-  const emailResult = await sendEmail(email, inviteEmail, { replyTo: contactAddress() });
+  const emailResult = await sendEmail(email, inviteEmail, { replyTo: contactAddress(), label: 'team_invite' });
 
   revalidatePath('/admin/team');
   return {

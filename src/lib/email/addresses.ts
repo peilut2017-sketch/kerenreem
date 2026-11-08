@@ -25,8 +25,10 @@ import 'server-only';
  * "שקט" צריך להיות ברירת המחדל, ותגובה צריכה להיות החלטה מפורשת.
  */
 
-/** דומיין השליחה של המכון. הדואר היוצא חתום עליו (SPF/DKIM). */
-export const EMAIL_DOMAIN = 'kerenreem.org';
+import { EMAIL_DOMAIN } from './domain';
+import { inquiryReplyAddress } from './inquiry-thread';
+
+export { EMAIL_DOMAIN };
 
 export type EmailRole = 'automated' | 'human';
 
@@ -74,7 +76,10 @@ export function defaultReplyTo(role: EmailRole): string | undefined {
 }
 
 /**
- * כתובת המענה של מענה לפנייה — התפר לקליטת תשובות אוטומטית בעתיד.
+ * כתובת המענה של מענה/אישור לפנייה. עם INBOUND_EMAIL_SECRET — כתובת חתומה
+ * שתשובת הפונה אליה נקלטת לשרשור הפנייה (ראו inbound.ts); בלעדיו contact@.
+ *
+ * ההסבר הישן, שנשאר רלוונטי להבנת העיקרון:
  *
  * כדי שתשובה של פונה תיקלט אל הפנייה הנכונה, היא צריכה לחזור לכתובת
  * שמזהה את הפנייה: ‎contact+inq-123@kerenreem.org. גם Cloudflare Email
@@ -87,8 +92,9 @@ export function defaultReplyTo(role: EmailRole): string | undefined {
  * ההפעלה תהיה שינוי בגוף הפונקציה הזו בלבד.
  */
 export function replyToForInquiry(inquiryId?: string | number | null): string {
-  void inquiryId;
-  return contactAddress();
+  // [1.44] כשקליטת התשובות מופעלת (INBOUND_EMAIL_SECRET) — כתובת חתומה של
+  // הפנייה, כך שתשובת הפונה נקלטת לשרשור. בלעדיה: contact@ נטו, כמקודם.
+  return (inquiryId ? inquiryReplyAddress(String(inquiryId)) : null) ?? contactAddress();
 }
 
 /**

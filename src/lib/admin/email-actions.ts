@@ -148,7 +148,7 @@ export async function sendTestSiteEmail(
     const result = await sendEmail(
       address,
       { ...email, subject: `[בדיקה] ${email.subject}` },
-      { role: delivery.role, replyTo },
+      { role: delivery.role, replyTo, label: 'test' },
     );
 
     if (result.skipped) {

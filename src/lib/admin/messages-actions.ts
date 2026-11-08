@@ -124,6 +124,8 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
   const sent = await sendEmail(inquiry.email, message, {
     role: 'human',
     replyTo: replyToForInquiry(id),
+    label: 'contact_reply',
+    related: { table: 'contact_messages', id },
   });
   if (!sent.ok && !sent.skipped) {
     return { error: 'שליחת הדואר נכשלה. המענה לא נשמר — נסו שוב.' };
@@ -135,6 +137,8 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
     body_html: clean,
     sent_to: inquiry.email,
     delivery_status: sent.ok ? 'sent' : 'skipped',
+    direction: 'out',
+    email_log_id: sent.logId ?? null,
   });
   if (insertError) {
     console.error('[admin:messages] שמירת מענה נכשלה', insertError.code, insertError.message);

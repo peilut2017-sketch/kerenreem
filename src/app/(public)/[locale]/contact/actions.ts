@@ -5,7 +5,7 @@ import { getTranslations } from 'next-intl/server';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { clientIp } from '@/lib/client-ip';
 import { createClient } from '@/lib/supabase/server';
-import { contactAddress, sendEmail } from '@/lib/email/send';
+import { replyToForInquiry, sendEmail } from '@/lib/email/send';
 import { inquiryReplyAddress } from '@/lib/email/inquiry-thread';
 import { contactAckEmail, contactStaffEmail, type ContactDetails } from '@/lib/email/templates';
 import { resolveInquiryInbox, type InquiryKind } from '@/lib/email/inbox';
@@ -275,7 +275,12 @@ async function sendContactEmails(
       // אישור אוטומטי, אבל פונה שיענה עליו מצפה שמישהו יקרא —
       // ולכן Reply-To אל contact@ למרות שהשולח הוא no-reply@.
       contactAckEmail(details).then((email) =>
-        sendEmail(details.email, email, { replyTo: contactAddress() }),
+        sendEmail(details.email, email, {
+          // כתובת חתומה כשהקליטה מופעלת → תשובת הפונה לאישור נכנסת לשרשור
+          replyTo: replyToForInquiry(inquiryId),
+          label: 'contact_ack',
+          related: { table: 'contact_messages', id: inquiryId },
+        }),
       ),
     ];
     if (inbox) {
@@ -289,7 +294,11 @@ async function sendContactEmails(
           // כתובת חתומה של הפנייה, כך ש"השב" נשלח לפונה *ונשמר בשרשור*
           // (ראו lib/email/inbound.ts). בלעדיה — כתובת הפונה עצמו, והתשובה
           // יוצאת ישירות אליו בלי להיכנס למערכת.
-          sendEmail(inbox, email, { replyTo: replyAddress ?? details.email }),
+          sendEmail(inbox, email, {
+            replyTo: replyAddress ?? details.email,
+            label: 'contact_staff',
+            related: { table: 'contact_messages', id: inquiryId },
+          }),
         ),
       );
     } else {

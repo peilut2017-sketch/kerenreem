@@ -26,6 +26,7 @@
     "check:colors": "node --experimental-strip-types scripts/check-cover-colors.mjs",
     "check:canonical": "node scripts/check-canonical.mjs",
     "check:email": "node --experimental-strip-types scripts/check-email-roles.mjs",
+    "check:email-tracking": "node --experimental-strip-types scripts/check-email-tracking.mjs",
     "check:inquiry-thread": "node --experimental-strip-types scripts/check-inquiry-thread.mjs",
     "check:availability": "node --experimental-strip-types scripts/check-availability.mjs",
     "check:boundaries": "node --experimental-strip-types scripts/check-boundaries.mjs",
