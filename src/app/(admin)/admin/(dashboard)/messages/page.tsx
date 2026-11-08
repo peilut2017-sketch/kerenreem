@@ -10,7 +10,12 @@ import { InquiriesInbox } from '@/components/admin/InquiriesInbox';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminMessagesPage() {
+export default async function AdminMessagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ open?: string }>;
+}) {
+  const { open } = await searchParams;
   const session = await requireScreenPermission('messages', 'view');
   const [messages, fields, replies] = await Promise.all([
     listContactMessages(),
@@ -33,6 +38,7 @@ export default async function AdminMessagesPage() {
         attachmentUrls={attachmentUrls}
         fields={fields}
         canDelete={session.profile.role === 'admin'}
+        initialOpenId={open ?? null}
       />
     </>
   );

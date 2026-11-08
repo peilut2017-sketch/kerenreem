@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useId, useMemo, useState, useTransition } from 'react';
+import { useEffect, useId, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Drawer } from '../Drawer';
 import { AdminIcon } from './AdminIcons';
@@ -53,20 +53,28 @@ export function InquiriesInbox({
   fields,
   attachmentUrls,
   canDelete,
+  initialOpenId = null,
 }: {
   messages: ContactMessage[];
   replies: ContactReply[];
   fields: ContactField[];
   attachmentUrls: Record<string, string>;
   canDelete: boolean;
+  /** פנייה שנפתחת מיד — מהקישור שבהתראת הדואר לצוות (‎?open=<id>‎). */
+  initialOpenId?: string | null;
 }) {
   const router = useRouter();
   const [kindFilter, setKindFilter] = useState<'all' | InquiryKind>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | InquiryStatus>('all');
   const [query, setQuery] = useState('');
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() =>
+    initialOpenId && messages.some((message) => message.id === initialOpenId) ? initialOpenId : null,
+  );
   // עדכון אופטימי: הסטטוס שנבחר מוצג מיד, גם לפני שהרענון מהשרת חוזר
-  const [statusOverrides, setStatusOverrides] = useState<Record<string, InquiryStatus>>({});
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, InquiryStatus>>(() => {
+    const target = initialOpenId ? messages.find((message) => message.id === initialOpenId) : null;
+    return target?.status === 'new' ? { [target.id]: 'read' } : {};
+  });
 
   const statusOf = (message: ContactMessage): InquiryStatus =>
     statusOverrides[message.id] ?? message.status;
@@ -123,6 +131,14 @@ export function InquiriesInbox({
   }, [messages, kindFilter, statusFilter, query, statusOverrides]);
 
   const open = openId ? (messages.find((message) => message.id === openId) ?? null) : null;
+
+  // פתיחה מקישור (‎?open=<id>‎) מסמנת "נקראה" בדיוק כמו לחיצה ברשימה
+  useEffect(() => {
+    const target = initialOpenId ? messages.find((message) => message.id === initialOpenId) : null;
+    if (target?.status !== 'new') return;
+    void markInquiryOpened(target.id).then(() => router.refresh());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- פעם אחת, בטעינה
+  }, []);
 
   function openInquiry(message: ContactMessage) {
     setOpenId(message.id);
@@ -479,6 +495,9 @@ function InquiryDetail({
                   <p className="mb-1.5 flex flex-wrap items-center gap-2 text-caption text-muted">
                     <span className="font-semibold text-ink-soft">{reply.user_name ?? 'צוות המכון'}</span>
                     <span className="tabular-nums">{formatDateTime(reply.created_at)}</span>
+                    {reply.source === 'email' ? (
+                      <span className="admin-badge">נענתה במייל</span>
+                    ) : null}
                     {reply.delivery_status !== 'sent' ? (
                       <span className="admin-badge admin-badge-warning">לא נשלח בדואר</span>
                     ) : null}

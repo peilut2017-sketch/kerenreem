@@ -6,6 +6,7 @@ import { sanitizeHtml } from '@/lib/sanitize';
 import { clientIp } from '@/lib/client-ip';
 import { createClient } from '@/lib/supabase/server';
 import { contactAddress, sendEmail } from '@/lib/email/send';
+import { inquiryReplyAddress } from '@/lib/email/inquiry-thread';
 import { contactAckEmail, contactStaffEmail, type ContactDetails } from '@/lib/email/templates';
 import { resolveInquiryInbox, type InquiryKind } from '@/lib/email/inbox';
 
@@ -208,7 +209,11 @@ export async function submitContact(
     }
   }
 
+  // המזהה נוצר כאן ולא במסד: ל-anon אין select, כך שאי אפשר לקרוא אותו חזרה
+  // מה-insert, והוא נחוץ לכתובת המענה ולקישור שבהתראה לצוות.
+  const inquiryId = crypto.randomUUID();
   const { error } = await supabase.from('contact_messages').insert({
+    id: inquiryId,
     name,
     email,
     phone: phone || null,
@@ -234,7 +239,7 @@ export async function submitContact(
     message,
     extraFields: emailExtraFields,
     attachmentCount: attachments.length,
-  }, 'general');
+  }, 'general', inquiryId);
 
   return { status: 'success' };
 }
@@ -250,7 +255,11 @@ export async function submitContact(
  * שתי ההודעות נשלחות במקביל: הן אינן תלויות זו בזו, ואין סיבה
  * שהמבקר ימתין לשרשרת.
  */
-async function sendContactEmails(details: ContactDetails, kind: InquiryKind): Promise<void> {
+async function sendContactEmails(
+  details: ContactDetails,
+  kind: InquiryKind,
+  inquiryId: string,
+): Promise<void> {
   try {
     /*
      * ‏[1.41] היעד נקבע לפי סוג הפנייה, ונערך במסך הניהול — פנייה
@@ -260,6 +269,7 @@ async function sendContactEmails(details: ContactDetails, kind: InquiryKind): Pr
      */
     const inbox = await resolveInquiryInbox(kind);
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
+    const replyAddress = inquiryReplyAddress(inquiryId);
 
     const jobs: Promise<unknown>[] = [
       // אישור אוטומטי, אבל פונה שיענה עליו מצפה שמישהו יקרא —
@@ -270,10 +280,16 @@ async function sendContactEmails(details: ContactDetails, kind: InquiryKind): Pr
     ];
     if (inbox) {
       jobs.push(
-        contactStaffEmail(details, siteUrl ? `${siteUrl}/admin/messages` : null).then((email) =>
-          // ‏Reply-To של הפונה: כך "השב" בתיבת הצוות עונה לו
-          // ישירות, בלי לעבור דרך מסך הניהול.
-          sendEmail(inbox, email, { replyTo: details.email }),
+        contactStaffEmail(
+          details,
+          siteUrl ? `${siteUrl}/admin/messages?open=${inquiryId}` : null,
+          { replyByEmail: Boolean(replyAddress) },
+        ).then((email) =>
+          // ‏Reply-To: כשקליטת תשובות במייל מופעלת (INBOUND_EMAIL_SECRET) —
+          // כתובת חתומה של הפנייה, כך ש"השב" נשלח לפונה *ונשמר בשרשור*
+          // (ראו lib/email/inbound.ts). בלעדיה — כתובת הפונה עצמו, והתשובה
+          // יוצאת ישירות אליו בלי להיכנס למערכת.
+          sendEmail(inbox, email, { replyTo: replyAddress ?? details.email }),
         ),
       );
     } else {
@@ -386,7 +402,9 @@ export async function submitBookFeedback(
     }
   }
 
+  const inquiryId = crypto.randomUUID();
   const { error } = await supabase.from('contact_messages').insert({
+    id: inquiryId,
     name,
     email,
     phone: phone || null,
@@ -413,7 +431,7 @@ export async function submitBookFeedback(
     message: messageText,
     extraFields: pageReference ? [{ label: 'עמוד', value: pageReference }] : [],
     attachmentCount: attachments.length,
-  }, 'book');
+  }, 'book', inquiryId);
 
   return { status: 'success' };
 }

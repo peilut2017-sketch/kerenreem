@@ -30,7 +30,26 @@ export function MostViewedRow({
 
   return (
     <ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
-      <li>
+      {/*
+        בנייד (שתי עמודות) חמישה פריטים — תווית + ארבעה ספרים — השאירו כרטיס
+        יתום בשורה האחרונה. לכן מתחת ל-sm התווית היא כותרת על פני שתי
+        העמודות, והספרים יוצרים 2×2 סימטרי. מ-sm ומעלה — הכרטיס כמקודם.
+        שני פריטים נפרדים ולא התאמה של אחד: ‎.card‎ מוגדר ב-@layer components
+        ולכן אינו מקבל וריאנטים של Tailwind (sm:card לא היה עובד).
+      */}
+      <li className="col-span-2 sm:hidden">
+        <div className="flex items-center gap-3 px-1 pb-1">
+          <span aria-hidden="true" className="icon-chip h-10 w-10 shrink-0 text-gold-deep">
+            <EyeIcon />
+          </span>
+          <span className="flex flex-col">
+            <span className="font-serif text-[1.25rem] leading-snug text-ink">{t('mostViewedTitle')}</span>
+            <span className="text-caption text-muted">{t('mostViewedHint')}</span>
+          </span>
+        </div>
+      </li>
+
+      <li className="hidden sm:block">
         <div className="card flex h-full flex-col items-center justify-center gap-3 px-4 py-8 text-center">
           <span aria-hidden="true" className="icon-chip h-12 w-12 text-gold-deep">
             <EyeIcon />

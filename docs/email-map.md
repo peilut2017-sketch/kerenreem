@@ -37,7 +37,7 @@
 | איפוס סיסמה (ניהול) | `requestAdminPasswordReset` — `src/lib/admin/account-actions.ts:81` | `passwordResetEmail` | איש הצוות | `no-reply@` | **ללא, במפורש** |
 | הסיסמה הוחלפה | `notifyPasswordChanged` — `account-actions.ts:132` | `passwordChangedEmail` | איש הצוות | `no-reply@` | `contact@` |
 | אישור פנייה למבקר | טופס יצירת קשר — `src/app/(public)/[locale]/contact/actions.ts:262` | `contactAckEmail` | המבקר | `no-reply@` | `contact@` |
-| פנייה חדשה לצוות | אותו טופס — `contact/actions.ts:267` | `contactStaffEmail` | תיבת הצוות | `no-reply@` | **כתובת הפונה** |
+| פנייה חדשה לצוות | אותו טופס — `contact/actions.ts` | `contactStaffEmail` | תיבת הצוות | `no-reply@` | **כתובת חתומה של הפנייה** כש-`INBOUND_EMAIL_SECRET` מוגדר (התשובה נשמרת בשרשור, סעיף 7); אחרת כתובת הפונה |
 | **מענה הצוות לפנייה** | `replyToInquiry` — `src/lib/admin/messages-actions.ts:118` | `contactReplyEmail` | הפונה | **`contact@`** | `contact@` |
 | הזמנת איש צוות | `team-actions.ts:109` | `teamInviteEmail` | איש הצוות החדש | `no-reply@` | `contact@` |
 | מייל בדיקה | ניהול ← דואר יוצא — `src/lib/admin/email-actions.ts` | לפי התבנית הנבחרת | מנהל | כמו התבנית | כמו התבנית |
@@ -46,8 +46,9 @@
 במייל על הודעת איפוס סיסמה היא הזמנה לשלוח סיסמה בטקסט פתוח. שקט הוא
 ברירת המחדל הנכונה שם.
 
-למה `Reply-To` של **הפונה** על ההתראה לצוות: כך כפתור «השב» בתיבת הצוות
-עונה לפונה ישירות, בלי לעבור דרך מסך הניהול.
+למה `Reply-To` של **הפונה** על ההתראה לצוות (כשקליטת התשובות כבויה): כך
+כפתור «השב» עונה לפונה ישירות. כשהיא מופעלת, «השב» עובר דרך האתר — הפונה
+מקבל את התשובה והיא נשמרת בשרשור הפנייה.
 
 ### 2.2 דואר הזמנות — `sendOrderEmail`, `src/lib/commerce/notifications.ts`
 
@@ -239,27 +240,17 @@ export function staffInbox(contactEmail: string | null): string | null;
 
 ---
 
-## 7. התפר לקליטת תשובות אוטומטית (Resend Inbound בעתיד)
+## 7. קליטת תשובות לשרשור הפנייה
 
-כדי שתשובה של פונה תיקלט אל **הפנייה הנכונה** במערכת, היא צריכה לחזור
-לכתובת שמזהה את הפנייה: `contact+inq-123@kerenreem.org`. גם Cloudflare
-Email Routing (אחרי הפעלת subaddressing בהגדרות) וגם Resend Inbound יודעים
-להתאים כתובת כזו לכלל של `contact@` ולשמר את הסיומת — כלומר אין כאן מחסום
-טכני בשום כיוון.
+**תשובת צוות במייל** נקלטת אל שרשור הפנייה — Cloudflare Email Routing
+← Email Worker ← `POST /api/email/inbound`. התראת הפנייה לצוות יוצאת עם
+`Reply-To` חתום (`contact+i<מזהה>.<חתימה>@kerenreem.org`) כשמוגדר
+`INBOUND_EMAIL_SECRET`. ההפעלה והארכיטקטורה: `docs/inbound-email.md`.
 
-`replyToForInquiry(inquiryId)` היא התפר, והיא **מחזירה כרגע `contact@`
-נטו**. הסיבה אינה מגבלה של הספק אלא שאין עדיין מנגנון שמכניס תשובות
-לפנייה באתר: כתובת שמבטיחה קליטה אוטומטית לפני שהיא קיימת גרועה מכתובת
-פשוטה. `replyToInquiry` (`messages-actions.ts`) כבר קורא דרכה, ולכן
-ההפעלה תהיה שינוי בגוף הפונקציה הזו בלבד.
-
-מה יידרש בפועל כשנרצה להפעיל — **לא חלק מהמצב הנוכחי**:
-
-1. להחזיר מ-`replyToForInquiry` את הצורה עם הסיומת.
-2. להפעיל subaddressing ב-Cloudflare, או להעביר את הקבלה ל-Resend Inbound.
-3. `src/lib/email/inbound.ts` + נתיב `POST /api/email/inbound` שמאמת את
-   חתימת ה-webhook של הספק, מפענח את `inq-<id>` ומוסיף רשומה
-   ל-`contact_replies` — כך שתשובה תופיע בשרשור הפנייה בניהול.
+**תשובת הפונה** למענה שלנו עדיין חוזרת ל-`contact@` נטו (תיבת הצוות), ולא
+נקלטת לשרשור. `replyToForInquiry` נשארת התפר לשם — היא מחזירה כרגע
+`contact@` נטו, ושינוי בגוף שלה יחד עם קליטת כיוון הפונה בנתיב הקיים
+יסגור את הפער.
 
 ---
 

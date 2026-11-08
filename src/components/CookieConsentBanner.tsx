@@ -55,15 +55,30 @@ export function CookieConsentBanner() {
   );
 }
 
-/** "הגדרות עוגיות" בפוטר — מאפס את ההחלטה כדי שהבאנר יופיע שוב. */
-export function CookieSettingsButton({ label }: { label: string }) {
+/**
+ * "הגדרות עוגיות" — מאפס את ההחלטה כדי שהבאנר יופיע שוב. יושב בתפריט
+ * המידע המשפטי שבפוטר (LegalMenu), ולכן מקבל className ו-onActivate:
+ * התפריט מעצב אותו כפריט וסוגר את עצמו אחרי הלחיצה.
+ */
+export function CookieSettingsButton({
+  label,
+  className = 'text-small text-cream-2/80 transition-colors hover:text-gold',
+  onActivate,
+}: {
+  label: string;
+  className?: string;
+  onActivate?: () => void;
+}) {
   const { clear } = useLocalValue(COOKIE_CONSENT_KEY);
 
   return (
     <button
       type="button"
-      onClick={clear}
-      className="text-small text-cream-2/80 transition-colors hover:text-gold"
+      onClick={() => {
+        clear();
+        onActivate?.();
+      }}
+      className={className}
     >
       {label}
     </button>
