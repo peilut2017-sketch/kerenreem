@@ -10,7 +10,6 @@ import { createServiceClient } from '@/lib/supabase/service';
 import type { UserRole } from '@/lib/supabase/types';
 import { readInquiryInboxes, resolveInquiryInbox } from './inbox';
 import {
-  INBOUND_PING_ID,
   inquiryReplyAddress,
   parseInquiryReplyAddress,
   stripQuotedReply,
@@ -19,6 +18,7 @@ import {
 import { contactAddress, replyToForInquiry, sendEmail } from './send';
 import { contactReplyEmail, inquiryFollowUpEmail } from './templates';
 import { staffInbox } from './addresses';
+import { storeInboundFiles, type InboundFile } from './attachments';
 
 /**
  * ‏[1.43] קליטת תשובת צוות במייל אל שרשור הפנייה.
@@ -40,7 +40,6 @@ export type InboundOutcome =
   | { status: 'recorded'; httpStatus: 200 }
   | { status: 'duplicate'; httpStatus: 200 }
   | { status: 'ignored'; httpStatus: 200 }
-  | { status: 'ping'; httpStatus: 200 }
   | { status: 'rejected'; httpStatus: 422; reason: string }
   | { status: 'failed'; httpStatus: 502 | 503; reason: string };
 
@@ -93,30 +92,19 @@ function isAutoReply(headers: { key: string; value: string }[]): boolean {
   );
 }
 
-/** פרטי הניסיון, ליומן הקליטה — ממולא תוך כדי עיבוד. */
-export interface InboundTrace {
-  sender?: string | null;
-  inquiryId?: string | null;
-}
-
 export async function processInboundReply(
   raw: ArrayBuffer,
   recipient: string,
-  trace: InboundTrace = {},
 ): Promise<InboundOutcome> {
   const service = createServiceClient();
   if (!service) return { status: 'failed', httpStatus: 503, reason: 'no service client' };
 
   const inquiryId = parseInquiryReplyAddress(recipient);
   if (!inquiryId) return { status: 'rejected', httpStatus: 422, reason: 'bad reply address' };
-  trace.inquiryId = inquiryId;
 
   const parsed = await PostalMime.parse(raw);
   const fromAddress = parsed.from?.address?.trim().toLowerCase();
-  trace.sender = fromAddress ?? null;
 
-  // בדיקת מקצה לקצה: המייל הגיע עד לכאן, וזה כל מה שרצינו לדעת
-  if (inquiryId === INBOUND_PING_ID) return { status: 'ping', httpStatus: 200 };
   if (!fromAddress) return { status: 'rejected', httpStatus: 422, reason: 'no sender' };
 
   // מענה אוטומטי נבלע בשקט: דחייה הייתה מעבירה אותו לתיבת הגיבוי של הצוות
@@ -141,7 +129,18 @@ export async function processInboundReply(
 
   // מייל HTML בלבד (אין חלק text) → מקבלים טקסט דרך המרה גסה
   const text = parsed.text ?? htmlToPlainText(parsed.html, 20_000);
-  const body = stripQuotedReply(text);
+  // קבצים מצורפים אמיתיים בלבד — לא תמונות מוטמעות בחתימה (inline)
+  const files: InboundFile[] = (parsed.attachments ?? [])
+    .filter((attachment) => attachment.disposition !== 'inline' || !attachment.contentId)
+    .map((attachment) => ({
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      content: attachment.content,
+    }));
+
+  let body = stripQuotedReply(text);
+  // תשובה שהיא קובץ בלבד היא תשובה תקינה
+  if (!body && files.length > 0) body = '(קבצים מצורפים)';
   if (!body) return { status: 'rejected', httpStatus: 422, reason: 'empty reply' };
 
   const cleanHtml = sanitizeHtml(textToHtml(body));
@@ -151,9 +150,9 @@ export async function processInboundReply(
   // הכתובת החתומה היא ההרשאה בשני המקרים; ‎From‎ ניתן לזיוף, ולכן תשובת
   // "פונה" מזויפת מסתכמת בהודעה נוספת בשרשור והתראה לצוות — לא יותר.
   if (fromAddress === inquiry.email.trim().toLowerCase()) {
-    return recordVisitorReply({ service, inquiry, cleanHtml, body, fromAddress, externalId });
+    return recordVisitorReply({ service, inquiry, cleanHtml, body, files, fromAddress, externalId });
   }
-  return recordStaffReply({ service, inquiry, cleanHtml, fromAddress, externalId });
+  return recordStaffReply({ service, inquiry, cleanHtml, files, fromAddress, externalId });
 }
 
 type Service = NonNullable<ReturnType<typeof createServiceClient>>;
@@ -171,10 +170,11 @@ async function recordStaffReply(input: {
   service: Service;
   inquiry: InquiryRow;
   cleanHtml: string;
+  files: InboundFile[];
   fromAddress: string;
   externalId: string | null;
 }): Promise<InboundOutcome> {
-  const { service, inquiry, cleanHtml, fromAddress, externalId } = input;
+  const { service, inquiry, cleanHtml, files, fromAddress, externalId } = input;
 
   const sender = await authorizeSender(service, fromAddress);
   if (!sender) return { status: 'rejected', httpStatus: 422, reason: 'sender is not staff' };
@@ -183,14 +183,19 @@ async function recordStaffReply(input: {
     ? `מענה לפנייתך: ${inquiry.subject}`.slice(0, 160)
     : 'מענה לפנייתך למכון קרן רא״ם';
 
+  // הקבצים נשמרים בשרשור ומועברים לפונה (כולם — הצוות מהימן, גם אם הסוג אינו נשמר)
+  const { stored, mail } = await storeInboundFiles(files, `replies/${inquiry.id}`);
+
   const message = await contactReplyEmail({
     name: inquiry.name ?? null,
     subject,
     bodyHtml: cleanHtml,
     bodyText: htmlToPlainText(cleanHtml, 20_000),
+    attachmentNames: mail.map((file) => file.filename),
   });
   const sent = await sendEmail(inquiry.email, message, {
     role: 'human',
+    attachments: mail,
     replyTo: replyToForInquiry(inquiry.id),
     label: 'contact_reply',
     related: { table: 'contact_messages', id: inquiry.id },
@@ -212,6 +217,7 @@ async function recordStaffReply(input: {
     from_email: fromAddress,
     external_id: externalId,
     email_log_id: sent.logId ?? null,
+    attachments: stored,
   });
   if (insertError) {
     // התשובה כבר הגיעה לפונה. כישלון שמירה אינו סיבה לנסות שוב (כפל מענה).
@@ -221,7 +227,7 @@ async function recordStaffReply(input: {
   if (inquiry.status !== 'resolved') {
     await service
       .from('contact_messages')
-      .update({ status: 'in_progress' })
+      .update({ status: 'in_progress', unread_reply: false })
       .eq('id', inquiry.id)
       .neq('status', 'resolved');
   }
@@ -243,11 +249,16 @@ async function recordVisitorReply(input: {
   inquiry: InquiryRow;
   cleanHtml: string;
   body: string;
+  files: InboundFile[];
   fromAddress: string;
   externalId: string | null;
 }): Promise<InboundOutcome> {
-  const { service, inquiry, cleanHtml, body, fromAddress, externalId } = input;
+  const { service, inquiry, cleanHtml, body, files, fromAddress, externalId } = input;
 
+  // סוגים שאינם מותרים באחסון (zip, הרצה…) אינם נשמרים ואינם מועברים לצוות
+  // כקובץ — מפונה חיצוני לא מעבירים הלאה קובץ שאינו ברשימת הסוגים המותרים.
+  const { stored, mail } = await storeInboundFiles(files, `replies/${inquiry.id}`);
+  const safeMail = mail.filter((_, index) => stored[index].path !== null);
   const { error: insertError } = await service.from('contact_replies').insert({
     message_id: inquiry.id,
     user_id: null,
@@ -258,6 +269,7 @@ async function recordVisitorReply(input: {
     direction: 'in',
     from_email: fromAddress,
     external_id: externalId,
+    attachments: stored,
   });
   if (insertError) {
     // לא נשמר → כישלון, וה-Worker מעביר את המייל המקורי לתיבת הצוות
@@ -265,7 +277,10 @@ async function recordVisitorReply(input: {
     return { status: 'failed', httpStatus: 502, reason: insertError.message };
   }
 
-  await service.from('contact_messages').update({ status: 'new', is_handled: false }).eq('id', inquiry.id);
+  await service
+    .from('contact_messages')
+    .update({ status: 'awaiting_reply', unread_reply: true, is_handled: false })
+    .eq('id', inquiry.id);
 
   // התראה לצוות — best-effort: ההודעה כבר בשרשור ובמונה "חדשות"
   try {
@@ -278,9 +293,11 @@ async function recordVisitorReply(input: {
         message: body,
         inboxUrl: siteUrl ? `${siteUrl}/admin/messages?open=${inquiry.id}` : null,
         replyByEmail: inquiryReplyAddress(inquiry.id) !== null,
+        attachmentNames: safeMail.map((file) => file.filename),
       });
       await sendEmail(inbox, email, {
         replyTo: inquiryReplyAddress(inquiry.id) ?? inquiry.email,
+        attachments: safeMail,
         label: 'inquiry_followup',
         related: { table: 'contact_messages', id: inquiry.id },
       });

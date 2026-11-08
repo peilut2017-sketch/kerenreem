@@ -10,6 +10,8 @@ import { writeAuditLog } from './audit';
 import { assertRole, assertScreenPermission } from './auth';
 import type { ActionResult } from './actions';
 import type { InquiryStatus } from './queries';
+import { loadAttachments } from '@/lib/email/attachments';
+import type { ContactAttachment } from '@/lib/supabase/types';
 
 /**
  * [1.11] פעולות מערכת הפניות המחודשת — טבלה בפני עצמה, לא ישות גנרית
@@ -20,10 +22,11 @@ import type { InquiryStatus } from './queries';
  * עטיפת RTL כלולה) ונשמר בטבלת contact_replies לשרשור מלא.
  */
 
-const VALID_STATUSES: InquiryStatus[] = ['new', 'read', 'in_progress', 'todo', 'resolved'];
+const VALID_STATUSES: InquiryStatus[] = ['new', 'awaiting_reply', 'read', 'in_progress', 'todo', 'resolved'];
 
 const STATUS_LABELS: Record<InquiryStatus, string> = {
   new: 'חדשה',
+  awaiting_reply: 'ממתינה למענה',
   read: 'נקראה',
   in_progress: 'בטיפול',
   todo: 'לטיפול',
@@ -41,7 +44,7 @@ export async function setInquiryStatus(id: string, status: InquiryStatus): Promi
 
   const { error } = await supabase
     .from('contact_messages')
-    .update({ status, is_handled: status === 'resolved' })
+    .update({ status, is_handled: status === 'resolved', unread_reply: false })
     .eq('id', id);
   if (error) {
     console.error('[admin:messages] עדכון סטטוס נכשל', error.code, error.message);
@@ -68,7 +71,9 @@ export async function markInquiryOpened(id: string): Promise<void> {
   const supabase = await createClient();
   if (!supabase) return;
 
+  // חדשה ← נקראה. «ממתינה למענה» נשארת כך (הצוות עוד לא ענה) ורק הסימון כבה.
   await supabase.from('contact_messages').update({ status: 'read' }).eq('id', id).eq('status', 'new');
+  await supabase.from('contact_messages').update({ unread_reply: false }).eq('id', id).eq('unread_reply', true);
   revalidatePath('/admin/messages');
   revalidatePath('/admin');
 }
@@ -78,12 +83,16 @@ export async function markInquiryOpened(id: string): Promise<void> {
  * ומעביר פנייה חדשה/נקראה/לטיפול ל"בטיפול". ה-HTML מנוקה כאן — גם
  * למייל וגם לשמירה — באותו sanitize של שאר האתר.
  */
-export async function replyToInquiry(id: string, bodyHtml: string): Promise<ActionResult> {
+export async function replyToInquiry(
+  id: string,
+  bodyHtml: string,
+  attachments: ContactAttachment[] = [],
+): Promise<ActionResult> {
   const session = await assertScreenPermission('messages', 'edit');
   if ('error' in session) return session;
 
   const clean = sanitizeHtml(bodyHtml);
-  if (!clean.replace(/<[^>]+>/g, '').trim()) return { error: 'תוכן המענה ריק' };
+  if (!clean.replace(/<[^>]+>/g, '').trim() && attachments.length === 0) return { error: 'תוכן המענה ריק' };
   if (clean.length > 20000) return { error: 'המענה ארוך מדי' };
 
   const supabase = await createClient();
@@ -95,6 +104,22 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
     .eq('id', id)
     .maybeSingle();
   if (!inquiry) return { error: 'הפנייה לא נמצאה' };
+
+  // קבצים שהועלו מהדפדפן ל-bucket של הפניות; כאן מאמתים ומורידים אותם לצירוף
+  const files = attachments
+    .filter(
+      (item) =>
+        typeof item?.path === 'string' &&
+        typeof item.name === 'string' &&
+        typeof item.size === 'number' &&
+        item.size > 0 &&
+        item.size <= 30 * 1024 * 1024,
+    )
+    .slice(0, 5);
+  const loaded = files.length > 0 ? await loadAttachments(files) : { files: [], skipped: 0 };
+  if (loaded.skipped > 0) {
+    return { error: 'הקבצים גדולים מדי לשליחה במייל (עד 20MB יחד) או שלא נמצאו. המענה לא נשלח.' };
+  }
 
   const subject = inquiry.subject
     ? `מענה לפנייתך: ${inquiry.subject}`.slice(0, 160)
@@ -113,6 +138,7 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
     // 20,000 ולא ברירת המחדל (200): כאן זו גרסת הטקסט *המלאה* של
     // ההודעה, לא תקציר לתצוגה ברשימה.
     bodyText: htmlToPlainText(clean, 20_000),
+    attachmentNames: files.map((file) => file.name),
   });
 
   /*
@@ -123,6 +149,7 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
    */
   const sent = await sendEmail(inquiry.email, message, {
     role: 'human',
+    attachments: loaded.files,
     replyTo: replyToForInquiry(id),
     label: 'contact_reply',
     related: { table: 'contact_messages', id },
@@ -139,6 +166,7 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
     delivery_status: sent.ok ? 'sent' : 'skipped',
     direction: 'out',
     email_log_id: sent.logId ?? null,
+    attachments: files,
   });
   if (insertError) {
     console.error('[admin:messages] שמירת מענה נכשלה', insertError.code, insertError.message);
@@ -153,7 +181,7 @@ export async function replyToInquiry(id: string, bodyHtml: string): Promise<Acti
   if (inquiry.status !== 'resolved') {
     await supabase
       .from('contact_messages')
-      .update({ status: 'in_progress' })
+      .update({ status: 'in_progress', unread_reply: false })
       .eq('id', id)
       .neq('status', 'resolved');
   }

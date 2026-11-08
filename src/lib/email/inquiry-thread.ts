@@ -19,12 +19,6 @@ const SIGNATURE_LENGTH = 12;
 const LOCAL_PART = 'contact';
 const TAG_PATTERN = /^i([0-9a-f]{32})\.([0-9a-f]{12})$/;
 
-/**
- * מזהה "פנייה" מיוחד לבדיקת מקצה לקצה (מסך הדואר היוצא): מייל שנשלח אליו
- * נרשם ביומן הקליטה ולא נוגע בשום פנייה אמיתית.
- */
-export const INBOUND_PING_ID = '00000000-0000-4000-8000-000000000000';
-
 /** הסוד המשותף בין האתר ל-Worker. ריק = התכונה כבויה. */
 export function inboundSecret(): string | null {
   return process.env.INBOUND_EMAIL_SECRET?.trim() || null;

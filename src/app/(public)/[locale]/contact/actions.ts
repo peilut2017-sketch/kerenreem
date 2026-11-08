@@ -7,6 +7,7 @@ import { clientIp } from '@/lib/client-ip';
 import { createClient } from '@/lib/supabase/server';
 import { replyToForInquiry, sendEmail } from '@/lib/email/send';
 import { inquiryReplyAddress } from '@/lib/email/inquiry-thread';
+import { loadAttachments } from '@/lib/email/attachments';
 import { contactAckEmail, contactStaffEmail, type ContactDetails } from '@/lib/email/templates';
 import { resolveInquiryInbox, type InquiryKind } from '@/lib/email/inbox';
 
@@ -239,7 +240,7 @@ export async function submitContact(
     message,
     extraFields: emailExtraFields,
     attachmentCount: attachments.length,
-  }, 'general', inquiryId);
+  }, 'general', inquiryId, attachments);
 
   return { status: 'success' };
 }
@@ -259,6 +260,7 @@ async function sendContactEmails(
   details: ContactDetails,
   kind: InquiryKind,
   inquiryId: string,
+  attachments: ParsedAttachment[] = [],
 ): Promise<void> {
   try {
     /*
@@ -270,6 +272,15 @@ async function sendContactEmails(
     const inbox = await resolveInquiryInbox(kind);
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
     const replyAddress = inquiryReplyAddress(inquiryId);
+
+    // ‏[1.46] קבצי הפנייה מצורפים להתראה לצוות (עד התקרה); מעליה — קישור בניהול
+    const loaded = attachments.length > 0 ? await loadAttachments(attachments) : null;
+    const staffDetails: ContactDetails = loaded
+      ? {
+          ...details,
+          attachmentsDelivery: loaded.files.length === attachments.length ? 'attached' : 'too_large',
+        }
+      : details;
 
     const jobs: Promise<unknown>[] = [
       // אישור אוטומטי, אבל פונה שיענה עליו מצפה שמישהו יקרא —
@@ -286,7 +297,7 @@ async function sendContactEmails(
     if (inbox) {
       jobs.push(
         contactStaffEmail(
-          details,
+          staffDetails,
           siteUrl ? `${siteUrl}/admin/messages?open=${inquiryId}` : null,
           { replyByEmail: Boolean(replyAddress) },
         ).then((email) =>
@@ -296,6 +307,7 @@ async function sendContactEmails(
           // יוצאת ישירות אליו בלי להיכנס למערכת.
           sendEmail(inbox, email, {
             replyTo: replyAddress ?? details.email,
+            attachments: staffDetails.attachmentsDelivery === 'attached' ? loaded?.files : undefined,
             label: 'contact_staff',
             related: { table: 'contact_messages', id: inquiryId },
           }),
@@ -440,7 +452,7 @@ export async function submitBookFeedback(
     message: messageText,
     extraFields: pageReference ? [{ label: 'עמוד', value: pageReference }] : [],
     attachmentCount: attachments.length,
-  }, 'book', inquiryId);
+  }, 'book', inquiryId, attachments);
 
   return { status: 'success' };
 }

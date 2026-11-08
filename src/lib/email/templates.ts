@@ -132,6 +132,8 @@ export interface ContactDetails {
   /** שדות נוספים שהוגדרו בניהול (contact_fields). */
   extraFields?: { label: string; value: string }[];
   attachmentCount?: number;
+  /** מה עלה בגורל הקבצים בהודעה לצוות: 'attached' = מצורפים, 'too_large' = רק בניהול. */
+  attachmentsDelivery?: 'attached' | 'too_large';
 }
 
 /** אישור קבלה לשולח הפנייה. */
@@ -206,7 +208,13 @@ export async function contactStaffEmail(
       value: escapeHtml(field.value),
     })),
     details.attachmentCount
-      ? { label: 'קבצים מצורפים', value: String(details.attachmentCount) }
+      ? {
+          label: 'קבצים מצורפים',
+          value:
+            details.attachmentsDelivery === 'attached'
+              ? `${details.attachmentCount} (מצורפים להודעה זו)`
+              : String(details.attachmentCount),
+        }
       : null,
   ].filter((row): row is { label: string; value: string } => row !== null);
 
@@ -215,6 +223,9 @@ export async function contactStaffEmail(
     definitionTable(rows),
     quoteBlock(escapeHtml(details.message).replaceAll('\n', '<br>')),
     // הכפתור מוביל לפנייה עצמה (‎?open=<id>‎) ולא לרשימה — המענה מתחיל משם.
+    details.attachmentsDelivery === 'too_large'
+      ? noticeBlock('הקבצים גדולים מכדי לצירוף למייל — הם זמינים להורדה בפנייה במערכת הפניות.')
+      : '',
     url ? button('מענה דרך מערכת הפניות', url) : '',
     options.replyByEmail
       ? p(
@@ -251,6 +262,8 @@ export async function inquiryFollowUpEmail(input: {
   message: string;
   inboxUrl: string | null;
   replyByEmail?: boolean;
+  /** שמות קבצים שצורפו לתשובה (מצורפים גם להודעה הזו). */
+  attachmentNames?: string[];
 }): Promise<RenderedEmail> {
   const brand = await getEmailBrand();
   const url = safeUrl(input.inboxUrl);
@@ -258,6 +271,9 @@ export async function inquiryFollowUpEmail(input: {
   const body = [
     p(`${escapeHtml(input.name)} השיב/ה במייל לפנייה${input.subject ? ` «${escapeHtml(input.subject)}»` : ''}.`),
     quoteBlock(escapeHtml(input.message).replaceAll('\n', '<br>')),
+    input.attachmentNames?.length
+      ? p(`קבצים מצורפים: ${input.attachmentNames.map(escapeHtml).join(', ')}`, { small: true, muted: true })
+      : '',
     url ? button('מענה דרך מערכת הפניות', url) : '',
     input.replyByEmail
       ? p('אפשר גם ללחוץ «השב» על ההודעה הזו: התשובה תישלח לפונה ותישמר בשרשור הפנייה.', {
@@ -291,6 +307,8 @@ export async function contactReplyEmail(input: {
   bodyHtml: string;
   /** אותו תוכן כטקסט, לגרסת הטקסט. */
   bodyText: string;
+  /** שמות הקבצים שמצורפים להודעה */
+  attachmentNames?: string[];
 }): Promise<RenderedEmail> {
   const brand = await getEmailBrand();
 
@@ -299,6 +317,9 @@ export async function contactReplyEmail(input: {
     // ה-HTML מוזרם כמות שהוא: הוא נוקה ב-sanitizeHtml לפני שהגיע לכאן
     // (ראו messages-actions.ts), ובריחה נוספת הייתה מציגה תגיות כטקסט.
     `<div style="font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:15px;line-height:1.75;color:#3d382f">${input.bodyHtml}</div>`,
+    input.attachmentNames?.length
+      ? p(`קבצים מצורפים: ${input.attachmentNames.map(escapeHtml).join(', ')}`, { small: true, muted: true })
+      : '',
     divider(),
     p('מענה זה נשלח מצוות המכון בהמשך לפנייתכם באתר. אפשר להשיב להודעה הזו.', {
       small: true,

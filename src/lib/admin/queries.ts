@@ -480,7 +480,7 @@ export async function listScreenOverrides(): Promise<ScreenOverrideRow[]> {
 }
 
 export type InquiryKind = 'general' | 'book_feedback';
-export type InquiryStatus = 'new' | 'read' | 'in_progress' | 'todo' | 'resolved';
+export type InquiryStatus = 'new' | 'awaiting_reply' | 'read' | 'in_progress' | 'todo' | 'resolved';
 
 export interface ContactMessage {
   id: string;
@@ -499,6 +499,8 @@ export interface ContactMessage {
   is_handled: boolean;
   kind: InquiryKind;
   status: InquiryStatus;
+  /** הפונה השיב ועוד לא נפתח בניהול — מדליק את הסימון כמו הודעה חדשה. */
+  unread_reply: boolean;
   book_id: string | null;
   book: { title_he: string; slug: string } | null;
   page_reference: string | null;
@@ -521,6 +523,8 @@ export interface ContactReply {
   email_log_id: string | null;
   /** מעקב צפייה במענה (רק ל-'out' שנשלח בפועל) — ראו lib/email/tracking.ts. */
   tracking?: import('./email-log-queries').EmailTracking | null;
+  /** קבצים שנשלחו עם המענה/התשובה; path=null = נשלח ולא נשמר. */
+  attachments: { path: string | null; name: string; size: number; type: string }[];
   created_at: string;
 }
 
@@ -581,7 +585,7 @@ export async function countNewInquiries(): Promise<number> {
   const { count } = await supabase
     .from('contact_messages')
     .select('id', { count: 'exact', head: true })
-    .eq('status', 'new');
+    .or('status.eq.new,unread_reply.eq.true');
   return count ?? 0;
 }
 
