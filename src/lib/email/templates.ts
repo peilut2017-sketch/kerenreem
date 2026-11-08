@@ -182,6 +182,7 @@ export async function contactAckEmail(details: ContactDetails): Promise<Rendered
 export async function contactStaffEmail(
   details: ContactDetails,
   inboxUrl: string | null,
+  options: { replyByEmail?: boolean } = {},
 ): Promise<RenderedEmail> {
   const brand = await getEmailBrand();
   const url = safeUrl(inboxUrl);
@@ -213,7 +214,14 @@ export async function contactStaffEmail(
     p('התקבלה פנייה חדשה מטופס יצירת הקשר באתר.'),
     definitionTable(rows),
     quoteBlock(escapeHtml(details.message).replaceAll('\n', '<br>')),
-    url ? button('פתיחת הפנייה בניהול', url) : '',
+    // הכפתור מוביל לפנייה עצמה (‎?open=<id>‎) ולא לרשימה — המענה מתחיל משם.
+    url ? button('מענה דרך מערכת הפניות', url) : '',
+    options.replyByEmail
+      ? p(
+          'אפשר גם ללחוץ «השב» על ההודעה הזו: התשובה תישלח לפונה ותישמר בשרשור הפנייה.',
+          { small: true, muted: true },
+        )
+      : '',
   ].join('');
 
   return renderBrandedEmail({
@@ -228,7 +236,8 @@ export async function contactStaffEmail(
       ...rows.map((row) => `${row.label}: ${row.value.replace(/<[^>]+>/g, '')}`),
       '',
       details.message,
-      url ? `\nפתיחה בניהול: ${url}` : '',
+      url ? `\nמענה דרך מערכת הפניות: ${url}` : '',
+      options.replyByEmail ? 'אפשר גם להשיב להודעה הזו: התשובה תישלח לפונה ותישמר בשרשור הפנייה.' : '',
     ]
       .filter(Boolean)
       .join('\n'),

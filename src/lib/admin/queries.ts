@@ -512,6 +512,9 @@ export interface ContactReply {
   body_html: string;
   sent_to: string;
   delivery_status: 'sent' | 'skipped' | 'failed';
+  /** 'email' = תשובה שנקלטה מתיבת הדואר של הצוות (ראו lib/email/inbound.ts). */
+  source: 'admin' | 'email';
+  from_email: string | null;
   created_at: string;
 }
 
