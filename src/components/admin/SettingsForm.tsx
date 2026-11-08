@@ -122,21 +122,34 @@ export function SettingsForm({
 
       <FieldSet
         legend="גופני האתר"
-        description="גופני ברירת המחדל של הטקסטים בכל האתר — מהגופנים המובנים או מהגופנים שהותקנו במקטע ״גופנים מותקנים״ שבהמשך העמוד. ריק = ברירת המחדל של מערכת העיצוב."
+        description="הגופן שיוצג לכל חלק באתר — מהגופנים המובנים או מהגופנים שהותקנו במקטע ״גופנים מותקנים״ שבהמשך העמוד. ריק = ברירת המחדל של מערכת העיצוב."
       >
-        <div className="grid gap-5 sm:grid-cols-3">
-          {SITE_FONT_ROLES.map(({ role, label, hint }) => (
-            <SelectField
-              key={role}
-              name={`font_${role}`}
-              label={label}
-              hint={hint}
-              emptyLabel="ברירת המחדל"
-              options={fontChoices}
-              defaultValue={typeof extra[`font_${role}`] === 'string' ? (extra[`font_${role}`] as string) : ''}
-            />
-          ))}
-        </div>
+        {(['base', 'element'] as const).map((group) => (
+          <div key={group} className={group === 'element' ? 'mt-7 border-t border-rule pt-5' : ''}>
+            <h3 className="admin-field-label mb-1">
+              {group === 'base' ? 'גופנים כלליים' : 'גופן לפי אלמנט'}
+            </h3>
+            {group === 'element' ? (
+              <p className="admin-field-hint mb-4 max-w-[70ch]">
+                כל אלמנט כאן יציג את הגופן שבחרתם לו. אלמנט שלא נבחר לו גופן ממשיך להציג את הגופן הכללי
+                שלו (למעלה), כך שאפשר לשנות רק מה שרוצים.
+              </p>
+            ) : null}
+            <div className="grid gap-5 sm:grid-cols-3">
+              {SITE_FONT_ROLES.filter((item) => item.group === group).map(({ role, label, hint }) => (
+                <SelectField
+                  key={role}
+                  name={`font_${role}`}
+                  label={label}
+                  hint={hint}
+                  emptyLabel="ברירת המחדל"
+                  options={fontChoices}
+                  defaultValue={typeof extra[`font_${role}`] === 'string' ? (extra[`font_${role}`] as string) : ''}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </FieldSet>
 
       <FieldSet legend="רשתות" description="הקישורים מוצגים בתחתית האתר כלוגו של הרשת המתאימה.">

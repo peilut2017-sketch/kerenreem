@@ -112,7 +112,7 @@ export function FloatingActions({
       {price ? (
         <p className="truncate px-3 pt-1 text-caption text-cream-2/75">
           <span className="block max-w-40 truncate">{title}</span>
-          <span className="font-serif text-small text-cream">{price}</span>
+          <span className="font-price text-small text-cream">{price}</span>
         </p>
       ) : null}
       {cart?.enabled ? (

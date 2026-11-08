@@ -20,7 +20,13 @@ import type {
   InquiryKind,
   InquiryStatus,
 } from '@/lib/admin/queries';
-import type { ContactField } from '@/lib/supabase/types';
+import type { ContactAttachment, ContactField } from '@/lib/supabase/types';
+import {
+  CONTACT_ATTACHMENTS_ACCEPT,
+  MAX_ATTACHMENTS,
+  uploadContactAttachment,
+  validateAttachment,
+} from '@/lib/contact-upload';
 
 import { formatAdminDate } from '@/lib/admin/reporting/format';
 /**
@@ -36,13 +42,14 @@ const KIND_LABELS: Record<InquiryKind, string> = {
 
 const STATUS_META: Record<InquiryStatus, { label: string; badge: string; dot: string }> = {
   new: { label: 'חדשה', badge: 'admin-badge-danger', dot: 'bg-[var(--admin-danger)]' },
+  awaiting_reply: { label: 'ממתין למענה', badge: 'admin-badge-warning', dot: 'bg-amber-500' },
   read: { label: 'נקראה', badge: 'admin-badge-neutral', dot: 'bg-[var(--admin-muted,#8a8578)]' },
   in_progress: { label: 'בטיפול', badge: 'admin-badge-accent', dot: 'bg-[var(--admin-accent)]' },
   todo: { label: 'לטיפול', badge: 'admin-badge-warning', dot: 'bg-amber-500' },
   resolved: { label: 'נפתרה', badge: 'admin-badge-success', dot: 'bg-emerald-600' },
 };
 
-const STATUS_ORDER: InquiryStatus[] = ['new', 'read', 'in_progress', 'todo', 'resolved'];
+const STATUS_ORDER: InquiryStatus[] = ['new', 'awaiting_reply', 'read', 'in_progress', 'todo', 'resolved'];
 
 function formatDateTime(value: string): string {
   return formatAdminDate(value, 'dateTime');
@@ -76,6 +83,13 @@ export function InquiriesInbox({
     const target = initialOpenId ? messages.find((message) => message.id === initialOpenId) : null;
     return target?.status === 'new' ? { [target.id]: 'read' } : {};
   });
+
+  // פניות שנפתחו בהפעלה הזו — מכבה את סימון "תשובה שלא נקראה" מיד, לפני שהרענון חוזר מהשרת
+  const [seenIds, setSeenIds] = useState<Set<string>>(
+    () => new Set(initialOpenId ? [initialOpenId] : []),
+  );
+  const isUnread = (message: ContactMessage): boolean =>
+    statusOf(message) === 'new' || (message.unread_reply && !seenIds.has(message.id));
 
   const statusOf = (message: ContactMessage): InquiryStatus =>
     statusOverrides[message.id] ?? message.status;
@@ -136,18 +150,19 @@ export function InquiriesInbox({
   // פתיחה מקישור (‎?open=<id>‎) מסמנת "נקראה" בדיוק כמו לחיצה ברשימה
   useEffect(() => {
     const target = initialOpenId ? messages.find((message) => message.id === initialOpenId) : null;
-    if (target?.status !== 'new') return;
+    if (target?.status !== 'new' && !target?.unread_reply) return;
     void markInquiryOpened(target.id).then(() => router.refresh());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- פעם אחת, בטעינה
   }, []);
 
   function openInquiry(message: ContactMessage) {
     setOpenId(message.id);
-    if (statusOf(message) === 'new') {
-      // פתיחה ראשונה מסמנת "נקראה" — אופטימי בלקוח, מאושר בשרת
-      setStatusOverrides((current) => ({ ...current, [message.id]: 'read' }));
-      void markInquiryOpened(message.id).then(() => router.refresh());
-    }
+    // פתיחה מכבה את סימון "לא נקרא": חדשה ← נקראה, ותשובת פונה נקראה (הסטטוס
+    // «ממתין למענה» נשאר). אופטימי בלקוח, מאושר בשרת.
+    const wasNew = statusOf(message) === 'new';
+    if (wasNew) setStatusOverrides((current) => ({ ...current, [message.id]: 'read' }));
+    if (message.unread_reply) setSeenIds((current) => new Set(current).add(message.id));
+    if (wasNew || message.unread_reply) void markInquiryOpened(message.id).then(() => router.refresh());
   }
 
   return (
@@ -225,7 +240,7 @@ export function InquiriesInbox({
             const status = statusOf(message);
             const meta = STATUS_META[status];
             const replyCount = repliesByMessage.get(message.id)?.length ?? 0;
-            const isNew = status === 'new';
+            const isNew = isUnread(message);
             return (
               <li key={message.id}>
                 <button
@@ -323,6 +338,10 @@ function InquiryDetail({
   const [showComposer, setShowComposer] = useState(false);
   // מיחדוש העורך אחרי שליחה מוצלחת — מרוקן את תוכן המענה
   const [composerToken, setComposerToken] = useState(0);
+  // קבצים למענה — מועלים מיד לאחסון (כמו בטופס הציבורי) ונשלחים כרשימה
+  const [replyFiles, setReplyFiles] = useState<ContactAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
 
   const fieldLabel = useMemo(() => new Map(fields.map((field) => [field.id, field.label_he])), [fields]);
   const customEntries = Object.entries(message.custom_field_values ?? {});
@@ -348,16 +367,53 @@ function InquiryDetail({
     startTransition(async () => {
       setError(null);
       setNotice(null);
-      const result = await replyToInquiry(message.id, html);
+      const result = await replyToInquiry(message.id, html, replyFiles);
       if (result?.error) {
         setError(result.error);
       } else {
         setNotice('המענה נשלח לכתובת הפונה ונשמר בשרשור.');
         setComposerToken((token) => token + 1);
+        setReplyFiles([]);
         setShowComposer(false);
       }
       router.refresh();
     });
+  }
+
+  async function addReplyFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (selected.length === 0) return;
+
+    const errors: string[] = [];
+    const room = MAX_ATTACHMENTS - replyFiles.length;
+    if (selected.length > room) errors.push(`אפשר לצרף עד ${MAX_ATTACHMENTS} קבצים.`);
+    const valid = selected.slice(0, Math.max(room, 0)).filter((file) => {
+      const problem = validateAttachment(
+        file,
+        `«${file.name}» גדול מדי (עד 30MB).`,
+        `«${file.name}»: סוג קובץ לא נתמך (תמונה, PDF או Word).`,
+      );
+      if (problem) errors.push(problem);
+      return !problem;
+    });
+
+    setUploading(true);
+    setFileErrors(errors);
+    try {
+      const uploaded: ContactAttachment[] = [];
+      for (const file of valid) {
+        try {
+          uploaded.push(await uploadContactAttachment(file));
+        } catch (uploadError) {
+          const reason = uploadError instanceof Error ? uploadError.message : String(uploadError);
+          setFileErrors((current) => [...current, `«${file.name}»: ההעלאה נכשלה (${reason})`]);
+        }
+      }
+      setReplyFiles((current) => [...current, ...uploaded]);
+    } finally {
+      setUploading(false);
+    }
   }
 
   function remove() {
@@ -521,6 +577,32 @@ function InquiryDetail({
                     className="prose-reem max-w-none text-small"
                     dangerouslySetInnerHTML={{ __html: reply.body_html }}
                   />
+                  {reply.attachments?.length > 0 ? (
+                    <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption">
+                      {reply.attachments.map((attachment, index) => (
+                        <li key={`${attachment.path ?? attachment.name}-${index}`}>
+                          📎{' '}
+                          {attachment.path && attachmentUrls[attachment.path] ? (
+                            <a
+                              href={attachmentUrls[attachment.path]}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="link"
+                            >
+                              {attachment.name}
+                            </a>
+                          ) : (
+                            <span
+                              className="text-muted"
+                              title={attachment.path ? 'הקישור פג — רעננו את העמוד' : 'נשלח בדואר ולא נשמר באתר'}
+                            >
+                              {attachment.name}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -536,6 +618,54 @@ function InquiryDetail({
               label="מענה לפונה"
               hint="המענה יישלח בדואר אלקטרוני לכתובת הפונה ויישמר כאן בשרשור."
             />
+
+            <div>
+              <label className="admin-field-label" htmlFor={`${replyFormId}-files`}>
+                קבצים מצורפים (רשות)
+              </label>
+              <input
+                id={`${replyFormId}-files`}
+                type="file"
+                multiple
+                accept={CONTACT_ATTACHMENTS_ACCEPT}
+                onChange={addReplyFiles}
+                disabled={uploading || replyFiles.length >= MAX_ATTACHMENTS}
+                className="mt-1 block text-caption"
+              />
+              <span className="admin-field-hint">
+                תמונה, PDF או Word — עד {MAX_ATTACHMENTS} קבצים, 20MB יחד. הקבצים נשלחים לפונה כקבצים מצורפים.
+              </span>
+              {uploading ? <p role="status" className="mt-1 text-caption text-muted">מעלה…</p> : null}
+              {fileErrors.length > 0 ? (
+                <ul className="mt-1 space-y-0.5">
+                  {fileErrors.map((message, index) => (
+                    <li key={index} role="alert" className="text-caption text-[var(--admin-danger)]">
+                      {message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {replyFiles.length > 0 ? (
+                <ul className="mt-2 space-y-1">
+                  {replyFiles.map((file) => (
+                    <li
+                      key={file.path}
+                      className="flex items-center gap-3 rounded-[var(--radius-sm)] bg-cream-2/70 px-3 py-1 text-caption"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                      <span className="shrink-0 text-muted">{Math.round(file.size / 1024)}KB</span>
+                      <button
+                        type="button"
+                        onClick={() => setReplyFiles((current) => current.filter((item) => item.path !== file.path))}
+                        className="shrink-0 text-[var(--admin-danger)] underline underline-offset-4"
+                      >
+                        הסרה
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               <button type="submit" disabled={pending} className="admin-btn admin-btn-solid">
                 {pending ? <Spinner className="h-3.5 w-3.5" /> : <AdminIcon name="messages" className="h-4 w-4" />}

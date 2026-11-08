@@ -35,6 +35,12 @@ export type { EmailRole } from './addresses';
  * שם; כאן רק מרכיבים את הבקשה.
  */
 
+/** קובץ מצורף להודעה. הגוף נשלח לספק כ-base64 (המגבלה שלו: 40MB להודעה כולה). */
+export interface MailAttachment {
+  filename: string;
+  content: Uint8Array;
+}
+
 export interface SendResult {
   ok: boolean;
   /** true כשאין ספק מוגדר — ההודעה לא נשלחה, וזו אינה תקלה. */
@@ -61,6 +67,8 @@ export interface SendOptions {
   label?: string;
   /** רשומה שההודעה שייכת לה — הזמנה, פנייה. טקסט חופשי: טבלה + מזהה. */
   related?: { table: string; id: string };
+  /** קבצים מצורפים. סך הגודל באחריות הקורא (ראו lib/email/attachments.ts). */
+  attachments?: MailAttachment[];
   /** false = בלי פיקסל מעקב ובלי רישום ביומן. ברירת מחדל: מעקב. */
   track?: boolean;
 }
@@ -107,6 +115,14 @@ export async function sendEmail(
         text: email.text,
         // נשלח רק כשיש מה לשלוח: reply_to ריק הוא שדה מיותר בבקשה.
         ...(replyTo.length > 0 ? { reply_to: replyTo } : {}),
+        ...(options.attachments?.length
+          ? {
+              attachments: options.attachments.map((file) => ({
+                filename: file.filename,
+                content: Buffer.from(file.content).toString('base64'),
+              })),
+            }
+          : {}),
       }),
       cache: 'no-store',
     });

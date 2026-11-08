@@ -163,7 +163,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
                           ) : null}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-serif text-small text-ink">{book.title}</span>
+                          <span className="block truncate font-booktitle text-small text-ink">{book.title}</span>
                           {book.author ? (
                             <span className="block truncate text-caption text-muted">{book.author}</span>
                           ) : null}

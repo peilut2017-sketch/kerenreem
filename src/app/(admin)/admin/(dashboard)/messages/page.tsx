@@ -23,7 +23,12 @@ export default async function AdminMessagesPage({
     listContactReplies(),
   ]);
   const attachmentUrls = await getContactAttachmentUrls(
-    messages.flatMap((message) => message.attachments.map((attachment) => attachment.path)),
+    [
+      ...messages.flatMap((message) => message.attachments.map((attachment) => attachment.path)),
+      ...replies.flatMap((reply) =>
+        (reply.attachments ?? []).map((attachment) => attachment.path).filter((path): path is string => Boolean(path)),
+      ),
+    ],
   );
 
   return (

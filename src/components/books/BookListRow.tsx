@@ -4,7 +4,8 @@ import { useTranslations } from 'next-intl';
 import { FavouriteIcon } from '@/components/FavouriteIcon';
 import { Link } from '@/i18n/navigation';
 import { BookCover } from '../BookCover';
-import { localized } from '@/lib/localized';
+import { localized, localizedOrNull } from '@/lib/localized';
+import { htmlToPlainText } from '@/lib/html-text';
 import { resolveBookAuthor } from '@/lib/books/author-display';
 import { resolveBookBadge } from '@/lib/books/badge';
 import { formatPrice, getEffectivePrice } from '@/lib/commerce/pricing';
@@ -17,6 +18,10 @@ import type { BookWithRelations } from '@/lib/supabase/types';
  * הכרכים — הנתונים שמאפשרים להשוות בין מהדורות בלי לפתוח כל אחת.
  * זה מה שהופך את התצוגה לשימושית למי שמכיר את הקטלוג. [1.32] תקציר
  * הוסר: מיותר לצד השם, ומאריך כל שורה בלי תועלת השוואתית דומה.
+ *
+ * [1.46] הוחזר בקצרה, בלי להגדיל את השורה: התמצית הקצרה של הספר
+ * (description_brief), ובהיעדרה תחילת התיאור המלא — חתוכה לשתי שורות
+ * (שורה אחת בנייד), כך שהגובה נקבע עדיין לפי הכריכה.
  */
 export function BookListRow({
   book,
@@ -40,9 +45,13 @@ export function BookListRow({
     .join(', ');
   const badge = resolveBookBadge(book, locale, t('badgeFeatured'));
   const price = storeEnabled ? getEffectivePrice(book, locale) : null;
+  const blurb = htmlToPlainText(
+    localizedOrNull(book, 'description_brief', locale) ?? localizedOrNull(book, 'description', locale),
+    260,
+  );
 
   return (
-    <article className="card card-interactive group relative flex gap-5 p-4 sm:gap-6 sm:p-5">
+    <article className="card card-interactive group relative flex flex-row gap-5 p-4 sm:gap-6 sm:p-5">
       <div className="w-20 shrink-0 sm:w-24">
         {/* alt ריק — שם הספר מופיע מיד לצד הכריכה, ראו BookCard */}
         <BookCover src={book.cover_image_url} title={title} alt="" sizes="96px" />
@@ -50,7 +59,7 @@ export function BookListRow({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-serif text-[1.0625rem] leading-snug text-ink">
+          <h3 className="font-booktitle text-[1.0625rem] leading-snug text-ink">
             <Link href={`/books/${book.slug}`} className="after:absolute after:inset-0 hover:text-burgundy">
               {title}
             </Link>
@@ -68,6 +77,10 @@ export function BookListRow({
 
         {author ? <p className="mt-1 text-small text-muted">{author.name}</p> : null}
 
+        {blurb ? (
+          <p className="mt-1.5 line-clamp-1 font-bookdesc text-small leading-snug text-ink-soft sm:line-clamp-2">{blurb}</p>
+        ) : null}
+
         <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-caption text-muted">
           {categoryName ? <span>{categoryName}</span> : null}
           {book.publication_year_he ? <span>{book.publication_year_he}</span> : null}
@@ -75,7 +88,7 @@ export function BookListRow({
           {book.pages ? <span>{book.pages} עמודים</span> : null}
 
           {price ? (
-            <span className="ms-auto inline-flex items-baseline gap-1.5 font-serif text-[1rem] text-ink tabular-nums">
+            <span className="ms-auto inline-flex items-baseline gap-1.5 font-price text-[1rem] text-ink tabular-nums">
               {price.onSale && price.originalAmount != null ? (
                 <s className="text-caption text-muted">{formatPrice(price.originalAmount, locale)}</s>
               ) : null}

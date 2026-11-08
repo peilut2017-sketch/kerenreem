@@ -50,9 +50,19 @@
 
   /* --- טיפוגרפיה --- */
   --font-serif: var(--font-frank), 'Frank Ruhl Libre', 'David Libre', Georgia, serif;
-  /* [1.11] גופן תצוגה לכותרות המקטעים הגדולות — Suez One, ראו fonts.ts */
-  --font-display: var(--font-suez), 'Suez One', var(--font-frank), Georgia, serif;
+  /* [1.11] גופן תצוגה לכותרות המקטעים הגדולות. [1.46] ברירת המחדל = גופן הכותרות,
+     כי זה מה שהכותרות האלה מציגות בפועל (הכלל הלא-שכבתי על h1–h4 דרס את
+     Suez One — ראו הערה ליד כלל הכותרות). Suez One עדיין זמין לבחירה בניהול. */
+  --font-display: var(--font-serif);
   --font-sans: var(--font-assistant), 'Assistant', system-ui, -apple-system, sans-serif;
+  /* [1.46] גופנים לפי אלמנט — ברירת המחדל של כל אחד היא הגופן הכללי שלו, ולכן
+     אין שינוי עד שבוחרים בניהול ← הגדרות ← גופני האתר. ראו SITE_FONT_ROLES. */
+  --font-wordmark: var(--font-serif);
+  --font-nav: var(--font-sans);
+  --font-booktitle: var(--font-serif);
+  --font-bookdesc: var(--font-sans);
+  --font-button: var(--font-sans);
+  --font-price: var(--font-serif);
 
   --text-caption: 0.8125rem;
   --text-caption--line-height: 1.5;
@@ -158,8 +168,22 @@ body {
   flex-direction: column;
 }
 
+/*
+ * [1.46] בתוך @layer base ולא מחוץ לשכבות. כלל לא-שכבתי גובר על כל כלי עזר של
+ * Tailwind (שכבת utilities) בלי קשר לסדר או לספציפיות, ולכן font-display,
+ * font-booktitle וכל font-* אחר על כותרת (h1–h4) לא השפיעו כלל — הכותרת נשארה
+ * תמיד בגופן הכותרות. עכשיו מחלקת גופן על כותרת מנצחת, כך שאפשר לבחור גופן
+ * לכל אלמנט. כלל הברירת מחדל עצמו לא השתנה: כותרת בלי מחלקת גופן = serif.
+ */
+@layer base {
+  h1, h2, h3, h4 {
+    font-family: var(--font-serif);
+  }
+}
+
+/* שאר מאפייני הכותרות נשארו מחוץ לשכבות בכוונה — הם גוברים על font-semibold,
+   tracking-* וכו׳ בכותרות היום, ושינוי זה היה משנה מראה שלא התבקש. */
 h1, h2, h3, h4 {
-  font-family: var(--font-serif);
   font-weight: 500;
   letter-spacing: -0.005em;
   text-wrap: balance;
@@ -255,7 +279,7 @@ body::before {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    font-family: var(--font-sans);
+    font-family: var(--font-button);
     font-size: var(--text-small);
     font-weight: 600;
     line-height: 1;
