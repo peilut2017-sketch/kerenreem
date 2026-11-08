@@ -39,7 +39,7 @@
   "books": {
     "title": "ספרים",
     "intro": "הכותרים שהמכון סייע בהוצאתם לאור.",
-    "search": "חיפוש בקטלוג",
+    "search": "חיפוש באתר",
     "searchPlaceholder": "חפשו ספר, מחבר, נושא או מסת״ב…",
     "filterAuthor": "מחבר",
     "clearFilters": "ניקוי סינון",
@@ -129,6 +129,9 @@
     "filter": "סינון",
     "filterShowResults": "הצגת התוצאות",
     "filterClear": "ניקוי",
+    "compactNoFilter": "ללא סינון",
+    "compactFiltered": "מסונן",
+    "compactExpand": "פתיחת סרגל הסינון והמיון המלא",
     "filterAuthorSearch": "חיפוש בשמות המחברים",
     "filterAuthorEmpty": "אין מחבר בשם זה.",
     "filterTags": "תגיות",
@@ -319,7 +322,7 @@
   },
   "footer": {
     "legalHeading": "מידע משפטי",
-    "rights": "כל הזכויות שמורות למכון קרן רא״ם.",
+    "rights": "כל הזכויות שמורות.",
     "credit": "smartop בניית אתרים",
     "cookieSettings": "הגדרות עוגיות"
   },

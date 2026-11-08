@@ -39,7 +39,7 @@
   "books": {
     "title": "Books",
     "intro": "Titles the institute has helped bring to print.",
-    "search": "Search the catalogue",
+    "search": "Search the site",
     "searchPlaceholder": "Search a book, author, subject or ISBN…",
     "filterAuthor": "Author",
     "clearFilters": "Clear filters",
@@ -129,6 +129,9 @@
     "filter": "Filter",
     "filterShowResults": "Show results",
     "filterClear": "Clear",
+    "compactNoFilter": "No filters",
+    "compactFiltered": "Filtered",
+    "compactExpand": "Open the full filter and sort bar",
     "filterAuthorSearch": "Search author names",
     "filterAuthorEmpty": "No author by that name.",
     "filterTags": "Tags",
@@ -319,7 +322,7 @@
   },
   "footer": {
     "legalHeading": "Legal",
-    "rights": "All rights reserved to the Keren Reem Institute.",
+    "rights": "All rights reserved.",
     "credit": "Website by smartop",
     "cookieSettings": "Cookie settings"
   },

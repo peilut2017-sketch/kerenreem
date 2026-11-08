@@ -233,6 +233,25 @@ export function Catalogue({
     return list.length ? Math.ceil(Math.max(...list) / 10) * 10 : null;
   }, [books]);
 
+  const activeChips = buildActiveChips({
+    filters,
+    authors,
+    tags,
+    seriesOptions,
+    attributes,
+    languages,
+    locale,
+    onChange: changeFilters,
+    t,
+  });
+  // מה שמוצג בסרגל המצומצם: קטגוריה וחיפוש חופשי (שאינם שבבים) ואז המסננים
+  const selectedCategory = categories.find((category) => category.slug === filters.category);
+  const filterSummary = [
+    ...(selectedCategory ? [localized(selectedCategory, 'name', locale)] : []),
+    ...(filters.query.trim() ? [`״${filters.query.trim()}״`] : []),
+    ...activeChips.map((chip) => chip.label),
+  ];
+
   const shown = results.slice(0, visible);
   const hasFilters = Boolean(filters.query || filters.category) || countActiveFilters(filters) > 0;
   const hasMore = visible < results.length;
@@ -289,7 +308,7 @@ export function Catalogue({
 
       <div className="mx-auto w-full max-w-[82rem] px-5 pt-12 sm:px-8">
       {categories.length > 0 ? (
-        <ul className="mb-8 flex flex-wrap justify-center gap-2">
+        <ul className="mb-5 flex flex-wrap justify-center gap-1.5 sm:mb-8 sm:gap-2">
           <Chip
             label={t('allCategoriesChip')}
             selected={!filters.category}
@@ -319,6 +338,7 @@ export function Catalogue({
         view={view}
         onViewChange={setView}
         storeEnabled={storeEnabled}
+        filterSummary={filterSummary}
         filterSlot={
           <FilterDrawer
             filters={filters}
@@ -338,14 +358,8 @@ export function Catalogue({
       />
 
       <ActiveFilterChips
-        filters={filters}
-        authors={authors}
-        tags={tags}
-        seriesOptions={seriesOptions}
-        attributes={attributes}
-        languages={languages}
-        locale={locale}
-        onChange={changeFilters}
+        chips={activeChips}
+        onClear={() => changeFilters({ ...EMPTY_FILTERS, query: filters.query, category: filters.category })}
       />
 
       {/* h2 סמוי: כותרות הכרטיסים הן h3, ובלי רמה 2 ביניהן ל-h1 קורא מסך שומע קפיצה */}
@@ -436,7 +450,7 @@ function Chip({
         type="button"
         onClick={onSelect}
         aria-pressed={selected}
-        className={`rounded-[var(--radius-pill)] px-4 py-2 text-small transition-[background-color,color,transform] duration-300 ease-[var(--ease-spring)] active:scale-95 motion-reduce:transition-none ${
+        className={`rounded-[var(--radius-pill)] px-3 py-1 text-caption transition-[background-color,color,transform] duration-300 ease-[var(--ease-spring)] active:scale-95 motion-reduce:transition-none sm:px-4 sm:py-2 sm:text-small ${
           selected
             ? 'bg-burgundy text-white'
             : 'glass text-ink-soft hover:text-burgundy'
@@ -454,7 +468,13 @@ function Chip({
  * קטגוריית-העל (הצ'יפים למעלה) ואת query — לשניהם כבר יש דרך משלהם
  * להתאפס (בחירת "הכול", ניקוי שדה החיפוש).
  */
-function ActiveFilterChips({
+interface ActiveChip {
+  key: string;
+  label: string;
+  onRemove: () => void;
+}
+
+function buildActiveChips({
   filters,
   authors,
   tags,
@@ -463,6 +483,7 @@ function ActiveFilterChips({
   languages,
   locale,
   onChange,
+  t,
 }: {
   filters: Filters;
   authors: Author[];
@@ -472,9 +493,9 @@ function ActiveFilterChips({
   languages: { code: string; label: string }[];
   locale: string;
   onChange: (next: Filters) => void;
-}) {
-  const t = useTranslations('books');
-  const chips: { key: string; label: string; onRemove: () => void }[] = [];
+  t: ReturnType<typeof useTranslations>;
+}): ActiveChip[] {
+  const chips: ActiveChip[] = [];
 
   for (const slug of filters.authors) {
     const author = authors.find((a) => a.slug === slug);
@@ -566,6 +587,17 @@ function ActiveFilterChips({
     });
   }
 
+  return chips;
+}
+
+function ActiveFilterChips({
+  chips,
+  onClear,
+}: {
+  chips: ActiveChip[];
+  onClear: () => void;
+}) {
+  const t = useTranslations('books');
   if (chips.length === 0) return null;
 
   return (
@@ -588,7 +620,7 @@ function ActiveFilterChips({
       <li>
         <button
           type="button"
-          onClick={() => onChange({ ...EMPTY_FILTERS, query: filters.query, category: filters.category })}
+          onClick={onClear}
           className="text-caption text-muted underline underline-offset-2 hover:text-burgundy"
         >
           {t('filterClear')}

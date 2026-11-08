@@ -66,6 +66,7 @@ export function Toolbar({
   view,
   onViewChange,
   filterSlot,
+  filterSummary,
   storeEnabled = false,
 }: {
   count: number;
@@ -75,17 +76,111 @@ export function Toolbar({
   view: ViewMode;
   onViewChange: (next: ViewMode) => void;
   filterSlot: React.ReactNode;
+  /** שמות הסינונים הפעילים (קטגוריה, חיפוש, מסננים) — לסרגל המצומצם */
+  filterSummary: string[];
   /** מיון לפי מחיר מוצג רק כשהחנות (ומחיריה) גלויים */
   storeEnabled?: boolean;
 }) {
   const t = useTranslations('books');
   const sortId = useId();
+  const fullId = useId();
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const fullRef = useRef<HTMLDivElement>(null);
+  // "תקוע" = הסרגל הגיע לראש המסך ונדבק שם, כלומר המבקר כבר גולל בתוצאות
+  const [stuck, setStuck] = useState(false);
+  // גובה הגלילה ברגע שהמבקר פתח את הסרגל המלא; null = לא נפתח ידנית
+  const [pinnedAt, setPinnedAt] = useState<number | null>(null);
+  const compact = stuck && pinnedAt === null;
+  const pinned = pinnedAt !== null;
+
+  useEffect(() => {
+    let frame = 0;
+    function update() {
+      frame = 0;
+      const element = stickyRef.current;
+      if (!element) return;
+      const top = Number.parseFloat(getComputedStyle(element).top) || 0;
+      setStuck(window.scrollY > 0 && element.getBoundingClientRect().top <= top + 1);
+      // סרגל שנפתח ידנית חוזר להצטמצם אחרי שהמבקר ממשיך לגלול הלאה
+      setPinnedAt((at) => (at !== null && Math.abs(window.scrollY - at) > 240 ? null : at));
+    }
+    function onScroll() {
+      if (!frame) frame = requestAnimationFrame(update);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  // אחרי פתיחה ידנית המיקוד עובר לסרגל המלא — הכפתור שנלחץ הוסתר ממש עכשיו
+  useEffect(() => {
+    if (!pinned) return;
+    const frame = requestAnimationFrame(() =>
+      fullRef.current?.querySelector<HTMLElement>('button, select')?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [pinned]);
+
+  const hasSummary = filterSummary.length > 0;
 
   return (
     /* מרווח מהכותרת הצפה לפי גובהה הנמדד (SiteHeaderHeightVar) — ערך קבוע
        נשבר כשסרגל הנגישות מגדיל את הגופן או כשיש שורת ניווט שנייה */
-    <div className="sticky top-[calc(var(--site-header-h,4.75rem)+0.75rem)] z-20 -mx-2 mb-8 px-2">
-      <div className="glass flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[var(--radius-lg)] px-4 py-3">
+    <div
+      ref={stickyRef}
+      className="pointer-events-none sticky top-[calc(var(--site-header-h,4.75rem)+0.75rem)] z-20 -mx-2 mb-8 grid px-2"
+    >
+      {/*
+        שני הסרגלים באותו תא של grid: הגובה נקבע תמיד לפי המלא, כך שמעבר
+        בין המצבים אינו מזיז את התוצאות שמתחת (קפיצת גלילה). המצומצם הוא
+        כפתור אחד — מצב הסינון ומה מסונן — ולחיצה עליו פותחת את המלא.
+      */}
+      <button
+        type="button"
+        onClick={() => setPinnedAt(window.scrollY)}
+        inert={!compact}
+        aria-expanded={!compact}
+        aria-controls={fullId}
+        aria-label={t('compactExpand')}
+        className={`glass pointer-events-auto flex w-full items-center gap-2.5 self-start rounded-[var(--radius-pill)] px-3.5 py-2 text-start text-small text-ink [grid-area:1/1] transition-[opacity,transform] duration-300 ease-[var(--ease-spring)] motion-reduce:transition-none ${
+          compact ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
+        }`}
+      >
+        <span className="relative shrink-0 text-ink-soft">
+          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none">
+            <path d="M3 5h14M6 10h8M8.5 15h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          {hasSummary ? (
+            <span aria-hidden="true" className="absolute -end-1 -top-1 h-2 w-2 rounded-full bg-burgundy" />
+          ) : null}
+        </span>
+        <span className="min-w-0 flex-1 truncate">
+          <span className={hasSummary ? 'font-semibold text-burgundy' : 'text-muted'}>
+            {hasSummary ? t('compactFiltered') : t('compactNoFilter')}
+          </span>
+          {hasSummary ? <span className="text-ink-soft">{`: ${filterSummary.join(' · ')}`}</span> : null}
+        </span>
+        <span className="shrink-0 text-caption tabular-nums text-muted">
+          {count} {countLabel}
+        </span>
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted" fill="none">
+          <path d="m5 8 5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      <div
+        id={fullId}
+        ref={fullRef}
+        inert={compact}
+        className={`glass flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[var(--radius-lg)] px-4 py-3 [grid-area:1/1] transition-[opacity,transform] duration-300 ease-[var(--ease-spring)] motion-reduce:transition-none ${
+          compact ? 'pointer-events-none -translate-y-2 opacity-0' : 'pointer-events-auto translate-y-0 opacity-100'
+        }`}
+      >
         <RollingCount value={count} label={countLabel} />
 
         <div className="ms-auto flex flex-wrap items-center gap-3">
