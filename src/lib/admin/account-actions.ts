@@ -80,7 +80,7 @@ export async function requestAdminPasswordReset(email: string): Promise<AdminAcc
     });
     // ‏replyTo: null במפורש — הזמנה לענות במייל על הודעת איפוס
     // סיסמה היא הזמנה לשלוח סיסמה בטקסט פתוח.
-    const sent = await sendEmail(trimmed, email, { replyTo: null });
+    const sent = await sendEmail(trimmed, email, { replyTo: null, label: 'password_reset' });
     if (!sent.ok && !sent.skipped) {
       console.error('[admin:account] reset email', sent.error);
     }
@@ -132,7 +132,7 @@ async function notifyPasswordChanged(email: string, name: string | null): Promis
 
   const message = await passwordChangedEmail({ name, whenLabel, isStaff: true });
   // הודעת אבטחה: מי שלא ביצע את השינוי חייב דרך מיידית להגיב.
-  const sent = await sendEmail(email, message, { replyTo: contactAddress() });
+  const sent = await sendEmail(email, message, { replyTo: contactAddress(), label: 'password_changed' });
   if (!sent.ok && !sent.skipped) console.error('[admin:account] password-changed email', sent.error);
 }
 

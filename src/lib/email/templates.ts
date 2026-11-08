@@ -244,6 +244,46 @@ export async function contactStaffEmail(
   });
 }
 
+/** התראה לצוות: הפונה ענה במייל על מענה/אישור — ההודעה כבר בשרשור הפנייה. */
+export async function inquiryFollowUpEmail(input: {
+  name: string;
+  subject: string | null;
+  message: string;
+  inboxUrl: string | null;
+  replyByEmail?: boolean;
+}): Promise<RenderedEmail> {
+  const brand = await getEmailBrand();
+  const url = safeUrl(input.inboxUrl);
+
+  const body = [
+    p(`${escapeHtml(input.name)} השיב/ה במייל לפנייה${input.subject ? ` «${escapeHtml(input.subject)}»` : ''}.`),
+    quoteBlock(escapeHtml(input.message).replaceAll('\n', '<br>')),
+    url ? button('מענה דרך מערכת הפניות', url) : '',
+    input.replyByEmail
+      ? p('אפשר גם ללחוץ «השב» על ההודעה הזו: התשובה תישלח לפונה ותישמר בשרשור הפנייה.', {
+          small: true,
+          muted: true,
+        })
+      : '',
+  ].join('');
+
+  return renderBrandedEmail({
+    brand,
+    subject: `תשובה חדשה בפנייה — ${input.name}`,
+    preheader: input.message.slice(0, 90),
+    title: 'תשובה חדשה מהפונה',
+    body,
+    text: [
+      `${input.name} השיב/ה במייל לפנייה${input.subject ? ` «${input.subject}»` : ''}.`,
+      '',
+      input.message,
+      url ? `\nמענה דרך מערכת הפניות: ${url}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  });
+}
+
 /** מענה הצוות לפנייה — ה-HTML של המענה כבר עבר sanitize אצל הקורא. */
 export async function contactReplyEmail(input: {
   name: string | null;

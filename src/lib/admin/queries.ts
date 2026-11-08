@@ -1,5 +1,6 @@
 import 'server-only';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { getEmailTracking } from './email-log-queries';
 import { createClient } from '@/lib/supabase/server';
 import { filterVisibleAttributes } from '@/lib/attributes';
 import type {
@@ -515,6 +516,11 @@ export interface ContactReply {
   /** 'email' = תשובה שנקלטה מתיבת הדואר של הצוות (ראו lib/email/inbound.ts). */
   source: 'admin' | 'email';
   from_email: string | null;
+  /** 'out' = מענה שיצא לפונה; 'in' = תשובה שהפונה כתב במייל. */
+  direction: 'out' | 'in';
+  email_log_id: string | null;
+  /** מעקב צפייה במענה (רק ל-'out' שנשלח בפועל) — ראו lib/email/tracking.ts. */
+  tracking?: import('./email-log-queries').EmailTracking | null;
   created_at: string;
 }
 
@@ -558,6 +564,13 @@ export async function listContactReplies(): Promise<ContactReply[]> {
     for (const reply of replies) {
       reply.user_name = reply.user_id ? (names.get(reply.user_id) ?? null) : null;
     }
+  }
+
+  const tracking = await getEmailTracking(
+    replies.map((reply) => reply.email_log_id).filter((id): id is string => Boolean(id)),
+  );
+  for (const reply of replies) {
+    reply.tracking = reply.email_log_id ? (tracking.get(reply.email_log_id) ?? null) : null;
   }
   return replies;
 }

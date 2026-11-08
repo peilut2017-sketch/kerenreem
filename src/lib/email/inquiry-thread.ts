@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { EMAIL_DOMAIN } from './addresses';
+import { EMAIL_DOMAIN } from './domain';
 
 /**
  * ‏[1.43] מענה לפנייה ישירות מתיבת הדואר — החלקים הטהורים.

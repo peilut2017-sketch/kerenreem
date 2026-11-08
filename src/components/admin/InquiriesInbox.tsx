@@ -5,6 +5,7 @@ import { useEffect, useId, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Drawer } from '../Drawer';
 import { AdminIcon } from './AdminIcons';
+import { EmailOpenBadge } from './EmailOpenBadge';
 import { RichTextEditor } from './RichTextEditor';
 import { Spinner } from './SubmitButton';
 import {
@@ -488,18 +489,32 @@ function InquiryDetail({
         {/* שרשור המענות */}
         {replies.length > 0 ? (
           <div>
-            <h3 className="eyebrow mb-2">מענות שנשלחו</h3>
+            <h3 className="eyebrow mb-2">שרשור ההתכתבות</h3>
             <ul className="space-y-3">
               {replies.map((reply) => (
-                <li key={reply.id} className="rounded-[var(--radius-md)] bg-cream-2/70 px-4 py-3">
+                <li
+                  key={reply.id}
+                  className={`rounded-[var(--radius-md)] px-4 py-3 ${
+                    reply.direction === 'in'
+                      ? 'border-s-[3px] border-burgundy/50 bg-burgundy/[0.05]'
+                      : 'bg-cream-2/70'
+                  }`}
+                >
                   <p className="mb-1.5 flex flex-wrap items-center gap-2 text-caption text-muted">
-                    <span className="font-semibold text-ink-soft">{reply.user_name ?? 'צוות המכון'}</span>
+                    <span className="font-semibold text-ink-soft">
+                      {reply.direction === 'in'
+                        ? `${message.name} (הפונה)`
+                        : (reply.user_name ?? reply.from_email ?? 'צוות המכון')}
+                    </span>
                     <span className="tabular-nums">{formatDateTime(reply.created_at)}</span>
-                    {reply.source === 'email' ? (
+                    {reply.source === 'email' && reply.direction === 'out' ? (
                       <span className="admin-badge">נענתה במייל</span>
                     ) : null}
-                    {reply.delivery_status !== 'sent' ? (
+                    {reply.direction === 'out' && reply.delivery_status !== 'sent' ? (
                       <span className="admin-badge admin-badge-warning">לא נשלח בדואר</span>
+                    ) : null}
+                    {reply.direction === 'out' && reply.delivery_status === 'sent' && reply.tracking ? (
+                      <EmailOpenBadge data={reply.tracking} />
                     ) : null}
                   </p>
                   <div

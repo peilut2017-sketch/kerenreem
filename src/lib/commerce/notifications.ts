@@ -191,6 +191,7 @@ export function escapeHtml(value: string): string {
 async function sendViaProvider(
   to: string,
   email: RenderedEmail,
+  meta: { label?: string; related?: { table: string; id: string } } = {},
 ): Promise<{ ok: boolean; id?: string; error?: string; skipped?: boolean }> {
   const brand = await getEmailBrand();
   const branded = renderBrandedEmail({
@@ -207,7 +208,7 @@ async function sendViaProvider(
    * ניתנת לקיום. הנקודה הזו מכסה את כל תשעת מיילי ההזמנות וגם את
    * "חזר למלאי", שעובר דרך sendPlainEmail.
    */
-  return sendEmail(to, branded, { replyTo: contactAddress() });
+  return sendEmail(to, branded, { replyTo: contactAddress(), ...meta });
 }
 
 /** HTML → טקסט קריא. גס בכוונה: אלה תבניות שאנחנו כתבנו, לא קלט חופשי. */
@@ -238,7 +239,7 @@ export async function sendPlainEmail(
   subject: string,
   html: string,
 ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
-  const result = await sendViaProvider(to, { subject, html });
+  const result = await sendViaProvider(to, { subject, html }, { label: 'plain' });
   if (!result.ok && !result.skipped) {
     console.error('[commerce:notifications] plain email', result.error);
   }
@@ -283,7 +284,10 @@ export async function sendOrderEmail(
   if (!logRow) return;
 
   const rendered = renderEmail(template, order, extra);
-  const result = await sendViaProvider(recipient, rendered);
+  const result = await sendViaProvider(recipient, rendered, {
+    label: template,
+    related: { table: 'orders', id: order.id },
+  });
 
   await service
     .from('notification_log')
